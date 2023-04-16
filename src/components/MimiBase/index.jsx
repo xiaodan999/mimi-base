@@ -42,7 +42,6 @@ function MimiBase() {
           {name}🎉✨🎉✨
         </span>
       </p>
-      <Link to="/jizhang">记账</Link>
     </div>
   )
 }
