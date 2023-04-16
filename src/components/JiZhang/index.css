@@ -1,0 +1,45 @@
+.jizhang-page input {
+  border-radius: 8px;
+  font-size: 18px;
+  padding-left: 6px;
+}
+
+.jizhang-page .month-select {
+  border-radius: 8px;
+  padding-left: 12px;
+  background-color: rgba(167, 224, 199, 0.5);
+  color: #20ac64;
+  border-color: #20ac64;
+}
+
+.jizhang-page .month-select:focus-visible {
+  outline: none;
+}
+
+.jizhang-page .ri-tai-zhang {
+  user-select: none;
+}
+
+.ri-tai-zhang .item {
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.moneyInputWrapper {
+  margin: 0 4px;
+  position: relative;
+}
+
+.moneyInputWrapper input {
+  padding-left: 20px;
+}
+
+.moneyInputWrapper::before {
+  position: absolute;
+  left: 5px;
+  height: 100%;
+  content: '￥';
+  display: flex;
+  align-items: center;
+  color: goldenrod;
+}

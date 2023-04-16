@@ -1,0 +1,31 @@
+{
+  "id": "mimi-base",
+  "name": "小蛋🏡的秘密基地",
+  "short_name": "基地",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#c4f2d0",
+  "theme_color": "#c4f2d0",
+  "orientation": "any",
+  "description": "一個記錄秘密的秘密基地。",
+  "icons": [
+    {
+      "src": "/images/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "记账",
+      "description": "开始记账",
+      "url": "/jizhang",
+      "icons": [
+        {
+          "src": "/images/money-transfer.png",
+          "sizes": "512x512"
+        }
+      ]
+    }
+  ]
+}
