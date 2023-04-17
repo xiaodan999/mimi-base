@@ -76,6 +76,7 @@ export default function JiZhang() {
   useEffect(() => {
     load()
   }, [load])
+  console.log('month: ', month)
 
   return (
     <div className="jizhang-page">
@@ -87,13 +88,15 @@ export default function JiZhang() {
           className="month-select"
           value={month}
           onChange={(e) => {
-            setMonth(e.target.value)
+            setMonth(Number(e.target.value))
           }}>
-          {MONTHS.map((month, i) => (
-            <option key={month} value={i + 1}>
-              {month}
-            </option>
-          ))}
+          {MONTHS.map((m, i) => {
+            return (
+              <option key={i} value={i + 1}>
+                {m} {i + 1 === month ? getMonthSum(data) : ''}
+              </option>
+            )
+          })}
         </select>
       </div>
       {/* 明细 */}
@@ -324,3 +327,11 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
 //     ],
 //   },
 // ]
+function getMonthSum(abc) {
+  let monthTotalPrice = 0
+  for (let i = 0; i < abc.length; i++) {
+    let sum = getSum(abc[i].items)
+    monthTotalPrice = sum + monthTotalPrice
+  }
+  return monthTotalPrice
+}
