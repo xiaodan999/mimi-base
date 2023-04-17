@@ -78,22 +78,9 @@ export default function JiZhang() {
   }, [load])
 
   return (
-    <div
-      className="jizhang-page"
-      style={{
-        padding: '0 15px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        height: '100%',
-      }}>
+    <div className="jizhang-page">
       {/* 标题 */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginTop: '10px',
-        }}>
+      <div className="header">
         <h1>记账基地</h1>
         <select
           title="month"
@@ -110,10 +97,7 @@ export default function JiZhang() {
         </select>
       </div>
       {/* 明细 */}
-      <div
-        ref={mingXiRef}
-        className="ming-xi"
-        style={{ overflow: 'scroll', flex: 1, borderRadius: '8px' }}>
+      <div ref={mingXiRef} className="ming-xi">
         {data.map((a) => {
           return (
             <RiTaiZhang
@@ -126,17 +110,7 @@ export default function JiZhang() {
           )
         })}
         {loading ? (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              bottom: 0,
-              right: 0,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
+          <div className="loader">
             <Spinner />
           </div>
         ) : (
@@ -144,22 +118,16 @@ export default function JiZhang() {
         )}
       </div>
       {/* 输入 */}
-      <div>
+      <div className="input-area">
         <form
-          style={{
-            display: 'flex',
-            width: '100%',
-            height: '40px',
-            marginBottom: '5px',
-          }}
           onSubmit={(e) => {
             e.preventDefault()
             handleOKClick()
           }}>
           <div style={{ flex: 2.5 }}>
             <input
+              className="product-name"
               placeholder="📦商品名称"
-              style={{ width: '100%', height: '100%' }}
               required
               type="text"
               value={itemName}
@@ -170,7 +138,6 @@ export default function JiZhang() {
           </div>
           <div className="moneyInputWrapper" style={{ flex: 1.5 }}>
             <input
-              style={{ width: '100%', height: '100%' }}
               required
               type="number"
               value={price === 0 ? '' : price}
@@ -182,9 +149,9 @@ export default function JiZhang() {
 
           <div style={{ flex: 1 }}>
             <button
+              className="ok-button"
               type="submit"
-              disabled={price === 0 || itemName === '' || submitting}
-              style={{ borderRadius: '8px', width: '100%', height: '100%' }}>
+              disabled={price === 0 || itemName === '' || submitting}>
               OK
             </button>
           </div>
@@ -209,18 +176,9 @@ function getSum(items) {
 
 function RiTaiZhang({ date, items, refresh, scrolling }) {
   return (
-    <div
-      className="ri-tai-zhang"
-      style={{
-        backgroundColor: ' rgba(167, 224, 199, 0.5)',
-        borderRadius: '15px',
-        padding: '12px 15px',
-        margin: '15px 0',
-      }}>
-      <h2 style={{ marginBottom: '6px', fontSize: 25, color: '#20ac64' }}>
-        {myFormatDate(date)}
-      </h2>
-      <ol style={{ fontSize: 18 }}>
+    <div className="ri-tai-zhang">
+      <h2 className="title">{myFormatDate(date)}</h2>
+      <ol>
         {items.map((b, i) => {
           return (
             <Hang
@@ -284,12 +242,11 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
         <div
           style={{
             backgroundColor: touched ? 'pink' : '',
-            fontSize: '20px',
           }}
           className="item">
-          <span style={{ marginRight: '4px' }}>{number}.</span>
+          <span className="number">{number}.</span>
           {itemName}
-          <strong style={{ color: 'red' }}>{price}</strong>元
+          <strong className="price">{price}</strong>元
         </div>
       </Popover>
     </li>

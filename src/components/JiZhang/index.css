@@ -1,3 +1,17 @@
+.jizhang-page {
+  padding: 0 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.jizhang-page .header {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
 .jizhang-page input {
   border-radius: 8px;
   font-size: 18px;
@@ -16,25 +30,77 @@
   outline: none;
 }
 
+/* 明细 */
+
+.jizhang-page .ming-xi {
+  overflow: scroll;
+  flex: 1;
+  border-radius: 16px;
+  margin: 12px 0;
+}
+
+.jizhang-page .ming-xi .loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .jizhang-page .ri-tai-zhang {
   user-select: none;
+  background-color: rgba(167, 224, 199, 0.5);
+  border-radius: 16px;
+  padding: 12px 15px;
+  margin-bottom: 16px;
 }
 
-.ri-tai-zhang .item {
+.jizhang-page .ri-tai-zhang .title {
+  margin-bottom: 6px;
+  font-size: 25px;
+  color: #20ac64;
+}
+.jizhang-page .ri-tai-zhang ol {
+  font-size: 18px;
+}
+.jizhang-page .ri-tai-zhang .item {
   border-radius: 8px;
   padding: 5px 8px;
+  font-size: 20px;
+}
+.jizhang-page .ri-tai-zhang .item .number {
+  margin-right: 4px;
+}
+.jizhang-page .ri-tai-zhang .item .price {
+  color: red;
 }
 
-.moneyInputWrapper {
+.jizhang-page .input-area form {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  margin-bottom: 5px;
+}
+.jizhang-page .input-area .product-name {
+  width: 100%;
+  height: 100%;
+}
+
+.jizhang-page .input-area .moneyInputWrapper {
   margin: 0 4px;
   position: relative;
 }
 
-.moneyInputWrapper input {
+.jizhang-page .input-area .moneyInputWrapper input {
   padding-left: 20px;
+  width: 100%;
+  height: 100%;
 }
 
-.moneyInputWrapper::before {
+.jizhang-page .input-area .moneyInputWrapper::before {
   position: absolute;
   left: 5px;
   height: 100%;
@@ -42,4 +108,10 @@
   display: flex;
   align-items: center;
   color: goldenrod;
+}
+
+.jizhang-page .input-area .ok-button {
+  border-radius: 8px;
+  width: 100%;
+  height: 100%;
 }
