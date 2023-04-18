@@ -1,34 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import supabase from '../../supabase-client/supabase';
-import { getCurrentMonth, getMonthRange } from '../../utils/date';
-import groupBy from '../../utils/groupBy';
+import { useCallback, useEffect, useRef, useState } from "react";
+import supabase from "../../supabase-client/supabase";
+import { getCurrentMonth, getMonthRange } from "../../utils/date";
+import groupBy from "../../utils/groupBy";
 
-import Popover from '../Popover';
-import Spinner from '../Spinner';
-import { formatDate } from '../XiaohaiTab';
+import Popover from "../Popover";
+import Spinner from "../Spinner";
+import { formatDate } from "../XiaohaiTab";
 
-import './index.css';
-import useScrolling from '../../hooks/useScrolling';
+import "./index.css";
+import useScrolling from "../../hooks/useScrolling";
 
 const MONTHS = [
-  '一月',
-  '二月',
-  '三月',
-  '四月',
-  '五月',
-  '六月',
-  '七月',
-  '八月',
-  '九月',
-  '十月',
-  '十一月',
-  '十二月',
+  "一月",
+  "二月",
+  "三月",
+  "四月",
+  "五月",
+  "六月",
+  "七月",
+  "八月",
+  "九月",
+  "十月",
+  "十一月",
+  "十二月",
 ];
 
 export default function JiZhang() {
   const [data, setData] = useState([]);
   const [price, setPrice] = useState(0);
-  const [itemName, setItemName] = useState('');
+  const [itemName, setItemName] = useState("");
   const [month, setMonth] = useState(() => getCurrentMonth());
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,11 +39,11 @@ export default function JiZhang() {
     const [start, end] = getMonthRange(month); // 获取 month 月份的日期范围
     setLoading(true);
     let { data } = await supabase
-      .from('ji_zhang_biao')
+      .from("ji_zhang_biao")
       .select(`price,item_name,created_at, id`)
-      .gte('created_at', start)
-      .lt('created_at', end)
-      .order('created_at', { ascending: false });
+      .gte("created_at", start)
+      .lt("created_at", end)
+      .order("created_at", { ascending: false });
     setLoading(false);
     const transformedData = [];
 
@@ -59,14 +59,14 @@ export default function JiZhang() {
     const user = await supabase.auth.getUser();
     const user_id = user.data.user.id;
     const { error } = await supabase
-      .from('ji_zhang_biao')
+      .from("ji_zhang_biao")
       .insert([{ price: price, item_name: itemName, user_id: user_id }]);
 
     setSubmitting(false);
     if (!error) {
-      console.log('成功添加');
+      console.log("成功添加");
       setPrice(0);
-      setItemName('');
+      setItemName("");
       load();
     }
   };
@@ -74,7 +74,7 @@ export default function JiZhang() {
   useEffect(() => {
     load();
   }, [load]);
-  console.log('month: ', month);
+  console.log("month: ", month);
 
   return (
     <div className="jizhang-page">
@@ -92,7 +92,7 @@ export default function JiZhang() {
           {MONTHS.map((m, i) => {
             return (
               <option key={i} value={i + 1}>
-                {m} {i + 1 === month ? getMonthSum(data) : ''}
+                {m} {i + 1 === month ? getMonthSum(data) : ""}
               </option>
             );
           })}
@@ -143,7 +143,7 @@ export default function JiZhang() {
             <input
               required
               type="number"
-              value={price === 0 ? '' : price}
+              value={price === 0 ? "" : price}
               onChange={(e) => {
                 setPrice(e.target.value);
               }}
@@ -154,7 +154,7 @@ export default function JiZhang() {
             <button
               className="ok-button"
               type="submit"
-              disabled={price === 0 || itemName === '' || submitting}
+              disabled={price === 0 || itemName === "" || submitting}
             >
               OK
             </button>
@@ -166,8 +166,8 @@ export default function JiZhang() {
 }
 function myFormatDate(dateStr) {
   let myDate = formatDate(dateStr);
-  myDate = myDate.split(' ')[0];
-  return myDate.replaceAll('/', '-');
+  myDate = myDate.split(" ")[0];
+  return myDate.replaceAll("/", "-");
 }
 
 function getSum(items) {
@@ -197,7 +197,7 @@ function RiTaiZhang({ date, items, refresh, scrolling }) {
           );
         })}
       </ol>
-      <div style={{ textAlign: 'end' }}>
+      <div style={{ textAlign: "end" }}>
         合计：<strong>{getSum(items).toFixed(2)}</strong>元
       </div>
     </div>
@@ -220,18 +220,18 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
     >
       <Popover
         content={
-          <div style={{ width: '80px' }}>
+          <div style={{ width: "80px" }}>
             <button
               style={{
-                width: '100%',
-                height: '35px',
-                borderRadius: '8px',
-                border: '0.5px solid gray',
-                backgroundColor: ' rgba(244, 67, 54, 0.9)',
-                color: 'white',
+                width: "100%",
+                height: "35px",
+                borderRadius: "8px",
+                border: "0.5px solid gray",
+                backgroundColor: " rgba(244, 67, 54, 0.9)",
+                color: "white",
               }}
               onClick={async () => {
-                const { data, error } = await supabase.from('ji_zhang_biao').delete().eq('id', id);
+                const { data, error } = await supabase.from("ji_zhang_biao").delete().eq("id", id);
                 refresh();
                 console.log(data, error, id);
               }}
@@ -245,7 +245,7 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
       >
         <div
           style={{
-            backgroundColor: touched ? 'pink' : '',
+            backgroundColor: touched ? "pink" : "",
           }}
           className="item"
         >

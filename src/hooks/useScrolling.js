@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export default function useScrolling(refOrClassName) {
   const [isScrolling, setIsScrolling] = useState(false);
@@ -6,7 +6,7 @@ export default function useScrolling(refOrClassName) {
   useEffect(() => {
     let element;
     if (refOrClassName) {
-      if (typeof refOrClassName === 'string') {
+      if (typeof refOrClassName === "string") {
         element = document.querySelector(`.${refOrClassName}`);
       } else {
         element = refOrClassName.current;
@@ -20,9 +20,9 @@ export default function useScrolling(refOrClassName) {
         clearTimeout(element.timer);
         element.timer = setTimeout(() => setIsScrolling(false), 100);
       };
-      element.addEventListener('scroll', handleScroll);
+      element.addEventListener("scroll", handleScroll);
       return () => {
-        element && element.removeEventListener('scroll', handleScroll);
+        element && element.removeEventListener("scroll", handleScroll);
       };
     }
   }, [refOrClassName]);

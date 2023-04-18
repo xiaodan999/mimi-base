@@ -1,18 +1,18 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import supabase from '../../supabase-client/supabase';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import supabase from "../../supabase-client/supabase";
 
 export default function Signup() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   return (
     <div>
       <h1>注册</h1>
       <form>
         <div>
           <label>
-            用户名：{' '}
+            用户名：{" "}
             <input
               type="text"
               value={username}
@@ -24,7 +24,7 @@ export default function Signup() {
         </div>
         <div>
           <label>
-            邮 箱：{' '}
+            邮 箱：{" "}
             <input
               type="email"
               value={email}
@@ -36,7 +36,7 @@ export default function Signup() {
         </div>
         <div>
           <label>
-            密 码：{' '}
+            密 码：{" "}
             <input
               type="password"
               value={password}
@@ -69,7 +69,7 @@ export default function Signup() {
               password: password,
             });
 
-            await supabase.from('users').upsert({ id: data.user.id, user_name: username });
+            await supabase.from("users").upsert({ id: data.user.id, user_name: username });
           }}
         >
           设置名字

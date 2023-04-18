@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import supabase from '../../supabase-client/supabase';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import supabase from "../../supabase-client/supabase";
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   return (
@@ -13,7 +13,7 @@ export default function Login() {
       <form>
         <div>
           <label>
-            邮 箱：{' '}
+            邮 箱：{" "}
             <input
               type="email"
               value={email}
@@ -25,7 +25,7 @@ export default function Login() {
         </div>
         <div>
           <label>
-            密 码：{' '}
+            密 码：{" "}
             <input
               type="password"
               value={password}
@@ -47,15 +47,15 @@ export default function Login() {
             console.log(data, error);
 
             if (error === null) {
-              navigate('/');
+              navigate("/");
             }
           }}
         >
-          {' '}
+          {" "}
           登录
         </button>
-        <div style={{ marginTop: '15px' }}>
-          <Link style={{ marginRight: '15px' }} to={'/signup'}>
+        <div style={{ marginTop: "15px" }}>
+          <Link style={{ marginRight: "15px" }} to={"/signup"}>
             注册
           </Link>
           <Link>忘记密码</Link>

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { Navigate, Outlet } from "react-router-dom";
 
-import supabase from '../../supabase-client/supabase';
-import LoadingPage from '../LoadingPage';
+import supabase from "../../supabase-client/supabase";
+import LoadingPage from "../LoadingPage";
 
 export default function RequireAuth() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

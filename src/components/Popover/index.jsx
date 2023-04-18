@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 
 const Popover = ({ className, children, content, delay = 300, scrolling = false }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,12 +13,12 @@ const Popover = ({ className, children, content, delay = 300, scrolling = false 
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, []);
 
@@ -40,12 +40,12 @@ const Popover = ({ className, children, content, delay = 300, scrolling = false 
   }, [scrolling]);
 
   const handleTriggerPress = (event) => {
-    if (event.type === 'touchstart') {
+    if (event.type === "touchstart") {
       setPointerPosition({
         pageX: event.touches[0].pageX,
         pageY: event.touches[0].pageY,
       });
-    } else if (event.type === 'mousedown') {
+    } else if (event.type === "mousedown") {
       setPointerPosition({
         pageX: event.pageX,
         pageY: event.pageY,
@@ -73,9 +73,9 @@ const Popover = ({ className, children, content, delay = 300, scrolling = false 
         <div
           ref={popoverRef}
           style={{
-            position: 'absolute',
-            zIndex: '1',
-            transform: 'translateX(-100%)',
+            position: "absolute",
+            zIndex: "1",
+            transform: "translateX(-100%)",
           }}
         >
           {content}
