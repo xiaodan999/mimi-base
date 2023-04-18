@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router-dom';
 
 export default function Photos() {
   return (
@@ -8,5 +8,5 @@ export default function Photos() {
       <img width={300} src="/images/hezhao.jfif" alt="hezhao" />
       <Outlet />
     </div>
-  )
+  );
 }

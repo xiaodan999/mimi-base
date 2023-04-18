@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import supabase from '../../supabase-client/supabase'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import supabase from '../../supabase-client/supabase';
 
 export default function Signup() {
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   return (
     <div>
       <h1>注册</h1>
@@ -17,7 +17,7 @@ export default function Signup() {
               type="text"
               value={username}
               onChange={(e) => {
-                setUsername(e.target.value)
+                setUsername(e.target.value);
               }}
             />
           </label>
@@ -29,7 +29,7 @@ export default function Signup() {
               type="email"
               value={email}
               onChange={(e) => {
-                setEmail(e.target.value)
+                setEmail(e.target.value);
               }}
             />
           </label>
@@ -41,7 +41,7 @@ export default function Signup() {
               type="password"
               value={password}
               onChange={(e) => {
-                setPassword(e.target.value)
+                setPassword(e.target.value);
               }}
             />
           </label>
@@ -49,33 +49,33 @@ export default function Signup() {
         <button
           type="submit"
           onClick={async (e) => {
-            e.preventDefault()
-            console.log(username, email, password)
+            e.preventDefault();
+            console.log(username, email, password);
 
             const { data, error } = await supabase.auth.signUp({
               email: email,
               password: password,
-            })
-            console.log(data, error)
-          }}>
+            });
+            console.log(data, error);
+          }}
+        >
           注册
         </button>
         <button
           onClick={async (e) => {
-            e.preventDefault()
+            e.preventDefault();
             const { data, error } = await supabase.auth.signInWithPassword({
               email: email,
               password: password,
-            })
+            });
 
-            await supabase
-              .from('users')
-              .upsert({ id: data.user.id, user_name: username })
-          }}>
+            await supabase.from('users').upsert({ id: data.user.id, user_name: username });
+          }}
+        >
           设置名字
         </button>
       </form>
       <Link to="/login">去登录</Link>
     </div>
-  )
+  );
 }

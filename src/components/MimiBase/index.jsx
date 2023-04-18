@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import supabase from '../../supabase-client/supabase'
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import supabase from '../../supabase-client/supabase';
 const mimis = {
   xiaodan: [
     '小阿蛋💗xiaohai',
@@ -16,21 +16,18 @@ const mimis = {
     '我不喜欢吃猪肉🐖',
     '我爱喝牛奶🥛',
   ],
-}
+};
 
 function MimiBase() {
-  const [name, setName] = useState('')
+  const [name, setName] = useState('');
 
   useEffect(() => {
     async function loadName() {
-      let { data, error } = await supabase
-        .from('users')
-        .select('user_name')
-        .single()
-      setName(data.user_name)
+      let { data, error } = await supabase.from('users').select('user_name').single();
+      setName(data.user_name);
     }
-    loadName()
-  }, [])
+    loadName();
+  }, []);
   return (
     <div style={{ padding: '0 12px' }}>
       <h1 style={{ textAlign: 'center', marginBottom: '8px' }}>
@@ -43,6 +40,6 @@ function MimiBase() {
         </span>
       </p>
     </div>
-  )
+  );
 }
-export default MimiBase
+export default MimiBase;

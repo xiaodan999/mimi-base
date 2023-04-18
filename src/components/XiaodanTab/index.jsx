@@ -1,19 +1,16 @@
-import { useEffect, useState } from 'react'
-import supabase from '../../supabase-client/supabase'
-import XiaohaiTab from '../XiaohaiTab'
+import { useEffect, useState } from 'react';
+import supabase from '../../supabase-client/supabase';
+import XiaohaiTab from '../XiaohaiTab';
 export default function XiaodanTab() {
-  const [name, setName] = useState('')
-  const [mimi, setMimi] = useState('')
+  const [name, setName] = useState('');
+  const [mimi, setMimi] = useState('');
   useEffect(() => {
     async function loadName() {
-      let { data, error } = await supabase
-        .from('users')
-        .select('user_name')
-        .single()
-      setName(data.user_name)
+      let { data, error } = await supabase.from('users').select('user_name').single();
+      setName(data.user_name);
     }
-    loadName()
-  }, [])
+    loadName();
+  }, []);
   return (
     <div
       style={{
@@ -21,7 +18,8 @@ export default function XiaodanTab() {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-      }}>
+      }}
+    >
       <section>
         <h1 style={{ textAlign: 'center' }}>小蛋專屬頁😁</h1>
         <p>我是一個小啊蛋~~蛋蛋蛋蛋蛋🥚</p>
@@ -30,14 +28,16 @@ export default function XiaodanTab() {
             display: 'flex',
             alignItems: 'center',
             marginBottom: '10px',
-          }}>
+          }}
+        >
           <p
             style={{
               width: '45px',
               marginRight: '10px',
               marginTop: 0,
               marginBottom: 0,
-            }}>
+            }}
+          >
             Name:
           </p>
           <input value={name} type="text" disabled />
@@ -49,15 +49,17 @@ export default function XiaodanTab() {
               marginTop: 0,
               marginBottom: 0,
               whiteSpace: 'nowrap',
-            }}>
+            }}
+          >
             秘密:
           </p>
           <textarea
             value={mimi}
             onChange={(e) => {
-              setMimi(e.target.value)
+              setMimi(e.target.value);
             }}
-            cols={60}></textarea>
+            cols={60}
+          ></textarea>
         </div>
 
         <button
@@ -65,9 +67,9 @@ export default function XiaodanTab() {
           onClick={async () => {
             const { data, error } = await supabase
               .from('mmi')
-              .insert([{ person_name: name, mimi: mimi }])
-            console.log(name)
-            setMimi('')
+              .insert([{ person_name: name, mimi: mimi }]);
+            console.log(name);
+            setMimi('');
           }}
           style={{
             marginTop: '20px',
@@ -75,7 +77,8 @@ export default function XiaodanTab() {
             padding: '12px',
             borderRadius: '10px',
             fontSize: '16px',
-          }}>
+          }}
+        >
           添加秘密
         </button>
       </section>
@@ -83,5 +86,5 @@ export default function XiaodanTab() {
         <XiaohaiTab />
       </section>
     </div>
-  )
+  );
 }

@@ -1,16 +1,16 @@
-import React from 'react'
-import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
+import React from 'react';
+import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom';
 
-import NavButtons from './components/NavButtons'
+import NavButtons from './components/NavButtons';
 
-import MimiBase from './components/MimiBase'
-import Photos from './components/Photos'
-import XiaodanTab from './components/XiaodanTab'
-import XiaohaiTab from './components/XiaohaiTab'
-import Login from './components/Login'
-import Signup from './components/Signup'
-import JiZhang from './components/JiZhang'
-import RequireAuth from './components/RequireAuth'
+import MimiBase from './components/MimiBase';
+import Photos from './components/Photos';
+import XiaodanTab from './components/XiaodanTab';
+import XiaohaiTab from './components/XiaohaiTab';
+import Login from './components/Login';
+import Signup from './components/Signup';
+import JiZhang from './components/JiZhang';
+import RequireAuth from './components/RequireAuth';
 
 const router = createBrowserRouter([
   {
@@ -52,7 +52,7 @@ const router = createBrowserRouter([
     path: '/signup',
     element: <Signup />,
   },
-])
+]);
 
 function Layout() {
   return (
@@ -60,13 +60,14 @@ function Layout() {
       style={{
         paddingBottom: '45px',
         height: '100%',
-      }}>
+      }}
+    >
       <Outlet />
       <NavButtons />
     </div>
-  )
+  );
 }
 
 export default function App() {
-  return <RouterProvider router={router} />
+  return <RouterProvider router={router} />;
 }

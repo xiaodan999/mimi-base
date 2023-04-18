@@ -1,4 +1,4 @@
-import Spinner from '../Spinner'
+import Spinner from '../Spinner';
 
 export default function LoadingPage() {
   return (
@@ -8,8 +8,9 @@ export default function LoadingPage() {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
-      }}>
+      }}
+    >
       <Spinner />
     </div>
-  )
+  );
 }

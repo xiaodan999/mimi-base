@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import supabase from '../../supabase-client/supabase'
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import supabase from '../../supabase-client/supabase';
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const navigate = useNavigate()
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -18,7 +18,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => {
-                setEmail(e.target.value)
+                setEmail(e.target.value);
               }}
             />
           </label>
@@ -30,7 +30,7 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => {
-                setPassword(e.target.value)
+                setPassword(e.target.value);
               }}
             />
           </label>
@@ -38,18 +38,19 @@ export default function Login() {
         <button
           type="submit"
           onClick={async (e) => {
-            e.preventDefault()
+            e.preventDefault();
 
             const { data, error } = await supabase.auth.signInWithPassword({
               email: email,
               password: password,
-            })
-            console.log(data, error)
+            });
+            console.log(data, error);
 
             if (error === null) {
-              navigate('/')
+              navigate('/');
             }
-          }}>
+          }}
+        >
           {' '}
           登录
         </button>
@@ -61,5 +62,5 @@ export default function Login() {
         </div>
       </form>
     </div>
-  )
+  );
 }
