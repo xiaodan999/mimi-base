@@ -1,10 +1,10 @@
 import { NavLink } from "react-router-dom";
 
 const routes = [
-  { name: "视频基地", path: "/" },
-  { name: "照片基地", path: "/photos" },
-  { name: "聊天基地", path: "/xiaodanbase" },
-  { name: "记账基地", path: "/jizhang" },
+  { name: "视频基地", path: "/", icon: "/icons/video.png" },
+  { name: "照片基地", path: "/photos", icon: "/icons/photo.png" },
+  { name: "聊天基地", path: "/xiaodanbase", icon: "/icons/chat.png" },
+  { name: "记账基地", path: "/jizhang", icon: "/icons/wallet.png" },
 ];
 
 export default function NavButtons() {
@@ -16,21 +16,17 @@ export default function NavButtons() {
         display: "flex",
         width: "100%",
         justifyContent: "space-evenly",
-        height: "45px",
+        height: "55px",
       }}
     >
       {routes.map((route) => (
-        <NavLink style={{ flex: 1 }} key={route.path} to={route.path}>
+        <NavLink
+          style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}
+          key={route.path}
+          to={route.path}
+        >
           {({ isActive }) => (
-            <button
-              style={{
-                width: "100%",
-                height: "100%",
-                color: isActive ? "red" : "black",
-              }}
-            >
-              {route.name}
-            </button>
+            <img style={{ width: "25px", height: "25px" }} src={route.icon} alt={route.name} />
           )}
         </NavLink>
       ))}
