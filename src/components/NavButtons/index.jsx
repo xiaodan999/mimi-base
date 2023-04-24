@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import styles from "./buttons.module.css";
 
 const routes = [
   { name: "视频基地", path: "/", icon: "/icons/video.png" },
@@ -9,24 +10,15 @@ const routes = [
 
 export default function NavButtons() {
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 0,
-        display: "flex",
-        width: "100%",
-        justifyContent: "space-evenly",
-        height: "55px",
-      }}
-    >
+    <div className={styles.navBar}>
       {routes.map((route) => (
-        <NavLink
-          style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}
-          key={route.path}
-          to={route.path}
-        >
+        <NavLink className={styles.link} key={route.path} to={route.path}>
           {({ isActive }) => (
-            <img style={{ width: "32px", height: "32px" }} src={route.icon} alt={route.name} />
+            <img
+              className={`${styles.icon} ${isActive ? styles.active : ""}`}
+              src={route.icon}
+              alt={route.name}
+            />
           )}
         </NavLink>
       ))}
