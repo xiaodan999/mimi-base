@@ -26,7 +26,7 @@ export default function NavButtons() {
           to={route.path}
         >
           {({ isActive }) => (
-            <img style={{ width: "25px", height: "25px" }} src={route.icon} alt={route.name} />
+            <img style={{ width: "32px", height: "32px" }} src={route.icon} alt={route.name} />
           )}
         </NavLink>
       ))}
