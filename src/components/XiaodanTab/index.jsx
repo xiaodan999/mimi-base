@@ -4,9 +4,10 @@ import XiaohaiTab from "../XiaohaiTab";
 export default function XiaodanTab() {
   const [name, setName] = useState("");
   const [mimi, setMimi] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     async function loadName() {
-      let { data, error } = await supabase.from("users").select("user_name").single();
+      let { data } = await supabase.from("users").select("user_name").single();
       setName(data.user_name);
     }
     loadName();
@@ -63,13 +64,12 @@ export default function XiaodanTab() {
         </div>
 
         <button
-          disabled={mimi.length === 0 || /^ *$/.test(mimi)}
+          disabled={mimi.length === 0 || /^ *$/.test(mimi) || submitting}
           onClick={async () => {
-            const { data, error } = await supabase
-              .from("mmi")
-              .insert([{ person_name: name, mimi: mimi }]);
-            console.log(name);
+            setSubmitting(true);
+            await supabase.from("mmi").insert([{ person_name: name, mimi: mimi }]);
             setMimi("");
+            setSubmitting(false);
           }}
           style={{
             marginTop: "20px",
@@ -79,7 +79,7 @@ export default function XiaodanTab() {
             fontSize: "16px",
           }}
         >
-          添加秘密
+          添加秘密 {submitting ? "..." : ""}
         </button>
       </section>
       <section style={{ overflow: "hidden" }}>
