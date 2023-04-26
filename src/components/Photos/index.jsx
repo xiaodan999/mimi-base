@@ -6,24 +6,26 @@ import { formatDate } from "../../utils/date";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
+  async function loadData() {
+    let { data, error } = await supabase
+      .from("tu-pian-xin-xi")
+      .select("user_id,photo,id,created_at,users(user_name)");
+    console.log(data);
+    const transformed = data.map((p) => ({
+      ...p,
+      name: p.users.user_name,
+      photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
+    }));
+    setPhotos(transformed);
+  }
+
   useEffect(() => {
-    async function loadData() {
-      let { data, error } = await supabase
-        .from("tu-pian-xin-xi")
-        .select("user_id,photo,id,created_at,users(user_name)");
-      console.log(data);
-      const transformed = data.map((p) => ({
-        ...p,
-        name: p.users.user_name,
-        photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
-      }));
-      setPhotos(transformed);
-    }
     loadData();
   }, []);
+
   return (
     <div style={{ height: "100%", overflowY: "scroll" }}>
-      <Header />
+      <Header refresh={loadData} />
       {photos.map((photo) => {
         return (
           <div key={photo.id}>
@@ -58,7 +60,7 @@ function Photo({ name, date, photoUrl }) {
     </div>
   );
 }
-function Header() {
+function Header({ refresh }) {
   const [user] = useUser();
   return (
     <div
@@ -106,6 +108,7 @@ function Header() {
               const path = data.path;
 
               await supabase.from("tu-pian-xin-xi").insert([{ user_id: user.id, photo: path }]);
+              refresh();
             }
           }}
         />
