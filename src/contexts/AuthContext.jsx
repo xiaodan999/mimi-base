@@ -20,8 +20,8 @@ export const AuthProvider = ({ children }) => {
     (async () => {
       setLoading(true);
 
-      let { data } = await supabase.from("users").select("id,user_name").single();
-      if (!data) {
+      const { data, error } = await supabase.from("users").select("id,user_name").single();
+      if (error || !data) {
         setUser(null);
       } else {
         setUser(data);
@@ -30,16 +30,24 @@ export const AuthProvider = ({ children }) => {
     })();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setLoading(true);
-      if (!session) {
-        setUser(null);
-      } else {
-        let { data } = await supabase.from("users").select("id,user_name").single();
-
-        setUser(data);
+      console.log({ event });
+      switch (event) {
+        case "SIGNED_IN": {
+          const { data, error } = await supabase.from("users").select("id,user_name").single();
+          if (error || !data) {
+            setUser(null);
+          } else {
+            setUser(data);
+          }
+          break;
+        }
+        case "SIGNED_OUT": {
+          setUser(null);
+          break;
+        }
+        default: {
+        }
       }
-
-      setLoading(false);
     });
 
     return () => {
