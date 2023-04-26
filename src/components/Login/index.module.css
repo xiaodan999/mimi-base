@@ -23,9 +23,28 @@
   background-color: var(--accent-color);
   font-size: large;
 }
+.formWrapper label {
+  color: var(--text-color);
+  font-weight: 550;
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.formWrapper input {
+  border: 1.5px solid var(--text-color);
+  border-radius: 8px;
+  background-color: var(--accent-color);
+  padding: 4px 6px;
+}
+
+.formWrapper input:focus-visible {
+  outline: none;
+}
 
 .formWrapper button:hover {
   opacity: 0.9;
+  background-color: var(--secondary-color);
+  cursor: pointer;
 }
 
 .error {
