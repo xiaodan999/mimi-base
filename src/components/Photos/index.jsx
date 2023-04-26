@@ -3,20 +3,25 @@ import { Outlet } from "react-router-dom";
 import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 import { formatDate } from "../../utils/date";
+import Spinner from "../Spinner";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   async function loadData() {
+    setLoading(true);
     let { data, error } = await supabase
       .from("tu-pian-xin-xi")
-      .select("user_id,photo,id,created_at,users(user_name)");
-    console.log(data);
+      .select("user_id,photo,id,created_at,users(user_name)")
+      .order("created_at", { ascending: false });
     const transformed = data.map((p) => ({
       ...p,
       name: p.users.user_name,
       photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
     }));
     setPhotos(transformed);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -26,6 +31,11 @@ export default function Photos() {
   return (
     <div style={{ height: "100%", overflowY: "scroll" }}>
       <Header refresh={loadData} />
+      {loading && (
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Spinner />
+        </div>
+      )}
       {photos.map((photo) => {
         return (
           <div key={photo.id}>
