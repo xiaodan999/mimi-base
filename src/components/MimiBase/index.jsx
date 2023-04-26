@@ -24,7 +24,7 @@ function MimiBase() {
   return (
     <div style={{ padding: "0 12px" }}>
       <h1 style={{ textAlign: "center", marginBottom: "8px" }}>
-        秘密保存基地 <i>V5.0</i>
+        秘密保存基地 <i>V6.0</i>
       </h1>
       <p style={{ fontSize: "28px" }}>
         欢迎{" "}
