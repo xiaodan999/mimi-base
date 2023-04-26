@@ -1,8 +1,7 @@
 import React from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 
-import NavButtons from "./components/NavButtons";
-
+import Layout from "./components/Layout";
 import MimiBase from "./components/MimiBase";
 import Photos from "./components/Photos";
 import XiaodanTab from "./components/XiaodanTab";
@@ -68,20 +67,6 @@ const router = createBrowserRouter([
     ],
   },
 ]);
-
-function Layout() {
-  return (
-    <div
-      style={{
-        paddingBottom: "55px",
-        height: "100%",
-      }}
-    >
-      <Outlet />
-      <NavButtons />
-    </div>
-  );
-}
 
 export default function App() {
   return <RouterProvider router={router} />;

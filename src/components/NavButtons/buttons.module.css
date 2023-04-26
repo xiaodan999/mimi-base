@@ -4,7 +4,7 @@
   display: flex;
   width: 100%;
   justify-content: center;
-  height: 55px;
+  height: var(--nav-bar-height);
 }
 
 .link {

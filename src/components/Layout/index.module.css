@@ -1,0 +1,5 @@
+.layout {
+  --nav-bar-height: 55px;
+  padding-bottom: var(--nav-bar-height);
+  height: 100%;
+}
