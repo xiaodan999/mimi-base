@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import { useUser } from "../../contexts/AuthContext";
-import supabase from "../../supabase-client/supabase";
 const mimis = {
   xiaodan: [
     "小阿蛋💗xiaohai",
@@ -32,6 +31,9 @@ function MimiBase() {
         <span style={{ fontWeight: 600, fontStyle: "italic", color: "orange" }}>
           {user.user_name}🎉✨🎉✨
         </span>
+      </p>
+      <p style={{ marginTop: "30px" }}>
+        <Link to="/logout">退出登录</Link>
       </p>
     </div>
   );
