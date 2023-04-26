@@ -9,6 +9,7 @@ import XiaodanTab from "./components/XiaodanTab";
 import XiaohaiTab from "./components/XiaohaiTab";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
+import Logout from "./components/Logout";
 import JiZhang from "./components/JiZhang";
 import RequireAuth from "./components/RequireAuth";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -59,6 +60,10 @@ const router = createBrowserRouter([
       {
         path: "/signup",
         element: <Signup />,
+      },
+      {
+        path: "/logout",
+        element: <Logout />,
       },
     ],
   },
