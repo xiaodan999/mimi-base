@@ -44,7 +44,6 @@ export default function Photos() {
           </div>
         );
       })}
-
       <Outlet />
     </div>
   );
@@ -62,7 +61,7 @@ function Photo({ name, date, photoUrl }) {
     <div style={{ padding: "0px 20px" }}>
       <p style={{ marginBottom: "5px", fontSize: "20px" }}>{name}：</p>
       <img
-        style={{ borderRadius: "15px", width: "100%", height: "250px" }}
+        style={{ borderRadius: "15px", width: "100%", height: "250px", objectFit: "cover" }}
         src={photoUrl}
         alt="hezhao"
       />
@@ -72,6 +71,7 @@ function Photo({ name, date, photoUrl }) {
 }
 function Header({ refresh }) {
   const [user] = useUser();
+  const [loading, setLoading] = useState(false);
   return (
     <div
       style={{
@@ -86,26 +86,32 @@ function Header({ refresh }) {
     >
       <h1 style={{ fontSize: "40px" }}>小蛋小海日常</h1>
       <label htmlFor="image-upload">
-        <button
-          style={{
-            width: "50px",
-            height: "50px",
-            borderRadius: "60px",
-            fontSize: "40px",
-            color: "#4c5fcd",
-            backgroundColor: "var(--accent-color)",
-            border: "1px solid #4c5fcd",
-            pointerEvents: "none",
-          }}
-        >
-          +
-        </button>
+        {loading ? (
+          <Spinner />
+        ) : (
+          <button
+            style={{
+              width: "50px",
+              height: "50px",
+              borderRadius: "60px",
+              fontSize: "40px",
+              color: "#4c5fcd",
+              backgroundColor: "var(--accent-color)",
+              border: "1px solid #4c5fcd",
+              pointerEvents: "none",
+            }}
+          >
+            +
+          </button>
+        )}
         <input
           hidden
+          disabled={loading}
           id="image-upload"
           type="file"
           accept="image/*"
           onChange={async (e) => {
+            setLoading(true);
             const file = e.target.files[0];
             const type = file.type.split("/")[1];
             const { data, error } = await supabase.storage
@@ -120,6 +126,7 @@ function Header({ refresh }) {
               await supabase.from("tu-pian-xin-xi").insert([{ user_id: user.id, photo: path }]);
               refresh();
             }
+            setLoading(false);
           }}
         />
       </label>
