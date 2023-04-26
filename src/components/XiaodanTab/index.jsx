@@ -77,7 +77,7 @@ export default function XiaodanTab() {
           添加秘密 {submitting ? "..." : ""}
         </button>
       </section>
-      <section style={{ overflow: "hidden" }}>
+      <section style={{ overflow: "hidden", flex: 1 }}>
         <XiaohaiTab />
       </section>
     </div>

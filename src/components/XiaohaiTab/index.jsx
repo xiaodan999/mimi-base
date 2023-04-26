@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import supabase from "../../supabase-client/supabase";
+import Spinner from "../Spinner";
 
 export function formatDate(dateStr) {
   const myDate = new Date(dateStr);
@@ -10,15 +11,22 @@ export function formatDate(dateStr) {
 
 export default function XiaohaiTab() {
   const [allMimi, setAllMimi] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const getAllMimi = async () => {
+      setLoading(true);
       let { data, error } = await supabase
         .from("mmi")
         .select("id,person_name,mimi,created_at")
         .order("created_at", { ascending: false })
         .limit(20);
-      setAllMimi(data);
+      if (error) {
+        setAllMimi([]);
+      } else {
+        setAllMimi(data);
+      }
+      setLoading(false);
     };
 
     getAllMimi();
@@ -46,8 +54,21 @@ export default function XiaohaiTab() {
           paddingLeft: "10px",
           paddingRight: "10px",
           overflow: "scroll",
+          flex: 1,
         }}
       >
+        {loading && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
+            <Spinner />
+          </div>
+        )}
         {allMimi.map((mimi) => {
           return (
             <li
