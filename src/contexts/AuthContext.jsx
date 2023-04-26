@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import supabase from "../supabase-client/supabase";
 
 /**
@@ -15,26 +15,27 @@ const AuthContext = createContext(initialValue);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const handleAuthStateChangeRef = useRef(() => {});
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-
-      const { data, error } = await supabase.from("users").select("id,user_name").single();
-      if (error || !data) {
-        setUser(null);
-      } else {
-        setUser(data);
-      }
-      setLoading(false);
-    })();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    handleAuthStateChangeRef.current = async (event, session) => {
       console.log({ event });
       switch (event) {
         case "SIGNED_IN": {
-          setLoading(true);
-          const { data, error } = await supabase.from("users").select("id,user_name").single();
+          if (!user) {
+            setLoading(true);
+          }
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            setUser(null);
+            setLoading(false);
+            break;
+          }
+          const { data, error } = await supabase
+            .from("users")
+            .select("id,user_name")
+            .eq("id", userData.user.id)
+            .single();
           if (error || !data) {
             setUser(null);
           } else {
@@ -50,6 +51,32 @@ export const AuthProvider = ({ children }) => {
         default: {
         }
       }
+    };
+  }, [user]);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (!userError) {
+        const { data, error } = await supabase
+          .from("users")
+          .select("id,user_name")
+          .eq("id", userData.user.id)
+          .single();
+        if (error || !data) {
+          setUser(null);
+        } else {
+          setUser(data);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    })();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((...args) => {
+      handleAuthStateChangeRef?.current(...args);
     });
 
     return () => {
