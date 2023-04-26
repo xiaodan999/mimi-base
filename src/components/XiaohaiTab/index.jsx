@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import supabase from "../../supabase-client/supabase";
 import Spinner from "../Spinner";
-
-export function formatDate(dateStr) {
-  const myDate = new Date(dateStr);
-  return `${myDate.getFullYear()}/${
-    myDate.getMonth() + 1
-  }/${myDate.getDate()}  ${myDate.getHours()}:${myDate.getMinutes().toString().padStart(2, "0")}`;
-}
+import { formatDate } from "../../utils/date";
 
 export default function XiaohaiTab() {
   const [allMimi, setAllMimi] = useState([]);

@@ -18,3 +18,10 @@ export function getCurrentMonth() {
 
   return month;
 }
+
+export function formatDate(dateStr) {
+  const myDate = new Date(dateStr);
+  return `${myDate.getFullYear()}/${
+    myDate.getMonth() + 1
+  }/${myDate.getDate()}  ${myDate.getHours()}:${myDate.getMinutes().toString().padStart(2, "0")}`;
+}
