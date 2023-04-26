@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import Compressor from "compressorjs";
+
 import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 import { formatDate } from "../../utils/date";
@@ -111,22 +113,28 @@ function Header({ refresh }) {
           type="file"
           accept="image/*"
           onChange={async (e) => {
-            setLoading(true);
             const file = e.target.files[0];
+            if (!file) return;
             const type = file.type.split("/")[1];
-            const { data, error } = await supabase.storage
-              .from("hao-duo-zhao-pian")
-              .upload("photos/" + Date.now() + "." + type, file);
-            if (error) {
-              // Handle error
-            } else {
-              // Handle success
-              const path = data.path;
+            setLoading(true);
+            new Compressor(file, {
+              quality: 0.6,
+              async success(compressed) {
+                const { data, error } = await supabase.storage
+                  .from("hao-duo-zhao-pian")
+                  .upload("photos/" + Date.now() + "." + type, compressed);
+                if (error) {
+                  // Handle error
+                } else {
+                  // Handle success
+                  const path = data.path;
 
-              await supabase.from("tu-pian-xin-xi").insert([{ user_id: user.id, photo: path }]);
-              refresh();
-            }
-            setLoading(false);
+                  await supabase.from("tu-pian-xin-xi").insert([{ user_id: user.id, photo: path }]);
+                  refresh();
+                }
+                setLoading(false);
+              },
+            });
           }}
         />
       </label>
