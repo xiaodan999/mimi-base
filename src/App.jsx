@@ -11,46 +11,56 @@ import Login from "./components/Login";
 import Signup from "./components/Signup";
 import JiZhang from "./components/JiZhang";
 import RequireAuth from "./components/RequireAuth";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <RequireAuth />,
+    element: (
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
+    ),
     children: [
       {
-        element: <Layout />,
+        element: <RequireAuth />,
         children: [
           {
-            path: "xiaohaibase",
-            element: <XiaohaiTab />,
+            element: <Layout />,
+            children: [
+              {
+                path: "xiaohaibase",
+                element: <XiaohaiTab />,
+              },
+              {
+                path: "photos",
+                element: <Photos />,
+              },
+              {
+                path: "xiaodanbase",
+                element: <XiaodanTab />,
+              },
+              {
+                index: true,
+                element: <MimiBase />,
+              },
+            ],
           },
           {
-            path: "photos",
-            element: <Photos />,
-          },
-          {
-            path: "xiaodanbase",
-            element: <XiaodanTab />,
-          },
-          {
-            index: true,
-            element: <MimiBase />,
+            path: "/jizhang",
+            element: <JiZhang />,
           },
         ],
       },
       {
-        path: "/jizhang",
-        element: <JiZhang />,
+        path: "/login",
+        element: <Login />,
+      },
+      {
+        path: "/signup",
+        element: <Signup />,
       },
     ],
-  },
-  {
-    path: "/login",
-    element: <Login />,
-  },
-  {
-    path: "/signup",
-    element: <Signup />,
   },
 ]);
 

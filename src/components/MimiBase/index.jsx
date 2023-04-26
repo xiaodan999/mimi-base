@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 const mimis = {
   xiaodan: [
@@ -19,15 +20,8 @@ const mimis = {
 };
 
 function MimiBase() {
-  const [name, setName] = useState("");
+  const [user] = useUser();
 
-  useEffect(() => {
-    async function loadName() {
-      let { data, error } = await supabase.from("users").select("user_name").single();
-      setName(data.user_name);
-    }
-    loadName();
-  }, []);
   return (
     <div style={{ padding: "0 12px" }}>
       <h1 style={{ textAlign: "center", marginBottom: "8px" }}>
@@ -36,7 +30,7 @@ function MimiBase() {
       <p style={{ fontSize: "28px" }}>
         欢迎{" "}
         <span style={{ fontWeight: 600, fontStyle: "italic", color: "orange" }}>
-          {name}🎉✨🎉✨
+          {user.user_name}🎉✨🎉✨
         </span>
       </p>
     </div>

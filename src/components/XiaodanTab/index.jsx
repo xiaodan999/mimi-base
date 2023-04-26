@@ -1,17 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 import XiaohaiTab from "../XiaohaiTab";
 export default function XiaodanTab() {
-  const [name, setName] = useState("");
+  const [user] = useUser();
   const [mimi, setMimi] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  useEffect(() => {
-    async function loadName() {
-      let { data } = await supabase.from("users").select("user_name").single();
-      setName(data.user_name);
-    }
-    loadName();
-  }, []);
+
   return (
     <div
       style={{
@@ -41,7 +36,7 @@ export default function XiaodanTab() {
           >
             Name:
           </p>
-          <input value={name} type="text" disabled />
+          <input value={user.user_name} type="text" disabled />
         </div>
         <div style={{ display: "flex", alignItems: "center" }}>
           <p
@@ -67,7 +62,7 @@ export default function XiaodanTab() {
           disabled={mimi.length === 0 || /^ *$/.test(mimi) || submitting}
           onClick={async () => {
             setSubmitting(true);
-            await supabase.from("mmi").insert([{ person_name: name, mimi: mimi }]);
+            await supabase.from("mmi").insert([{ person_name: user.user_name, mimi: mimi }]);
             setMimi("");
             setSubmitting(false);
           }}
