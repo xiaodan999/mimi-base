@@ -33,12 +33,14 @@ export const AuthProvider = ({ children }) => {
       console.log({ event });
       switch (event) {
         case "SIGNED_IN": {
+          setLoading(true);
           const { data, error } = await supabase.from("users").select("id,user_name").single();
           if (error || !data) {
             setUser(null);
           } else {
             setUser(data);
           }
+          setLoading(false);
           break;
         }
         case "SIGNED_OUT": {
