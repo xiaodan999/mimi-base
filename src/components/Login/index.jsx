@@ -2,14 +2,18 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
+import LoadingPage from "../LoadingPage";
 
 import styles from "./index.module.css";
 
 export default function Login() {
-  const [user] = useUser();
+  const [user, userLoading] = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  if (userLoading) return <LoadingPage />;
 
   if (user) {
     return <Navigate to="/" />;
@@ -46,9 +50,10 @@ export default function Login() {
           </div>
           <button
             type="submit"
+            disabled={email.length === 0 || password.length === 0 || loading}
             onClick={async (e) => {
               e.preventDefault();
-
+              setLoading(true);
               const { data, error } = await supabase.auth.signInWithPassword({
                 email: email,
                 password: password,
@@ -59,9 +64,10 @@ export default function Login() {
                 console.log("登录成功");
               }
               setError(error);
+              setLoading(false);
             }}
           >
-            登录
+            登录{loading && "..."}
           </button>
           {error && <div className={styles.error}>{error.message}</div>}
           <div style={{ marginTop: "15px", textAlign: "right" }}>
