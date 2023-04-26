@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 
 export default function Login() {
+  const [user] = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+  if (user) {
+    return <Navigate to="/" />;
+  }
 
   return (
     <div>
@@ -47,7 +51,7 @@ export default function Login() {
             console.log(data, error);
 
             if (error === null) {
-              navigate("/");
+              console.log("登录成功");
             }
           }}
         >
