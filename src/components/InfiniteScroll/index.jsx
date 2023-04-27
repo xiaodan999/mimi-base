@@ -1,3 +1,4 @@
+import { useThrottleFn } from "ahooks";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Spinner from "../Spinner";
 
@@ -45,21 +46,28 @@ const InfiniteScroll = ({ loadMore, hasMore = true, threshold = 100 }) => {
   }, [loadMore]);
 
   // Define a function to handle scroll events
-  const handleScroll = useCallback(() => {
-    if (error) return;
-    // Get the scrollable parent of the div element returned by the component
-    const target = getScrollParent(ref.current);
-    // Check if we should fetch more data
-    if (
-      isFetching ||
-      !hasMore ||
-      target.scrollHeight - target.scrollTop - target.clientHeight > threshold
-    )
-      return;
+  const { run: handleScroll } = useThrottleFn(
+    () => {
+      if (error) return;
+      // Get the scrollable parent of the div element returned by the component
+      const target = getScrollParent(ref.current);
+      // Check if we should fetch more data
+      if (
+        isFetching ||
+        !hasMore ||
+        target.scrollHeight - target.scrollTop - target.clientHeight > threshold
+      )
+        return;
 
-    // Set isFetching to true to indicate that we are fetching more data
-    setIsFetching(true);
-  }, [error, hasMore, isFetching, threshold]);
+      // Set isFetching to true to indicate that we are fetching more data
+      setIsFetching(true);
+    },
+    {
+      wait: 100,
+      leading: true,
+      trailing: true,
+    },
+  );
 
   const retry = () => {
     setIsFetching(true);
