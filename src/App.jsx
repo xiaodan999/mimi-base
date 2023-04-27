@@ -17,7 +17,6 @@ const Logout = lazy(() => import("./components/Logout"));
 
 const router = createBrowserRouter([
   {
-    path: "/",
     element: (
       <AuthProvider>
         <Outlet />
@@ -25,6 +24,7 @@ const router = createBrowserRouter([
     ),
     children: [
       {
+        path: "/",
         element: <RequireAuth />,
         children: [
           {
@@ -49,7 +49,7 @@ const router = createBrowserRouter([
             ],
           },
           {
-            path: "/jizhang",
+            path: "jizhang",
             element: <JiZhang />,
           },
         ],
