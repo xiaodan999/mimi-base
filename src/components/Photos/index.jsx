@@ -1,43 +1,51 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
 import Compressor from "compressorjs";
 
 import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
 import { formatDate } from "../../utils/date";
 import Spinner from "../Spinner";
+import InfiniteScroll from "../InfiniteScroll";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  async function loadData() {
-    setLoading(true);
+  async function loadMore() {
+    const size = 10;
+    const { count } = await supabase
+      .from("tu-pian-xin-xi")
+      .select("*", { count: "exact", head: true });
+
+    const { from, to, hasMore } = getPagination(page, size, count);
     let { data, error } = await supabase
       .from("tu-pian-xin-xi")
       .select("user_id,photo,id,created_at,users(user_name)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw error;
+    }
+    setHasMore(hasMore);
     const transformed = data.map((p) => ({
       ...p,
       name: p.users.user_name,
       photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
     }));
-    setPhotos(transformed);
-    setLoading(false);
+    setPhotos((prev) => [...prev, ...transformed]);
+    setPage((prev) => prev + 1);
   }
 
   useEffect(() => {
-    loadData();
+    loadMore();
   }, []);
 
   return (
-    <div style={{ height: "100%", overflowY: "scroll" }}>
-      <Header refresh={loadData} />
-      {loading && (
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <Spinner />
-        </div>
-      )}
+    <div style={{ height: "100%", overflowY: "scroll", paddingBottom: "40px" }}>
+      <Header onAdd={(newPhoto) => setPhotos((prev) => [newPhoto, ...prev])} />
+
       {photos.map((photo) => {
         return (
           <div key={photo.id}>
@@ -46,7 +54,7 @@ export default function Photos() {
           </div>
         );
       })}
-      <Outlet />
+      <InfiniteScroll hasMore={hasMore} loadMore={loadMore} />
     </div>
   );
 }
@@ -66,12 +74,13 @@ function Photo({ name, date, photoUrl }) {
         style={{ borderRadius: "15px", width: "100%", height: "250px", objectFit: "cover" }}
         src={photoUrl}
         alt="hezhao"
+        loading="lazy"
       />
       <p style={{ textAlign: "end" }}>{date}</p>
     </div>
   );
 }
-function Header({ refresh }) {
+function Header({ onAdd }) {
   const [user] = useUser();
   const [loading, setLoading] = useState(false);
   return (
@@ -129,8 +138,17 @@ function Header({ refresh }) {
                   // Handle success
                   const path = data.path;
 
-                  await supabase.from("tu-pian-xin-xi").insert([{ user_id: user.id, photo: path }]);
-                  refresh();
+                  const { data: newItem } = await supabase
+                    .from("tu-pian-xin-xi")
+                    .insert([{ user_id: user.id, photo: path }])
+                    .select("user_id,photo,id,created_at,users(user_name)")
+                    .single();
+                  onAdd({
+                    ...newItem,
+                    name: newItem.users.user_name,
+                    photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(newItem.photo)
+                      .data.publicUrl,
+                  });
                 }
                 setLoading(false);
               },
@@ -141,3 +159,14 @@ function Header({ refresh }) {
     </div>
   );
 }
+
+export const getPagination = (page, size, totalCount) => {
+  const limit = size ? +size : 3;
+  const from = page ? (page - 1) * limit + 1 : 1;
+  let to = page ? page * limit : limit;
+  if (to > totalCount) {
+    to = totalCount;
+  }
+  const hasMore = to < totalCount;
+  return { from, to, hasMore };
+};
