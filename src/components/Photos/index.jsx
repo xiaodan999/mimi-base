@@ -162,11 +162,11 @@ function Header({ onAdd }) {
 
 export const getPagination = (page, size, totalCount) => {
   const limit = size ? +size : 3;
-  const from = page ? (page - 1) * limit + 1 : 1;
-  let to = page ? page * limit : limit;
-  if (to > totalCount) {
-    to = totalCount;
+  const from = page ? (page - 1) * limit : 0;
+  let to = page ? page * limit - 1 : limit - 1;
+  if (to >= totalCount) {
+    to = totalCount - 1;
   }
-  const hasMore = to < totalCount;
+  const hasMore = to < totalCount - 1;
   return { from, to, hasMore };
 };
