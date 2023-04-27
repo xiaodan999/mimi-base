@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from "react";
+import React from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -6,14 +6,6 @@ import Login from "./components/Login";
 import Signup from "./components/Signup";
 import RequireAuth from "./components/RequireAuth";
 import { AuthProvider } from "./contexts/AuthContext";
-import { CenterSpinner } from "./components/Spinner";
-
-const MimiBase = lazy(() => import("./components/MimiBase"));
-const Photos = lazy(() => import("./components/Photos"));
-const XiaodanTab = lazy(() => import("./components/XiaodanTab"));
-const XiaohaiTab = lazy(() => import("./components/XiaohaiTab"));
-const JiZhang = lazy(() => import("./components/JiZhang"));
-const Logout = lazy(() => import("./components/Logout"));
 
 const router = createBrowserRouter([
   {
@@ -32,25 +24,35 @@ const router = createBrowserRouter([
             children: [
               {
                 path: "xiaohaibase",
-                element: <XiaohaiTab />,
+                lazy: async () => ({
+                  Component: (await import("./components/XiaohaiTab")).default,
+                }),
               },
               {
                 path: "photos",
-                element: <Photos />,
+                lazy: async () => ({
+                  Component: (await import("./components/Photos")).default,
+                }),
               },
               {
                 path: "xiaodanbase",
-                element: <XiaodanTab />,
+                lazy: async () => ({
+                  Component: (await import("./components/XiaodanTab")).default,
+                }),
               },
               {
                 index: true,
-                element: <MimiBase />,
+                lazy: async () => ({
+                  Component: (await import("./components/MimiBase")).default,
+                }),
               },
             ],
           },
           {
             path: "jizhang",
-            element: <JiZhang />,
+            lazy: async () => ({
+              Component: (await import("./components/JiZhang")).default,
+            }),
           },
         ],
       },
@@ -64,16 +66,14 @@ const router = createBrowserRouter([
       },
       {
         path: "/logout",
-        element: <Logout />,
+        lazy: async () => ({
+          Component: (await import("./components/Logout")).default,
+        }),
       },
     ],
   },
 ]);
 
 export default function App() {
-  return (
-    <Suspense fallback={<CenterSpinner />}>
-      <RouterProvider router={router} />
-    </Suspense>
-  );
+  return <RouterProvider router={router} />;
 }

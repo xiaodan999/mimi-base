@@ -1,4 +1,4 @@
-const VERSION = "v6.0";
+const VERSION = "v6.0.1";
 console.log(VERSION);
 
 self.addEventListener("fetch", (event) => {
