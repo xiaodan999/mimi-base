@@ -1,17 +1,18 @@
-import React from "react";
+import React, { lazy } from "react";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 
 import Layout from "./components/Layout";
-import MimiBase from "./components/MimiBase";
-import Photos from "./components/Photos";
-import XiaodanTab from "./components/XiaodanTab";
-import XiaohaiTab from "./components/XiaohaiTab";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
-import Logout from "./components/Logout";
-import JiZhang from "./components/JiZhang";
 import RequireAuth from "./components/RequireAuth";
 import { AuthProvider } from "./contexts/AuthContext";
+
+const MimiBase = lazy(() => import("./components/MimiBase"));
+const Photos = lazy(() => import("./components/Photos"));
+const XiaodanTab = lazy(() => import("./components/XiaodanTab"));
+const XiaohaiTab = lazy(() => import("./components/XiaohaiTab"));
+const JiZhang = lazy(() => import("./components/JiZhang"));
+const Logout = lazy(() => import("./components/Logout"));
 
 const router = createBrowserRouter([
   {
