@@ -166,7 +166,6 @@ function Header({ onAdd }) {
           onChange={async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const type = file.type.split("/")[1];
             setLoading(true);
             const handler = Toast.show({
               content: "上传中",
@@ -174,11 +173,12 @@ function Header({ onAdd }) {
               duration: 0,
             });
             new Compressor(file, {
-              quality: 0.4,
+              quality: 0.1,
+              mimeType: "image/webp",
               async success(compressed) {
                 const { data, error } = await supabase.storage
                   .from("hao-duo-zhao-pian")
-                  .upload("photos/" + Date.now() + "." + type, compressed);
+                  .upload("photos/" + Date.now() + ".webp", compressed);
                 if (error) {
                   // Handle error
                 } else {
@@ -193,6 +193,7 @@ function Header({ onAdd }) {
                   onAdd({
                     ...newItem,
                     name: newItem.users.user_name,
+                    photoPath: newItem.photo,
                     photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(newItem.photo)
                       .data.publicUrl,
                   });
