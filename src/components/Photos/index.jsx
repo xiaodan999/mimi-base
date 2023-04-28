@@ -6,6 +6,7 @@ import supabase from "../../supabase-client/supabase";
 import { formatDate } from "../../utils/date";
 import Spinner from "../Spinner";
 import InfiniteScroll from "../InfiniteScroll";
+import styles from "./index.module.css";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
@@ -68,15 +69,10 @@ function Line() {
 }
 function Photo({ name, date, photoUrl }) {
   return (
-    <div style={{ padding: "0px 20px" }}>
-      <p style={{ marginBottom: "5px", fontSize: "20px" }}>{name}：</p>
-      <img
-        style={{ borderRadius: "15px", width: "100%", height: "250px", objectFit: "cover" }}
-        src={photoUrl}
-        alt="hezhao"
-        loading="lazy"
-      />
-      <p style={{ textAlign: "end" }}>{date}</p>
+    <div className={styles.photo}>
+      <p className={styles.name}>{name}：</p>
+      <img className={styles.image} src={photoUrl} alt="hezhao" loading="lazy" />
+      <p className={styles.footer}>{date}</p>
     </div>
   );
 }

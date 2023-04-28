@@ -1,0 +1,27 @@
+.photo {
+  container-type: inline-size;
+  container-name: photo;
+  padding: 0 20px;
+  .name {
+    margin-bottom: 5px;
+    font-size: 20px;
+  }
+  .image {
+    border-radius: 15px;
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    background-color: var(--secondary-color);
+  }
+  .footer {
+    text-align: end;
+  }
+}
+
+@container photo (width >= 700px) {
+  .photo {
+    .name {
+      font-size: 30px;
+    }
+  }
+}
