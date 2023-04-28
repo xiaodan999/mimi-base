@@ -35,6 +35,7 @@ export default function Photos() {
     const transformed = data.map((p) => ({
       ...p,
       name: p.users.user_name,
+      photoPath: p.photo,
       photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
     }));
     setPhotos((prev) => [...prev, ...transformed]);
@@ -54,6 +55,7 @@ export default function Photos() {
           <div key={photo.id}>
             <Photo
               name={photo.name}
+              photoPath={photo.photoPath}
               photoUrl={photo.photo}
               date={formatDate(photo.created_at)}
               id={photo.id}
@@ -77,7 +79,7 @@ function Line() {
     ></div>
   );
 }
-function Photo({ name, date, photoUrl, id, onDelete }) {
+function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
   return (
     <div className={styles.photo}>
       <p className={styles.name}>{name}：</p>
@@ -90,6 +92,7 @@ function Photo({ name, date, photoUrl, id, onDelete }) {
               color: "danger",
               onClick: async () => {
                 const { error } = await supabase.from("tu-pian-xin-xi").delete().eq("id", id);
+                await supabase.storage.from("hao-duo-zhao-pian").remove([photoPath]);
                 if (!error) {
                   Toast.show({
                     icon: "success",
