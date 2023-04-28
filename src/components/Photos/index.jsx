@@ -7,7 +7,7 @@ import { formatDate } from "../../utils/date";
 import Spinner from "../Spinner";
 import InfiniteScroll from "../InfiniteScroll";
 import styles from "./index.module.css";
-import { Button, ImageViewer } from "antd-mobile";
+import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
@@ -51,7 +51,15 @@ export default function Photos() {
       {photos.map((photo) => {
         return (
           <div key={photo.id}>
-            <Photo name={photo.name} photoUrl={photo.photo} date={formatDate(photo.created_at)} />
+            <Photo
+              name={photo.name}
+              photoUrl={photo.photo}
+              date={formatDate(photo.created_at)}
+              id={photo.id}
+              onDelete={(id) => {
+                setPhotos(photos.filter((p) => p.id !== id));
+              }}
+            />
             <Line />
           </div>
         );
@@ -68,19 +76,43 @@ function Line() {
     ></div>
   );
 }
-function Photo({ name, date, photoUrl }) {
+function Photo({ name, date, photoUrl, id, onDelete }) {
   return (
     <div className={styles.photo}>
       <p className={styles.name}>{name}：</p>
-      <img
-        className={styles.image}
-        src={photoUrl}
-        alt="hezhao"
-        loading="lazy"
-        onClick={() => {
-          ImageViewer.show({ image: photoUrl });
-        }}
-      />
+      <div className={styles.swipeWrapper}>
+        <SwipeAction
+          rightActions={[
+            {
+              key: "delete",
+              text: "删除",
+              color: "danger",
+              onClick: async () => {
+                const { error } = await supabase.from("tu-pian-xin-xi").delete().eq("id", id);
+                if (!error) {
+                  Toast.show({
+                    icon: "success",
+                    content: "删除成功",
+                  });
+                }
+                onDelete(id);
+              },
+            },
+          ]}
+        >
+          <div className={styles.imageWrapper}>
+            <img
+              className={styles.image}
+              src={photoUrl}
+              alt="hezhao"
+              loading="lazy"
+              onClick={() => {
+                ImageViewer.show({ image: photoUrl });
+              }}
+            />
+          </div>
+        </SwipeAction>
+      </div>
 
       <p className={styles.footer}>{date}</p>
     </div>
