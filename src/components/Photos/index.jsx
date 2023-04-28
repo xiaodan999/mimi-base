@@ -7,6 +7,7 @@ import { formatDate } from "../../utils/date";
 import Spinner from "../Spinner";
 import InfiniteScroll from "../InfiniteScroll";
 import styles from "./index.module.css";
+import { Button, ImageViewer } from "antd-mobile";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
@@ -71,7 +72,16 @@ function Photo({ name, date, photoUrl }) {
   return (
     <div className={styles.photo}>
       <p className={styles.name}>{name}：</p>
-      <img className={styles.image} src={photoUrl} alt="hezhao" loading="lazy" />
+      <img
+        className={styles.image}
+        src={photoUrl}
+        alt="hezhao"
+        loading="lazy"
+        onClick={() => {
+          ImageViewer.show({ image: photoUrl });
+        }}
+      />
+
       <p className={styles.footer}>{date}</p>
     </div>
   );
