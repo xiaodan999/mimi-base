@@ -8,6 +8,7 @@ import Spinner from "../Spinner";
 import InfiniteScroll from "../InfiniteScroll";
 import styles from "./index.module.css";
 import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
+import { UploadOutline } from "antd-mobile-icons";
 
 export default function Photos() {
   const [photos, setPhotos] = useState([]);
@@ -164,8 +165,13 @@ function Header({ onAdd }) {
             if (!file) return;
             const type = file.type.split("/")[1];
             setLoading(true);
+            const handler = Toast.show({
+              content: "上传中",
+              icon: <UploadOutline />,
+              duration: 0,
+            });
             new Compressor(file, {
-              quality: 0.6,
+              quality: 0.4,
               async success(compressed) {
                 const { data, error } = await supabase.storage
                   .from("hao-duo-zhao-pian")
@@ -188,6 +194,7 @@ function Header({ onAdd }) {
                       .data.publicUrl,
                   });
                 }
+                handler.close();
                 setLoading(false);
               },
             });
