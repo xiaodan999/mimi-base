@@ -91,7 +91,7 @@ export default function JiZhang() {
           {MONTHS.map((m, i) => {
             return (
               <option key={i} value={i + 1}>
-                {m} {i + 1 === month ? getMonthSum(data) : ""}
+                {m} {i + 1 === month ? getMonthSum(data).toFixed(2) : ""}
               </option>
             );
           })}
