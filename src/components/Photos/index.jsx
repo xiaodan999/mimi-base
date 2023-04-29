@@ -131,7 +131,10 @@ function Header() {
       const compressed = await compressImage(file);
 
       const path = `photos/${user.id}/${Date.now()}.webp`;
-      const { error } = await supabase.storage.from("hao-duo-zhao-pian").upload(path, compressed);
+      const { error } = await supabase.storage
+        .from("hao-duo-zhao-pian")
+        .upload(path, compressed, { cacheControl: "31536000" });
+      // cache the image for 1 year
       if (error) throw error;
 
       const { error: tableError } = await supabase
