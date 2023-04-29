@@ -179,6 +179,7 @@ function Header({ onAdd }) {
           onChange={async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            e.target.value = "";
             setLoading(true);
             const handler = Toast.show({
               content: "上传中",
