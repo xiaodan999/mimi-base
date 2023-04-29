@@ -91,14 +91,28 @@ function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
               text: "删除",
               color: "danger",
               onClick: async () => {
-                const { error } = await supabase.from("tu-pian-xin-xi").delete().eq("id", id);
-                if (!error) {
+                const handler = Toast.show({
+                  icon: "loading",
+                  content: "删除中",
+                });
+                const { error, count } = await supabase
+                  .from("tu-pian-xin-xi")
+                  .delete({ count: "estimated" })
+                  .eq("id", id);
+                handler.close();
+
+                if (!error && count !== 0) {
                   Toast.show({
                     icon: "success",
                     content: "删除成功",
                   });
+                  onDelete(id);
+                } else {
+                  Toast.show({
+                    icon: "fail",
+                    content: "删除失败",
+                  });
                 }
-                onDelete(id);
               },
             },
           ]}
