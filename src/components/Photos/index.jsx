@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import Compressor from "compressorjs";
+import { Fragment, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
+import { UploadOutline } from "antd-mobile-icons";
 
 import { useUser } from "../../contexts/AuthContext";
 import supabase from "../../supabase-client/supabase";
@@ -7,67 +9,34 @@ import { formatDate } from "../../utils/date";
 import Spinner from "../Spinner";
 import InfiniteScroll from "../InfiniteScroll";
 import styles from "./index.module.css";
-import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
-import { UploadOutline } from "antd-mobile-icons";
+import usePhotos from "./usePhotos";
+import compressImage from "../../utils/compressImage";
 
 export default function Photos() {
-  const [photos, setPhotos] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-
-  async function loadMore() {
-    const size = 10;
-    const { count } = await supabase
-      .from("tu-pian-xin-xi")
-      .select("*", { count: "exact", head: true });
-
-    const { from, to, hasMore } = getPagination(page, size, count);
-    let { data, error } = await supabase
-      .from("tu-pian-xin-xi")
-      .select("user_id,photo,id,created_at,users(user_name)")
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      throw error;
-    }
-    setHasMore(hasMore);
-    const transformed = data.map((p) => ({
-      ...p,
-      name: p.users.user_name,
-      photoPath: p.photo,
-      photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
-    }));
-    setPhotos((prev) => [...prev, ...transformed]);
-    setPage((prev) => prev + 1);
-  }
-
-  useEffect(() => {
-    loadMore();
-  }, []);
+  const { data, hasNextPage, fetchNextPage } = usePhotos();
+  const photos = useMemo(() => {
+    const allPhotos = [];
+    data?.pages.forEach((page) => allPhotos.push(...page.photos));
+    return allPhotos;
+  }, [data]);
 
   return (
     <div style={{ height: "100%", overflowY: "scroll", paddingBottom: "40px" }}>
-      <Header onAdd={(newPhoto) => setPhotos((prev) => [newPhoto, ...prev])} />
+      <Header />
+      {photos.map((photo) => (
+        <Fragment key={photo.id}>
+          <Photo
+            id={photo.id}
+            name={photo.name}
+            photoPath={photo.photoPath}
+            photoUrl={photo.photo}
+            date={formatDate(photo.created_at)}
+          />
+          <Line />
+        </Fragment>
+      ))}
 
-      {photos.map((photo) => {
-        return (
-          <div key={photo.id}>
-            <Photo
-              name={photo.name}
-              photoPath={photo.photoPath}
-              photoUrl={photo.photo}
-              date={formatDate(photo.created_at)}
-              id={photo.id}
-              onDelete={(id) => {
-                setPhotos(photos.filter((p) => p.id !== id));
-              }}
-            />
-            <Line />
-          </div>
-        );
-      })}
-      <InfiniteScroll hasMore={hasMore} loadMore={loadMore} />
+      <InfiniteScroll hasMore={hasNextPage} loadMore={() => fetchNextPage()} />
     </div>
   );
 }
@@ -79,7 +48,41 @@ function Line() {
     ></div>
   );
 }
-function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
+function Photo({ name, date, photoUrl, id }) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationKey: ["photos"],
+    mutationFn: async () => {
+      const handler = Toast.show({
+        icon: "loading",
+        content: "删除中",
+        duration: 0,
+      });
+      const { error, count } = await supabase
+        .from("tu-pian-xin-xi")
+        .delete({ count: "estimated" })
+        .eq("id", id);
+      handler.close();
+
+      if (!error && count !== 0) {
+        Toast.show({
+          icon: "success",
+          content: "删除成功",
+        });
+      } else {
+        Toast.show({
+          icon: "fail",
+          content: "删除失败",
+        });
+        throw new Error("删除失败");
+      }
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["photos"] });
+    },
+  });
+
   return (
     <div className={styles.photo}>
       <p className={styles.name}>{name}：</p>
@@ -91,28 +94,7 @@ function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
               text: "删除",
               color: "danger",
               onClick: async () => {
-                const handler = Toast.show({
-                  icon: "loading",
-                  content: "删除中",
-                });
-                const { error, count } = await supabase
-                  .from("tu-pian-xin-xi")
-                  .delete({ count: "estimated" })
-                  .eq("id", id);
-                handler.close();
-
-                if (!error && count !== 0) {
-                  Toast.show({
-                    icon: "success",
-                    content: "删除成功",
-                  });
-                  onDelete(id);
-                } else {
-                  Toast.show({
-                    icon: "fail",
-                    content: "删除失败",
-                  });
-                }
+                mutation.mutate();
               },
             },
           ]}
@@ -135,9 +117,35 @@ function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
     </div>
   );
 }
-function Header({ onAdd }) {
+function Header() {
   const [user] = useUser();
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationKey: ["photos"],
+    mutationFn: async (file) => {
+      const handler = Toast.show({
+        content: "上传中",
+        icon: <UploadOutline />,
+        duration: 0,
+      });
+      const compressed = await compressImage(file);
+
+      const path = `photos/${user.id}/${Date.now()}.webp`;
+      const { error } = await supabase.storage.from("hao-duo-zhao-pian").upload(path, compressed);
+      if (error) throw error;
+
+      const { error: tableError } = await supabase
+        .from("tu-pian-xin-xi")
+        .insert([{ user_id: user.id, photo: path }]);
+      if (tableError) throw tableError;
+
+      handler.close();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["photos"] });
+    },
+  });
+
   return (
     <div
       style={{
@@ -152,7 +160,7 @@ function Header({ onAdd }) {
     >
       <h1 style={{ fontSize: "40px" }}>小蛋小海日常</h1>
       <label htmlFor="image-upload">
-        {loading ? (
+        {mutation.isLoading ? (
           <Spinner />
         ) : (
           <button
@@ -172,7 +180,7 @@ function Header({ onAdd }) {
         )}
         <input
           hidden
-          disabled={loading}
+          disabled={mutation.isLoading}
           id="image-upload"
           type="file"
           accept="image/*"
@@ -180,56 +188,10 @@ function Header({ onAdd }) {
             const file = e.target.files[0];
             if (!file) return;
             e.target.value = "";
-            setLoading(true);
-            const handler = Toast.show({
-              content: "上传中",
-              icon: <UploadOutline />,
-              duration: 0,
-            });
-            new Compressor(file, {
-              quality: 0.1,
-              mimeType: "image/webp",
-              async success(compressed) {
-                const { data, error } = await supabase.storage
-                  .from("hao-duo-zhao-pian")
-                  .upload("photos/" + Date.now() + ".webp", compressed);
-                if (error) {
-                  // Handle error
-                } else {
-                  // Handle success
-                  const path = data.path;
-
-                  const { data: newItem } = await supabase
-                    .from("tu-pian-xin-xi")
-                    .insert([{ user_id: user.id, photo: path }])
-                    .select("user_id,photo,id,created_at,users(user_name)")
-                    .single();
-                  onAdd({
-                    ...newItem,
-                    name: newItem.users.user_name,
-                    photoPath: newItem.photo,
-                    photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(newItem.photo)
-                      .data.publicUrl,
-                  });
-                }
-                handler.close();
-                setLoading(false);
-              },
-            });
+            mutation.mutate(file);
           }}
         />
       </label>
     </div>
   );
 }
-
-export const getPagination = (page, size, totalCount) => {
-  const limit = size ? +size : 3;
-  const from = page ? (page - 1) * limit : 0;
-  let to = page ? page * limit - 1 : limit - 1;
-  if (to >= totalCount) {
-    to = totalCount - 1;
-  }
-  const hasMore = to < totalCount - 1;
-  return { from, to, hasMore };
-};
