@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.20.0",
+    "@tanstack/react-query": "^4.29.5",
     "ahooks": "^3.7.6",
     "antd-mobile": "^5.29.1",
     "antd-mobile-icons": "^0.3.0",
