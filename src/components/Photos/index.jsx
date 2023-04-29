@@ -92,7 +92,6 @@ function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
               color: "danger",
               onClick: async () => {
                 const { error } = await supabase.from("tu-pian-xin-xi").delete().eq("id", id);
-                await supabase.storage.from("hao-duo-zhao-pian").remove([photoPath]);
                 if (!error) {
                   Toast.show({
                     icon: "success",
