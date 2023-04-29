@@ -94,6 +94,7 @@ function Photo({ name, date, photoUrl, photoPath, id, onDelete }) {
                 const handler = Toast.show({
                   icon: "loading",
                   content: "删除中",
+                  duration: 0,
                 });
                 const { error, count } = await supabase
                   .from("tu-pian-xin-xi")
