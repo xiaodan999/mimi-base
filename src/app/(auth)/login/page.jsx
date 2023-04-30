@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { useUser } from "../../contexts/AuthContext";
-import supabase from "../../supabase-client/supabase";
-import LoadingPage from "../LoadingPage";
+import LoadingPage from "../../../components/LoadingPage";
+import { useUser } from "../../../contexts/AuthContext";
+import supabase from "../../../supabase-client/supabase";
 
-import styles from "./index.module.css";
+import styles from "./page.module.css";
 
-export default function Login() {
+export default function Page() {
   const [user, userLoading] = useUser();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +16,7 @@ export default function Login() {
   if (userLoading) return <LoadingPage />;
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/home" />;
   }
 
   return (

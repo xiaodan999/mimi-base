@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useUser } from "../../contexts/AuthContext";
-import supabase from "../../supabase-client/supabase";
-import XiaohaiTab from "../XiaohaiTab";
-export default function XiaodanTab() {
+import XiaohaiTab from "../../../../../components/XiaohaiTab";
+import { useUser } from "../../../../../contexts/AuthContext";
+import supabase from "../../../../../supabase-client/supabase";
+
+export default function Page() {
   const [user] = useUser();
   const [mimi, setMimi] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import supabase from "../../supabase-client/supabase";
-import { formatDate, getCurrentMonth, getMonthRange } from "../../utils/date";
-import groupBy from "../../utils/groupBy";
+import Popover from "../../../../../components/Popover";
+import Spinner from "../../../../../components/Spinner";
+import useScrolling from "../../../../../hooks/useScrolling";
+import supabase from "../../../../../supabase-client/supabase";
+import { formatDate, getCurrentMonth, getMonthRange } from "../../../../../utils/date";
+import groupBy from "../../../../../utils/groupBy";
 
-import Popover from "../Popover";
-import Spinner from "../Spinner";
-
-import "./index.css";
-import useScrolling from "../../hooks/useScrolling";
+import "./page.css";
 
 const MONTHS = [
   "一月",
@@ -24,7 +23,7 @@ const MONTHS = [
   "十二月",
 ];
 
-export default function JiZhang() {
+export default function Page() {
   const [data, setData] = useState([]);
   const [price, setPrice] = useState(0);
   const [itemName, setItemName] = useState("");
@@ -257,77 +256,6 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
   );
 }
 
-// const MING_XI_ARRAY = [
-//   {
-//     id: '12dawd',
-//     date: '2023-04-12 12:18:07.943243+00',
-//     item_name: '麻花',
-//     price: 6.5,
-//     user_id: 'adi1-24eded',
-//   },
-//   {
-//     id: 'ws8wadjoadw',
-//     date: '2023-04-12 12:18:07.943243+00',
-//     item_name: '臭豆腐',
-//     price: 7,
-//     user_id: 'adi1-24eded',
-//   },
-//   {
-//     id: 'sdeede',
-//     date: '2023-04-12 12:18:07.943243+00',
-//     item_name: '裤子x2👖',
-//     price: 35.9,
-//     user_id: 'adi1-24eded',
-//   },
-//   {
-//     id: 'ws8wadjoadw',
-//     date: '2023-04-15 12:18:07.943243+00',
-//     item_name: '包子',
-//     price: 5,
-//     user_id: 'adi1-24eded',
-//   },
-// ]
-
-// const MING_XI_BY_DAY = [
-//   {
-//     date: '2023-04-12',
-//     items: [
-//       {
-//         id: '12dawd',
-//         date: '2023-04-12 12:18:07.943243+00',
-//         item_name: '麻花',
-//         price: 6.5,
-//         user_id: 'adi1-24eded',
-//       },
-//       {
-//         id: 'ws8wadjoadw',
-//         date: '2023-04-12 12:18:07.943243+00',
-//         item_name: '臭豆腐',
-//         price: 7,
-//         user_id: 'adi1-24eded',
-//       },
-//       {
-//         id: 'sdeede',
-//         date: '2023-04-12 12:18:07.943243+00',
-//         item_name: '裤子x2👖',
-//         price: 35.9,
-//         user_id: 'adi1-24eded',
-//       },
-//     ],
-//   },
-//   {
-//     date: '2023-04-15',
-//     items: [
-//       {
-//         id: 'ws8wadjoadw',
-//         date: '2023-04-15 12:18:07.943243+00',
-//         item_name: '包子',
-//         price: 5,
-//         user_id: 'adi1-24eded',
-//       },
-//     ],
-//   },
-// ]
 function getMonthSum(abc) {
   let monthTotalPrice = 0;
   for (let i = 0; i < abc.length; i++) {

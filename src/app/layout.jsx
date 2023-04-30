@@ -1,14 +1,11 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import NavButtons from "../NavButtons";
 
-import styles from "./index.module.css";
-
+// The root layout for the whole app
 function Layout() {
   return (
-    <div className={styles.layout}>
+    <div className="root-layout" style={{ height: "100%" }}>
       <Outlet />
-      <NavButtons />
     </div>
   );
 }

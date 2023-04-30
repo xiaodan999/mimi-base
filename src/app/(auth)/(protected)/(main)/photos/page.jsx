@@ -3,14 +3,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
 
-import { useUser } from "../../contexts/AuthContext";
-import supabase from "../../supabase-client/supabase";
-import { formatDate } from "../../utils/date";
-import Spinner from "../Spinner";
-import InfiniteScroll from "../InfiniteScroll";
-import styles from "./index.module.css";
 import usePhotos from "./usePhotos";
-import compressImage from "../../utils/compressImage";
+import styles from "./page.module.css";
+import { formatDate } from "../../../../../utils/date";
+import InfiniteScroll from "../../../../../components/InfiniteScroll";
+import supabase from "../../../../../supabase-client/supabase";
+import { useUser } from "../../../../../contexts/AuthContext";
+import compressImage from "../../../../../utils/compressImage";
+import Spinner from "../../../../../components/Spinner";
 
 export default function Photos() {
   const { data, hasNextPage, fetchNextPage } = usePhotos();

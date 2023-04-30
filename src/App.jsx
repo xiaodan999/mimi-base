@@ -1,87 +1,10 @@
 import React from "react";
-import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-import Layout from "./components/Layout";
-import Login from "./components/Login";
-import Signup from "./components/Signup";
-import RequireAuth from "./components/RequireAuth";
-import { AuthProvider } from "./contexts/AuthContext";
-import { QueryClient } from "@tanstack/query-core";
-import { QueryClientProvider } from "@tanstack/react-query";
+import routes from "./routes";
 
-const router = createBrowserRouter([
-  {
-    element: (
-      <AuthProvider>
-        <Outlet />
-      </AuthProvider>
-    ),
-    children: [
-      {
-        path: "/",
-        element: <RequireAuth />,
-        children: [
-          {
-            element: <Layout />,
-            children: [
-              {
-                path: "xiaohaibase",
-                lazy: async () => ({
-                  Component: (await import("./components/XiaohaiTab")).default,
-                }),
-              },
-              {
-                path: "photos",
-                lazy: async () => ({
-                  Component: (await import("./components/Photos")).default,
-                }),
-              },
-              {
-                path: "xiaodanbase",
-                lazy: async () => ({
-                  Component: (await import("./components/XiaodanTab")).default,
-                }),
-              },
-              {
-                index: true,
-                lazy: async () => ({
-                  Component: (await import("./components/MimiBase")).default,
-                }),
-              },
-            ],
-          },
-          {
-            path: "jizhang",
-            lazy: async () => ({
-              Component: (await import("./components/JiZhang")).default,
-            }),
-          },
-        ],
-      },
-      {
-        path: "/login",
-        element: <Login />,
-      },
-      {
-        path: "/signup",
-        element: <Signup />,
-      },
-      {
-        path: "/logout",
-        lazy: async () => ({
-          Component: (await import("./components/Logout")).default,
-        }),
-      },
-    ],
-  },
-]);
-
-const queryClient = new QueryClient();
+const router = createBrowserRouter(routes);
 
 export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
+  return <RouterProvider router={router} />;
 }

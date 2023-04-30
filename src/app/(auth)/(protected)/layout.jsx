@@ -1,9 +1,8 @@
 import { Navigate, Outlet } from "react-router-dom";
+import LoadingPage from "../../../components/LoadingPage";
+import { useUser } from "../../../contexts/AuthContext";
 
-import { useUser } from "../../contexts/AuthContext";
-import LoadingPage from "../LoadingPage";
-
-export default function RequireAuth() {
+export default function Layout() {
   const [user, loading] = useUser();
   const isLoggedIn = user !== null;
 
