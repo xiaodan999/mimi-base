@@ -1,22 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useUser } from "../../../../contexts/AuthContext";
-const mimis = {
-  xiaodan: [
-    "小阿蛋💗xiaohai",
-    "小蛋是会游泳的🏊‍",
-    "我喜欢吃猪肉🐷",
-    "我想去海边玩耍🌊",
-    "我不喜欢吃番茄🍅",
-  ],
-  xiaohai: [
-    "xiaohai💕小阿蛋",
-    "我教小蛋游泳的🏊‍",
-    "我知道许多小蛋🥚的秘密",
-    "我不喜欢吃猪肉🐖",
-    "我爱喝牛奶🥛",
-  ],
-};
+import { useUser } from "../../../../../contexts/AuthContext";
 
 function Page() {
   const [user] = useUser();

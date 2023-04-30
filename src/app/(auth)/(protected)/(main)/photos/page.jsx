@@ -5,12 +5,12 @@ import { UploadOutline } from "antd-mobile-icons";
 
 import usePhotos from "./usePhotos";
 import styles from "./page.module.css";
-import { formatDate } from "../../../../utils/date";
-import InfiniteScroll from "../../../../components/InfiniteScroll";
-import supabase from "../../../../supabase-client/supabase";
-import { useUser } from "../../../../contexts/AuthContext";
-import compressImage from "../../../../utils/compressImage";
-import Spinner from "../../../../components/Spinner";
+import { formatDate } from "../../../../../utils/date";
+import InfiniteScroll from "../../../../../components/InfiniteScroll";
+import supabase from "../../../../../supabase-client/supabase";
+import { useUser } from "../../../../../contexts/AuthContext";
+import compressImage from "../../../../../utils/compressImage";
+import Spinner from "../../../../../components/Spinner";
 
 export default function Photos() {
   const { data, hasNextPage, fetchNextPage } = usePhotos();

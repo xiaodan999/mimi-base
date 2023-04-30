@@ -1,7 +1,8 @@
 import { useState } from "react";
-import XiaohaiTab from "../../../../components/XiaohaiTab";
-import { useUser } from "../../../../contexts/AuthContext";
-import supabase from "../../../../supabase-client/supabase";
+import XiaohaiTab from "../../../../../components/XiaohaiTab";
+import { useUser } from "../../../../../contexts/AuthContext";
+import supabase from "../../../../../supabase-client/supabase";
+
 export default function Page() {
   const [user] = useUser();
   const [mimi, setMimi] = useState("");

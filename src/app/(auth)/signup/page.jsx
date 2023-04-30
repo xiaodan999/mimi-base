@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import supabase from "../../supabase-client/supabase";
+import supabase from "../../../supabase-client/supabase";
 
 export default function Page() {
   const [username, setUsername] = useState("");
@@ -64,7 +64,7 @@ export default function Page() {
         <button
           onClick={async (e) => {
             e.preventDefault();
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { data } = await supabase.auth.signInWithPassword({
               email: email,
               password: password,
             });

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import LoadingPage from "../../components/LoadingPage";
-import { useUser } from "../../contexts/AuthContext";
-import supabase from "../../supabase-client/supabase";
+import LoadingPage from "../../../components/LoadingPage";
+import { useUser } from "../../../contexts/AuthContext";
+import supabase from "../../../supabase-client/supabase";
 
 import styles from "./page.module.css";
 
@@ -16,7 +16,7 @@ export default function Page() {
   if (userLoading) return <LoadingPage />;
 
   if (user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/home" />;
   }
 
   return (

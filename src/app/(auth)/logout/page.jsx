@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import supabase from "../../supabase-client/supabase";
+import supabase from "../../../supabase-client/supabase";
 
 function Page() {
   const navigate = useNavigate();
