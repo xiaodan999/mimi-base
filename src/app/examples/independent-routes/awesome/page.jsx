@@ -1,7 +1,11 @@
 import React from "react";
 
 function Page() {
-  return <div>Dynamic Page under chat</div>;
+  return (
+    <div>
+      <h1>Awesome</h1>
+    </div>
+  );
 }
 
 export default Page;

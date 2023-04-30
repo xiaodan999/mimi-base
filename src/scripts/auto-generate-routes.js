@@ -27,15 +27,16 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
   // if a sub directly only contains page.jsx, add it to the children
   if (hasLayout) {
     const children = [];
-    const output = { element: `${folder}/layout.jsx`, children };
+    let output = { element: `${folder}/layout.jsx`, children };
     onAddLayout(`${folder}/layout.jsx`);
 
     if (hasPage) {
       children.push({
-        path: simplifyPath(folder),
+        index: true,
         element: `${folder}/page.jsx`,
         lazy: hasLazy ? hasLazy : undefined,
       });
+      output = { path: simplifyPath(folder), ...output };
       onAddPage(`${folder}/page.jsx`);
     }
     otherFolders.forEach((dirent) => {
@@ -44,12 +45,19 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
     return output;
   }
   if (hasPage) {
-    onAddPage(`${folder}/page.jsx`);
-    return {
+    const output = {
       path: simplifyPath(folder),
       element: `${folder}/page.jsx`,
       lazy: hasLazy ? hasLazy : undefined,
     };
+    onAddPage(`${folder}/page.jsx`);
+    if (otherFolders.length) {
+      output.children = [];
+      otherFolders.forEach((dirent) => {
+        output.children.push(processLayout(`${folder}/${dirent.name}`, { onAddPage, onAddLayout }));
+      });
+    }
+    return output;
   }
 }
 
