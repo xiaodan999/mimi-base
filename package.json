@@ -16,7 +16,8 @@
   "scripts": {
     "start": "vite --host --port 3000",
     "build": "vite build",
-    "preview": "vite preview --host --port 3000"
+    "preview": "vite preview --host --port 3000",
+    "generate-routes": "node src/scripts/auto-generate-routes.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.20.0",
