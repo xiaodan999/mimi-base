@@ -5,20 +5,23 @@ import Page3 from "./app/(protected)/(main)/home/page.jsx";
 import Page4 from "./app/(protected)/(main)/jizhang/page.jsx";
 import Page5 from "./app/(protected)/(main)/photos/page.jsx";
 import Page6 from "./app/examples/page.jsx";
-import Page7 from "./app/examples/independent-routes/page.jsx";
-import Page8 from "./app/examples/independent-routes/abc/page.jsx";
-import Page9 from "./app/examples/independent-routes/awesome/page.jsx";
-import Page10 from "./app/examples/nested-routes/page.jsx";
-import Page11 from "./app/examples/nested-routes/hello/page.jsx";
-import Page12 from "./app/examples/nested-routes/id/page.jsx";
-import Page13 from "./app/login/page.jsx";
-import Page14 from "./app/logout/page.jsx";
-import Page15 from "./app/signup/page.jsx";
+import Page7 from "./app/examples/dynamic-routes/page.jsx";
+import Page8 from "./app/examples/dynamic-routes/[id]/page.jsx";
+import Page9 from "./app/examples/independent-routes/page.jsx";
+import Page10 from "./app/examples/independent-routes/abc/page.jsx";
+import Page11 from "./app/examples/independent-routes/awesome/page.jsx";
+import Page12 from "./app/examples/nested-routes/page.jsx";
+import Page13 from "./app/examples/nested-routes/hello/page.jsx";
+import Page14 from "./app/examples/nested-routes/id/page.jsx";
+import Page15 from "./app/login/page.jsx";
+import Page16 from "./app/logout/page.jsx";
+import Page17 from "./app/signup/page.jsx";
 import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(protected)/layout.jsx";
 import Layout3 from "./app/(protected)/(main)/layout.jsx";
 import Layout4 from "./app/examples/layout.jsx";
-import Layout5 from "./app/examples/independent-routes/layout.jsx";
+import Layout5 from "./app/examples/dynamic-routes/layout.jsx";
+import Layout6 from "./app/examples/independent-routes/layout.jsx";
 
 const routes = [
   {
@@ -66,7 +69,7 @@ const routes = [
             element: <Page6 />,
           },
           {
-            path: "/examples/independent-routes",
+            path: "/examples/dynamic-routes",
             element: <Layout5 />,
             children: [
               {
@@ -74,26 +77,40 @@ const routes = [
                 element: <Page7 />,
               },
               {
-                path: "/examples/independent-routes/abc",
+                path: "/examples/dynamic-routes/:id",
                 element: <Page8 />,
+              },
+            ],
+          },
+          {
+            path: "/examples/independent-routes",
+            element: <Layout6 />,
+            children: [
+              {
+                index: true,
+                element: <Page9 />,
+              },
+              {
+                path: "/examples/independent-routes/abc",
+                element: <Page10 />,
               },
               {
                 path: "/examples/independent-routes/awesome",
-                element: <Page9 />,
+                element: <Page11 />,
               },
             ],
           },
           {
             path: "/examples/nested-routes",
-            element: <Page10 />,
+            element: <Page12 />,
             children: [
               {
                 path: "/examples/nested-routes/hello",
-                element: <Page11 />,
+                element: <Page13 />,
               },
               {
                 path: "/examples/nested-routes/id",
-                element: <Page12 />,
+                element: <Page14 />,
               },
             ],
           },
@@ -101,15 +118,15 @@ const routes = [
       },
       {
         path: "/login",
-        element: <Page13 />,
+        element: <Page15 />,
       },
       {
         path: "/logout",
-        element: <Page14 />,
+        element: <Page16 />,
       },
       {
         path: "/signup",
-        element: <Page15 />,
+        element: <Page17 />,
       },
     ],
   },

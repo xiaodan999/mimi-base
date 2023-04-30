@@ -89,6 +89,11 @@ function generateRoutesFile(routes, pages, layouts) {
     } else {
       route.element = `<${map[route.element]} />`;
     }
+    // process dynamic routes
+    // e.g., replace [id] with :id
+    if (route.path) {
+      route.path = route.path.replaceAll(/\[(.+?)\]/g, ":$1");
+    }
   });
   let routesStr = JSON.stringify(routes, null, 2);
   // remove quotes around element and lazy

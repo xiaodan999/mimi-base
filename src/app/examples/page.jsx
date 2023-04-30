@@ -15,6 +15,11 @@ function Page() {
           to <b>nested</b> routes examples
         </Link>
       </div>
+      <div>
+        <Link to="dynamic-routes">
+          to <b>dynamic</b> routes examples
+        </Link>
+      </div>
     </div>
   );
 }
