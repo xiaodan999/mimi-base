@@ -31,11 +31,11 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
     onAddLayout(`${folder}/layout.jsx`);
 
     if (hasPage) {
-      if (!hasLazy) {
-        children.push({ path: simplifyPath(folder), element: `${folder}/page.jsx` });
-      } else {
-        children.push({ path: simplifyPath(folder), element: `${folder}/page.jsx`, lazy: true });
-      }
+      children.push({
+        path: simplifyPath(folder),
+        element: `${folder}/page.jsx`,
+        lazy: hasLazy ? hasLazy : undefined,
+      });
       onAddPage(`${folder}/page.jsx`);
     }
     otherFolders.forEach((dirent) => {
@@ -45,11 +45,11 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
   }
   if (hasPage) {
     onAddPage(`${folder}/page.jsx`);
-    if (!hasLazy) {
-      return { path: simplifyPath(folder), element: `${folder}/page.jsx` };
-    } else {
-      return { path: simplifyPath(folder), element: `${folder}/page.jsx`, lazy: true };
-    }
+    return {
+      path: simplifyPath(folder),
+      element: `${folder}/page.jsx`,
+      lazy: hasLazy ? hasLazy : undefined,
+    };
   }
 }
 
