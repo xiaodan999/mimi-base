@@ -1,9 +1,5 @@
 // auto-generated file
 import Page1 from "./app/page.jsx";
-import Page2 from "./app/(protected)/(main)/chat/page.jsx";
-import Page3 from "./app/(protected)/(main)/home/page.jsx";
-import Page4 from "./app/(protected)/(main)/jizhang/page.jsx";
-import Page5 from "./app/(protected)/(main)/photos/page.jsx";
 import Page6 from "./app/examples/page.jsx";
 import Page7 from "./app/examples/dynamic-routes/page.jsx";
 import Page8 from "./app/examples/dynamic-routes/[id]/page.jsx";
@@ -18,7 +14,6 @@ import Page16 from "./app/logout/page.jsx";
 import Page17 from "./app/signup/page.jsx";
 import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(protected)/layout.jsx";
-import Layout3 from "./app/(protected)/(main)/layout.jsx";
 import Layout4 from "./app/examples/layout.jsx";
 import Layout5 from "./app/examples/dynamic-routes/layout.jsx";
 import Layout6 from "./app/examples/independent-routes/layout.jsx";
@@ -36,7 +31,9 @@ const routes = [
         element: <Layout2 />,
         children: [
           {
-            element: <Layout3 />,
+            lazy: async () => ({
+              Component: (await import("./app/(protected)/(main)/layout.jsx")).default,
+            }),
             children: [
               {
                 path: "/chat",
@@ -46,15 +43,21 @@ const routes = [
               },
               {
                 path: "/home",
-                element: <Page3 />,
+                lazy: async () => ({
+                  Component: (await import("./app/(protected)/(main)/home/page.jsx")).default,
+                }),
               },
               {
                 path: "/jizhang",
-                element: <Page4 />,
+                lazy: async () => ({
+                  Component: (await import("./app/(protected)/(main)/jizhang/page.jsx")).default,
+                }),
               },
               {
                 path: "/photos",
-                element: <Page5 />,
+                lazy: async () => ({
+                  Component: (await import("./app/(protected)/(main)/photos/page.jsx")).default,
+                }),
               },
             ],
           },
