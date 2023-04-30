@@ -1,135 +1,156 @@
 // auto-generated file
-import Page1 from "./app/page.jsx";
-import Page6 from "./app/examples/page.jsx";
-import Page7 from "./app/examples/dynamic-routes/page.jsx";
-import Page8 from "./app/examples/dynamic-routes/[id]/page.jsx";
-import Page9 from "./app/examples/independent-routes/page.jsx";
-import Page10 from "./app/examples/independent-routes/abc/page.jsx";
-import Page11 from "./app/examples/independent-routes/awesome/page.jsx";
-import Page12 from "./app/examples/nested-routes/page.jsx";
-import Page13 from "./app/examples/nested-routes/hello/page.jsx";
-import Page14 from "./app/examples/nested-routes/id/page.jsx";
-import Page15 from "./app/login/page.jsx";
-import Page16 from "./app/logout/page.jsx";
-import Page17 from "./app/signup/page.jsx";
-import Layout1 from "./app/layout.jsx";
-import Layout2 from "./app/(protected)/layout.jsx";
-import Layout4 from "./app/examples/layout.jsx";
-import Layout5 from "./app/examples/dynamic-routes/layout.jsx";
-import Layout6 from "./app/examples/independent-routes/layout.jsx";
 
 const routes = [
   {
     path: "/",
-    element: <Layout1 />,
+    lazy: async () => ({ Component: (await import("./app/layout.jsx")).default }),
     children: [
       {
         index: true,
-        element: <Page1 />,
+        lazy: async () => ({ Component: (await import("./app/page.jsx")).default }),
       },
       {
-        element: <Layout2 />,
+        lazy: async () => ({ Component: (await import("./app/(auth)/layout.jsx")).default }),
         children: [
           {
             lazy: async () => ({
-              Component: (await import("./app/(protected)/(main)/layout.jsx")).default,
+              Component: (await import("./app/(auth)/(protected)/layout.jsx")).default,
             }),
             children: [
               {
-                path: "/chat",
                 lazy: async () => ({
-                  Component: (await import("./app/(protected)/(main)/chat/page.jsx")).default,
+                  Component: (await import("./app/(auth)/(protected)/(main)/layout.jsx")).default,
                 }),
-              },
-              {
-                path: "/home",
-                lazy: async () => ({
-                  Component: (await import("./app/(protected)/(main)/home/page.jsx")).default,
-                }),
-              },
-              {
-                path: "/jizhang",
-                lazy: async () => ({
-                  Component: (await import("./app/(protected)/(main)/jizhang/page.jsx")).default,
-                }),
-              },
-              {
-                path: "/photos",
-                lazy: async () => ({
-                  Component: (await import("./app/(protected)/(main)/photos/page.jsx")).default,
-                }),
+                children: [
+                  {
+                    path: "/chat",
+                    lazy: async () => ({
+                      Component: (await import("./app/(auth)/(protected)/(main)/chat/page.jsx"))
+                        .default,
+                    }),
+                  },
+                  {
+                    path: "/home",
+                    lazy: async () => ({
+                      Component: (await import("./app/(auth)/(protected)/(main)/home/page.jsx"))
+                        .default,
+                    }),
+                  },
+                  {
+                    path: "/jizhang",
+                    lazy: async () => ({
+                      Component: (await import("./app/(auth)/(protected)/(main)/jizhang/page.jsx"))
+                        .default,
+                    }),
+                  },
+                  {
+                    path: "/photos",
+                    lazy: async () => ({
+                      Component: (await import("./app/(auth)/(protected)/(main)/photos/page.jsx"))
+                        .default,
+                    }),
+                  },
+                ],
               },
             ],
+          },
+          {
+            path: "/login",
+            lazy: async () => ({
+              Component: (await import("./app/(auth)/login/page.jsx")).default,
+            }),
+          },
+          {
+            path: "/logout",
+            lazy: async () => ({
+              Component: (await import("./app/(auth)/logout/page.jsx")).default,
+            }),
+          },
+          {
+            path: "/signup",
+            lazy: async () => ({
+              Component: (await import("./app/(auth)/signup/page.jsx")).default,
+            }),
           },
         ],
       },
       {
         path: "/examples",
-        element: <Layout4 />,
+        lazy: async () => ({ Component: (await import("./app/examples/layout.jsx")).default }),
         children: [
           {
             index: true,
-            element: <Page6 />,
+            lazy: async () => ({ Component: (await import("./app/examples/page.jsx")).default }),
           },
           {
             path: "/examples/dynamic-routes",
-            element: <Layout5 />,
+            lazy: async () => ({
+              Component: (await import("./app/examples/dynamic-routes/layout.jsx")).default,
+            }),
             children: [
               {
                 index: true,
-                element: <Page7 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/dynamic-routes/page.jsx")).default,
+                }),
               },
               {
                 path: "/examples/dynamic-routes/:id",
-                element: <Page8 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/dynamic-routes/[id]/page.jsx")).default,
+                }),
               },
             ],
           },
           {
             path: "/examples/independent-routes",
-            element: <Layout6 />,
+            lazy: async () => ({
+              Component: (await import("./app/examples/independent-routes/layout.jsx")).default,
+            }),
             children: [
               {
                 index: true,
-                element: <Page9 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/independent-routes/page.jsx")).default,
+                }),
               },
               {
                 path: "/examples/independent-routes/abc",
-                element: <Page10 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/independent-routes/abc/page.jsx"))
+                    .default,
+                }),
               },
               {
                 path: "/examples/independent-routes/awesome",
-                element: <Page11 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/independent-routes/awesome/page.jsx"))
+                    .default,
+                }),
               },
             ],
           },
           {
             path: "/examples/nested-routes",
-            element: <Page12 />,
+            lazy: async () => ({
+              Component: (await import("./app/examples/nested-routes/page.jsx")).default,
+            }),
             children: [
               {
                 path: "/examples/nested-routes/hello",
-                element: <Page13 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/nested-routes/hello/page.jsx")).default,
+                }),
               },
               {
                 path: "/examples/nested-routes/id",
-                element: <Page14 />,
+                lazy: async () => ({
+                  Component: (await import("./app/examples/nested-routes/id/page.jsx")).default,
+                }),
               },
             ],
           },
         ],
-      },
-      {
-        path: "/login",
-        element: <Page15 />,
-      },
-      {
-        path: "/logout",
-        element: <Page16 />,
-      },
-      {
-        path: "/signup",
-        element: <Page17 />,
       },
     ],
   },

@@ -34,6 +34,7 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
       children.push({
         index: true,
         element: `${folder}/page.jsx`,
+        lazy: hasLazy ? hasLazy : undefined,
       });
       output = { path: simplifyPath(folder), ...output };
       onAddPage(`${folder}/page.jsx`);
@@ -77,7 +78,7 @@ function generateRoutesFile(routes, pages, layouts) {
 
   // process routes body string
   traverse(routes, (route) => {
-    if (route.lazy) {
+    if (true) {
       route.lazy = `async () => ({Component: (await import('${route.element}')).default})`;
       // delete the import statement for the route
       delete map[route.element];
