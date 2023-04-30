@@ -5,7 +5,8 @@ import Page3 from "./app/(protected)/(main)/home/page.jsx";
 import Page4 from "./app/(protected)/(main)/jizhang/page.jsx";
 import Page5 from "./app/(protected)/(main)/photos/page.jsx";
 import Page6 from "./app/login/page.jsx";
-import Page7 from "./app/signup/page.jsx";
+import Page7 from "./app/logout/page.jsx";
+import Page8 from "./app/signup/page.jsx";
 import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(protected)/layout.jsx";
 import Layout3 from "./app/(protected)/(main)/layout.jsx";
@@ -51,8 +52,12 @@ const routes = [
         element: <Page6 />,
       },
       {
-        path: "/signup",
+        path: "/logout",
         element: <Page7 />,
+      },
+      {
+        path: "/signup",
+        element: <Page8 />,
       },
     ],
   },

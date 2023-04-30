@@ -1,16 +1,15 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
 import supabase from "../../supabase-client/supabase";
 
-function Logout() {
+function Page() {
   const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.signOut().then(() => {
       console.log("logged out");
       setTimeout(() => {
-        navigate("/login");
+        navigate("/");
       }, 1000);
     });
   }, [navigate]);
@@ -22,4 +21,4 @@ function Logout() {
   );
 }
 
-export default Logout;
+export default Page;

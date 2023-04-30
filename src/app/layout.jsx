@@ -9,7 +9,7 @@ const queryClient = new QueryClient();
 // The root layout for the whole app
 function Layout() {
   return (
-    <div className="root-layout">
+    <div className="root-layout" style={{ height: "100%" }}>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <Outlet />

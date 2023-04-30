@@ -2,9 +2,9 @@ import { NavLink } from "react-router-dom";
 import styles from "./buttons.module.css";
 
 const routes = [
-  { name: "视频基地", path: "/", icon: "/icons/video.png" },
+  { name: "视频基地", path: "/home", icon: "/icons/video.png" },
   { name: "照片基地", path: "/photos", icon: "/icons/photo.png" },
-  { name: "聊天基地", path: "/xiaodanbase", icon: "/icons/chat.png" },
+  { name: "聊天基地", path: "/chat", icon: "/icons/chat.png" },
   { name: "记账基地", path: "/jizhang", icon: "/icons/wallet.png" },
 ];
 

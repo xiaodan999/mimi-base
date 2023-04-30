@@ -1,12 +1,14 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
+import NavButtons from "../../../components/NavButtons";
+
+import styles from "./layout.module.css";
 
 function Layout() {
   return (
-    <div>
-      main
+    <div className={styles.layout}>
       <Outlet />
-      <div>4 nav bar</div>
+      <NavButtons />
     </div>
   );
 }
