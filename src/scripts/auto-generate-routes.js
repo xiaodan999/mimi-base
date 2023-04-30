@@ -27,14 +27,13 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
   // if a sub directly only contains page.jsx, add it to the children
   if (hasLayout) {
     const children = [];
-    let output = { element: `${folder}/layout.jsx`, children };
+    let output = { element: `${folder}/layout.jsx`, lazy: hasLazy ? hasLazy : undefined, children };
     onAddLayout(`${folder}/layout.jsx`);
 
     if (hasPage) {
       children.push({
         index: true,
         element: `${folder}/page.jsx`,
-        lazy: hasLazy ? hasLazy : undefined,
       });
       output = { path: simplifyPath(folder), ...output };
       onAddPage(`${folder}/page.jsx`);
@@ -76,15 +75,12 @@ function generateRoutesFile(routes, pages, layouts) {
     layoutCounter++;
   });
 
-  Object.entries(map).forEach(([key, value]) => {
-    imports += `import ${value} from "${key}";\n`;
-  });
-
   // process routes body string
-
   traverse(routes, (route) => {
     if (route.lazy) {
       route.lazy = `async () => ({Component: (await import('${route.element}')).default})`;
+      // delete the import statement for the route
+      delete map[route.element];
       route.element = undefined;
     } else {
       route.element = `<${map[route.element]} />`;
@@ -95,6 +91,12 @@ function generateRoutesFile(routes, pages, layouts) {
       route.path = route.path.replaceAll(/\[(.+?)\]/g, ":$1");
     }
   });
+
+  // Construct imports
+  Object.entries(map).forEach(([key, value]) => {
+    imports += `import ${value} from "${key}";\n`;
+  });
+
   let routesStr = JSON.stringify(routes, null, 2);
   // remove quotes around element and lazy
   routesStr = removeQuotes(routesStr);
