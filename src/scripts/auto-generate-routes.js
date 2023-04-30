@@ -78,7 +78,7 @@ function generateRoutesFile(routes, pages, layouts) {
 
   // process routes body string
   traverse(routes, (route) => {
-    if (true) {
+    if (route.lazy) {
       route.lazy = `async () => ({Component: (await import('${route.element}')).default})`;
       // delete the import statement for the route
       delete map[route.element];
