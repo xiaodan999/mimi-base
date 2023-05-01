@@ -49,6 +49,7 @@ export default function XiaohaiTab() {
           paddingLeft: "10px",
           paddingRight: "10px",
           overflow: "scroll",
+          willChange: "scroll-position",
           flex: 1,
         }}
       >

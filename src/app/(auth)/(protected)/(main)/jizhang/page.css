@@ -34,6 +34,7 @@
 
 .jizhang-page .ming-xi {
   overflow: scroll;
+  will-change: scroll-position;
   flex: 1;
   border-radius: 16px;
   margin: 12px 0;

@@ -22,7 +22,14 @@ export default function Photos() {
   }, [data]);
 
   return (
-    <div style={{ height: "100%", overflowY: "scroll", paddingBottom: "40px" }}>
+    <div
+      style={{
+        height: "100%",
+        overflowY: "scroll",
+        willChange: "scroll-position",
+        paddingBottom: "40px",
+      }}
+    >
       <Header />
       {photos.map((photo) => (
         <Fragment key={photo.id}>
