@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import supabase from "../../../../../supabase-client/supabase";
+
+import supabase from "@src/supabase-client/supabase";
 
 function transform(data) {
   const transformed = data.map((p) => ({

@@ -6,12 +6,12 @@ import { Link } from "react-router-dom";
 
 import usePhotos from "./usePhotos";
 import styles from "./page.module.css";
-import { formatDate } from "../../../../../utils/date";
-import InfiniteScroll from "../../../../../components/InfiniteScroll";
-import supabase from "../../../../../supabase-client/supabase";
-import { useUser } from "../../../../../contexts/AuthContext";
-import compressImage from "../../../../../utils/compressImage";
-import Spinner from "../../../../../components/Spinner";
+import { formatDate } from "@src/utils/date";
+import InfiniteScroll from "@src/components/InfiniteScroll";
+import supabase from "@src/supabase-client/supabase";
+import { useUser } from "@src/contexts/AuthContext";
+import compressImage from "@src/utils/compressImage";
+import Spinner from "@src/components/Spinner";
 
 export default function Photos() {
   const { data, hasNextPage, fetchNextPage } = usePhotos();

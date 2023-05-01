@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
-import LoadingPage from "../../../components/LoadingPage";
-import { useUser } from "../../../contexts/AuthContext";
+
+import LoadingPage from "@src/components/LoadingPage";
+import { useUser } from "@src/contexts/AuthContext";
 
 export default function Layout() {
   const [user, loading] = useUser();

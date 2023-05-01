@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import supabase from "../../../supabase-client/supabase";
+
+import supabase from "@src/supabase-client/supabase";
 
 export default function Page() {
   const [username, setUsername] = useState("");

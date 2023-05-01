@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import Popover from "../../../../../components/Popover";
-import Spinner from "../../../../../components/Spinner";
-import useScrolling from "../../../../../hooks/useScrolling";
-import supabase from "../../../../../supabase-client/supabase";
-import { formatDate, getCurrentMonth, getMonthRange } from "../../../../../utils/date";
-import groupBy from "../../../../../utils/groupBy";
+
+import supabase from "@src/supabase-client/supabase";
+import Popover from "@src/components/Popover";
+import Spinner from "@src/components/Spinner";
+import useScrolling from "@src/hooks/useScrolling";
+import groupBy from "@src/utils/groupBy";
+import { formatDate, getCurrentMonth, getMonthRange } from "@src/utils/date";
 
 import "./page.css";
 

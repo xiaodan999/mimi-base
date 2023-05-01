@@ -1,6 +1,6 @@
-import React from "react";
 import { Link } from "react-router-dom";
-import { useUser } from "../../../../../contexts/AuthContext";
+
+import { useUser } from "@src/contexts/AuthContext";
 
 function Page() {
   const [user] = useUser();

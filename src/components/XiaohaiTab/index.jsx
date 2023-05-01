@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import supabase from "../../supabase-client/supabase";
+
+import supabase from "@src/supabase-client/supabase";
+import { formatDate } from "@src/utils/date";
 import Spinner from "../Spinner";
-import { formatDate } from "../../utils/date";
 
 export default function XiaohaiTab() {
   const [allMimi, setAllMimi] = useState([]);

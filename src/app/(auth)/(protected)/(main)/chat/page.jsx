@@ -1,7 +1,8 @@
 import { useState } from "react";
-import XiaohaiTab from "../../../../../components/XiaohaiTab";
-import { useUser } from "../../../../../contexts/AuthContext";
-import supabase from "../../../../../supabase-client/supabase";
+
+import XiaohaiTab from "@src/components/XiaohaiTab";
+import { useUser } from "@src/contexts/AuthContext";
+import supabase from "@src/supabase-client/supabase";
 
 export default function Page() {
   const [user] = useUser();
