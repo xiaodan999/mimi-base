@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
+import path from "path";
 
 import { dependencies } from "./package.json";
 
@@ -38,4 +39,9 @@ export default defineConfig({
       template: "treemap",
     }),
   ],
+  resolve: {
+    alias: {
+      "@src": path.resolve(__dirname, "src"),
+    },
+  },
 });
