@@ -2,6 +2,7 @@ import { Fragment, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
+import { Link } from "react-router-dom";
 
 import usePhotos from "./usePhotos";
 import styles from "./page.module.css";
@@ -113,7 +114,9 @@ function Photo({ name, date, photoUrl, id }) {
         </SwipeAction>
       </div>
 
-      <p className={styles.footer}>{date}</p>
+      <p className={styles.footer}>
+        <Link to={`${id}`}>{date}</Link>
+      </p>
     </div>
   );
 }
