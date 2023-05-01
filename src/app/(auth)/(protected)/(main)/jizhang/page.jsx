@@ -73,7 +73,6 @@ export default function Page() {
   useEffect(() => {
     load();
   }, [load]);
-  console.log("month: ", month);
 
   return (
     <div className="jizhang-page">
