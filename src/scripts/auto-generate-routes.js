@@ -40,8 +40,10 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
       onAddPage(`${folder}/page.jsx`);
     }
     otherFolders.forEach((dirent) => {
-      children.push(processLayout(`${folder}/${dirent.name}`, { onAddPage, onAddLayout }));
+      const o = processLayout(`${folder}/${dirent.name}`, { onAddPage, onAddLayout });
+      if (o !== null) children.push(o);
     });
+    if (children.length === 0) delete output["children"];
     return output;
   }
   if (hasPage) {
@@ -54,11 +56,16 @@ function processLayout(folder, { onAddPage, onAddLayout }) {
     if (otherFolders.length) {
       output.children = [];
       otherFolders.forEach((dirent) => {
-        output.children.push(processLayout(`${folder}/${dirent.name}`, { onAddPage, onAddLayout }));
+        const o = processLayout(`${folder}/${dirent.name}`, { onAddPage, onAddLayout });
+        if (o !== null) output.children.push(o);
       });
+      if (output.children.length === 0) delete output["children"];
     }
+
     return output;
   }
+  // a folder without page or layout
+  return null;
 }
 
 function generateRoutesFile(routes, pages, layouts) {
@@ -75,7 +82,7 @@ function generateRoutesFile(routes, pages, layouts) {
     map[path] = `Layout${layoutCounter}`;
     layoutCounter++;
   });
-
+  console.log(JSON.stringify(routes, null, 2));
   // process routes body string
   traverse(routes, (route) => {
     if (route.lazy) {
