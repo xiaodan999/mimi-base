@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
@@ -12,6 +12,7 @@ import supabase from "@src/supabase-client/supabase";
 import { useUser } from "@src/contexts/AuthContext";
 import compressImage from "@src/utils/compressImage";
 import Spinner from "@src/components/Spinner";
+import getResizedUrl from "@src/utils/getResizedUrl";
 
 export default function Photos() {
   const { data, hasNextPage, fetchNextPage } = usePhotos();
@@ -56,6 +57,7 @@ function Line() {
     ></div>
   );
 }
+
 function Photo({ name, date, photoUrl, id }) {
   const queryClient = useQueryClient();
 
@@ -90,41 +92,68 @@ function Photo({ name, date, photoUrl, id }) {
       queryClient.invalidateQueries({ queryKey: ["photos"] });
     },
   });
+  const [visible, setVisible] = useState(false);
+  const [origin, setOrigin] = useState(false);
+
+  const renderFooter = () => {
+    return (
+      <div className={styles.viewerFooter}>
+        <div
+          className={styles.footerButton}
+          onClick={() => {
+            setOrigin(true);
+          }}
+        >
+          查看原图
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className={styles.photo}>
-      <p className={styles.name}>{name}：</p>
-      <div className={styles.swipeWrapper}>
-        <SwipeAction
-          rightActions={[
-            {
-              key: "delete",
-              text: "删除",
-              color: "danger",
-              onClick: async () => {
-                mutation.mutate();
+    <>
+      <div className={styles.photo}>
+        <p className={styles.name}>{name}：</p>
+        <div className={styles.swipeWrapper}>
+          <SwipeAction
+            rightActions={[
+              {
+                key: "delete",
+                text: "删除",
+                color: "danger",
+                onClick: async () => {
+                  mutation.mutate();
+                },
               },
-            },
-          ]}
-        >
-          <div className={styles.imageWrapper}>
-            <img
-              className={styles.image}
-              src={photoUrl}
-              alt="hezhao"
-              loading="lazy"
-              onClick={() => {
-                ImageViewer.show({ image: photoUrl });
-              }}
-            />
-          </div>
-        </SwipeAction>
-      </div>
+            ]}
+          >
+            <div className={styles.imageWrapper}>
+              <img
+                className={styles.image}
+                src={getResizedUrl(photoUrl, 640, 480)}
+                alt="hezhao"
+                loading="lazy"
+                onClick={() => {
+                  setVisible(true);
+                }}
+              />
+            </div>
+          </SwipeAction>
+        </div>
 
-      <p className={styles.footer}>
-        <Link to={`${id}`}>{date}</Link>
-      </p>
-    </div>
+        <p className={styles.footer}>
+          <Link to={`${id}`}>{date}</Link>
+        </p>
+      </div>
+      <ImageViewer
+        image={origin ? photoUrl : getResizedUrl(photoUrl, 640, 480)}
+        visible={visible}
+        renderFooter={origin ? null : renderFooter}
+        onClose={() => {
+          setVisible(false);
+        }}
+      />
+    </>
   );
 }
 function Header() {
