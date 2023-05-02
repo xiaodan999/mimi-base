@@ -146,7 +146,7 @@ function Photo({ name, date, photoUrl, id }) {
         </p>
       </div>
       <ImageViewer
-        image={origin ? photoUrl : getResizedUrl(photoUrl, 640, 480)}
+        image={origin ? getResizedUrl(photoUrl) : getResizedUrl(photoUrl, 640, 480)}
         visible={visible}
         renderFooter={origin ? null : renderFooter}
         onClose={() => {
