@@ -1,5 +1,6 @@
+import { useState, useEffect, useRef } from "react";
 import { useThrottleFn } from "ahooks";
-import React, { useState, useEffect, useRef } from "react";
+
 import Spinner from "../Spinner";
 
 // Define an array of overflow styles that indicate that an element is scrollable

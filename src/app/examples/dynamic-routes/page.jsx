@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
 const IDs = [1, 2, 3, 4, 5, 6];
