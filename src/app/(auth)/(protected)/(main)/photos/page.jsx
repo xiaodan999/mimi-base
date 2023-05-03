@@ -132,7 +132,7 @@ function Photo({ name, date, photoUrl, id }) {
             <div className={styles.imageWrapper}>
               <img
                 className={styles.image}
-                src={getResizedUrl(photoUrl, 640, 480)}
+                src={getResizedUrl({ url: photoUrl, width: 640, height: 480 })}
                 alt="hezhao"
                 loading="lazy"
                 onClick={() => {
@@ -148,7 +148,16 @@ function Photo({ name, date, photoUrl, id }) {
         </p>
       </div>
       <ImageViewer
-        image={origin ? getResizedUrl(photoUrl) : getResizedUrl(photoUrl, 640, 480)}
+        image={
+          origin
+            ? getResizedUrl({ url: photoUrl })
+            : getResizedUrl({
+                url: photoUrl,
+                width: 640,
+                height: 480,
+                fit: "contain",
+              })
+        }
         visible={visible}
         renderFooter={origin ? null : renderFooter}
         onClose={() => {
