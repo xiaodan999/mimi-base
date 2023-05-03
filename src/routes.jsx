@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 // auto-generated file
 import Page1 from "./app/page.jsx";
 import Page2 from "./app/(auth)/(protected)/(main)/chat/page.jsx";

@@ -109,7 +109,8 @@ function generateRoutesFile(routes, pages, layouts) {
   // remove quotes around element and lazy
   routesStr = removeQuotes(routesStr);
 
-  return `// auto-generated file
+  return `/* eslint-disable import/order */
+// auto-generated file
 ${imports}
 
 const routes = ${routesStr}  
