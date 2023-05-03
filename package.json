@@ -13,10 +13,16 @@
       "prettier --write"
     ]
   },
+  "size-limit": [
+    {
+      "path": "build/assets/**/*.js"
+    }
+  ],
   "scripts": {
     "start": "vite --host --port 3000",
     "build": "vite build",
     "preview": "vite preview --host --port 3000",
+    "size": "vite build && size-limit",
     "generate-routes": "node src/scripts/auto-generate-routes.js"
   },
   "dependencies": {
@@ -31,6 +37,10 @@
     "react-router-dom": "^6.10.0"
   },
   "devDependencies": {
+    "@size-limit/esbuild": "^8.2.4",
+    "@size-limit/esbuild-why": "^8.2.4",
+    "@size-limit/file": "^8.2.4",
+    "@size-limit/preset-app": "^8.2.4",
     "@types/node": "^18.16.3",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.1",
@@ -49,6 +59,7 @@
     "postcss-nesting": "^11.2.2",
     "prettier": "^2.8.7",
     "rollup-plugin-visualizer": "^5.9.0",
+    "size-limit": "^8.2.4",
     "typescript": "^5.0.4",
     "vite": "^4.2.0"
   },
