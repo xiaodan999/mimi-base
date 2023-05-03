@@ -4,25 +4,23 @@ import Page1 from "./app/page.jsx";
 import Page2 from "./app/(auth)/(protected)/(main)/chat/page.jsx";
 import Page3 from "./app/(auth)/(protected)/(main)/home/page.jsx";
 import Page4 from "./app/(auth)/(protected)/(main)/jizhang/page.jsx";
-import Page5 from "./app/(auth)/(protected)/(main)/photos/page.jsx";
 import Page6 from "./app/(auth)/(protected)/(main)/photos/[id]/page.jsx";
 import Page7 from "./app/(auth)/login/page.jsx";
 import Page8 from "./app/(auth)/logout/page.jsx";
 import Page9 from "./app/(auth)/signup/page.jsx";
 import Page10 from "./app/examples/page.jsx";
-import Page11 from "./app/examples/dynamic-routes/page.jsx";
-import Page12 from "./app/examples/dynamic-routes/[id]/page.jsx";
-import Page13 from "./app/examples/independent-routes/page.jsx";
-import Page14 from "./app/examples/independent-routes/abc/page.jsx";
-import Page15 from "./app/examples/independent-routes/awesome/page.jsx";
-import Page16 from "./app/examples/nested-routes/page.jsx";
-import Page17 from "./app/examples/nested-routes/hello/page.jsx";
-import Page18 from "./app/examples/nested-routes/id/page.jsx";
+import Page12 from "./app/examples/dynamic-routes/page.jsx";
+import Page13 from "./app/examples/dynamic-routes/[id]/page.jsx";
+import Page14 from "./app/examples/independent-routes/page.jsx";
+import Page15 from "./app/examples/independent-routes/abc/page.jsx";
+import Page16 from "./app/examples/independent-routes/awesome/page.jsx";
+import Page17 from "./app/examples/nested-routes/page.jsx";
+import Page18 from "./app/examples/nested-routes/hello/page.jsx";
+import Page19 from "./app/examples/nested-routes/id/page.jsx";
 import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(auth)/layout.jsx";
 import Layout3 from "./app/(auth)/(protected)/layout.jsx";
 import Layout4 from "./app/(auth)/(protected)/(main)/layout.jsx";
-import Layout5 from "./app/(auth)/(protected)/(main)/photos/layout.jsx";
 import Layout6 from "./app/examples/layout.jsx";
 import Layout7 from "./app/examples/dynamic-routes/layout.jsx";
 import Layout8 from "./app/examples/independent-routes/layout.jsx";
@@ -59,11 +57,18 @@ const routes = [
                   },
                   {
                     path: "/photos",
-                    element: <Layout5 />,
+                    lazy: async () => ({
+                      Component: (await import("./app/(auth)/(protected)/(main)/photos/layout.jsx"))
+                        .default,
+                    }),
                     children: [
                       {
                         index: true,
-                        element: <Page5 />,
+                        lazy: async () => ({
+                          Component: (
+                            await import("./app/(auth)/(protected)/(main)/photos/page.jsx")
+                          ).default,
+                        }),
                       },
                       {
                         path: "/photos/:id",
@@ -98,16 +103,22 @@ const routes = [
             element: <Page10 />,
           },
           {
+            path: "/examples/chart-test",
+            lazy: async () => ({
+              Component: (await import("./app/examples/chart-test/page.jsx")).default,
+            }),
+          },
+          {
             path: "/examples/dynamic-routes",
             element: <Layout7 />,
             children: [
               {
                 index: true,
-                element: <Page11 />,
+                element: <Page12 />,
               },
               {
                 path: "/examples/dynamic-routes/:id",
-                element: <Page12 />,
+                element: <Page13 />,
               },
             ],
           },
@@ -117,29 +128,29 @@ const routes = [
             children: [
               {
                 index: true,
-                element: <Page13 />,
-              },
-              {
-                path: "/examples/independent-routes/abc",
                 element: <Page14 />,
               },
               {
-                path: "/examples/independent-routes/awesome",
+                path: "/examples/independent-routes/abc",
                 element: <Page15 />,
+              },
+              {
+                path: "/examples/independent-routes/awesome",
+                element: <Page16 />,
               },
             ],
           },
           {
             path: "/examples/nested-routes",
-            element: <Page16 />,
+            element: <Page17 />,
             children: [
               {
                 path: "/examples/nested-routes/hello",
-                element: <Page17 />,
+                element: <Page18 />,
               },
               {
                 path: "/examples/nested-routes/id",
-                element: <Page18 />,
+                element: <Page19 />,
               },
             ],
           },
