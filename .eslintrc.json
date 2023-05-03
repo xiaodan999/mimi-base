@@ -1,6 +1,41 @@
 {
-  "extends": ["react-app", "plugin:prettier/recommended"],
+  "extends": ["react-app", "plugin:prettier/recommended", "plugin:import/recommended"],
   "rules": {
-    "prettier/prettier": ["error", { "endOfLine": "auto" }]
+    "prettier/prettier": ["error", { "endOfLine": "auto" }],
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", ["parent", "sibling"], "index"],
+        "newlines-between": "always",
+        "pathGroups": [
+          {
+            "pattern": "react",
+            "group": "external",
+            "position": "before"
+          },
+          {
+            "pattern": "react-router-dom",
+            "group": "external",
+            "position": "before"
+          },
+          {
+            "pattern": "./**/*.module.css",
+            "group": "index",
+            "position": "after"
+          }
+        ],
+        "distinctGroup": false,
+        "pathGroupsExcludedImportTypes": ["react", "react-router-dom"],
+        "alphabetize": {
+          "order": "asc"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "import/resolver": {
+      "typescript": true,
+      "node": true
+    }
   }
 }

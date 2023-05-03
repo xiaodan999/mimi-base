@@ -1,18 +1,20 @@
 import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
-import { Link } from "react-router-dom";
+
+import InfiniteScroll from "@src/components/InfiniteScroll";
+import Spinner from "@src/components/Spinner";
+import { useUser } from "@src/contexts/AuthContext";
+import supabase from "@src/supabase-client/supabase";
+import compressImage from "@src/utils/compressImage";
+import { formatDate } from "@src/utils/date";
+import getResizedUrl from "@src/utils/getResizedUrl";
 
 import usePhotos from "./usePhotos";
+
 import styles from "./page.module.css";
-import { formatDate } from "@src/utils/date";
-import InfiniteScroll from "@src/components/InfiniteScroll";
-import supabase from "@src/supabase-client/supabase";
-import { useUser } from "@src/contexts/AuthContext";
-import compressImage from "@src/utils/compressImage";
-import Spinner from "@src/components/Spinner";
-import getResizedUrl from "@src/utils/getResizedUrl";
 
 export default function Photos() {
   const { data, hasNextPage, fetchNextPage } = usePhotos();
