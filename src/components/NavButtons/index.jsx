@@ -1,11 +1,17 @@
 import { NavLink } from "react-router-dom";
+
+import ChatIcon from "./icons/chat.png";
+import PhotoIcon from "./icons/photo.png";
+import VideoIcon from "./icons/video.png";
+import WalletIcon from "./icons/wallet.png";
+
 import styles from "./buttons.module.css";
 
 const routes = [
-  { name: "视频基地", path: "/home", icon: "/icons/video.png" },
-  { name: "照片基地", path: "/photos", icon: "/icons/photo.png" },
-  { name: "聊天基地", path: "/chat", icon: "/icons/chat.png" },
-  { name: "记账基地", path: "/jizhang", icon: "/icons/wallet.png" },
+  { name: "视频基地", path: "/home", icon: VideoIcon },
+  { name: "照片基地", path: "/photos", icon: PhotoIcon },
+  { name: "聊天基地", path: "/chat", icon: ChatIcon },
+  { name: "记账基地", path: "/jizhang", icon: WalletIcon },
 ];
 
 export default function NavButtons() {
