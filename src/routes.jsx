@@ -9,14 +9,14 @@ import Page7 from "./app/(auth)/login/page.jsx";
 import Page8 from "./app/(auth)/logout/page.jsx";
 import Page9 from "./app/(auth)/signup/page.jsx";
 import Page10 from "./app/examples/page.jsx";
-import Page12 from "./app/examples/dynamic-routes/page.jsx";
-import Page13 from "./app/examples/dynamic-routes/[id]/page.jsx";
-import Page14 from "./app/examples/independent-routes/page.jsx";
-import Page15 from "./app/examples/independent-routes/abc/page.jsx";
-import Page16 from "./app/examples/independent-routes/awesome/page.jsx";
-import Page17 from "./app/examples/nested-routes/page.jsx";
-import Page18 from "./app/examples/nested-routes/hello/page.jsx";
-import Page19 from "./app/examples/nested-routes/id/page.jsx";
+import Page11 from "./app/examples/dynamic-routes/page.jsx";
+import Page12 from "./app/examples/dynamic-routes/[id]/page.jsx";
+import Page13 from "./app/examples/independent-routes/page.jsx";
+import Page14 from "./app/examples/independent-routes/abc/page.jsx";
+import Page15 from "./app/examples/independent-routes/awesome/page.jsx";
+import Page16 from "./app/examples/nested-routes/page.jsx";
+import Page17 from "./app/examples/nested-routes/hello/page.jsx";
+import Page18 from "./app/examples/nested-routes/id/page.jsx";
 import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(auth)/layout.jsx";
 import Layout3 from "./app/(auth)/(protected)/layout.jsx";
@@ -103,22 +103,16 @@ const routes = [
             element: <Page10 />,
           },
           {
-            path: "/examples/chart-test",
-            lazy: async () => ({
-              Component: (await import("./app/examples/chart-test/page.jsx")).default,
-            }),
-          },
-          {
             path: "/examples/dynamic-routes",
             element: <Layout7 />,
             children: [
               {
                 index: true,
-                element: <Page12 />,
+                element: <Page11 />,
               },
               {
                 path: "/examples/dynamic-routes/:id",
-                element: <Page13 />,
+                element: <Page12 />,
               },
             ],
           },
@@ -128,29 +122,29 @@ const routes = [
             children: [
               {
                 index: true,
-                element: <Page14 />,
+                element: <Page13 />,
               },
               {
                 path: "/examples/independent-routes/abc",
-                element: <Page15 />,
+                element: <Page14 />,
               },
               {
                 path: "/examples/independent-routes/awesome",
-                element: <Page16 />,
+                element: <Page15 />,
               },
             ],
           },
           {
             path: "/examples/nested-routes",
-            element: <Page17 />,
+            element: <Page16 />,
             children: [
               {
                 path: "/examples/nested-routes/hello",
-                element: <Page18 />,
+                element: <Page17 />,
               },
               {
                 path: "/examples/nested-routes/id",
-                element: <Page19 />,
+                element: <Page18 />,
               },
             ],
           },
