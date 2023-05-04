@@ -15,7 +15,12 @@
   },
   "size-limit": [
     {
-      "path": "build/assets/**/*.js"
+      "name": "common",
+      "path": "build/assets/common/*.js"
+    },
+    {
+      "name": "index.js",
+      "path": "build/assets/index-*.js"
     }
   ],
   "scripts": {
