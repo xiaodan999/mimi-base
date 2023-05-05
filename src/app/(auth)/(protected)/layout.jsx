@@ -8,6 +8,6 @@ export default function Layout() {
   const isLoggedIn = user !== null;
 
   if (loading) return <LoadingPage />;
-  if (!isLoggedIn) return <Navigate to="/login" />;
+  if (!isLoggedIn) return <Navigate to="/login" replace={true} />;
   return <Outlet />;
 }
