@@ -28,11 +28,6 @@ ul {
   list-style: none;
 }
 
-img {
-  max-width: 100%;
-  height: auto;
-}
-
 body {
   height: 100dvh;
   background-color: var(--theme-color);

@@ -3,6 +3,7 @@
   --secondary-color: #a9e5bb;
   --accent-color: rgba(167, 224, 199, 0.5);
   --background-color: #c4f2d0;
+  --adm-color-background: var(--background-color);
   --text-color: #20ac64;
   --border-color: #20ac64;
 }
