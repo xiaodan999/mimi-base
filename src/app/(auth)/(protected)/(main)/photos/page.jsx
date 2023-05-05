@@ -132,7 +132,7 @@ function Photo({ name, date, photoUrl, id }) {
             <div className={styles.imageWrapper}>
               <img
                 className={styles.image}
-                src={getResizedUrl({ url: photoUrl, width: 640, height: 480 })}
+                src={getResizedUrl({ url: photoUrl, width: 640, height: 480, quality: 0.8 })}
                 alt="hezhao"
                 loading="lazy"
                 onClick={() => {
@@ -155,6 +155,7 @@ function Photo({ name, date, photoUrl, id }) {
                 url: photoUrl,
                 width: 640,
                 height: 480,
+                quality: 0.8,
                 fit: "contain",
               })
         }
