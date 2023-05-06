@@ -43,7 +43,6 @@ export default function XiaohaiTab() {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <h1 style={{ textAlign: "center", marginBottom: "12px" }}>聊天基地</h1>
       <ul
         style={{
           padding: 0,

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "antd-mobile";
 
 import XiaohaiTab from "@src/components/XiaohaiTab";
 import { useUser } from "@src/contexts/AuthContext";
@@ -18,49 +19,23 @@ export default function Page() {
         flexDirection: "column",
       }}
     >
-      <section>
-        <h1 style={{ textAlign: "center" }}>小蛋專屬頁😁</h1>
-        <p>我是一個小啊蛋~~蛋蛋蛋蛋蛋🥚</p>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            marginBottom: "10px",
+      <h1 style={{ fontSize: "32px", textAlign: "center", marginTop: "10px", marginBottom: "5px" }}>
+        聊天基地
+      </h1>
+      <section style={{ overflow: "hidden", flex: 1 }}>
+        <XiaohaiTab />
+      </section>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <textarea
+          placeholder="请输入内容"
+          value={mimi}
+          onChange={(e) => {
+            setMimi(e.target.value);
           }}
-        >
-          <p
-            style={{
-              width: "45px",
-              marginRight: "10px",
-              marginTop: 0,
-              marginBottom: 0,
-            }}
-          >
-            Name:
-          </p>
-          <input value={user.user_name} type="text" disabled />
-        </div>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <p
-            style={{
-              marginRight: "10px",
-              marginTop: 0,
-              marginBottom: 0,
-              whiteSpace: "nowrap",
-            }}
-          >
-            秘密:
-          </p>
-          <textarea
-            value={mimi}
-            onChange={(e) => {
-              setMimi(e.target.value);
-            }}
-            cols={60}
-          ></textarea>
-        </div>
-
-        <button
+          cols={60}
+        ></textarea>
+        <Button
+          color="success"
           disabled={mimi.length === 0 || /^ *$/.test(mimi) || submitting}
           onClick={async () => {
             setSubmitting(true);
@@ -69,19 +44,15 @@ export default function Page() {
             setSubmitting(false);
           }}
           style={{
-            marginTop: "20px",
             width: "120px",
-            padding: "12px",
+            padding: "10px",
             borderRadius: "10px",
-            fontSize: "16px",
+            fontSize: "14px",
           }}
         >
-          添加秘密 {submitting ? "..." : ""}
-        </button>
-      </section>
-      <section style={{ overflow: "hidden", flex: 1 }}>
-        <XiaohaiTab />
-      </section>
+          添加 {submitting ? "..." : ""}
+        </Button>
+      </div>
     </div>
   );
 }
