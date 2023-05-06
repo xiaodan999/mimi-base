@@ -2,7 +2,7 @@ import Test from "@src/components/Test";
 
 function Page() {
   return (
-    <div>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <h1>Test Chart.JS</h1>
       <Test />
     </div>
