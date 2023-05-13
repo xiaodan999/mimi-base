@@ -141,6 +141,8 @@ export default function Page() {
             <input
               required
               type="number"
+              inputMode="numeric"
+              step={0.01}
               value={price === 0 ? "" : price}
               onChange={(e) => {
                 setPrice(e.target.value);
