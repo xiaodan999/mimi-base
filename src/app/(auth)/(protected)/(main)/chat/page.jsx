@@ -43,7 +43,7 @@ export default function Page() {
           disabled={mimi.length === 0 || /^ *$/.test(mimi) || submitting}
           onClick={async () => {
             setSubmitting(true);
-            await supabase.from("mmi").insert([{ person_name: user.user_name, mimi: mimi }]);
+            await supabase.from("mmi").insert([{ mimi: mimi, author_id: user.id }]);
             setMimi("");
             setSubmitting(false);
           }}
