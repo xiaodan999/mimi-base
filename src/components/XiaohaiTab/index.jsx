@@ -91,6 +91,7 @@ export default function XiaohaiTab() {
               }}
             >
               <TouXiang
+                style={{ flexShrink: 0 }}
                 size={45}
                 touXiangUrl={mimi.users.tou_xiang}
                 circleUrl={mimi.users.circle}
