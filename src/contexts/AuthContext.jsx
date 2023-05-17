@@ -4,7 +4,7 @@ import supabase from "../supabase-client/supabase";
 
 /**
  * @typedef {Object} UserContextValue
- * @property {({id:string; user_name:string}) | null} user - The user object.
+ * @property {({id:string; user_name:string; tou_xiang:string; circle:string;}) | null} user - The user object.
  * @property {boolean} loading - The loading state.
  */
 
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
           }
           const { data, error } = await supabase
             .from("users")
-            .select("id,user_name")
+            .select("id,user_name,tou_xiang,circle")
             .eq("id", userData.user.id)
             .single();
           if (error || !data) {
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
       if (!userError) {
         const { data, error } = await supabase
           .from("users")
-          .select("id,user_name")
+          .select("id,user_name,tou_xiang,circle")
           .eq("id", userData.user.id)
           .single();
         if (error || !data) {
