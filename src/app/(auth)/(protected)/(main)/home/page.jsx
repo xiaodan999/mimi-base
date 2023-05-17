@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "antd-mobile";
 
+import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
 
 const DINNER = [
@@ -71,6 +72,9 @@ function Page() {
           今天晚餐吃什么：<span style={{ backgroundColor: "Highlight" }}>{DINNER[index].name}</span>{" "}
         </p>
       ) : undefined}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <TouXiang size={100} touXiangUrl={user.tou_xiang} circleUrl={user.circle} />
+      </div>
     </div>
   );
 }

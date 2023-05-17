@@ -4,17 +4,17 @@ import supabase from "@src/supabase-client/supabase";
 import { formatDate } from "@src/utils/date";
 
 import Spinner from "../Spinner";
+import TouXiang from "../TouXiang";
 
 export default function XiaohaiTab() {
   const [allMimi, setAllMimi] = useState([]);
   const [loading, setLoading] = useState(false);
-
   useEffect(() => {
     const getAllMimi = async () => {
       setLoading(true);
       let { data, error } = await supabase
         .from("mmi")
-        .select("id,person_name,mimi,created_at")
+        .select("id,mimi,created_at,users(user_name,tou_xiang,circle)")
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) {
@@ -31,9 +31,18 @@ export default function XiaohaiTab() {
   useEffect(() => {
     const channel = supabase
       .channel("any")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "mmi" }, (payload) => {
-        setAllMimi((old) => [payload.new, ...old]);
-      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "mmi" },
+        async (payload) => {
+          const { data } = await supabase
+            .from("users")
+            .select("user_name,tou_xiang,circle")
+            .eq("id", payload.new.author_id)
+            .single();
+          setAllMimi((old) => [{ ...payload.new, users: data }, ...old]);
+        },
+      )
       .subscribe();
 
     return () => {
@@ -81,8 +90,13 @@ export default function XiaohaiTab() {
                 backgroundColor: "rgba(244,245,229,1)",
               }}
             >
+              <TouXiang
+                size={45}
+                touXiangUrl={mimi.users.tou_xiang}
+                circleUrl={mimi.users.circle}
+              />
               <p style={{ width: "100%", paddingRight: "8px" }}>
-                <span style={{ fontWeight: "bold" }}>{mimi.person_name}</span>: {mimi.mimi}
+                <span style={{ fontWeight: "bold" }}>{mimi.users.user_name}</span>: {mimi.mimi}
                 <br />
                 <span
                   style={{
