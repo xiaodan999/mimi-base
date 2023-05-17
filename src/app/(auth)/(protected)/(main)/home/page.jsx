@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "antd-mobile";
+import { Button, Modal, Toast } from "antd-mobile";
 
 import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
+import supabase from "@src/supabase-client/supabase";
 
 const DINNER = [
   { name: "螺蛳粉" },
@@ -38,7 +39,6 @@ const DINNER = [
 function Page() {
   const [user] = useUser();
   const [show, setShow] = useState(false);
-  const index = Math.floor(Math.random() * DINNER.length - 1);
 
   return (
     <div style={{ padding: "0 12px" }}>
@@ -57,6 +57,34 @@ function Page() {
       <Button
         onClick={() => {
           setShow(true);
+          const index = Math.floor(Math.random() * DINNER.length - 1);
+          const dinnerName = DINNER[index].name;
+          Modal.confirm({
+            content: (
+              <p style={{ fontSize: "var(--adm-font-size-10)" }}>
+                今天晚餐吃：<span style={{ fontWeight: "bold" }}>{dinnerName}</span>{" "}
+              </p>
+            ),
+            confirmText: "我知道了",
+            onConfirm: async () => {
+              const { error } = await supabase
+                .from("mmi")
+                .insert([{ mimi: "[晚餐抽奖机]: " + dinnerName, author_id: user.id }]);
+              if (!error) {
+                Toast.show({
+                  icon: "success",
+                  content: "提交成功",
+                  position: "bottom",
+                });
+              } else {
+                Toast.show({
+                  icon: "fail",
+                  content: "提交失败",
+                  position: "bottom",
+                });
+              }
+            },
+          });
         }}
         block
         size="large"
@@ -67,11 +95,7 @@ function Page() {
       >
         抽奖环节
       </Button>
-      {show ? (
-        <p style={{ fontSize: "var(--adm-font-size-10)" }}>
-          今天晚餐吃什么：<span style={{ backgroundColor: "Highlight" }}>{DINNER[index].name}</span>{" "}
-        </p>
-      ) : undefined}
+
       <div style={{ display: "flex", justifyContent: "center" }}>
         <TouXiang size={100} touXiangUrl={user.tou_xiang} circleUrl={user.circle} />
       </div>
