@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Modal, Toast } from "antd-mobile";
 
@@ -38,12 +37,11 @@ const DINNER = [
 ];
 function Page() {
   const [user] = useUser();
-  const [show, setShow] = useState(false);
 
   return (
     <div style={{ padding: "0 12px" }}>
       <h1 style={{ textAlign: "center", marginBottom: "8px" }}>
-        秘密保存基地 <i>V6.0</i>
+        秘密保存基地 <i>V6.2</i>
       </h1>
       <p style={{ fontSize: "28px" }}>
         欢迎{" "}
@@ -56,7 +54,6 @@ function Page() {
       </p>
       <Button
         onClick={() => {
-          setShow(true);
           const index = Math.floor(Math.random() * DINNER.length - 1);
           const dinnerName = DINNER[index].name;
           Modal.confirm({
