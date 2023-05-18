@@ -21,6 +21,7 @@ export default function showFilePicker(type, multiple = false) {
           reject(new Error("No files selected"));
         }
       }
+      input.remove();
     };
     input.click();
   });
