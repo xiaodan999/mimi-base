@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Modal, Toast } from "antd-mobile";
+import { ActionSheet, Button, Modal, Toast } from "antd-mobile";
 
 import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
 import useLongPress from "@src/hooks/useLongPress";
 import supabase from "@src/supabase-client/supabase";
+import compressImage from "@src/utils/compressImage";
+import showFilePicker from "@src/utils/showFilePicker";
+
+import "./page.css";
 
 const DINNER = [
   { name: "螺蛳粉" },
@@ -37,9 +42,10 @@ const DINNER = [
   { name: "面包" },
 ];
 function Page() {
-  const [user] = useUser();
+  const [user, _, refresh] = useUser();
+  const [visible, setVisible] = useState(false);
   const bind = useLongPress(() => {
-    Toast.show("长按了0.5s");
+    setVisible(true);
   }, 500);
 
   return (
@@ -103,6 +109,70 @@ function Page() {
           <TouXiang size={100} touXiangUrl={user.tou_xiang} circleUrl={user.circle} />
         </div>
       </div>
+      <ActionSheet
+        style={{
+          "--adm-color-fill-content": "var(--accent-color)",
+          "--adm-color-border": "var(--accent-color)",
+          "--active-background-color": "var(--accent-color)",
+        }}
+        extra="请选择你要进行的操作"
+        cancelText="取消"
+        visible={visible}
+        actions={[
+          {
+            text: "修改头像",
+            key: "edit-tou-xiang",
+            onClick: async () => {
+              setVisible(false);
+              // 1. 让用户选择图片
+              const originalFile = await showFilePicker("image/*");
+              const file = await compressImage(originalFile, { quality: 1 });
+              // 2. 将此图片上传至supabase storage, `tou-xiang` 并且获取图像的URL
+              const handler = Toast.show({
+                content: "修改中",
+                icon: "loading",
+                duration: 0,
+              });
+              const path = `${user.id}/${Date.now()}.webp`;
+
+              const { data, error: storageError } = await supabase.storage
+                .from("tou-xiang")
+                .upload(path, file);
+              if (storageError) {
+                handler.close();
+                Toast.show({
+                  content: "上传头像失败",
+                  icon: "fail",
+                });
+                console.error(storageError);
+                return;
+              }
+              const url = supabase.storage.from("tou-xiang").getPublicUrl(data.path).data.publicUrl;
+
+              // 3. 将`users`表格的`tou_xiang`修改为上一步的URL
+              const { error } = await supabase
+                .from("users")
+                .update({ tou_xiang: url })
+                .eq("id", user.id);
+              handler.close();
+              if (!error) {
+                Toast.show({
+                  content: "修改成功",
+                  icon: "success",
+                });
+                refresh();
+              } else {
+                Toast.show({
+                  content: "修改失败",
+                  icon: "fail",
+                });
+              }
+            },
+          },
+          { text: "修改头像框", key: "edit-tou-xiang-kuang" },
+        ]}
+        onClose={() => setVisible(false)}
+      />
     </div>
   );
 }
