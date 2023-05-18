@@ -31,13 +31,13 @@ export const AuthProvider = ({ children }) => {
 
     const { data, error } = await supabase
       .from("users")
-      .select("id,user_name,tou_xiang,circle")
+      .select("id,user_name,tou_xiang,tou-xiang-circle(url)")
       .eq("id", session.user.id)
       .single();
     if (error || !data) {
       setUser(null);
     } else {
-      setUser(data);
+      setUser({ ...data, circle: data["tou-xiang-circle"].url });
     }
 
     setLoading(false);

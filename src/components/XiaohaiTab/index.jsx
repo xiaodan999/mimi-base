@@ -14,7 +14,7 @@ export default function XiaohaiTab() {
       setLoading(true);
       let { data, error } = await supabase
         .from("mmi")
-        .select("id,mimi,created_at,users(user_name,tou_xiang,circle)")
+        .select("id,mimi,created_at,users(user_name,tou_xiang,tou-xiang-circle(url))")
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) {
@@ -37,7 +37,7 @@ export default function XiaohaiTab() {
         async (payload) => {
           const { data } = await supabase
             .from("users")
-            .select("user_name,tou_xiang,circle")
+            .select("user_name,tou_xiang,tou-xiang-circle(url)")
             .eq("id", payload.new.author_id)
             .single();
           setAllMimi((old) => [{ ...payload.new, users: data }, ...old]);
@@ -94,7 +94,7 @@ export default function XiaohaiTab() {
                 style={{ flexShrink: 0 }}
                 size={45}
                 touXiangUrl={mimi.users.tou_xiang}
-                circleUrl={mimi.users.circle}
+                circleUrl={mimi.users["tou-xiang-circle"].url}
               />
               <p style={{ width: "100%", paddingRight: "8px" }}>
                 <span style={{ fontWeight: "bold" }}>{mimi.users.user_name}</span>: {mimi.mimi}
