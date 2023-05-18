@@ -126,13 +126,13 @@ function Page() {
               setVisible(false);
               // 1. 让用户选择图片
               const originalFile = await showFilePicker("image/*");
-              const file = await compressImage(originalFile, { quality: 1 });
-              // 2. 将此图片上传至supabase storage, `tou-xiang` 并且获取图像的URL
               const handler = Toast.show({
                 content: "修改中",
                 icon: "loading",
                 duration: 0,
               });
+              const file = await compressImage(originalFile, { quality: 1 });
+              // 2. 将此图片上传至supabase storage, `tou-xiang` 并且获取图像的URL
               const path = `${user.id}/${Date.now()}.webp`;
 
               const { data, error: storageError } = await supabase.storage
