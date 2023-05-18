@@ -3,6 +3,7 @@ import { Button, Modal, Toast } from "antd-mobile";
 
 import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
+import useLongPress from "@src/hooks/useLongPress";
 import supabase from "@src/supabase-client/supabase";
 
 const DINNER = [
@@ -37,6 +38,9 @@ const DINNER = [
 ];
 function Page() {
   const [user] = useUser();
+  const bind = useLongPress(() => {
+    Toast.show("长按了0.5s");
+  }, 500);
 
   return (
     <div style={{ padding: "0 12px" }}>
@@ -94,7 +98,9 @@ function Page() {
       </Button>
 
       <div style={{ display: "flex", justifyContent: "center" }}>
-        <TouXiang size={100} touXiangUrl={user.tou_xiang} circleUrl={user.circle} />
+        <div {...bind}>
+          <TouXiang size={100} touXiangUrl={user.tou_xiang} circleUrl={user.circle} />
+        </div>
       </div>
     </div>
   );
