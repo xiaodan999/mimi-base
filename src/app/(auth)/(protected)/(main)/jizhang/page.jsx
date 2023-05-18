@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Result } from "antd-mobile";
+import { SmileOutline } from "antd-mobile-icons";
 
 import Popover from "@src/components/Popover";
 import RippleEffect from "@src/components/RippleEffect";
@@ -115,7 +117,24 @@ export default function Page() {
             <Spinner />
           </div>
         ) : (
-          data.length === 0 && <p>当前月份未记录</p>
+          data.length === 0 && (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Result
+                icon={<SmileOutline />}
+                status="info"
+                title="无记录"
+                description="没有当前月份的消费记录"
+              />
+            </div>
+          )
         )}
       </div>
       {/* 输入 */}
