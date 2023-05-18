@@ -10,6 +10,7 @@ export default function TouXiang({ size, touXiangUrl, circleUrl, style = {} }) {
     <div style={{ position: "relative", width: size + "px", height: size + "px", ...style }}>
       {touXiangUrl ? (
         <img
+          onContextMenu={(e) => e.preventDefault()}
           style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
           src={getResizedUrl({ url: touXiangUrl, width: 512, height: 512, quality: 1 })}
           alt="touxiang"
@@ -18,6 +19,7 @@ export default function TouXiang({ size, touXiangUrl, circleUrl, style = {} }) {
         <SmileFill style={{ width: "100%", height: "100%", borderRadius: "50%" }} />
       )}
       <img
+        onContextMenu={(e) => e.preventDefault()}
         style={{
           width: "100%",
           height: "106%",
