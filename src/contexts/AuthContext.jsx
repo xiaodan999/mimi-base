@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 
 import supabase from "../supabase-client/supabase";
 
@@ -18,31 +18,45 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const handleAuthStateChangeRef = useRef(() => {});
 
+  const fetchUserData = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session === null) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("id,user_name,tou_xiang,circle")
+      .eq("id", session.user.id)
+      .single();
+    if (error || !data) {
+      setUser(null);
+    } else {
+      setUser(data);
+    }
+
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     handleAuthStateChangeRef.current = async (event, session) => {
-      console.log({ event });
+      console.log({ event, session });
       switch (event) {
+        case "INITIAL_SESSION": {
+          setLoading(true);
+          await fetchUserData();
+          break;
+        }
         case "SIGNED_IN": {
           if (!user) {
             setLoading(true);
+            await fetchUserData();
           }
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          if (userError) {
-            setUser(null);
-            setLoading(false);
-            break;
-          }
-          const { data, error } = await supabase
-            .from("users")
-            .select("id,user_name,tou_xiang,circle")
-            .eq("id", userData.user.id)
-            .single();
-          if (error || !data) {
-            setUser(null);
-          } else {
-            setUser(data);
-          }
-          setLoading(false);
           break;
         }
         case "SIGNED_OUT": {
@@ -53,47 +67,31 @@ export const AuthProvider = ({ children }) => {
         }
       }
     };
-  }, [user]);
+  }, [user, fetchUserData]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (!userError) {
-        const { data, error } = await supabase
-          .from("users")
-          .select("id,user_name,tou_xiang,circle")
-          .eq("id", userData.user.id)
-          .single();
-        if (error || !data) {
-          setUser(null);
-        } else {
-          setUser(data);
-        }
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    })();
-
     const { data: authListener } = supabase.auth.onAuthStateChange((...args) => {
-      handleAuthStateChangeRef?.current(...args);
+      handleAuthStateChangeRef.current(...args);
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserData]);
 
-  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, refresh: fetchUserData }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 /**
  * A hook that returns the currently logged in user.
  *
- * @returns {[UserContextValue["user"], boolean]}
+ * @returns {[UserContextValue["user"], boolean,() => Promise<void>]}
  */
 export const useUser = () => {
-  const { user, loading } = useContext(AuthContext);
-  return [user, loading];
+  const { user, loading, refresh } = useContext(AuthContext);
+  return [user, loading, refresh];
 };
