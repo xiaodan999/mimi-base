@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Toast } from "antd-mobile";
 
 import supabase from "@src/supabase-client/supabase";
 import { formatDate } from "@src/utils/date";
@@ -114,12 +115,12 @@ export default function XiaohaiTab() {
               </p>
               <button
                 onClick={async () => {
-                  const { error: firstError } = await supabase
-                    .from("mmi")
-                    .delete()
-                    .eq("id", mimi.id, mimi.created_at);
-
-                  setAllMimi(allMimi.filter((a) => a.id !== mimi.id));
+                  const { error } = await supabase.from("mmi").delete().eq("id", mimi.id);
+                  if (error) {
+                    Toast.show({ content: "删除失败", icon: "fail" });
+                  } else {
+                    setAllMimi(allMimi.filter((a) => a.id !== mimi.id));
+                  }
                 }}
                 style={{
                   backgroundColor: "red",
