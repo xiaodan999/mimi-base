@@ -28,13 +28,14 @@ export default function Page() {
           arrow={<RightOutline style={{ color: "var(--text-color)" }} />}
           onClick={() => {
             showFilePicker("image/*").then(async (file) => {
-              const compressed = await compressImage(file, { quality: 1 });
-
-              const path = `${user.id}/${Date.now()}.webp`;
               Toast.show({
                 content: "修改头像中",
                 icon: "loading",
               });
+              const compressed = await compressImage(file, { quality: 1 });
+
+              const path = `${user.id}/${Date.now()}.webp`;
+
               const { data, error: storageError } = await supabase.storage
                 .from("tou-xiang")
                 .upload(path, compressed, { cacheControl: "31536000" });
@@ -49,6 +50,10 @@ export default function Page() {
               const photoUrl = supabase.storage.from("tou-xiang").getPublicUrl(data.path)
                 .data.publicUrl;
               await supabase.from("users").update({ tou_xiang: photoUrl }).eq("id", user.id);
+              Toast.show({
+                content: "修改成功",
+                icon: "success",
+              });
               refresh();
             });
           }}
