@@ -94,7 +94,7 @@ export default function XiaohaiTab() {
                 style={{ flexShrink: 0 }}
                 size={45}
                 touXiangUrl={mimi.users.tou_xiang}
-                circleUrl={mimi.users["tou-xiang-circle"].url}
+                circleUrl={mimi.users["tou-xiang-circle"]?.url}
               />
               <p style={{ width: "100%", paddingRight: "8px" }}>
                 <span style={{ fontWeight: "bold" }}>{mimi.users.user_name}</span>: {mimi.mimi}
