@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Popover from "@src/components/Popover";
+import RippleEffect from "@src/components/RippleEffect";
 import Spinner from "@src/components/Spinner";
 import useScrolling from "@src/hooks/useScrolling";
 import supabase from "@src/supabase-client/supabase";
@@ -204,20 +205,8 @@ function RiTaiZhang({ date, items, refresh, scrolling }) {
   );
 }
 function Hang({ number, itemName, price, id, refresh, scrolling }) {
-  const [touched, setTouched] = useState(false);
-
-  useEffect(() => {
-    setTouched(false);
-  }, [scrolling]);
   return (
-    <li
-      onTouchStart={() => {
-        setTouched(true);
-      }}
-      onTouchEnd={() => {
-        setTouched(false);
-      }}
-    >
+    <li>
       <Popover
         content={
           <div style={{ width: "80px" }}>
@@ -243,15 +232,14 @@ function Hang({ number, itemName, price, id, refresh, scrolling }) {
         delay={700}
         scrolling={scrolling}
       >
-        <div
-          style={{
-            backgroundColor: touched ? "pink" : "",
-          }}
-          className="item"
-        >
-          <span className="number">{number}.</span>
-          {itemName}
-          <strong className="price">{price}</strong>元
+        <div>
+          <RippleEffect>
+            <div className="item">
+              <span className="number">{number}.</span>
+              {itemName}
+              <strong className="price">{price}</strong>元
+            </div>
+          </RippleEffect>
         </div>
       </Popover>
     </li>
