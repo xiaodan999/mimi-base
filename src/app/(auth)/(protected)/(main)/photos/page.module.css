@@ -2,9 +2,14 @@
   container-type: inline-size;
   container-name: photo;
   padding: 0 20px;
-  .name {
+  .user {
     margin-bottom: 5px;
-    font-size: 20px;
+    display: flex;
+    align-items: center;
+    & .name {
+      font-size: 20px;
+      font-weight: 400;
+    }
   }
   .swipeWrapper {
     border-radius: 15px;

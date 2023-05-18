@@ -5,7 +5,6 @@ import supabase from "@src/supabase-client/supabase";
 function transform(data) {
   const transformed = data.map((p) => ({
     ...p,
-    name: p.users.user_name,
     photoPath: p.photo,
     photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data.publicUrl,
   }));
@@ -16,7 +15,7 @@ async function fetchPhotos(cursor, limit) {
   // Fetch photos from the database using supabase
   let query = supabase
     .from("tu-pian-xin-xi")
-    .select("user_id,photo,id,created_at,users(user_name)")
+    .select("user_id,photo,id,created_at,users(user_name,tou_xiang,tou-xiang-circle(url))")
     .order("created_at", { ascending: false })
     .limit(limit + 1);
 

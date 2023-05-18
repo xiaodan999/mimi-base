@@ -6,6 +6,7 @@ import { UploadOutline } from "antd-mobile-icons";
 
 import InfiniteScroll from "@src/components/InfiniteScroll";
 import Spinner from "@src/components/Spinner";
+import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
 import supabase from "@src/supabase-client/supabase";
 import compressImage from "@src/utils/compressImage";
@@ -38,10 +39,10 @@ export default function Photos() {
         <Fragment key={photo.id}>
           <Photo
             id={photo.id}
-            name={photo.name}
             photoPath={photo.photoPath}
             photoUrl={photo.photo}
             date={formatDate(photo.created_at)}
+            user={photo.users}
           />
           <Line />
         </Fragment>
@@ -60,7 +61,7 @@ function Line() {
   );
 }
 
-function Photo({ name, date, photoUrl, id }) {
+function Photo({ user, date, photoUrl, id }) {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -115,7 +116,14 @@ function Photo({ name, date, photoUrl, id }) {
   return (
     <>
       <div className={styles.photo}>
-        <p className={styles.name}>{name}：</p>
+        <h2 className={styles.user}>
+          <TouXiang
+            size={32}
+            touXiangUrl={user.tou_xiang}
+            circleUrl={user["tou-xiang-circle"]?.url}
+          />
+          <div className={styles.name}>{user.user_name}</div>
+        </h2>
         <div className={styles.swipeWrapper}>
           <SwipeAction
             rightActions={[
