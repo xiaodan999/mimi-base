@@ -60,7 +60,8 @@ function Page() {
         onClick={() => {
           const index = Math.floor(Math.random() * DINNER.length - 1);
           const dinnerName = DINNER[index].name;
-          Modal.confirm({
+          Modal.alert({
+            closeOnMaskClick: true,
             content: (
               <p style={{ fontSize: "var(--adm-font-size-10)" }}>
                 今天晚餐吃：<span style={{ fontWeight: "bold" }}>{dinnerName}</span>{" "}
@@ -75,13 +76,13 @@ function Page() {
                 Toast.show({
                   icon: "success",
                   content: "提交成功",
-                  position: "bottom",
+                  position: "center",
                 });
               } else {
                 Toast.show({
                   icon: "fail",
                   content: "提交失败",
-                  position: "bottom",
+                  position: "center",
                 });
               }
             },
