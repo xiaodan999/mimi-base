@@ -26,6 +26,8 @@ export default function Page() {
             style={{
               backgroundColor: "var(--accent-color)",
               "--placeholder-color": "var(--text-color)",
+              borderRadius: "var(--adm-radius-m)",
+              padding: "2px",
             }}
             placeholder="请输入内容"
             value={mimi}
