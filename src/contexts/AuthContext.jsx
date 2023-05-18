@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     if (error || !data) {
       setUser(null);
     } else {
-      setUser({ ...data, circle: data["tou-xiang-circle"].url });
+      setUser({ ...data, circle: data["tou-xiang-circle"]?.url });
     }
 
     setLoading(false);
