@@ -137,7 +137,7 @@ function Page() {
 
               const { data, error: storageError } = await supabase.storage
                 .from("tou-xiang")
-                .upload(path, file);
+                .upload(path, file, { cacheControl: "31536000" });
               if (storageError) {
                 handler.close();
                 Toast.show({
