@@ -3,3 +3,7 @@
 *.ts    eol=lf
 *.tsx   eol=lf
 *.json  eol=lf
+/.yarn/**            linguist-vendored
+/.yarn/releases/*    binary
+/.yarn/plugins/**/*  binary
+/.pnp.*              binary linguist-generated
