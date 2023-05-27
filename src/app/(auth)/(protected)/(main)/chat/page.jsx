@@ -26,7 +26,7 @@ export default function Page() {
           {
             user_id: user.id,
             endpoint: pushSubscription.endpoint,
-            subscription: JSON.stringify(pushSubscription),
+            subscription: pushSubscription,
           },
           { onConflict: "endpoint" },
         );
