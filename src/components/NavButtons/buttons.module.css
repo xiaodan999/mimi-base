@@ -5,6 +5,7 @@
   width: 100%;
   justify-content: center;
   height: var(--nav-bar-height);
+  background-color: var(--theme-color);
 }
 
 .link {

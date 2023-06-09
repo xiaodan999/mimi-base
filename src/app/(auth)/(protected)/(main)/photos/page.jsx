@@ -1,10 +1,10 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImageViewer, SwipeAction, Toast } from "antd-mobile";
+import { ImageViewer, InfiniteScroll, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
 
-import InfiniteScroll from "@src/components/InfiniteScroll";
+import { InfiniteScrollContent } from "@src/components/InfiniteScroll";
 import Spinner from "@src/components/Spinner";
 import TouXiang from "@src/components/TouXiang";
 import { useUser } from "@src/contexts/AuthContext";
@@ -28,10 +28,7 @@ export default function Photos() {
   return (
     <div
       style={{
-        height: "100%",
-        overflowY: "scroll",
-        willChange: "scroll-position",
-        paddingBottom: "40px",
+        paddingBottom: "var(--nav-bar-height)",
       }}
     >
       <Header />
@@ -47,8 +44,11 @@ export default function Photos() {
           <Line />
         </Fragment>
       ))}
-
-      <InfiniteScroll hasMore={hasNextPage} loadMore={() => fetchNextPage()} />
+      <InfiniteScroll hasMore={hasNextPage} loadMore={() => fetchNextPage()}>
+        {(hasMore, failed, retry) => (
+          <InfiniteScrollContent hasMore={hasMore} failed={failed} retry={retry} />
+        )}
+      </InfiniteScroll>
     </div>
   );
 }
