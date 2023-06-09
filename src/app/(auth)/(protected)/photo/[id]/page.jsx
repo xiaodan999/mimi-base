@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button } from "antd-mobile";
+import { Button, ErrorBlock, NavBar } from "antd-mobile";
 
 import { CenterSpinner } from "@src/components/Spinner";
 import supabase from "@src/supabase-client/supabase";
@@ -32,22 +32,36 @@ function Page() {
 
   return (
     <div>
-      <h1 style={{ textAlign: "center" }}>图片详情{id}</h1>
-      {error ? (
-        <p>照片不存在</p>
-      ) : (
-        <div style={{ width: "100%", height: "300px" }}>
-          {url === "" ? (
-            <CenterSpinner />
-          ) : (
-            <img
-              alt="照片"
-              src={getResizedUrl({ url, height: 300 })}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          )}
-        </div>
-      )}
+      <NavBar
+        onBack={() => {
+          navigate("/photos");
+        }}
+      >
+        图片详情{id}
+      </NavBar>
+      <div style={{ width: "100%", height: "300px" }}>
+        {error ? (
+          <div
+            style={{
+              height: "100%",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <ErrorBlock status="empty" />
+          </div>
+        ) : url === "" ? (
+          <CenterSpinner />
+        ) : (
+          <img
+            alt="照片"
+            src={getResizedUrl({ url, height: 300 })}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        )}
+      </div>
+
       <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "20px" }}>
         <Button
           color="success"
