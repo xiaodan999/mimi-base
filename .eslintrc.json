@@ -1,5 +1,5 @@
 {
-  "extends": ["react-app", "plugin:prettier/recommended", "plugin:import/recommended"],
+  "extends": ["react-app", "plugin:prettier/recommended", "plugin:import/react"],
   "rules": {
     "prettier/prettier": ["error", { "endOfLine": "auto" }],
     "import/order": [
