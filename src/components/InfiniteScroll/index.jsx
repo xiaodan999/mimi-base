@@ -102,8 +102,8 @@ const InfiniteScroll = ({ loadMore, hasMore = true, threshold = 100 }) => {
   );
 };
 
-function InfiniteScrollContent({ hasMore, failed, retry }) {
-  if (!hasMore) {
+export function InfiniteScrollContent({ hasMore, failed, retry }) {
+  if (hasMore === false) {
     return (
       <div style={{ display: "flex", justifyContent: "center" }}>
         <span>没有了...</span>
