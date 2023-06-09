@@ -4,7 +4,7 @@ import Page1 from "./app/page.jsx";
 import Page2 from "./app/(auth)/(protected)/(main)/chat/page.jsx";
 import Page3 from "./app/(auth)/(protected)/(main)/home/page.jsx";
 import Page4 from "./app/(auth)/(protected)/(main)/jizhang/page.jsx";
-import Page6 from "./app/(auth)/(protected)/(main)/photos/[id]/page.jsx";
+import Page6 from "./app/(auth)/(protected)/photo/[id]/page.jsx";
 import Page7 from "./app/(auth)/login/page.jsx";
 import Page8 from "./app/(auth)/logout/page.jsx";
 import Page9 from "./app/(auth)/signup/page.jsx";
@@ -21,9 +21,10 @@ import Layout1 from "./app/layout.jsx";
 import Layout2 from "./app/(auth)/layout.jsx";
 import Layout3 from "./app/(auth)/(protected)/layout.jsx";
 import Layout4 from "./app/(auth)/(protected)/(main)/layout.jsx";
-import Layout6 from "./app/examples/layout.jsx";
-import Layout7 from "./app/examples/dynamic-routes/layout.jsx";
-import Layout8 from "./app/examples/independent-routes/layout.jsx";
+import Layout6 from "./app/(auth)/(protected)/photo/layout.jsx";
+import Layout7 from "./app/examples/layout.jsx";
+import Layout8 from "./app/examples/dynamic-routes/layout.jsx";
+import Layout9 from "./app/examples/independent-routes/layout.jsx";
 
 const routes = [
   {
@@ -70,11 +71,16 @@ const routes = [
                           ).default,
                         }),
                       },
-                      {
-                        path: "/photos/:id",
-                        element: <Page6 />,
-                      },
                     ],
+                  },
+                ],
+              },
+              {
+                element: <Layout6 />,
+                children: [
+                  {
+                    path: "/photo/:id",
+                    element: <Page6 />,
                   },
                 ],
               },
@@ -96,7 +102,7 @@ const routes = [
       },
       {
         path: "/examples",
-        element: <Layout6 />,
+        element: <Layout7 />,
         children: [
           {
             index: true,
@@ -110,7 +116,7 @@ const routes = [
           },
           {
             path: "/examples/dynamic-routes",
-            element: <Layout7 />,
+            element: <Layout8 />,
             children: [
               {
                 index: true,
@@ -124,7 +130,7 @@ const routes = [
           },
           {
             path: "/examples/independent-routes",
-            element: <Layout8 />,
+            element: <Layout9 />,
             children: [
               {
                 index: true,

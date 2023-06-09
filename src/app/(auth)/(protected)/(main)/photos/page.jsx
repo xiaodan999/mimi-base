@@ -152,7 +152,7 @@ function Photo({ user, date, photoUrl, id }) {
         </div>
 
         <p className={styles.footer}>
-          <Link to={`${id}`}>{date}</Link>
+          <Link to={`/photo/${id}`}>{date}</Link>
         </p>
       </div>
       <ImageViewer

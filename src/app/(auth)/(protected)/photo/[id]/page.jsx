@@ -1,8 +1,10 @@
-import TouXiang from "@src/components/TouXiang";
-import supabase from "@src/supabase-client/supabase";
-import { Button, Toast } from "antd-mobile";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "antd-mobile";
+
+import { CenterSpinner } from "@src/components/Spinner";
+import supabase from "@src/supabase-client/supabase";
+import getResizedUrl from "@src/utils/getResizedUrl";
 
 function Page() {
   const { id } = useParams();
@@ -34,13 +36,23 @@ function Page() {
       {error ? (
         <p>照片不存在</p>
       ) : (
-        <img src={url} style={{ width: "100%", height: "300px", objectFit: "contain" }} />
+        <div style={{ width: "100%", height: "300px" }}>
+          {url === "" ? (
+            <CenterSpinner />
+          ) : (
+            <img
+              alt="照片"
+              src={getResizedUrl({ url, height: 300 })}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
+          )}
+        </div>
       )}
       <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "20px" }}>
         <Button
           color="success"
           onClick={() => {
-            navigate(`../${Number(id) - 1}`);
+            navigate(`/photo/${Number(id) - 1}`);
           }}
         >
           上一个
@@ -48,13 +60,12 @@ function Page() {
         <Button
           color="success"
           onClick={() => {
-            navigate(`../${Number(id) + 1}`);
+            navigate(`/photo/${Number(id) + 1}`);
           }}
         >
           下一个
         </Button>
       </div>
-
       <section>
         <h2 style={{ marginBottom: "20px" }}>评论区</h2>
         <div>
