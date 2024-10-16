@@ -11,19 +11,49 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as LogoutImport } from './routes/logout'
 import { Route as AboutImport } from './routes/about'
+import { Route as ProtectedImport } from './routes/_protected'
 import { Route as IndexImport } from './routes/index'
+import { Route as ProtectedSecretImport } from './routes/_protected/secret'
+import { Route as ProtectedLoginImport } from './routes/_protected/login'
+import { Route as ProtectedHomeImport } from './routes/_protected/home'
 
 // Create/Update Routes
+
+const LogoutRoute = LogoutImport.update({
+  path: '/logout',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const AboutRoute = AboutImport.update({
   path: '/about',
   getParentRoute: () => rootRoute,
 } as any)
 
+const ProtectedRoute = ProtectedImport.update({
+  id: '/_protected',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const IndexRoute = IndexImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
+} as any)
+
+const ProtectedSecretRoute = ProtectedSecretImport.update({
+  path: '/secret',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+
+const ProtectedLoginRoute = ProtectedLoginImport.update({
+  path: '/login',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+
+const ProtectedHomeRoute = ProtectedHomeImport.update({
+  path: '/home',
+  getParentRoute: () => ProtectedRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -37,6 +67,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof ProtectedImport
+      parentRoute: typeof rootRoute
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -44,44 +81,115 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutImport
       parentRoute: typeof rootRoute
     }
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutImport
+      parentRoute: typeof rootRoute
+    }
+    '/_protected/home': {
+      id: '/_protected/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof ProtectedHomeImport
+      parentRoute: typeof ProtectedImport
+    }
+    '/_protected/login': {
+      id: '/_protected/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof ProtectedLoginImport
+      parentRoute: typeof ProtectedImport
+    }
+    '/_protected/secret': {
+      id: '/_protected/secret'
+      path: '/secret'
+      fullPath: '/secret'
+      preLoaderRoute: typeof ProtectedSecretImport
+      parentRoute: typeof ProtectedImport
+    }
   }
 }
 
 // Create and export the route tree
 
+interface ProtectedRouteChildren {
+  ProtectedHomeRoute: typeof ProtectedHomeRoute
+  ProtectedLoginRoute: typeof ProtectedLoginRoute
+  ProtectedSecretRoute: typeof ProtectedSecretRoute
+}
+
+const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedHomeRoute: ProtectedHomeRoute,
+  ProtectedLoginRoute: ProtectedLoginRoute,
+  ProtectedSecretRoute: ProtectedSecretRoute,
+}
+
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
+)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/logout': typeof LogoutRoute
+  '/home': typeof ProtectedHomeRoute
+  '/login': typeof ProtectedLoginRoute
+  '/secret': typeof ProtectedSecretRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/logout': typeof LogoutRoute
+  '/home': typeof ProtectedHomeRoute
+  '/login': typeof ProtectedLoginRoute
+  '/secret': typeof ProtectedSecretRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/logout': typeof LogoutRoute
+  '/_protected/home': typeof ProtectedHomeRoute
+  '/_protected/login': typeof ProtectedLoginRoute
+  '/_protected/secret': typeof ProtectedSecretRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths: '/' | '' | '/about' | '/logout' | '/home' | '/login' | '/secret'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to: '/' | '' | '/about' | '/logout' | '/home' | '/login' | '/secret'
+  id:
+    | '__root__'
+    | '/'
+    | '/_protected'
+    | '/about'
+    | '/logout'
+    | '/_protected/home'
+    | '/_protected/login'
+    | '/_protected/secret'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
+  LogoutRoute: typeof LogoutRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
+  LogoutRoute: LogoutRoute,
 }
 
 export const routeTree = rootRoute
@@ -97,14 +205,39 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/about"
+        "/_protected",
+        "/about",
+        "/logout"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
+    "/_protected": {
+      "filePath": "_protected.tsx",
+      "children": [
+        "/_protected/home",
+        "/_protected/login",
+        "/_protected/secret"
+      ]
+    },
     "/about": {
       "filePath": "about.tsx"
+    },
+    "/logout": {
+      "filePath": "logout.tsx"
+    },
+    "/_protected/home": {
+      "filePath": "_protected/home.tsx",
+      "parent": "/_protected"
+    },
+    "/_protected/login": {
+      "filePath": "_protected/login.tsx",
+      "parent": "/_protected"
+    },
+    "/_protected/secret": {
+      "filePath": "_protected/secret.tsx",
+      "parent": "/_protected"
     }
   }
 }

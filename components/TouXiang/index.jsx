@@ -1,6 +1,8 @@
 import { SmileFill } from "antd-mobile-icons";
 
-import getResizedUrl from "@src/utils/getResizedUrl";
+function getResizedUrl({ url, width, height, format = "webp", fit, quality }) {
+  return url;
+}
 
 const DEFAULT_CIRCLE =
   "https://yibqpulkysphrlwghrxe.supabase.co/storage/v1/object/public/circles/blue-circle.png";
@@ -25,6 +27,7 @@ export default function TouXiang({ size, touXiangUrl, circleUrl, style = {} }) {
           height: "106%",
           position: "absolute",
           left: 0,
+          top:0
         }}
         src={
           circleUrl
