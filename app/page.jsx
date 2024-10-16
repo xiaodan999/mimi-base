@@ -2,9 +2,13 @@ import { useNavigate } from "react-router-dom";
 import { AutoCenter, Button } from "antd-mobile";
 
 import Logo from "./logo512.png";
+import { useEffect } from "react";
 
 function Page() {
   const navigate = useNavigate();
+  useEffect(() => {
+    navigate();
+  }, []);
 
   return (
     <div style={{ height: "100%", padding: "1rem", display: "flex", flexDirection: "column" }}>
