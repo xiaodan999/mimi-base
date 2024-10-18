@@ -18,6 +18,7 @@ import { Route as ProtectedSecretImport } from './routes/_protected/secret'
 import { Route as ProtectedLogoutImport } from './routes/_protected/logout'
 import { Route as ProtectedLoginImport } from './routes/_protected/login'
 import { Route as ProtectedHomeImport } from './routes/_protected/home'
+import { Route as ProtectedPhotosIndexImport } from './routes/_protected/photos/index'
 
 // Create/Update Routes
 
@@ -53,6 +54,11 @@ const ProtectedLoginRoute = ProtectedLoginImport.update({
 
 const ProtectedHomeRoute = ProtectedHomeImport.update({
   path: '/home',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+
+const ProtectedPhotosIndexRoute = ProtectedPhotosIndexImport.update({
+  path: '/photos/',
   getParentRoute: () => ProtectedRoute,
 } as any)
 
@@ -109,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSecretImport
       parentRoute: typeof ProtectedImport
     }
+    '/_protected/photos/': {
+      id: '/_protected/photos/'
+      path: '/photos'
+      fullPath: '/photos'
+      preLoaderRoute: typeof ProtectedPhotosIndexImport
+      parentRoute: typeof ProtectedImport
+    }
   }
 }
 
@@ -119,6 +132,7 @@ interface ProtectedRouteChildren {
   ProtectedLoginRoute: typeof ProtectedLoginRoute
   ProtectedLogoutRoute: typeof ProtectedLogoutRoute
   ProtectedSecretRoute: typeof ProtectedSecretRoute
+  ProtectedPhotosIndexRoute: typeof ProtectedPhotosIndexRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
@@ -126,6 +140,7 @@ const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedLoginRoute: ProtectedLoginRoute,
   ProtectedLogoutRoute: ProtectedLogoutRoute,
   ProtectedSecretRoute: ProtectedSecretRoute,
+  ProtectedPhotosIndexRoute: ProtectedPhotosIndexRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
@@ -140,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof ProtectedLoginRoute
   '/logout': typeof ProtectedLogoutRoute
   '/secret': typeof ProtectedSecretRoute
+  '/photos': typeof ProtectedPhotosIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -150,6 +166,7 @@ export interface FileRoutesByTo {
   '/login': typeof ProtectedLoginRoute
   '/logout': typeof ProtectedLogoutRoute
   '/secret': typeof ProtectedSecretRoute
+  '/photos': typeof ProtectedPhotosIndexRoute
 }
 
 export interface FileRoutesById {
@@ -161,13 +178,30 @@ export interface FileRoutesById {
   '/_protected/login': typeof ProtectedLoginRoute
   '/_protected/logout': typeof ProtectedLogoutRoute
   '/_protected/secret': typeof ProtectedSecretRoute
+  '/_protected/photos/': typeof ProtectedPhotosIndexRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/about' | '/home' | '/login' | '/logout' | '/secret'
+  fullPaths:
+    | '/'
+    | ''
+    | '/about'
+    | '/home'
+    | '/login'
+    | '/logout'
+    | '/secret'
+    | '/photos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/about' | '/home' | '/login' | '/logout' | '/secret'
+  to:
+    | '/'
+    | ''
+    | '/about'
+    | '/home'
+    | '/login'
+    | '/logout'
+    | '/secret'
+    | '/photos'
   id:
     | '__root__'
     | '/'
@@ -177,6 +211,7 @@ export interface FileRouteTypes {
     | '/_protected/login'
     | '/_protected/logout'
     | '/_protected/secret'
+    | '/_protected/photos/'
   fileRoutesById: FileRoutesById
 }
 
@@ -218,7 +253,8 @@ export const routeTree = rootRoute
         "/_protected/home",
         "/_protected/login",
         "/_protected/logout",
-        "/_protected/secret"
+        "/_protected/secret",
+        "/_protected/photos/"
       ]
     },
     "/about": {
@@ -238,6 +274,10 @@ export const routeTree = rootRoute
     },
     "/_protected/secret": {
       "filePath": "_protected/secret.tsx",
+      "parent": "/_protected"
+    },
+    "/_protected/photos/": {
+      "filePath": "_protected/photos/index.tsx",
       "parent": "/_protected"
     }
   }
