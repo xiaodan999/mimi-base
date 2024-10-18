@@ -1,4 +1,5 @@
 // app/routes/__root.tsx
+import { Toaster } from "@/components/ui/sonner";
 import ENV from "@/lib/env";
 import { createRootRoute } from "@tanstack/react-router";
 
@@ -65,7 +66,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<Meta />
 			</Head>
 			<Body>
-				{children}
+				<div className="h-dvh">{children}</div>
+				<Toaster />
 				<ScrollRestoration />
 				<Scripts />
 			</Body>
