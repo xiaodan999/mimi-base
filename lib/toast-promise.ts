@@ -37,6 +37,7 @@ export function toastPromise<Data>(
 
 				return data.error;
 			},
+			finally: data.finally,
 		});
 	});
 }
