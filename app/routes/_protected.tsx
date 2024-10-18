@@ -89,7 +89,7 @@ export function useAuth() {
 
 	return {
 		isAuthenticated: auth.isAuthenticated,
-		user: auth.isAuthenticated ? { ...auth } : null,
+		user: { ...auth } as User,
 		login: (credentials: {
 			email: string;
 			password: string;
