@@ -1,5 +1,15 @@
 import { useAuth } from "@/app/routes/_protected";
 import TouXiang from "@/components/TouXiang";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
 import {
 	Drawer,
 	DrawerClose,
@@ -9,12 +19,15 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "@/components/ui/drawer";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import useLongPress from "@/hooks/useLongPress";
 import compressImage from "@/lib/compressImage";
 import showFilePicker from "@/lib/showFilePicker";
 import supabase from "@/lib/supabase-client";
 import { toastPromise } from "@/lib/toast-promise";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/start";
+import { Carrot, Ham } from "lucide-react";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_protected/home")({
@@ -41,7 +54,7 @@ function Page() {
 				🎉✨🎉✨
 			</p>
 
-			<div style={{ display: "flex", justifyContent: "center" }}>
+			<div className="flex justify-center">
 				<div {...bind}>
 					<TouXiang
 						size={100}
@@ -49,6 +62,10 @@ function Page() {
 						circleUrl={user.circle}
 					/>
 				</div>
+			</div>
+
+			<div className="w-[80%] mx-auto flex mt-2">
+				<DinnerPicker />
 			</div>
 
 			<Drawer open={visible} onOpenChange={setVisible}>
@@ -143,5 +160,112 @@ function Page() {
 				</DrawerContent>
 			</Drawer>
 		</div>
+	);
+}
+
+const DINNER = [
+	{ name: "螺蛳粉" },
+	{ name: "塔斯丁" },
+	{ name: "肯德基" },
+	{ name: "酸菜鱼" },
+	{ name: "方便面" },
+	{ name: "煮饭" },
+	{ name: "烤鸡腿" },
+	{ name: "沙县小吃" },
+	{ name: "面总管" },
+	{ name: "烧烤" },
+	{ name: "披萨" },
+	{ name: "水果" },
+	{ name: "蔬菜沙拉" },
+	{ name: "喜姐烤串" },
+	{ name: "徽派" },
+	{ name: "奶茶" },
+	{ name: "咖喱饭" },
+	{ name: "兰州拉面" },
+	{ name: "李记麻辣烫" },
+	{ name: "杨国福麻辣烫" },
+	{ name: "老北京火锅" },
+	{ name: "酸辣粉" },
+	{ name: "小龙虾" },
+	{ name: "李记一绝臭豆腐" },
+	{ name: "胖哥俩" },
+	{ name: "瘦肉丸" },
+	{ name: "泡泡酸辣粉" },
+	{ name: "面包" },
+];
+
+const generateMealFn = createServerFn("GET", () => {
+	const index = Math.floor(Math.random() * DINNER.length);
+	const dinnerName = DINNER[index].name;
+	return dinnerName;
+});
+
+function DinnerPicker() {
+	const { user } = useAuth();
+	const [dinnerName, setDinnerName] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [saveLoading, setSaveLoading] = useState(false);
+	const [visible, setVisible] = useState(false);
+
+	const handlePick = async () => {
+		setLoading(true);
+		const name = await generateMealFn();
+		setDinnerName(name);
+		setLoading(false);
+	};
+
+	const handleSave = async (dinner: string) => {
+		setSaveLoading(true);
+		await toastPromise(
+			// @ts-ignore
+			supabase
+				.from("mmi")
+				.insert([{ mimi: `[晚餐抽奖机]: ${dinner}`, author_id: user.id }])
+				.then(({ error }) => {
+					if (error) throw error;
+				}),
+			{
+				loading: `正在记录晚餐 '${dinner}'...`,
+				error: "保存晚餐失败",
+				success: `已将 '${dinner}' 记录在案, 去吃吧.`,
+				finally: () => {
+					setVisible(false);
+					setSaveLoading(false);
+				},
+			},
+		);
+	};
+
+	return (
+		<Dialog open={visible} onOpenChange={setVisible}>
+			<DialogTrigger asChild>
+				<Button size="lg" className="flex-1 gap-1" onClick={handlePick}>
+					<Ham />
+					<span>抽取晚餐</span>
+				</Button>
+			</DialogTrigger>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>
+						<span className="inline-block align-middle mr-1">晚餐吃</span>
+						<span className="inline-block align-middle ">
+							{loading ? <LoadingSpinner /> : `"${dinnerName}"`}
+						</span>
+					</DialogTitle>
+				</DialogHeader>
+				<DialogDescription>恭喜你抽取到了该晚餐!</DialogDescription>
+				<DialogFooter>
+					<Button
+						type="submit"
+						className="gap-1"
+						disabled={loading || saveLoading}
+						onClick={() => handleSave(dinnerName)}
+					>
+						<Carrot />
+						<span>保存</span>
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
