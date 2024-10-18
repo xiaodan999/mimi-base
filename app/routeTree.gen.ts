@@ -11,20 +11,15 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as LogoutImport } from './routes/logout'
 import { Route as AboutImport } from './routes/about'
 import { Route as ProtectedImport } from './routes/_protected'
 import { Route as IndexImport } from './routes/index'
 import { Route as ProtectedSecretImport } from './routes/_protected/secret'
+import { Route as ProtectedLogoutImport } from './routes/_protected/logout'
 import { Route as ProtectedLoginImport } from './routes/_protected/login'
 import { Route as ProtectedHomeImport } from './routes/_protected/home'
 
 // Create/Update Routes
-
-const LogoutRoute = LogoutImport.update({
-  path: '/logout',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const AboutRoute = AboutImport.update({
   path: '/about',
@@ -43,6 +38,11 @@ const IndexRoute = IndexImport.update({
 
 const ProtectedSecretRoute = ProtectedSecretImport.update({
   path: '/secret',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+
+const ProtectedLogoutRoute = ProtectedLogoutImport.update({
+  path: '/logout',
   getParentRoute: () => ProtectedRoute,
 } as any)
 
@@ -81,13 +81,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutImport
       parentRoute: typeof rootRoute
     }
-    '/logout': {
-      id: '/logout'
-      path: '/logout'
-      fullPath: '/logout'
-      preLoaderRoute: typeof LogoutImport
-      parentRoute: typeof rootRoute
-    }
     '/_protected/home': {
       id: '/_protected/home'
       path: '/home'
@@ -100,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof ProtectedLoginImport
+      parentRoute: typeof ProtectedImport
+    }
+    '/_protected/logout': {
+      id: '/_protected/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof ProtectedLogoutImport
       parentRoute: typeof ProtectedImport
     }
     '/_protected/secret': {
@@ -117,12 +117,14 @@ declare module '@tanstack/react-router' {
 interface ProtectedRouteChildren {
   ProtectedHomeRoute: typeof ProtectedHomeRoute
   ProtectedLoginRoute: typeof ProtectedLoginRoute
+  ProtectedLogoutRoute: typeof ProtectedLogoutRoute
   ProtectedSecretRoute: typeof ProtectedSecretRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedHomeRoute: ProtectedHomeRoute,
   ProtectedLoginRoute: ProtectedLoginRoute,
+  ProtectedLogoutRoute: ProtectedLogoutRoute,
   ProtectedSecretRoute: ProtectedSecretRoute,
 }
 
@@ -134,9 +136,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
-  '/logout': typeof LogoutRoute
   '/home': typeof ProtectedHomeRoute
   '/login': typeof ProtectedLoginRoute
+  '/logout': typeof ProtectedLogoutRoute
   '/secret': typeof ProtectedSecretRoute
 }
 
@@ -144,9 +146,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
-  '/logout': typeof LogoutRoute
   '/home': typeof ProtectedHomeRoute
   '/login': typeof ProtectedLoginRoute
+  '/logout': typeof ProtectedLogoutRoute
   '/secret': typeof ProtectedSecretRoute
 }
 
@@ -155,25 +157,25 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
-  '/logout': typeof LogoutRoute
   '/_protected/home': typeof ProtectedHomeRoute
   '/_protected/login': typeof ProtectedLoginRoute
+  '/_protected/logout': typeof ProtectedLogoutRoute
   '/_protected/secret': typeof ProtectedSecretRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '' | '/about' | '/logout' | '/home' | '/login' | '/secret'
+  fullPaths: '/' | '' | '/about' | '/home' | '/login' | '/logout' | '/secret'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '' | '/about' | '/logout' | '/home' | '/login' | '/secret'
+  to: '/' | '' | '/about' | '/home' | '/login' | '/logout' | '/secret'
   id:
     | '__root__'
     | '/'
     | '/_protected'
     | '/about'
-    | '/logout'
     | '/_protected/home'
     | '/_protected/login'
+    | '/_protected/logout'
     | '/_protected/secret'
   fileRoutesById: FileRoutesById
 }
@@ -182,14 +184,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
-  LogoutRoute: typeof LogoutRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
-  LogoutRoute: LogoutRoute,
 }
 
 export const routeTree = rootRoute
@@ -206,8 +206,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/_protected",
-        "/about",
-        "/logout"
+        "/about"
       ]
     },
     "/": {
@@ -218,14 +217,12 @@ export const routeTree = rootRoute
       "children": [
         "/_protected/home",
         "/_protected/login",
+        "/_protected/logout",
         "/_protected/secret"
       ]
     },
     "/about": {
       "filePath": "about.tsx"
-    },
-    "/logout": {
-      "filePath": "logout.tsx"
     },
     "/_protected/home": {
       "filePath": "_protected/home.tsx",
@@ -233,6 +230,10 @@ export const routeTree = rootRoute
     },
     "/_protected/login": {
       "filePath": "_protected/login.tsx",
+      "parent": "/_protected"
+    },
+    "/_protected/logout": {
+      "filePath": "_protected/logout.tsx",
       "parent": "/_protected"
     },
     "/_protected/secret": {
