@@ -1,7 +1,8 @@
 // app/routes/__root.tsx
 import { Toaster } from "@/components/ui/sonner";
 import ENV from "@/lib/env";
-import { createRootRoute } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { createRootRouteWithContext } from "@tanstack/react-router";
 
 import { Outlet, ScrollRestoration } from "@tanstack/react-router";
 import { Body, Head, Html, Meta, Scripts } from "@tanstack/start";
@@ -20,7 +21,9 @@ const TanStackRouterDevtools =
 				})),
 			);
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+	queryClient: QueryClient;
+}>()({
 	meta: () => [
 		{
 			charSet: "utf-8",
