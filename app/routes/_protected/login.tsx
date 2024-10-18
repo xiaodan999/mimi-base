@@ -16,11 +16,8 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/start";
 import { useForm } from "react-hook-form";
 
 const FALLBACK = "/home";
@@ -29,7 +26,6 @@ export const Route = createFileRoute("/_protected/login")({
 		redirect: z.string().optional().catch(""),
 	}),
 	beforeLoad: ({ context, search }) => {
-		console.log(context);
 		if (context.auth.isAuthenticated) {
 			throw redirect({ to: search.redirect || FALLBACK });
 		}
@@ -38,39 +34,16 @@ export const Route = createFileRoute("/_protected/login")({
 });
 
 import { z } from "zod";
+import { useAuth } from "../_protected";
 
 const formSchema = z.object({
 	email: z.string().email(),
 	password: z.string(),
 });
 
-export const loginFn = createServerFn(
-	"POST",
-	async (
-		payload: {
-			email: string;
-			password: string;
-		},
-		{ request },
-	) => {
-		const supabase = getSupabaseServerClient();
-		const { data, error } = await supabase.auth.signInWithPassword({
-			email: payload.email,
-			password: payload.password,
-		});
-		if (error) {
-			return {
-				error: true,
-				message: error.message,
-			};
-		}
-		return { error: false, message: "Successfully logged in", data };
-	},
-);
-
 export function Login() {
 	const router = useRouter();
-	// 1. Define your form.
+	const { login } = useAuth();
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -79,11 +52,8 @@ export function Login() {
 		},
 	});
 
-	// 2. Define a submit handler.
 	async function onSubmit(values: z.infer<typeof formSchema>) {
-		// Do something with the form values.
-		// ✅ This will be type-safe and validated.
-		const { error } = await loginFn(values);
+		const { error } = await login(values);
 		if (!error) {
 			await router.invalidate();
 		}

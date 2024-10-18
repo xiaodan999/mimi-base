@@ -1,6 +1,11 @@
+// @ts-nocheck
+
+import supabase from "@/lib/supabase-client";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
+import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/start";
+import { useEffect } from "react";
 
 type User = {
 	id: string;
@@ -11,13 +16,21 @@ type User = {
 
 export const Route = createFileRoute("/_protected")({
 	beforeLoad: async ({ location }) => {
-		const user = await fetchUser();
+		if (location.pathname === "/logout") {
+			return {
+				auth: {
+					isAuthenticated: false,
+				} as const,
+			};
+		}
+
+		const user = await fetchUserFn();
 		if (!user) {
-			if (location.pathname === "/login")
+			if (["/login"].includes(location.pathname))
 				return {
 					auth: {
 						isAuthenticated: false,
-					},
+					} as const,
 				};
 
 			throw redirect({
@@ -35,9 +48,15 @@ export const Route = createFileRoute("/_protected")({
 			},
 		};
 	},
+
+	component: () => (
+		<AuthStateListener>
+			<Outlet />
+		</AuthStateListener>
+	),
 });
 
-const fetchUser = createServerFn("GET", async () => {
+const fetchUserFn = createServerFn("GET", async () => {
 	const supabase = getSupabaseServerClient();
 	const {
 		data: { session },
@@ -64,3 +83,38 @@ const fetchUser = createServerFn("GET", async () => {
 		circle: userData["tou-xiang-circle"]?.url,
 	} as User;
 });
+
+export function useAuth() {
+	const auth = Route.useRouteContext({ select: (ctx) => ctx.auth });
+
+	return {
+		isAuthenticated: auth.isAuthenticated,
+		user: auth.isAuthenticated ? { ...auth } : null,
+		login: (credentials: {
+			email: string;
+			password: string;
+		}) => {
+			return supabase.auth.signInWithPassword(credentials);
+		},
+		logout: async () => {
+			return await supabase.auth.signOut();
+		},
+	};
+}
+
+function AuthStateListener({ children }) {
+	const router = useRouter();
+
+	useEffect(() => {
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((event) => {
+			if (event === "SIGNED_OUT") {
+				router.invalidate();
+			}
+		});
+		return subscription.unsubscribe;
+	}, [router]);
+
+	return <>{children}</>;
+}
