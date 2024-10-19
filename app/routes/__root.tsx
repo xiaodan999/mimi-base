@@ -48,6 +48,18 @@ export const Route = createRootRouteWithContext<{
 		{ rel: "manifest", href: "/manifest.json" },
 		{ rel: "stylesheet", href: appCss },
 	],
+	scripts: () =>
+		import.meta.env.DEV
+			? [
+					{
+						type: "module",
+						children: `import RefreshRuntime from "/_build/@react-refresh";
+	RefreshRuntime.injectIntoGlobalHook(window)
+	window.$RefreshReg$ = () => {}
+	window.$RefreshSig$ = () => (type) => type`,
+					},
+				]
+			: [],
 	component: RootComponent,
 });
 

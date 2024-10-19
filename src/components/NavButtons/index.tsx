@@ -1,10 +1,10 @@
-import { NavLink } from "react-router-dom";
 
 import ChatIcon from "./icons/chat.png";
 import PhotoIcon from "./icons/photo.png";
 import VideoIcon from "./icons/video.png";
 import WalletIcon from "./icons/wallet.png";
 
+import { Link } from "@tanstack/react-router";
 import styles from "./buttons.module.css";
 
 const routes = [
@@ -18,7 +18,7 @@ export default function NavButtons() {
   return (
     <div className={styles.navBar}>
       {routes.map((route) => (
-        <NavLink className={styles.link} key={route.path} to={route.path}>
+        <Link className={styles.link} key={route.path} to={route.path}>
           {({ isActive }) => (
             <img
               className={`${styles.icon} ${isActive ? styles.active : ""}`}
@@ -26,7 +26,7 @@ export default function NavButtons() {
               alt={route.name}
             />
           )}
-        </NavLink>
+        </Link>
       ))}
     </div>
   );

@@ -1,26 +1,27 @@
 .navBar {
-  position: fixed;
-  bottom: 0;
-  display: flex;
-  width: 100%;
-  justify-content: center;
-  height: var(--nav-bar-height);
-  background-color: var(--theme-color);
+	position: fixed;
+	bottom: 0;
+	display: flex;
+	width: 100%;
+	justify-content: center;
+	height: 55px;
+	background-color: var(--theme-color);
 }
 
 .link {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  -webkit-tap-highlight-color: transparent;
+	flex: 1;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	-webkit-tap-highlight-color: transparent;
 }
 
 .icon {
-  width: 30px;
-  height: 30px;
+	width: 30px;
+	height: 30px;
 }
 
 .active {
-  filter: invert(39%) sepia(27%) saturate(1511%) hue-rotate(195deg) brightness(93%) contrast(98%);
+	filter: invert(39%) sepia(27%) saturate(1511%) hue-rotate(195deg)
+		brightness(93%) contrast(98%);
 }
