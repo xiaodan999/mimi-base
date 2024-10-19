@@ -30,7 +30,7 @@ import { createServerFn } from "@tanstack/start";
 import { Carrot, Ham } from "lucide-react";
 import { useState } from "react";
 
-export const Route = createFileRoute("/_protected/home")({
+export const Route = createFileRoute("/_protected/_main/home")({
 	component: Page,
 });
 
@@ -44,7 +44,7 @@ function Page() {
 	return (
 		<div>
 			<h1 className="text-4xl font-semibold text-center">
-				秘密保存基地 <i>V6.2</i>
+				秘密保存基地 <i>V6.3</i>
 			</h1>
 			<p className="text-2xl mt-2">
 				欢迎{" "}
