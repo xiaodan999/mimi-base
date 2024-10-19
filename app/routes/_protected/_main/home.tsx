@@ -26,7 +26,6 @@ import showFilePicker from "@/lib/showFilePicker";
 import supabase from "@/lib/supabase-client";
 import { toastPromise } from "@/lib/toast-promise";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/start";
 import { Carrot, Ham } from "lucide-react";
 import { useState } from "react";
 
@@ -194,11 +193,11 @@ const DINNER = [
 	{ name: "面包" },
 ];
 
-const generateMealFn = createServerFn("GET", () => {
+const generateMealFn = () => {
 	const index = Math.floor(Math.random() * DINNER.length);
 	const dinnerName = DINNER[index].name;
 	return dinnerName;
-});
+};
 
 function DinnerPicker() {
 	const { user } = useAuth();

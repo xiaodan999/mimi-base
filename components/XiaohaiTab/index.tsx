@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import supabase from "@/lib/supabase-client";
 import { useEffect, useState } from "react";
 
@@ -10,7 +12,7 @@ export default function XiaohaiTab() {
 	useEffect(() => {
 		const getAllMimi = async () => {
 			setLoading(true);
-			let { data, error } = await supabase
+			const { data, error } = await supabase
 				.from("mmi")
 				.select(
 					"id,mimi,created_at,users(user_name,tou_xiang,tou-xiang-circle(url))",
