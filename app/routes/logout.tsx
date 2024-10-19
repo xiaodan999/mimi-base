@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useAuth } from "../_protected";
 
-export const Route = createFileRoute("/_protected/logout")({
+export const Route = createFileRoute("/logout")({
 	preload: false,
 	component: Page,
 });
@@ -11,14 +11,14 @@ export const Route = createFileRoute("/_protected/logout")({
 function Page() {
 	const { logout } = useAuth();
 	const navigate = useNavigate();
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	useEffect(() => {
-		logout().then(({ error }) => {
-			if (!error) {
-				navigate({ to: "/" });
-			}
+		logout().then(() => {
+			navigate({ to: "/" });
 		});
 	}, []);
+
 	return (
 		<div>
 			<h1>Bye bye...</h1>
