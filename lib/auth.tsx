@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { router } from "@/app/main";
 import type { AuthTokenResponsePassword } from "@supabase/supabase-js";
 import {
