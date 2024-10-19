@@ -1,10 +1,8 @@
 // @ts-nocheck
 
 import supabase from "@/lib/supabase-client";
-import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { useRouter } from "@tanstack/react-router";
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/start";
 import { useEffect } from "react";
 
 type User = {
@@ -24,7 +22,7 @@ export const Route = createFileRoute("/_protected")({
 			};
 		}
 
-		const user = await fetchUserFn();
+		const user = await fetchUser();
 		if (!user) {
 			if (["/login"].includes(location.pathname))
 				return {
@@ -56,8 +54,7 @@ export const Route = createFileRoute("/_protected")({
 	),
 });
 
-const fetchUserFn = createServerFn("GET", async () => {
-	const supabase = getSupabaseServerClient();
+const fetchUser = async () => {
 	const {
 		data: { session },
 	} = await supabase.auth.getSession();
@@ -82,7 +79,7 @@ const fetchUserFn = createServerFn("GET", async () => {
 		tou_xiang: userData.tou_xiang,
 		circle: userData["tou-xiang-circle"]?.url,
 	} as User;
-});
+};
 
 export function useAuth() {
 	const auth = Route.useRouteContext({ select: (ctx) => ctx.auth });

@@ -14,14 +14,11 @@ export default function useLongPress(callback: () => void, ms: number) {
 		};
 	}, []);
 
-	const onPointerDown = useCallback(
-		(e) => {
-			pressTimer.current = setTimeout(() => {
-				callbackRef.current();
-			}, ms) as unknown as number;
-		},
-		[ms],
-	);
+	const onPointerDown = useCallback(() => {
+		pressTimer.current = setTimeout(() => {
+			callbackRef.current();
+		}, ms) as unknown as number;
+	}, [ms]);
 
 	const onPointerUp = () => {
 		clearTimeout(pressTimer.current);
