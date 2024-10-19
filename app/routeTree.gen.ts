@@ -11,19 +11,32 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as LogoutImport } from './routes/logout'
+import { Route as LoginImport } from './routes/login'
 import { Route as AboutImport } from './routes/about'
 import { Route as ProtectedImport } from './routes/_protected'
 import { Route as IndexImport } from './routes/index'
 import { Route as ProtectedSecretImport } from './routes/_protected/secret'
-import { Route as ProtectedLogoutImport } from './routes/_protected/logout'
-import { Route as ProtectedLoginImport } from './routes/_protected/login'
 import { Route as ProtectedMainImport } from './routes/_protected/_main'
 import { Route as ProtectedMainHomeImport } from './routes/_protected/_main/home'
 import { Route as ProtectedMainPhotosIndexImport } from './routes/_protected/_main/photos/index'
 
 // Create/Update Routes
 
+const LogoutRoute = LogoutImport.update({
+  id: '/logout',
+  path: '/logout',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const LoginRoute = LoginImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const AboutRoute = AboutImport.update({
+  id: '/about',
   path: '/about',
   getParentRoute: () => rootRoute,
 } as any)
@@ -34,22 +47,14 @@ const ProtectedRoute = ProtectedImport.update({
 } as any)
 
 const IndexRoute = IndexImport.update({
+  id: '/',
   path: '/',
   getParentRoute: () => rootRoute,
 } as any)
 
 const ProtectedSecretRoute = ProtectedSecretImport.update({
+  id: '/secret',
   path: '/secret',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-
-const ProtectedLogoutRoute = ProtectedLogoutImport.update({
-  path: '/logout',
-  getParentRoute: () => ProtectedRoute,
-} as any)
-
-const ProtectedLoginRoute = ProtectedLoginImport.update({
-  path: '/login',
   getParentRoute: () => ProtectedRoute,
 } as any)
 
@@ -59,11 +64,13 @@ const ProtectedMainRoute = ProtectedMainImport.update({
 } as any)
 
 const ProtectedMainHomeRoute = ProtectedMainHomeImport.update({
+  id: '/home',
   path: '/home',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
 
 const ProtectedMainPhotosIndexRoute = ProtectedMainPhotosIndexImport.update({
+  id: '/photos/',
   path: '/photos/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
@@ -93,25 +100,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutImport
       parentRoute: typeof rootRoute
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginImport
+      parentRoute: typeof rootRoute
+    }
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutImport
+      parentRoute: typeof rootRoute
+    }
     '/_protected/_main': {
       id: '/_protected/_main'
       path: ''
       fullPath: ''
       preLoaderRoute: typeof ProtectedMainImport
-      parentRoute: typeof ProtectedImport
-    }
-    '/_protected/login': {
-      id: '/_protected/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof ProtectedLoginImport
-      parentRoute: typeof ProtectedImport
-    }
-    '/_protected/logout': {
-      id: '/_protected/logout'
-      path: '/logout'
-      fullPath: '/logout'
-      preLoaderRoute: typeof ProtectedLogoutImport
       parentRoute: typeof ProtectedImport
     }
     '/_protected/secret': {
@@ -156,15 +163,11 @@ const ProtectedMainRouteWithChildren = ProtectedMainRoute._addFileChildren(
 
 interface ProtectedRouteChildren {
   ProtectedMainRoute: typeof ProtectedMainRouteWithChildren
-  ProtectedLoginRoute: typeof ProtectedLoginRoute
-  ProtectedLogoutRoute: typeof ProtectedLogoutRoute
   ProtectedSecretRoute: typeof ProtectedSecretRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMainRoute: ProtectedMainRouteWithChildren,
-  ProtectedLoginRoute: ProtectedLoginRoute,
-  ProtectedLogoutRoute: ProtectedLogoutRoute,
   ProtectedSecretRoute: ProtectedSecretRoute,
 }
 
@@ -176,8 +179,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '': typeof ProtectedMainRouteWithChildren
   '/about': typeof AboutRoute
-  '/login': typeof ProtectedLoginRoute
-  '/logout': typeof ProtectedLogoutRoute
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
@@ -187,8 +190,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '': typeof ProtectedMainRouteWithChildren
   '/about': typeof AboutRoute
-  '/login': typeof ProtectedLoginRoute
-  '/logout': typeof ProtectedLogoutRoute
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
@@ -199,9 +202,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
   '/about': typeof AboutRoute
+  '/login': typeof LoginRoute
+  '/logout': typeof LogoutRoute
   '/_protected/_main': typeof ProtectedMainRouteWithChildren
-  '/_protected/login': typeof ProtectedLoginRoute
-  '/_protected/logout': typeof ProtectedLogoutRoute
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
@@ -233,9 +236,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_protected'
     | '/about'
+    | '/login'
+    | '/logout'
     | '/_protected/_main'
-    | '/_protected/login'
-    | '/_protected/logout'
     | '/_protected/secret'
     | '/_protected/_main/home'
     | '/_protected/_main/photos/'
@@ -246,12 +249,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
   AboutRoute: typeof AboutRoute
+  LoginRoute: typeof LoginRoute
+  LogoutRoute: typeof LogoutRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
   AboutRoute: AboutRoute,
+  LoginRoute: LoginRoute,
+  LogoutRoute: LogoutRoute,
 }
 
 export const routeTree = rootRoute
@@ -268,7 +275,9 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/_protected",
-        "/about"
+        "/about",
+        "/login",
+        "/logout"
       ]
     },
     "/": {
@@ -278,13 +287,17 @@ export const routeTree = rootRoute
       "filePath": "_protected.tsx",
       "children": [
         "/_protected/_main",
-        "/_protected/login",
-        "/_protected/logout",
         "/_protected/secret"
       ]
     },
     "/about": {
       "filePath": "about.tsx"
+    },
+    "/login": {
+      "filePath": "login.tsx"
+    },
+    "/logout": {
+      "filePath": "logout.tsx"
     },
     "/_protected/_main": {
       "filePath": "_protected/_main.tsx",
@@ -293,14 +306,6 @@ export const routeTree = rootRoute
         "/_protected/_main/home",
         "/_protected/_main/photos/"
       ]
-    },
-    "/_protected/login": {
-      "filePath": "_protected/login.tsx",
-      "parent": "/_protected"
-    },
-    "/_protected/logout": {
-      "filePath": "_protected/logout.tsx",
-      "parent": "/_protected"
     },
     "/_protected/secret": {
       "filePath": "_protected/secret.tsx",

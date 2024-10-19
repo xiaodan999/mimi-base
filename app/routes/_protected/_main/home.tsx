@@ -1,4 +1,3 @@
-import { useAuth } from "@/app/routes/_protected";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,11 +20,12 @@ import {
 } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import useLongPress from "@/hooks/useLongPress";
+import { useAuth } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import showFilePicker from "@/lib/showFilePicker";
 import supabase from "@/lib/supabase-client";
 import { toastPromise } from "@/lib/toast-promise";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Carrot, Ham } from "lucide-react";
 import { useState } from "react";
 
@@ -34,8 +34,7 @@ export const Route = createFileRoute("/_protected/_main/home")({
 });
 
 function Page() {
-	const { user } = useAuth();
-	const router = useRouter();
+	const { user, refresh } = useAuth();
 	const [visible, setVisible] = useState(false);
 	const bind = useLongPress(() => {
 		setVisible(true);
@@ -136,7 +135,7 @@ function Page() {
 										{
 											loading: "修改头像中...",
 											success: () => {
-												router.invalidate();
+												refresh();
 												return "修改头像成功";
 											},
 											error: "修改头像失败",

@@ -1,8 +1,10 @@
 import { Toaster } from "@/components/ui/sonner";
-import { Outlet, createRootRoute } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { lazy } from "react";
 
 import "globals.css";
+import type { AuthContextType } from "@/lib/auth";
+import type { QueryClient } from "@tanstack/react-query";
 
 const TanStackRouterDevtools =
 	process.env.NODE_ENV === "production"
@@ -16,7 +18,10 @@ const TanStackRouterDevtools =
 				})),
 			);
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{
+	auth: AuthContextType;
+	queryClient: QueryClient;
+}>()({
 	component: () => (
 		<>
 			<Outlet />

@@ -16,25 +16,28 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const FALLBACK = "/home";
-export const Route = createFileRoute("/_protected/login")({
+
+export const Route = createFileRoute("/login")({
 	validateSearch: z.object({
 		redirect: z.string().optional().catch(""),
 	}),
 	beforeLoad: ({ context, search }) => {
+		console.log("run beforeLoad in /login", context.auth);
+		if (context.auth === null) return;
 		if (context.auth.isAuthenticated) {
 			throw redirect({ to: search.redirect || FALLBACK });
 		}
 	},
 	component: Login,
 });
-
-import { z } from "zod";
-import { useAuth } from "../_protected";
 
 const formSchema = z.object({
 	email: z.string().email(),
@@ -43,6 +46,7 @@ const formSchema = z.object({
 
 export function Login() {
 	const router = useRouter();
+
 	const { login } = useAuth();
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
@@ -58,6 +62,7 @@ export function Login() {
 			await router.invalidate();
 		}
 	}
+
 	return (
 		<div className="w-dvw h-dvh flex justify-center items-center">
 			<Form {...form}>

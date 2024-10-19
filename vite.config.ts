@@ -25,6 +25,7 @@ export default defineConfig({
 	plugins: [
 		TanStackRouterVite({
 			routesDirectory: "./app/routes",
+			generatedRouteTree: "./app/routeTree.gen.ts",
 		}),
 		viteReact(),
 		// this is the plugin that enables path aliases
