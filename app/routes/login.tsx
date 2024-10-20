@@ -1,3 +1,4 @@
+import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -30,13 +31,19 @@ export const Route = createFileRoute("/login")({
 		redirect: z.string().optional().catch(""),
 	}),
 	beforeLoad: ({ context, search }) => {
-		console.log("run beforeLoad in /login", context.auth);
-		if (context.auth === null) return;
+		// console.log("run beforeLoad in /login", context.auth);
+		if (context.auth.loading === null) return;
 		if (context.auth.isAuthenticated) {
 			throw redirect({ to: search.redirect || FALLBACK });
 		}
 	},
-	component: Login,
+	component: () => {
+		const loading = Route.useRouteContext({
+			select: (ctx) => ctx.auth.loading,
+		});
+
+		return loading ? <LoadingPage /> : <Login />;
+	},
 });
 
 const formSchema = z.object({
