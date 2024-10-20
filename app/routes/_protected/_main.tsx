@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_protected/_main")({
 function Layout() {
 	return (
 		<>
-			<main>
+			<main style={{ paddingBottom: "55px" }}>
 				<Outlet />
 			</main>
 
