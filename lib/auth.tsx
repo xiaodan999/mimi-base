@@ -11,7 +11,7 @@ import {
 } from "react";
 import supabase from "./supabase-client";
 
-type User = {
+export type User = {
 	id: string;
 	user_name: string;
 	tou_xiang: string;
