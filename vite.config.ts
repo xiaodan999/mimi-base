@@ -14,7 +14,7 @@ export default defineConfig({
 		rollupOptions: {
 			output: {
 				manualChunks: {
-					"common/react-packages": ["react", "react-dom", "react-router-dom"],
+					"common/react-packages": ["react", "react-dom"],
 					"common/supabase-js": ["@supabase/supabase-js"],
 					"common/react-query": ["@tanstack/react-query"],
 					"common/tanstack-router": ["@tanstack/react-router"],
