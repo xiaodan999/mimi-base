@@ -1,6 +1,5 @@
 // @ts-nocheck
 
-import { router } from "@/app/main";
 import type { AuthTokenResponsePassword } from "@supabase/supabase-js";
 import {
 	type ReactNode,
@@ -54,6 +53,7 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [loading, setLoading] = useState(true);
 	const [user, setUser] = useState<User | null>(null);
+	const isAuthenticated = user !== null;
 
 	const refresh = useCallback(() => {
 		setLoading(true);
@@ -68,36 +68,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		let mounted = true;
-		setLoading(true);
-		fetchUser()
-			.then((data) => {
-				mounted && setUser(data);
-			})
-			.finally(() => {
-				mounted && setLoading(false);
-			});
-
-		return () => {
-			mounted = false;
-		};
-	}, []);
-
-	useEffect(() => {
-		let mounted = true;
 		const {
 			data: { subscription },
 		} = supabase.auth.onAuthStateChange((event) => {
 			if (event === "SIGNED_OUT") {
 				setUser(null);
 			} else {
-				setLoading(true);
-				fetchUser()
-					.then((data) => {
-						mounted && setUser(data);
-					})
-					.finally(() => {
-						mounted && setLoading(false);
-					});
+				(async () => {
+					setLoading(true);
+					const data = await fetchUser();
+					if (mounted) {
+						setUser(data);
+						setLoading(false);
+					}
+				})();
 			}
 			console.log(event);
 		});
@@ -107,17 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		};
 	}, []);
 
-	useEffect(() => {
-		if (user?.id !== null) {
-			console.log("run invalidate");
-			router.invalidate();
-		}
-	}, [user?.id]);
-
 	return (
 		<AuthContext.Provider
 			value={{
-				isAuthenticated: user !== null,
+				isAuthenticated,
 				// @ts-ignore
 				user,
 				login,
