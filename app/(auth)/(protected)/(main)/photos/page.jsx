@@ -1,8 +1,8 @@
-import { Fragment, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImageViewer, InfiniteScroll, SwipeAction, Toast } from "antd-mobile";
 import { UploadOutline } from "antd-mobile-icons";
+import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { InfiniteScrollContent } from "@src/components/InfiniteScroll";
 import Spinner from "@src/components/Spinner";
@@ -36,7 +36,6 @@ export default function Photos() {
         <Fragment key={photo.id}>
           <Photo
             id={photo.id}
-            photoPath={photo.photoPath}
             photoUrl={photo.photo}
             date={formatDate(photo.created_at)}
             user={photo.users}

@@ -1,13 +1,22 @@
+import type { User } from "@/lib/auth";
 import supabase from "@/lib/supabase-client";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
+export type PhotoData = {
+	user: User;
+	id: string;
+	created_at: string;
+	url: string;
+	storagePath: string;
+};
+
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-function transform(data: any) {
+function transform(data: any): PhotoData[] {
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	const transformed = data.map((p: any) => ({
 		...p,
-		photoPath: p.photo,
-		photo: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data
+		storagePath: p.photo,
+		url: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo).data
 			.publicUrl,
 	}));
 	return transformed;
@@ -18,19 +27,20 @@ async function fetchPhotos(cursor: string | null, limit: number) {
 	let query = supabase
 		.from("tu-pian-xin-xi")
 		.select(
-			"user_id,photo,id,created_at,users(user_name,tou_xiang,tou-xiang-circle(url))",
+			"photo,id,created_at,user:users(id,user_name,tou_xiang,...tou-xiang-circle(circle:url))",
 		)
 		.order("created_at", { ascending: false })
-		.limit(limit + 1);
+		.limit(limit);
 
 	if (cursor) {
-		query = query.lte("created_at", cursor);
+		query = query.lt("created_at", cursor);
 	}
 
 	const { data, error } = await query;
 
 	if (error) throw error;
-	return data;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	return data as any[];
 }
 
 async function getPhotos(cursor: string, limit = 10) {
@@ -44,9 +54,8 @@ async function getPhotos(cursor: string, limit = 10) {
 		data = await fetchPhotos(cursor, limit);
 	}
 
-	const photos = transform(data.slice(0, limit)); // Transform the first limit photos in the data array
-	// @ts-ignore
-	const nextCursor = data[limit]?.created_at ?? null; // Set the value of nextCursor
+	const photos = transform(data); // Transform the first limit photos in the data array
+	const nextCursor: string | null = data.at(-1)!.created_at ?? null; // Set the value of nextCursor
 
 	return { photos, nextCursor, limit }; // Return an object containing the photos array, nextCursor value and limit
 }
