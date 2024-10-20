@@ -1,5 +1,12 @@
 import LoadingPage from "@/components/LoadingPage";
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { useAuth } from "@/lib/auth";
+import {
+	Outlet,
+	createFileRoute,
+	redirect,
+	useRouter,
+} from "@tanstack/react-router";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/_protected")({
 	beforeLoad: async ({ context, location }) => {
@@ -16,9 +23,15 @@ export const Route = createFileRoute("/_protected")({
 		}
 	},
 	component: () => {
-		const loading = Route.useRouteContext({
-			select: (ctx) => ctx.auth.loading,
-		});
-		return loading ? <LoadingPage /> : <Outlet />;
+		const router = useRouter();
+		const { loading, isAuthenticated } = useAuth();
+
+		useEffect(() => {
+			if (!loading) router.invalidate();
+		}, [loading, router]);
+
+		const showLoading = !isAuthenticated && loading;
+
+		return showLoading ? <LoadingPage /> : <Outlet />;
 	},
 });

@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "@tanstack/react-router";
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -38,11 +39,14 @@ export const Route = createFileRoute("/login")({
 		}
 	},
 	component: () => {
-		const loading = Route.useRouteContext({
-			select: (ctx) => ctx.auth.loading,
-		});
+		const router = useRouter();
+		const { loading, isAuthenticated } = useAuth();
+		useEffect(() => {
+			if (!loading) router.invalidate();
+		}, [loading, router]);
 
-		return loading ? <LoadingPage /> : <Login />;
+		const showLoading = isAuthenticated || loading;
+		return showLoading ? <LoadingPage /> : <Login />;
 	},
 });
 

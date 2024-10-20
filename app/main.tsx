@@ -7,7 +7,7 @@ import { routeTree } from "./routeTree.gen";
 const queryClient = new QueryClient();
 
 // Set up a Router instance
-export const router = createRouter({
+const router = createRouter({
 	routeTree,
 	context: {
 		queryClient,
