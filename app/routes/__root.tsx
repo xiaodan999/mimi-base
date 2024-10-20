@@ -1,5 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+	Outlet,
+	ScrollRestoration,
+	createRootRouteWithContext,
+} from "@tanstack/react-router";
 import { lazy } from "react";
 
 import "globals.css";
@@ -17,7 +21,6 @@ const TanStackRouterDevtools =
 					// default: res.TanStackRouterDevtoolsPanel
 				})),
 			);
-
 export const Route = createRootRouteWithContext<{
 	auth: AuthContextType;
 	queryClient: QueryClient;
@@ -25,6 +28,7 @@ export const Route = createRootRouteWithContext<{
 	component: () => (
 		<>
 			<Outlet />
+			<ScrollRestoration getKey={(location) => location.pathname} />
 			<Toaster />
 
 			<TanStackRouterDevtools position="bottom-right" />
