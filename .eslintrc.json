@@ -1,0 +1,50 @@
+{
+    "extends": [
+        "eslint:recommended",
+        "plugin:import/recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:react/recommended",
+        "plugin:react-hooks/recommended"
+    ],
+    "rules": {
+        "react/react-in-jsx-scope": "off",
+        "import/order": [
+            "error",
+            {
+                "groups": ["builtin", "external", "internal", ["parent", "sibling"], "index"],
+                "newlines-between": "always",
+                "pathGroups": [
+                    {
+                        "pattern": "react",
+                        "group": "external",
+                        "position": "before"
+                    },
+                    {
+                        "pattern": "react-router-dom",
+                        "group": "external",
+                        "position": "before"
+                    },
+                    {
+                        "pattern": "./**/*.module.css",
+                        "group": "index",
+                        "position": "after"
+                    }
+                ],
+                "distinctGroup": false,
+                "pathGroupsExcludedImportTypes": ["react", "react-router-dom"],
+                "alphabetize": {
+                    "order": "asc"
+                }
+            }
+        ]
+    },
+    "settings": {
+        "react": {
+            "version": "detect"
+        },
+        "import/resolver": {
+            "typescript": true,
+            "node": true
+        }
+    }
+}
