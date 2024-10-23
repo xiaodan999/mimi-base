@@ -1,5 +1,6 @@
 import { Fragment, useEffect } from "react";
 import * as Avatar from "@radix-ui/react-avatar";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { PlusCircle } from "lucide-react";
 import { useInView } from "react-intersection-observer";
@@ -12,7 +13,12 @@ import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/lib/auth";
+import compressImage from "@/lib/compressImage";
 import { formatDate } from "@/lib/date";
+import showFilePicker from "@/lib/showFilePicker";
+import supabase from "@/lib/supabase-client";
+import { toastPromise } from "@/lib/toast-promise";
 
 export const Route = createFileRoute("/_protected/_main/photos/")({
     component: Page,
@@ -124,11 +130,81 @@ function Photo({ user, url, created_at }: PhotoData) {
 }
 
 function Header() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationKey: ["photos"],
+        mutationFn: async () => {
+            // 1. 让用户选择图片
+            const originalFile = await toastPromise(showFilePicker("image/*"), {
+                loading: "获取图片中...",
+                success: "成功获取图片",
+                error: "获取图片失败",
+            });
+
+            const file = await toastPromise(
+                compressImage(originalFile, {
+                    quality: 0.7,
+                }),
+                {
+                    loading: "压缩图片中...",
+                    success: "压缩图片完成",
+                    error: "压缩图片失败",
+                },
+            );
+
+            const path = `photos/${user.id}/${Date.now()}.webp`;
+            await toastPromise(
+                supabase.storage
+                    .from("hao-duo-zhao-pian")
+                    .upload(path, file, { cacheControl: "31536000" })
+                    .then(({ error, data }) => {
+                        if (error) throw error;
+                        return data;
+                    }),
+                {
+                    loading: "上传图片中...",
+                    success: "上传图片成功",
+                    error: (e) => `上传图片失败. ${e}`,
+                },
+            );
+
+            await toastPromise(
+                // @ts-expect-error silly supabase
+                supabase
+                    .from("tu-pian-xin-xi")
+                    .insert([{ user_id: user.id, photo: path }])
+                    .then(({ data, error }) => {
+                        if (error) throw error;
+                        return data;
+                    }),
+                {
+                    loading: "记录图片信息中...",
+                    success: "记录图片信息成功",
+                    error: "记录图片信息失败",
+                },
+            );
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["photos"] });
+        },
+    });
+
     return (
         <section className="flex justify-between items-center p-2">
             <h1 className="text-3xl">小丹和小海的照片</h1>
-            <Button size="icon" variant="ghost">
-                <PlusCircle className="size-8" />
+            <Button
+                type="button"
+                className="p-1 size-13"
+                variant="ghost"
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending}
+            >
+                {mutation.isPending ? (
+                    <LoadingSpinner className="size-10" />
+                ) : (
+                    <PlusCircle className="size-10" />
+                )}
             </Button>
         </section>
     );
