@@ -1,5 +1,4 @@
 import { Fragment, useEffect } from "react";
-import * as Avatar from "@radix-ui/react-avatar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { PlusCircle } from "lucide-react";
@@ -12,7 +11,6 @@ import LoadingPage from "@/components/LoadingPage";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import { formatDate } from "@/lib/date";
@@ -107,16 +105,14 @@ function Photo({ user, url, created_at }: PhotoData) {
             </div>
 
             <div className="flex justify-center">
-                <Avatar.Root className="relative h-[330px] w-[250px] overflow-hidden rounded-md">
-                    <Avatar.Image
+                <div className="relative h-[330px] w-[250px] overflow-hidden rounded-md bg-green-100">
+                    <img
                         className="h-full w-full aspect-[3/4] object-cover transition-all hover:scale-105"
                         src={url}
                         alt="life"
                     />
-                    <Avatar.Fallback className="h-full w-full">
-                        <Skeleton className="h-full w-full" />
-                    </Avatar.Fallback>
-                </Avatar.Root>
+                </div>
+
                 {/* more images ... */}
             </div>
 
