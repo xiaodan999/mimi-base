@@ -9,7 +9,7 @@ type useJiZhangProps = {
     end: string;
 };
 
-type Item = {
+export type JiZhangItemData = {
     id: string;
     price: number;
     itemName: string;
@@ -24,12 +24,15 @@ export function useJiZhang({ start, end }: useJiZhangProps) {
                 .from("ji_zhang_biao")
                 .select("id, price, itemName:item_name, createdAt:created_at")
                 .gte("created_at", start)
-                .lt("created_at", end)
+                .lte("created_at", end)
                 .order("created_at", { ascending: false })
                 .throwOnError();
             if (rawData === null) throw new Error("没有找到记账数据");
 
-            const transformedData: { date: string; items: Item[] }[] = [];
+            const transformedData: {
+                date: string;
+                items: JiZhangItemData[];
+            }[] = [];
 
             groupBy(rawData, (item) => myFormatDate(item.createdAt)).forEach(
                 (items, date) => {

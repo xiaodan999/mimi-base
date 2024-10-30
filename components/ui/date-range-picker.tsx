@@ -14,6 +14,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { zhCN } from "date-fns/esm/locale";
+import { endOfDay } from "date-fns/esm";
 
 type DatePickerWithRangeProps = {
     date: DateRange;
@@ -32,7 +33,7 @@ export function DatePickerWithRange({
                         id="date"
                         variant={"outline"}
                         className={cn(
-                            "w-[300px] justify-start text-left font-normal",
+                            "w-[300px] justify-center gap-1 text-left font-normal",
                             !date && "text-muted-foreground",
                         )}
                     >
@@ -58,9 +59,19 @@ export function DatePickerWithRange({
                         defaultMonth={date?.from}
                         selected={date}
                         onSelect={(value) => {
-                            onSelectDate(value!);
+                            if (!value) {
+                                console.error("date range is undefined");
+                                return;
+                            }
+
+                            if (!value.to) {
+                                console.error(`to is undefined`);
+                                return;
+                            }
+
+                            onSelectDate(value);
                         }}
-                        disabled={{ after: new Date() }}
+                        disabled={{ after: endOfDay(new Date()) }}
                         numberOfMonths={2}
                         locale={zhCN}
                     />
