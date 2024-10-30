@@ -8,12 +8,12 @@ export const Route = createFileRoute("/_protected/_main")({
 
 function Layout() {
     return (
-        <>
-            <main style={{ paddingBottom: "55px" }}>
+        <div className="flex h-full flex-col">
+            <main className="flex-1 overflow-auto">
                 <Outlet />
             </main>
 
             <NavButtons />
-        </>
+        </div>
     );
 }
