@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { addDays, format } from "date-fns";
+import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
@@ -60,6 +60,7 @@ export function DatePickerWithRange({
                         onSelect={(value) => {
                             onSelectDate(value!);
                         }}
+                        disabled={{ after: new Date() }}
                         numberOfMonths={2}
                         locale={zhCN}
                     />
