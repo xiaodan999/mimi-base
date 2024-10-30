@@ -58,6 +58,7 @@ export default function XiaohaiTab() {
 
     return (
         <div
+            className="py-2"
             style={{ height: "100%", display: "flex", flexDirection: "column" }}
         >
             <ul
@@ -65,7 +66,7 @@ export default function XiaohaiTab() {
                     padding: 0,
                     paddingLeft: "10px",
                     paddingRight: "10px",
-                    overflow: "scroll",
+                    overflow: "auto",
                     willChange: "scroll-position",
                     flex: 1,
                 }}
