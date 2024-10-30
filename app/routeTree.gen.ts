@@ -20,6 +20,7 @@ import { Route as ProtectedSecretImport } from './routes/_protected/secret'
 import { Route as ProtectedMainImport } from './routes/_protected/_main'
 import { Route as ProtectedMainHomeImport } from './routes/_protected/_main/home'
 import { Route as ProtectedMainPhotosIndexImport } from './routes/_protected/_main/photos/index'
+import { Route as ProtectedMainJizhangIndexImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainChatIndexImport } from './routes/_protected/_main/chat/index'
 
 // Create/Update Routes
@@ -73,6 +74,12 @@ const ProtectedMainHomeRoute = ProtectedMainHomeImport.update({
 const ProtectedMainPhotosIndexRoute = ProtectedMainPhotosIndexImport.update({
   id: '/photos/',
   path: '/photos/',
+  getParentRoute: () => ProtectedMainRoute,
+} as any)
+
+const ProtectedMainJizhangIndexRoute = ProtectedMainJizhangIndexImport.update({
+  id: '/jizhang/',
+  path: '/jizhang/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
 
@@ -149,6 +156,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainChatIndexImport
       parentRoute: typeof ProtectedMainImport
     }
+    '/_protected/_main/jizhang/': {
+      id: '/_protected/_main/jizhang/'
+      path: '/jizhang'
+      fullPath: '/jizhang'
+      preLoaderRoute: typeof ProtectedMainJizhangIndexImport
+      parentRoute: typeof ProtectedMainImport
+    }
     '/_protected/_main/photos/': {
       id: '/_protected/_main/photos/'
       path: '/photos'
@@ -164,12 +178,14 @@ declare module '@tanstack/react-router' {
 interface ProtectedMainRouteChildren {
   ProtectedMainHomeRoute: typeof ProtectedMainHomeRoute
   ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
+  ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
 }
 
 const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainHomeRoute: ProtectedMainHomeRoute,
   ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
+  ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
 }
 
@@ -200,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/chat': typeof ProtectedMainChatIndexRoute
+  '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -212,6 +229,7 @@ export interface FileRoutesByTo {
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/chat': typeof ProtectedMainChatIndexRoute
+  '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -226,6 +244,7 @@ export interface FileRoutesById {
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
   '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
+  '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -240,6 +259,7 @@ export interface FileRouteTypes {
     | '/secret'
     | '/home'
     | '/chat'
+    | '/jizhang'
     | '/photos'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -251,6 +271,7 @@ export interface FileRouteTypes {
     | '/secret'
     | '/home'
     | '/chat'
+    | '/jizhang'
     | '/photos'
   id:
     | '__root__'
@@ -263,6 +284,7 @@ export interface FileRouteTypes {
     | '/_protected/secret'
     | '/_protected/_main/home'
     | '/_protected/_main/chat/'
+    | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
   fileRoutesById: FileRoutesById
 }
@@ -327,6 +349,7 @@ export const routeTree = rootRoute
       "children": [
         "/_protected/_main/home",
         "/_protected/_main/chat/",
+        "/_protected/_main/jizhang/",
         "/_protected/_main/photos/"
       ]
     },
@@ -340,6 +363,10 @@ export const routeTree = rootRoute
     },
     "/_protected/_main/chat/": {
       "filePath": "_protected/_main/chat/index.tsx",
+      "parent": "/_protected/_main"
+    },
+    "/_protected/_main/jizhang/": {
+      "filePath": "_protected/_main/jizhang/index.tsx",
       "parent": "/_protected/_main"
     },
     "/_protected/_main/photos/": {
