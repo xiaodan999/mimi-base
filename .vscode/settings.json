@@ -13,7 +13,7 @@
             {
                 "message": "Start to format",
                 "messageAfter": "Finish formatting",
-                "match": "\\.(html|css|js|tsx|jsx|json)$",
+                "match": "\\.(html|css|js|ts|tsx|jsx|json)$",
                 "cmd": "echo 'npx prettier ${file} --write && npx eslint --fix ${file}' && npx prettier ${file} --write && npx eslint --fix ${file}"
             }
         ]
