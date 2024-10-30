@@ -1,17 +1,17 @@
 {
     "extends": [
         "eslint:recommended",
-        "plugin:import/recommended",
         "plugin:@typescript-eslint/recommended",
         "plugin:react/recommended",
-        "plugin:react-hooks/recommended"
+        "plugin:react-hooks/recommended",
+        "plugin:import/recommended"
     ],
     "rules": {
         "react/react-in-jsx-scope": "off",
         "import/order": [
             "error",
             {
-                "groups": ["builtin", "external", "internal", ["parent", "sibling"], "index"],
+                "groups": ["builtin", "external", "internal", "index"],
                 "newlines-between": "always",
                 "pathGroups": [
                     {
@@ -20,18 +20,13 @@
                         "position": "before"
                     },
                     {
-                        "pattern": "react-router-dom",
+                        "pattern": "@tanstack",
                         "group": "external",
                         "position": "before"
-                    },
-                    {
-                        "pattern": "./**/*.module.css",
-                        "group": "index",
-                        "position": "after"
                     }
                 ],
                 "distinctGroup": false,
-                "pathGroupsExcludedImportTypes": ["react", "react-router-dom"],
+                "pathGroupsExcludedImportTypes": ["react", "@tanstack"],
                 "alphabetize": {
                     "order": "asc"
                 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
 export default function useLongPress(callback: () => void, ms: number) {
-	const callbackRef = useRef(callback ?? (() => {}));
+	const callbackRef = useRef(callback ?? (() => { }));
 	const pressTimer = useRef<number>(-1);
 
 	useEffect(() => {

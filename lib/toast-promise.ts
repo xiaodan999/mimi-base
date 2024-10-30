@@ -1,11 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "sonner";
+
 type PromiseT<Data = any> = Promise<Data> | (() => Promise<Data>);
 type PromiseTResult<Data = any> =
 	| string
 	| React.ReactNode
 	| ((
-			data: Data,
-	  ) => React.ReactNode | string | Promise<React.ReactNode | string>);
+		data: Data,
+	) => React.ReactNode | string | Promise<React.ReactNode | string>);
 type PromiseData<ToastData = any> = {
 	loading?: string | React.ReactNode;
 	success?: PromiseTResult<ToastData>;
