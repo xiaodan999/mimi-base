@@ -17,7 +17,7 @@ export default function showFilePicker(type: string): Promise<File> {
 			);
 		};
 		input.onchange = () => {
-			// @ts-ignore
+			if (!input.files) return reject(new Error("No files selected"));
 			const files = Array.from(input.files);
 			if (files.length > 0) {
 				resolve(files[0]);

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-// @ts-ignore
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function useScrolling(refOrClassName: any) {
 	const [isScrolling, setIsScrolling] = useState(false);
 

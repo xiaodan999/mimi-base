@@ -21,7 +21,6 @@ export function getCurrentMonth() {
 
 export function formatDate(dateStr: string) {
 	const myDate = new Date(dateStr);
-	return `${myDate.getFullYear()}/${
-		myDate.getMonth() + 1
-	}/${myDate.getDate()}  ${myDate.getHours()}:${myDate.getMinutes().toString().padStart(2, "0")}`;
+	return `${myDate.getFullYear()}/${myDate.getMonth() + 1
+		}/${myDate.getDate()}  ${myDate.getHours()}:${myDate.getMinutes().toString().padStart(2, "0")}`;
 }

@@ -20,6 +20,7 @@ import { Route as ProtectedSecretImport } from './routes/_protected/secret'
 import { Route as ProtectedMainImport } from './routes/_protected/_main'
 import { Route as ProtectedMainHomeImport } from './routes/_protected/_main/home'
 import { Route as ProtectedMainPhotosIndexImport } from './routes/_protected/_main/photos/index'
+import { Route as ProtectedMainChatIndexImport } from './routes/_protected/_main/chat/index'
 
 // Create/Update Routes
 
@@ -72,6 +73,12 @@ const ProtectedMainHomeRoute = ProtectedMainHomeImport.update({
 const ProtectedMainPhotosIndexRoute = ProtectedMainPhotosIndexImport.update({
   id: '/photos/',
   path: '/photos/',
+  getParentRoute: () => ProtectedMainRoute,
+} as any)
+
+const ProtectedMainChatIndexRoute = ProtectedMainChatIndexImport.update({
+  id: '/chat/',
+  path: '/chat/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
 
@@ -135,6 +142,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainHomeImport
       parentRoute: typeof ProtectedMainImport
     }
+    '/_protected/_main/chat/': {
+      id: '/_protected/_main/chat/'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ProtectedMainChatIndexImport
+      parentRoute: typeof ProtectedMainImport
+    }
     '/_protected/_main/photos/': {
       id: '/_protected/_main/photos/'
       path: '/photos'
@@ -149,11 +163,13 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedMainRouteChildren {
   ProtectedMainHomeRoute: typeof ProtectedMainHomeRoute
+  ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
 }
 
 const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainHomeRoute: ProtectedMainHomeRoute,
+  ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
 }
 
@@ -183,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
+  '/chat': typeof ProtectedMainChatIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -194,6 +211,7 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
+  '/chat': typeof ProtectedMainChatIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -207,6 +225,7 @@ export interface FileRoutesById {
   '/_protected/_main': typeof ProtectedMainRouteWithChildren
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
+  '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
 }
 
@@ -220,6 +239,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/secret'
     | '/home'
+    | '/chat'
     | '/photos'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -230,6 +250,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/secret'
     | '/home'
+    | '/chat'
     | '/photos'
   id:
     | '__root__'
@@ -241,6 +262,7 @@ export interface FileRouteTypes {
     | '/_protected/_main'
     | '/_protected/secret'
     | '/_protected/_main/home'
+    | '/_protected/_main/chat/'
     | '/_protected/_main/photos/'
   fileRoutesById: FileRoutesById
 }
@@ -304,6 +326,7 @@ export const routeTree = rootRoute
       "parent": "/_protected",
       "children": [
         "/_protected/_main/home",
+        "/_protected/_main/chat/",
         "/_protected/_main/photos/"
       ]
     },
@@ -313,6 +336,10 @@ export const routeTree = rootRoute
     },
     "/_protected/_main/home": {
       "filePath": "_protected/_main/home.tsx",
+      "parent": "/_protected/_main"
+    },
+    "/_protected/_main/chat/": {
+      "filePath": "_protected/_main/chat/index.tsx",
       "parent": "/_protected/_main"
     },
     "/_protected/_main/photos/": {
