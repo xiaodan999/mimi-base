@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { PropsWithChildren, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { endOfDay, format, startOfDay, startOfMonth } from "date-fns/esm";
 import { Banknote, Smile } from "lucide-react";
@@ -29,80 +29,73 @@ function Page() {
         end: endOfDay(dateRange.to!).toISOString(),
     });
 
-    const handleDateRangeChange = ({ range }: { range: DateRange }) => {
-        setDateRange(range);
-    };
-
     if (isError) {
         return <div>Error: {error.message}</div>;
     }
 
     if (isPending) {
         return (
-            <div className="flex h-full flex-col">
-                <h1>记账基地</h1>
-                <DateRangePicker
-                    onUpdate={handleDateRangeChange}
-                    initialDateFrom={initialStart}
-                    initialDateTo={initialEnd}
-                    align="center"
-                    locale={LOCALE}
-                    showCompare={false}
-                />
+            <Layout onDateRangeChange={setDateRange}>
                 <LoadingPage />
-            </div>
+            </Layout>
         );
     }
 
     if (data.length === 0) {
         return (
-            <div className="flex h-full flex-col">
-                <h1>记账基地</h1>
+            <Layout onDateRangeChange={setDateRange}>
+                <div className="flex flex-1 flex-col items-center justify-center">
+                    <Smile className="mb-4 size-16 text-blue-600" />
+                    <h2 className="text-xl">无记录</h2>
+                    <p className="text-gray-500">没有找到消费记录</p>
+                </div>
+            </Layout>
+        );
+    }
+
+    return (
+        <Layout onDateRangeChange={setDateRange}>
+            <ResponsiveMasonry
+                columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}
+            >
+                <Masonry gutter="0.5rem">
+                    {data.map((day) => (
+                        <Group
+                            key={day.date}
+                            date={day.date}
+                            items={day.items}
+                        />
+                    ))}
+                </Masonry>
+            </ResponsiveMasonry>
+
+            {isRefetching && <LoadingPage />}
+        </Layout>
+    );
+}
+
+function Layout({
+    onDateRangeChange,
+    children,
+}: PropsWithChildren<{
+    onDateRangeChange: (range: DateRange) => void;
+}>) {
+    const initialStart = startOfMonth(new Date());
+    const initialEnd = startOfDay(new Date());
+    return (
+        <div className="flex h-full flex-col p-4">
+            <h1 className="text-2xl">记账基地</h1>
+            <div className="mb-2 ml-auto">
                 <DateRangePicker
-                    onUpdate={handleDateRangeChange}
+                    onUpdate={({ range }) => onDateRangeChange(range)}
                     initialDateFrom={initialStart}
                     initialDateTo={initialEnd}
                     align="center"
                     locale={LOCALE}
                     showCompare={false}
                 />
-                <div className="flex flex-1 flex-col items-center justify-center">
-                    <Smile className="mb-4 size-16 text-blue-600" />
-                    <h2 className="text-xl">无记录</h2>
-                    <p className="text-gray-500">没有找到消费记录</p>
-                </div>
             </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col">
-            <h1 className="ml-6 mt-4 text-3xl">记账基地</h1>
-            <DateRangePicker
-                onUpdate={handleDateRangeChange}
-                initialDateFrom={initialStart}
-                initialDateTo={initialEnd}
-                align="center"
-                locale={LOCALE}
-                showCompare={false}
-            />
-            <div className="p-4">
-                <ResponsiveMasonry
-                    columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}
-                >
-                    <Masonry gutter="0.5rem">
-                        {data.map((day) => (
-                            <Group
-                                key={day.date}
-                                date={day.date}
-                                items={day.items}
-                            />
-                        ))}
-                    </Masonry>
-                </ResponsiveMasonry>
-            </div>
-
-            {isRefetching && <LoadingPage />}
+            {children}
         </div>
     );
 }
