@@ -1,5 +1,6 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 
+import { queryClient } from "@/app/main";
 import { formatDate } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
 import supabase from "@/lib/supabase-client";
@@ -52,4 +53,28 @@ function myFormatDate(dateStr: string) {
     let myDate = formatDate(dateStr);
     myDate = myDate.split(" ")[0];
     return myDate.replaceAll("/", "-");
+}
+
+export function useAddJiZhang() {
+    return useMutation({
+        mutationKey: ["add-ji-zhang"],
+        mutationFn: async (
+            newItem: Pick<JiZhangItemData, "itemName" | "price">,
+        ) => {
+            const { data } = await supabase
+                .from("ji_zhang_biao")
+                .insert({
+                    item_name: newItem.itemName,
+                    price: newItem.price,
+                })
+                .select("id")
+                .single()
+                .throwOnError();
+            if (!data) throw new Error("Failed to insert a new ji zhang");
+            return data.id;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["ji-zhang"] });
+        },
+    });
 }
