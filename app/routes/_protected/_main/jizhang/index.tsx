@@ -9,6 +9,7 @@ import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import LoadingPage from "@/components/LoadingPage";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 
+import AddJiZhangForm from "./-components/add-ji-zhang-form";
 import { JiZhangItemData, useJiZhang } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
@@ -83,9 +84,11 @@ function Layout({
     const initialStart = startOfMonth(new Date());
     const initialEnd = startOfDay(new Date());
     return (
-        <div className="flex h-full flex-col p-4">
+        <div className="relative flex h-full flex-col p-4">
             <h1 className="text-2xl">记账基地</h1>
-            <div className="mb-2 ml-auto">
+            <div className="mb-2 flex justify-end gap-2">
+                <AddJiZhangForm />
+
                 <DateRangePicker
                     onUpdate={({ range }) => onDateRangeChange(range)}
                     initialDateFrom={initialStart}
