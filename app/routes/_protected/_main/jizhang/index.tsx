@@ -7,7 +7,7 @@ import { DateRange } from "react-day-picker";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 
 import LoadingPage from "@/components/LoadingPage";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 import { JiZhangItemData, useJiZhang } from "./-data";
 
@@ -15,15 +15,23 @@ export const Route = createFileRoute("/_protected/_main/jizhang/")({
     component: Page,
 });
 
+const LOCALE = "zh-Hans-CN";
+
 function Page() {
-    const [dateRange, setDateRange] = useState<DateRange>(() => ({
-        from: startOfMonth(new Date()),
-        to: startOfDay(new Date()),
-    }));
+    const initialStart = startOfMonth(new Date());
+    const initialEnd = startOfDay(new Date());
+    const [dateRange, setDateRange] = useState<DateRange>({
+        from: initialStart,
+        to: initialEnd,
+    });
     const { data, isPending, isError, error, isRefetching } = useJiZhang({
         start: dateRange.from!.toISOString(),
         end: endOfDay(dateRange.to!).toISOString(),
     });
+
+    const handleDateRangeChange = ({ range }: { range: DateRange }) => {
+        setDateRange(range);
+    };
 
     if (isError) {
         return <div>Error: {error.message}</div>;
@@ -33,10 +41,13 @@ function Page() {
         return (
             <div className="flex h-full flex-col">
                 <h1>记账基地</h1>
-                <DatePickerWithRange
-                    className="justify-end"
-                    date={dateRange}
-                    onSelectDate={setDateRange}
+                <DateRangePicker
+                    onUpdate={handleDateRangeChange}
+                    initialDateFrom={initialStart}
+                    initialDateTo={initialEnd}
+                    align="center"
+                    locale={LOCALE}
+                    showCompare={false}
                 />
                 <LoadingPage />
             </div>
@@ -47,10 +58,13 @@ function Page() {
         return (
             <div className="flex h-full flex-col">
                 <h1>记账基地</h1>
-                <DatePickerWithRange
-                    className="justify-end"
-                    date={dateRange}
-                    onSelectDate={setDateRange}
+                <DateRangePicker
+                    onUpdate={handleDateRangeChange}
+                    initialDateFrom={initialStart}
+                    initialDateTo={initialEnd}
+                    align="center"
+                    locale={LOCALE}
+                    showCompare={false}
                 />
                 <div className="flex flex-1 flex-col items-center justify-center">
                     <Smile className="mb-4 size-16 text-blue-600" />
@@ -64,10 +78,13 @@ function Page() {
     return (
         <div className="flex flex-col">
             <h1 className="ml-6 mt-4 text-3xl">记账基地</h1>
-            <DatePickerWithRange
-                className="justify-end"
-                date={dateRange}
-                onSelectDate={setDateRange}
+            <DateRangePicker
+                onUpdate={handleDateRangeChange}
+                initialDateFrom={initialStart}
+                initialDateTo={initialEnd}
+                align="center"
+                locale={LOCALE}
+                showCompare={false}
             />
             <div className="p-4">
                 <ResponsiveMasonry

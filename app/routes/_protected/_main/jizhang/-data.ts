@@ -20,6 +20,8 @@ export function useJiZhang({ start, end }: useJiZhangProps) {
     return useQuery({
         queryKey: ["ji-zhang", start, end],
         queryFn: async () => {
+            if (start === "" && end === "") return [];
+
             const { data: rawData } = await supabase
                 .from("ji_zhang_biao")
                 .select("id, price, itemName:item_name, createdAt:created_at")
