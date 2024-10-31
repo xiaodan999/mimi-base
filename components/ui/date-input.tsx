@@ -228,6 +228,25 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange }) => {
         <div className="flex items-center rounded-lg border px-1 text-sm">
             <input
                 type="text"
+                ref={yearRef}
+                max={9999}
+                maxLength={4}
+                value={date.year.toString()}
+                onChange={handleInputChange("year")}
+                onKeyDown={handleKeyDown("year")}
+                onFocus={(e) => {
+                    if (window.innerWidth > 1024) {
+                        e.target.select();
+                    }
+                }}
+                onBlur={handleBlur("year")}
+                className="w-12 border-none p-0 text-center outline-none"
+                placeholder="YYYY"
+            />
+
+            <span className="-mx-px opacity-20">/</span>
+            <input
+                type="text"
                 ref={monthRef}
                 max={12}
                 maxLength={2}
@@ -260,24 +279,6 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange }) => {
                 onBlur={handleBlur("day")}
                 className="w-7 border-none p-0 text-center outline-none"
                 placeholder="D"
-            />
-            <span className="-mx-px opacity-20">/</span>
-            <input
-                type="text"
-                ref={yearRef}
-                max={9999}
-                maxLength={4}
-                value={date.year.toString()}
-                onChange={handleInputChange("year")}
-                onKeyDown={handleKeyDown("year")}
-                onFocus={(e) => {
-                    if (window.innerWidth > 1024) {
-                        e.target.select();
-                    }
-                }}
-                onBlur={handleBlur("year")}
-                className="w-12 border-none p-0 text-center outline-none"
-                placeholder="YYYY"
             />
         </div>
     );
