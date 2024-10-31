@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { endOfDay, format, startOfDay, startOfMonth } from "date-fns/esm";
 import { Banknote, Smile } from "lucide-react";
 import { DateRange } from "react-day-picker";
+// @ts-expect-error no types
+import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 
 import LoadingPage from "@/components/LoadingPage";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
@@ -67,12 +69,22 @@ function Page() {
                 date={dateRange}
                 onSelectDate={setDateRange}
             />
-
             <div className="p-4">
-                {data.map((day) => (
-                    <Group key={day.date} date={day.date} items={day.items} />
-                ))}
+                <ResponsiveMasonry
+                    columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}
+                >
+                    <Masonry gutter="0.5rem">
+                        {data.map((day) => (
+                            <Group
+                                key={day.date}
+                                date={day.date}
+                                items={day.items}
+                            />
+                        ))}
+                    </Masonry>
+                </ResponsiveMasonry>
             </div>
+
             {isRefetching && <LoadingPage />}
         </div>
     );
@@ -80,7 +92,7 @@ function Page() {
 
 function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
     return (
-        <div className="max-w-sm rounded-lg border border-green-200 bg-card p-4 text-card shadow sm:p-8">
+        <div className="rounded-lg border border-green-200 bg-card p-4 text-card shadow sm:p-8">
             <div className="mb-4 flex items-center justify-between">
                 <h5 className="text-xl font-bold leading-none text-gray-900">
                     {date}
@@ -95,7 +107,7 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
             </div>
 
             <div className="flow-root">
-                <ul role="list" className="divide-y divide-gray-200">
+                <ul role="list" className="divide-y divide-green-300">
                     {items.map((item) => (
                         <li className="py-3 sm:py-4" key={item.id}>
                             <div className="flex items-center">
