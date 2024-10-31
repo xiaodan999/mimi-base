@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { endOfDay, startOfDay, startOfMonth } from "date-fns/esm";
+import { endOfDay, format, startOfDay, startOfMonth } from "date-fns/esm";
 import { Banknote, Smile } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
@@ -87,7 +87,10 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                 </h5>
 
                 <div className="text-muted-foreground">
-                    合计: <span className="font-bold">￥{getSum(items)}</span>
+                    合计:{" "}
+                    <span className="font-bold">
+                        ￥{getSum(items).toFixed(2)}
+                    </span>
                 </div>
             </div>
 
@@ -104,9 +107,10 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                                         {item.itemName}
                                     </p>
                                     <p className="truncate text-sm text-gray-500">
-                                        {new Date(
-                                            item.createdAt,
-                                        ).toLocaleString()}
+                                        {format(
+                                            new Date(item.createdAt),
+                                            "yyyy/M/d, h:mm a",
+                                        )}
                                     </p>
                                 </div>
                                 <div className="inline-flex items-center text-base font-semibold text-gray-900">
