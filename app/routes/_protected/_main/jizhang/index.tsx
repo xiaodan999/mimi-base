@@ -1,16 +1,23 @@
 import { PropsWithChildren, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { endOfDay, format, startOfDay, startOfMonth } from "date-fns/esm";
-import { Banknote, Smile } from "lucide-react";
+import { Banknote, Smile, Trash2 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 // @ts-expect-error no types
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 
 import LoadingPage from "@/components/LoadingPage";
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { toastPromise } from "@/lib/toast-promise";
 
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
-import { JiZhangItemData, useJiZhang } from "./-data";
+import { JiZhangItemData, useDeleteJiZhang, useJiZhang } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
     component: Page,
@@ -104,6 +111,8 @@ function Layout({
 }
 
 function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
+    const deleteMutation = useDeleteJiZhang();
+
     return (
         <div className="rounded-lg border border-green-200 bg-card p-4 text-card shadow sm:p-8">
             <div className="mb-4 flex items-center justify-between">
@@ -122,27 +131,49 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
             <div className="flow-root">
                 <ul role="list" className="divide-y divide-green-300">
                     {items.map((item) => (
-                        <li className="py-3 sm:py-4" key={item.id}>
-                            <div className="flex items-center">
-                                <div className="flex-shrink-0">
-                                    <Banknote className="text-black" />
-                                </div>
-                                <div className="ms-4 min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium text-gray-900">
-                                        {item.itemName}
-                                    </p>
-                                    <p className="truncate text-sm text-gray-500">
-                                        {format(
-                                            new Date(item.createdAt),
-                                            "yyyy/M/d, h:mm a",
-                                        )}
-                                    </p>
-                                </div>
-                                <div className="inline-flex items-center text-base font-semibold text-gray-900">
-                                    ￥{item.price}
-                                </div>
-                            </div>
-                        </li>
+                        <ContextMenu key={item.id}>
+                            <ContextMenuTrigger asChild>
+                                <li className="rounded-md py-3 transition-colors hover:cursor-pointer hover:bg-accent sm:py-4">
+                                    <div className="flex items-center">
+                                        <div className="flex-shrink-0">
+                                            <Banknote className="text-black" />
+                                        </div>
+                                        <div className="ms-4 min-w-0 flex-1">
+                                            <p className="truncate text-sm font-medium text-gray-900">
+                                                {item.itemName}
+                                            </p>
+                                            <p className="truncate text-sm text-gray-500">
+                                                {format(
+                                                    new Date(item.createdAt),
+                                                    "yyyy/M/d, h:mm a",
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="inline-flex items-center text-base font-semibold text-gray-900">
+                                            ￥{item.price}
+                                        </div>
+                                    </div>
+                                </li>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                                <ContextMenuItem
+                                    className="text-red-600 hover:cursor-pointer hover:!bg-red-100 hover:!text-red-600"
+                                    onClick={() => {
+                                        toastPromise(
+                                            deleteMutation.mutateAsync(item),
+                                            {
+                                                loading: "删除中...",
+                                                success: "成功删除此项.",
+                                                error: "删除失败",
+                                            },
+                                        );
+                                    }}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>删除</span>
+                                </ContextMenuItem>
+                            </ContextMenuContent>
+                        </ContextMenu>
                     ))}
                 </ul>
             </div>
