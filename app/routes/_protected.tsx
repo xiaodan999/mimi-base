@@ -29,9 +29,8 @@ export const Route = createFileRoute("/_protected")({
         useEffect(() => {
             if (!loading) router.invalidate();
         }, [loading, router]);
+        if (isAuthenticated) return <Outlet />;
 
-        const showLoading = !isAuthenticated || loading;
-
-        return showLoading ? <LoadingPage /> : <Outlet />;
+        return loading ? <LoadingPage /> : <Outlet />;
     },
 });
