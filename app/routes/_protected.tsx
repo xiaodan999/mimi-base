@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_protected")({
             if (!loading) router.invalidate();
         }, [loading, router]);
 
-        const showLoading = !isAuthenticated && loading;
+        const showLoading = !isAuthenticated || loading;
 
         return showLoading ? <LoadingPage /> : <Outlet />;
     },
