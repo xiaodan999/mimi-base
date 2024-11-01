@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
 import { useAddJiZhang } from "../-data";
@@ -50,7 +51,7 @@ export default function AddJiZhangForm() {
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>开始记账</DialogTitle>
-                        <DialogDescription>请如实交代</DialogDescription>
+                        <DialogDescription>请如实交代吧</DialogDescription>
                     </DialogHeader>
                     <AddForm onSuccess={close} />
                 </DialogContent>
@@ -66,7 +67,7 @@ export default function AddJiZhangForm() {
             <DrawerContent>
                 <DrawerHeader className="text-left">
                     <DrawerTitle>开始记账</DrawerTitle>
-                    <DrawerDescription>请如实交代</DrawerDescription>
+                    <DrawerDescription>请如实交代吧</DrawerDescription>
                 </DrawerHeader>
                 <AddForm className="px-4" onSuccess={close} />
                 <DrawerFooter className="pt-2">
@@ -107,7 +108,12 @@ function AddForm({
     });
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
-        await mutation.mutateAsync(values);
+        await toastPromise(mutation.mutateAsync(values), {
+            loading: "记录中...",
+            success: "记录在案！",
+            error: "记录失败...",
+        });
+
         onSuccess();
     }
 
@@ -124,7 +130,11 @@ function AddForm({
                         <FormItem>
                             <FormLabel>项目</FormLabel>
                             <FormControl>
-                                <Input placeholder="你花了啥..." {...field} />
+                                <Input
+                                    disabled={form.formState.isSubmitting}
+                                    placeholder="你花了啥..."
+                                    {...field}
+                                />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -141,6 +151,7 @@ function AddForm({
                                 <Input
                                     type="number"
                                     step="0.01"
+                                    disabled={form.formState.isSubmitting}
                                     {...field}
                                     value={field.value.toString()}
                                     onChange={(e) => {
@@ -155,7 +166,10 @@ function AddForm({
                     )}
                 />
 
-                <LoadingButton type="submit" loading={form.formState.isLoading}>
+                <LoadingButton
+                    type="submit"
+                    loading={form.formState.isSubmitting}
+                >
                     记录
                 </LoadingButton>
             </form>
