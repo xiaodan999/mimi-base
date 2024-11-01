@@ -1,14 +1,11 @@
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { endOfDay, startOfDay } from "date-fns/esm";
+import { DateRange } from "react-day-picker";
 
 import { queryClient } from "@/app/main";
 import { formatDate } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
 import supabase from "@/lib/supabase-client";
-
-type useJiZhangProps = {
-    start: string;
-    end: string;
-};
 
 export type JiZhangItemData = {
     id: string;
@@ -17,17 +14,30 @@ export type JiZhangItemData = {
     createdAt: string;
 };
 
-export function useJiZhang({ start, end }: useJiZhangProps) {
+export function useJiZhang(range: DateRange | undefined) {
+    const { from, to } = range ?? {};
     return useQuery({
-        queryKey: ["ji-zhang", start, end],
+        queryKey: ["ji-zhang", from, to],
         queryFn: async () => {
-            if (start === "" && end === "") return [];
+            if (range === undefined || from === undefined) return [];
 
-            const { data: rawData } = await supabase
+            const query = supabase
                 .from("ji_zhang_biao")
-                .select("id, price, itemName:item_name, createdAt:created_at")
-                .gte("created_at", start)
-                .lte("created_at", end)
+                .select("id, price, itemName:item_name, createdAt:created_at");
+            // single day
+            if (to === undefined) {
+                query
+                    .gte("created_at", startOfDay(from).toISOString())
+                    .lte("created_at", endOfDay(from).toISOString());
+            }
+            // range
+            else {
+                query
+                    .gte("created_at", startOfDay(from).toISOString())
+                    .lte("created_at", endOfDay(to).toISOString());
+            }
+
+            const { data: rawData } = await query
                 .order("created_at", { ascending: false })
                 .throwOnError();
             if (rawData === null) throw new Error("没有找到记账数据");

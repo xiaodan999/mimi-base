@@ -44,7 +44,7 @@ export default function AddJiZhangForm() {
     const isDesktop = useMediaQuery("(min-width: 768px)");
     const close = () => setOpen(false);
     const TriggerButton = (
-        <Button variant="default" className="h-full">
+        <Button variant="default">
             <ReceiptJapaneseYen className="mr-1 size-4" />
             <span>开始记账</span>
         </Button>
