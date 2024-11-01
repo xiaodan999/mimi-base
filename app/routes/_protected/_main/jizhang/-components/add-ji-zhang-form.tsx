@@ -1,5 +1,6 @@
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ReceiptJapaneseYen, Save } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -42,12 +43,17 @@ export default function AddJiZhangForm() {
     const [open, setOpen] = React.useState(false);
     const isDesktop = useMediaQuery("(min-width: 768px)");
     const close = () => setOpen(false);
+    const TriggerButton = (
+        <Button variant="default" className="h-full">
+            <ReceiptJapaneseYen className="mr-1 size-4" />
+            <span>开始记账</span>
+        </Button>
+    );
+
     if (isDesktop) {
         return (
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline">开始记账</Button>
-                </DialogTrigger>
+                <DialogTrigger asChild>{TriggerButton}</DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>开始记账</DialogTitle>
@@ -61,9 +67,7 @@ export default function AddJiZhangForm() {
 
     return (
         <Drawer open={open} onOpenChange={setOpen}>
-            <DrawerTrigger asChild>
-                <Button variant="outline">开始记账</Button>
-            </DrawerTrigger>
+            <DrawerTrigger asChild>{TriggerButton}</DrawerTrigger>
             <DrawerContent>
                 <DrawerHeader className="text-left">
                     <DrawerTitle>开始记账</DrawerTitle>
@@ -170,6 +174,7 @@ function AddForm({
                     type="submit"
                     loading={form.formState.isSubmitting}
                 >
+                    <Save className="mr-1 size-4" />
                     记录
                 </LoadingButton>
             </form>
