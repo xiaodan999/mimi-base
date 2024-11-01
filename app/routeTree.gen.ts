@@ -19,6 +19,7 @@ import { Route as IndexImport } from './routes/index'
 import { Route as ProtectedSecretImport } from './routes/_protected/secret'
 import { Route as ProtectedMainImport } from './routes/_protected/_main'
 import { Route as ProtectedMainHomeImport } from './routes/_protected/_main/home'
+import { Route as ProtectedMainPostsIndexImport } from './routes/_protected/_main/posts/index'
 import { Route as ProtectedMainPhotosIndexImport } from './routes/_protected/_main/photos/index'
 import { Route as ProtectedMainJizhangIndexImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainChatIndexImport } from './routes/_protected/_main/chat/index'
@@ -68,6 +69,12 @@ const ProtectedMainRoute = ProtectedMainImport.update({
 const ProtectedMainHomeRoute = ProtectedMainHomeImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => ProtectedMainRoute,
+} as any)
+
+const ProtectedMainPostsIndexRoute = ProtectedMainPostsIndexImport.update({
+  id: '/posts/',
+  path: '/posts/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
 
@@ -170,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainPhotosIndexImport
       parentRoute: typeof ProtectedMainImport
     }
+    '/_protected/_main/posts/': {
+      id: '/_protected/_main/posts/'
+      path: '/posts'
+      fullPath: '/posts'
+      preLoaderRoute: typeof ProtectedMainPostsIndexImport
+      parentRoute: typeof ProtectedMainImport
+    }
   }
 }
 
@@ -180,6 +194,7 @@ interface ProtectedMainRouteChildren {
   ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
+  ProtectedMainPostsIndexRoute: typeof ProtectedMainPostsIndexRoute
 }
 
 const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
@@ -187,6 +202,7 @@ const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
+  ProtectedMainPostsIndexRoute: ProtectedMainPostsIndexRoute,
 }
 
 const ProtectedMainRouteWithChildren = ProtectedMainRoute._addFileChildren(
@@ -218,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ProtectedMainChatIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
+  '/posts': typeof ProtectedMainPostsIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -231,6 +248,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ProtectedMainChatIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
+  '/posts': typeof ProtectedMainPostsIndexRoute
 }
 
 export interface FileRoutesById {
@@ -246,6 +264,7 @@ export interface FileRoutesById {
   '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
+  '/_protected/_main/posts/': typeof ProtectedMainPostsIndexRoute
 }
 
 export interface FileRouteTypes {
@@ -261,6 +280,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/jizhang'
     | '/photos'
+    | '/posts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -273,6 +293,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/jizhang'
     | '/photos'
+    | '/posts'
   id:
     | '__root__'
     | '/'
@@ -286,6 +307,7 @@ export interface FileRouteTypes {
     | '/_protected/_main/chat/'
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
+    | '/_protected/_main/posts/'
   fileRoutesById: FileRoutesById
 }
 
@@ -350,7 +372,8 @@ export const routeTree = rootRoute
         "/_protected/_main/home",
         "/_protected/_main/chat/",
         "/_protected/_main/jizhang/",
-        "/_protected/_main/photos/"
+        "/_protected/_main/photos/",
+        "/_protected/_main/posts/"
       ]
     },
     "/_protected/secret": {
@@ -371,6 +394,10 @@ export const routeTree = rootRoute
     },
     "/_protected/_main/photos/": {
       "filePath": "_protected/_main/photos/index.tsx",
+      "parent": "/_protected/_main"
+    },
+    "/_protected/_main/posts/": {
+      "filePath": "_protected/_main/posts/index.tsx",
       "parent": "/_protected/_main"
     }
   }
