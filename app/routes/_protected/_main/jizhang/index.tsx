@@ -1,6 +1,6 @@
 import { PropsWithChildren, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { endOfDay, format, startOfDay, startOfMonth } from "date-fns/esm";
+import { endOfDay, format, startOfMonth } from "date-fns/esm";
 import { Banknote, Smile, Trash2 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 // @ts-expect-error no types
@@ -13,7 +13,7 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import CalendarDateRangePicker from "@/components/ui/shadcn-date-range-picker";
 import { toastPromise } from "@/lib/toast-promise";
 
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
@@ -23,27 +23,27 @@ export const Route = createFileRoute("/_protected/_main/jizhang/")({
     component: Page,
 });
 
-const LOCALE = "zh-Hans-CN";
-
 function Page() {
     const initialStart = startOfMonth(new Date());
-    const initialEnd = startOfDay(new Date());
-    const [dateRange, setDateRange] = useState<DateRange>({
+    const initialEnd = endOfDay(new Date());
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: initialStart,
         to: initialEnd,
     });
-    const { data, isPending, isError, error, isRefetching } = useJiZhang({
-        start: dateRange.from!.toISOString(),
-        end: endOfDay(dateRange.to!).toISOString(),
-    });
+    const { data, isPending, isError, error, isRefetching } =
+        useJiZhang(dateRange);
 
     if (isError) {
-        return <div>Error: {error.message}</div>;
+        return (
+            <Layout date={dateRange} onRangeChange={setDateRange}>
+                <div>Error: {error.message}</div>
+            </Layout>
+        );
     }
 
     if (isPending) {
         return (
-            <Layout onDateRangeChange={setDateRange}>
+            <Layout date={dateRange} onRangeChange={setDateRange}>
                 <LoadingPage />
             </Layout>
         );
@@ -51,7 +51,7 @@ function Page() {
 
     if (data.length === 0) {
         return (
-            <Layout onDateRangeChange={setDateRange}>
+            <Layout date={dateRange} onRangeChange={setDateRange}>
                 <div className="flex flex-1 flex-col items-center justify-center">
                     <Smile className="mb-4 size-16 text-blue-600" />
                     <h2 className="text-xl">无记录</h2>
@@ -62,7 +62,7 @@ function Page() {
     }
 
     return (
-        <Layout onDateRangeChange={setDateRange}>
+        <Layout date={dateRange} onRangeChange={setDateRange}>
             <ResponsiveMasonry
                 columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}
             >
@@ -83,26 +83,21 @@ function Page() {
 }
 
 function Layout({
-    onDateRangeChange,
+    date,
+    onRangeChange,
     children,
 }: PropsWithChildren<{
-    onDateRangeChange: (range: DateRange) => void;
+    date: DateRange | undefined;
+    onRangeChange: (range: DateRange | undefined) => void;
 }>) {
-    const initialStart = startOfMonth(new Date());
-    const initialEnd = startOfDay(new Date());
     return (
         <div className="relative flex h-full flex-col p-4">
             <h1 className="text-2xl">记账基地</h1>
             <div className="mb-2 flex justify-end gap-2">
                 <AddJiZhangForm />
-
-                <DateRangePicker
-                    onUpdate={({ range }) => onDateRangeChange(range)}
-                    initialDateFrom={initialStart}
-                    initialDateTo={initialEnd}
-                    align="center"
-                    locale={LOCALE}
-                    showCompare={false}
+                <CalendarDateRangePicker
+                    date={date}
+                    onRangeChange={onRangeChange}
                 />
             </div>
             {children}
