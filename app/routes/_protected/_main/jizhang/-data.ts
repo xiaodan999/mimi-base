@@ -78,3 +78,24 @@ export function useAddJiZhang() {
         },
     });
 }
+
+export function useDeleteJiZhang() {
+    return useMutation({
+        mutationKey: ["delete-ji-zhang"],
+        mutationFn: async (itemToDelete: Pick<JiZhangItemData, "id">) => {
+            const { count } = await supabase
+                .from("ji_zhang_biao")
+                .delete({ count: "exact" })
+                .eq("id", itemToDelete.id)
+                .single()
+                .throwOnError();
+
+            if (count !== 1) throw new Error("Failed to delete");
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ["ji-zhang"],
+            });
+        },
+    });
+}
