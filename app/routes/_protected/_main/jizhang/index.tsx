@@ -133,24 +133,28 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                     {items.map((item) => (
                         <ContextMenu key={item.id}>
                             <ContextMenuTrigger asChild>
-                                <li className="rounded-md py-3 transition-colors hover:cursor-pointer hover:bg-accent sm:py-4">
-                                    <div className="flex items-center">
-                                        <div className="flex-shrink-0">
-                                            <Banknote className="text-black" />
-                                        </div>
-                                        <div className="ms-4 min-w-0 flex-1">
-                                            <p className="truncate text-sm font-medium text-gray-900">
-                                                {item.itemName}
-                                            </p>
-                                            <p className="truncate text-sm text-gray-500">
-                                                {format(
-                                                    new Date(item.createdAt),
-                                                    "yyyy/M/d, h:mm a",
-                                                )}
-                                            </p>
-                                        </div>
-                                        <div className="inline-flex items-center text-base font-semibold text-gray-900">
-                                            ￥{item.price}
+                                <li>
+                                    <div className="rounded-md px-2 py-3 transition-colors hover:cursor-pointer hover:bg-accent sm:py-4">
+                                        <div className="flex items-center">
+                                            <div className="flex-shrink-0">
+                                                <Banknote className="text-black" />
+                                            </div>
+                                            <div className="ms-4 min-w-0 flex-1">
+                                                <p className="truncate text-sm font-medium text-gray-900">
+                                                    {item.itemName}
+                                                </p>
+                                                <p className="truncate text-sm text-gray-500">
+                                                    {format(
+                                                        new Date(
+                                                            item.createdAt,
+                                                        ),
+                                                        "yyyy/M/d, h:mm a",
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <div className="inline-flex items-center text-base font-semibold text-gray-900">
+                                                ￥{item.price}
+                                            </div>
                                         </div>
                                     </div>
                                 </li>
