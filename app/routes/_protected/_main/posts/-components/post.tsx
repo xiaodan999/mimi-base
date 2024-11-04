@@ -1,23 +1,33 @@
-import { Ellipsis, Heart, MessageCircle, User } from "lucide-react";
+import { format } from "date-fns/esm";
+import { Ellipsis, Heart, MessageCircle } from "lucide-react";
 
+import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 
-// import TouXiang from "@/components/TouXiang";
+import { PostData } from "../-data";
 
-export default function Post() {
+export default function Post({ author, text, createdAt, metrics }: PostData) {
     return (
         <article className="px-4 py-3">
             <div className="row flex gap-2">
                 {/* profile image */}
-                <User className="size-10" />
+                <TouXiang
+                    circleUrl={author.circle}
+                    size={40}
+                    touXiangUrl={author.tou_xiang}
+                />
                 {/* main content */}
                 <div className="flex-1">
                     {/* author info */}
                     <div className="row mb-[2px] flex h-5 justify-between font-bold leading-5">
                         <div>
-                            <span>小海</span>
+                            <span>{author.user_name}</span>
                         </div>
-                        <Button className="size-5 p-0" variant="ghost">
+                        <Button
+                            type="button"
+                            className="size-5 p-0"
+                            variant="ghost"
+                        >
                             <Ellipsis
                                 onClick={() => {
                                     console.log("click dots");
@@ -26,30 +36,41 @@ export default function Post() {
                         </Button>
                     </div>
                     {/* text */}
-                    <div>
-                        Been enjoying using the Grok 2 model. Now on Perplexity
-                        iOS app too for Pro users. (Restart app if you don’t see
-                        it on “Settings-AI Model”)
-                    </div>
+                    <div>{text}</div>
                     {/* images */}
                     <div className="mt-2">
                         <time
                             className="text-sm font-normal text-muted-foreground"
                             dateTime={new Date().toISOString()}
                         >
-                            2024年11月22日 13:21
+                            {format(
+                                new Date(createdAt),
+                                "yyyy年MM月dd日 HH:mm",
+                            )}
                         </time>
                     </div>
                     {/* interactions */}
                     <div className="mt-3 flex flex-row justify-start gap-4">
-                        <Button className="h-5 p-0" variant="ghost">
+                        <Button
+                            type="button"
+                            className="h-5 p-0"
+                            variant="ghost"
+                        >
                             <MessageCircle className="size-4" />
-                            <span className="pl-1 leading-4">18</span>
+                            <span className="pl-1 leading-4">
+                                {metrics.replyCount}
+                            </span>
                         </Button>
 
-                        <Button className="h-5 p-0" variant="ghost">
+                        <Button
+                            type="button"
+                            className="h-5 p-0"
+                            variant="ghost"
+                        >
                             <Heart className="size-4" />
-                            <span className="pl-1 leading-4">3</span>
+                            <span className="pl-1 leading-4">
+                                {metrics.likeCount}
+                            </span>
                         </Button>
                     </div>
                 </div>
