@@ -122,16 +122,11 @@ const fetchUser = async () => {
 
     const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id,user_name,tou_xiang,tou-xiang-circle(url)")
+        .select("id,user_name,tou_xiang,...tou-xiang-circle(circle:url)")
         .eq("id", data.user.id)
         .single();
 
     if (userError) return null;
 
-    return {
-        id: userData.id,
-        user_name: userData.user_name,
-        tou_xiang: userData.tou_xiang,
-        circle: userData["tou-xiang-circle"]?.url,
-    } as User;
+    return userData;
 };
