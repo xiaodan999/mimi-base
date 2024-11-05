@@ -1,12 +1,22 @@
+import { HeartFill } from "antd-mobile-icons";
 import { format } from "date-fns/esm";
 import { Ellipsis, Heart, MessageCircle } from "lucide-react";
 
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 
-import { PostData } from "../-data";
+import { PostData, usePostLikeMutation } from "../-data";
 
-export default function Post({ author, text, createdAt, metrics }: PostData) {
+export default function Post({
+    id,
+    author,
+    text,
+    createdAt,
+    metrics,
+    liked,
+}: PostData) {
+    const likeMutation = usePostLikeMutation();
+
     return (
         <article className="px-4 py-3">
             <div className="row flex gap-2">
@@ -66,8 +76,18 @@ export default function Post({ author, text, createdAt, metrics }: PostData) {
                             type="button"
                             className="h-5 p-0"
                             variant="ghost"
+                            onClick={async () => {
+                                await likeMutation.mutateAsync({
+                                    postId: id,
+                                    like: !liked,
+                                });
+                            }}
                         >
-                            <Heart className="size-4" />
+                            {liked ? (
+                                <HeartFill className="size-4" />
+                            ) : (
+                                <Heart className="size-4" />
+                            )}
                             <span className="pl-1 leading-4">
                                 {metrics.likeCount}
                             </span>
