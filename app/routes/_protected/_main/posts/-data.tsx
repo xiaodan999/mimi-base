@@ -127,3 +127,22 @@ export function useNewPostMutation() {
         },
     });
 }
+
+export function useDeletePostMutation() {
+    return useMutation({
+        mutationKey: ["delete_post"],
+        mutationFn: async ({ id }: { id: string }) => {
+            const { data } = await supabase
+                .from("posts")
+                .delete()
+                .eq("id", id)
+                .select("id")
+                .throwOnError();
+            if (data?.length !== 1)
+                throw new Error("Failed to delete the post " + id);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["posts"] });
+        },
+    });
+}
