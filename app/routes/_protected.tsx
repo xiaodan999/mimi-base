@@ -12,7 +12,6 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/_protected")({
     beforeLoad: async ({ context, location }) => {
         if (context.auth.loading) return;
-
         if (!context.auth.isAuthenticated) {
             throw redirect({
                 to: "/login",
@@ -25,12 +24,13 @@ export const Route = createFileRoute("/_protected")({
     component: function Component() {
         const router = useRouter();
         const { loading, isAuthenticated } = useAuth();
-
         useEffect(() => {
             if (!loading) router.invalidate();
         }, [loading, router]);
-        if (isAuthenticated) return <Outlet />;
 
-        return loading ? <LoadingPage /> : <Outlet />;
+        if (isAuthenticated) return <Outlet />;
+        if (loading) return <LoadingPage />;
+
+        return null;
     },
 });
