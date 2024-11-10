@@ -4,6 +4,7 @@ const DEFAULT_CIRCLE =
     "https://yibqpulkysphrlwghrxe.supabase.co/storage/v1/object/public/circles/blue-circle.png";
 
 type TouXiangProps = {
+    className?: string;
     size: number;
     touXiangUrl: string;
     circleUrl: string;
@@ -12,6 +13,7 @@ type TouXiangProps = {
 };
 
 export default function TouXiang({
+    className,
     size,
     touXiangUrl,
     circleUrl,
@@ -19,6 +21,7 @@ export default function TouXiang({
 }: TouXiangProps) {
     return (
         <div
+            className={className}
             style={{
                 position: "relative",
                 width: `${size}px`,
