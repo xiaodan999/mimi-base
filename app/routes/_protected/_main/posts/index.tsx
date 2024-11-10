@@ -33,8 +33,7 @@ function Posts() {
             >
                 <div className="fixed bottom-[70px] right-4">
                     <Button
-                        className="size-14 p-0"
-                        variant="ghost"
+                        className="size-14 rounded-full p-0"
                         onClick={() => setShowNewPostDrawer(true)}
                     >
                         <Pencil className="size-[50%]" />
