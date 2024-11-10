@@ -108,6 +108,44 @@ export function usePostLikeMutation() {
                 }
             }
         },
+        onMutate: async ({ postId, like }) => {
+            // Cancel any outgoing refetches
+            // (so they don't overwrite our optimistic update)
+            await queryClient.cancelQueries({ queryKey: ["posts"] });
+
+            const previousPosts = queryClient.getQueriesData({
+                queryKey: ["posts"],
+            });
+
+            queryClient.setQueryData(["posts"], (old: PostData[]) => {
+                const newPosts = [...old];
+                const postToUpdateIndex = newPosts.findIndex(
+                    (post) => post.id === postId,
+                );
+                if (postToUpdateIndex !== -1) {
+                    const postToUpdate = newPosts[postToUpdateIndex];
+                    newPosts[postToUpdateIndex] = {
+                        ...postToUpdate,
+                        liked: like,
+                        metrics: {
+                            ...postToUpdate.metrics,
+                            likeCount:
+                                postToUpdate.metrics.likeCount +
+                                (like ? 1 : -1),
+                        },
+                    };
+                }
+                return newPosts;
+            });
+
+            return { previousPosts };
+        },
+        onError: (err, updatedPost, context) => {
+            queryClient.setQueryData(["posts"], context?.previousPosts);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["posts"] });
+        },
     });
 }
 
