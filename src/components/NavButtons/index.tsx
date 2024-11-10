@@ -9,7 +9,7 @@ import WalletIcon from "./icons/wallet.png";
 const routes = [
     { name: "视频基地", path: "/home", icon: VideoIcon },
     { name: "照片基地", path: "/photos", icon: PhotoIcon },
-    { name: "聊天基地", path: "/chat", icon: ChatIcon },
+    { name: "说说基地", path: "/posts", icon: ChatIcon },
     { name: "记账基地", path: "/jizhang", icon: WalletIcon },
 ] as const;
 
