@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { queryClient } from "@/app/main";
 import { useAuth, User } from "@/lib/auth";
 import supabase from "@/lib/supabase-client";
 
@@ -107,11 +106,6 @@ export function usePostLikeMutation() {
                     throw new Error("Fail to undo the like on the post");
                 }
             }
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: ["posts"],
-            });
         },
     });
 }
