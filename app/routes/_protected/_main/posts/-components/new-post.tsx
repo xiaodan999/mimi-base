@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth";
+import { toastPromise } from "@/lib/toast-promise";
 
 import { useNewPostMutation } from "../-data";
 
@@ -32,7 +33,15 @@ export default function NewPost({
                     className="px-6"
                     disabled={text.length === 0 || newPostMutation.isPending}
                     onClick={async () => {
-                        await newPostMutation.mutateAsync({ text });
+                        await toastPromise(
+                            newPostMutation.mutateAsync({ text }),
+                            {
+                                loading: "发布新帖子中...",
+                                success: "成功发布了一个帖子",
+                                error: "发布失败",
+                            },
+                        );
+
                         onSuccess();
                     }}
                 >
