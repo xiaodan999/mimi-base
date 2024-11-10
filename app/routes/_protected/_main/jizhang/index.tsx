@@ -162,7 +162,7 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                                             deleteMutation.mutateAsync(item),
                                             {
                                                 loading: "删除中...",
-                                                success: "成功删除此项.",
+                                                success: "成功删除此项",
                                                 error: "删除失败",
                                             },
                                         );
