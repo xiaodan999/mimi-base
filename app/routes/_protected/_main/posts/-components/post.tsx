@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { HeartFill } from "antd-mobile-icons";
 import { format } from "date-fns/esm";
-import { Ellipsis, Heart, MessageCircle } from "lucide-react";
+import { Ellipsis, Heart, MessageCircle, Trash2 } from "lucide-react";
 
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toastPromise } from "@/lib/toast-promise";
 
-import { PostData, usePostLikeMutation } from "../-data";
+import { PostData, useDeletePostMutation, usePostLikeMutation } from "../-data";
 
 export default function Post({
     id,
@@ -19,6 +26,7 @@ export default function Post({
     const [likePost, setLikePost] = useState(liked);
     const [postLikes, setPostLikes] = useState(metrics.likeCount);
     const likeMutation = usePostLikeMutation();
+    const deleteMutation = useDeletePostMutation();
 
     return (
         <article className="px-4 py-3">
@@ -36,17 +44,30 @@ export default function Post({
                         <div>
                             <span>{author.user_name}</span>
                         </div>
-                        <Button
-                            type="button"
-                            className="size-5 p-0"
-                            variant="ghost"
-                        >
-                            <Ellipsis
-                                onClick={() => {
-                                    console.log("click dots");
-                                }}
-                            />
-                        </Button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger>
+                                <Ellipsis />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem
+                                    className="text-red-600 hover:cursor-pointer hover:!bg-red-100 hover:!text-red-600"
+                                    onClick={() => {
+                                        toastPromise(
+                                            deleteMutation.mutateAsync({ id }),
+                                            {
+                                                loading: "删除中...",
+                                                success: "成功此帖子",
+                                                error: "删除失败",
+                                            },
+                                        );
+                                    }}
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    <span>删除</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     {/* text */}
                     <div>{text}</div>
