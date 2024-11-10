@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { HeartFill } from "antd-mobile-icons";
 import { format } from "date-fns/esm";
 import { Ellipsis, Heart, MessageCircle, Trash2 } from "lucide-react";
@@ -23,8 +22,6 @@ export default function Post({
     metrics,
     liked,
 }: PostData) {
-    const [likePost, setLikePost] = useState(liked);
-    const [postLikes, setPostLikes] = useState(metrics.likeCount);
     const likeMutation = usePostLikeMutation();
     const deleteMutation = useDeletePostMutation();
 
@@ -101,23 +98,25 @@ export default function Post({
                             className="h-5 p-0"
                             variant="ghost"
                             onClick={async () => {
-                                const newLikeState = !likePost;
-                                setLikePost((prev) => !prev);
-                                setPostLikes((prev) =>
-                                    newLikeState ? prev + 1 : prev - 1,
-                                );
+                                const newLikeState = !liked;
+                                // setLikePost((prev) => !prev);
+                                // setPostLikes((prev) =>
+                                //     newLikeState ? prev + 1 : prev - 1,
+                                // );
                                 await likeMutation.mutateAsync({
                                     postId: id,
                                     like: newLikeState,
                                 });
                             }}
                         >
-                            {likePost ? (
+                            {liked ? (
                                 <HeartFill className="size-4" />
                             ) : (
                                 <Heart className="size-4" />
                             )}
-                            <span className="pl-1 leading-4">{postLikes}</span>
+                            <span className="pl-1 leading-4">
+                                {metrics.likeCount}
+                            </span>
                         </Button>
                     </div>
                 </div>
