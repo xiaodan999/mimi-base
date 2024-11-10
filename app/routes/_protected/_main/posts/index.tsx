@@ -4,7 +4,13 @@ import { Pencil } from "lucide-react";
 
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import {
+    Drawer,
+    DrawerContent,
+    DrawerDescription,
+    DrawerHeader,
+    DrawerTitle,
+} from "@/components/ui/drawer";
 
 import NewPost from "./-components/new-post";
 import Post from "./-components/post";
@@ -39,7 +45,14 @@ function Posts() {
                         <Pencil className="size-[50%]" />
                     </Button>
                 </div>
+
                 <DrawerContent>
+                    <DrawerHeader className="hidden">
+                        <DrawerTitle>Create a New Post</DrawerTitle>
+                        <DrawerDescription>
+                            Write down your post
+                        </DrawerDescription>
+                    </DrawerHeader>
                     <NewPost
                         onClose={() => setShowNewPostDrawer(false)}
                         onSuccess={() => setShowNewPostDrawer(false)}
