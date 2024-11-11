@@ -91,9 +91,9 @@ function Layout({
     onRangeChange: (range: DateRange | undefined) => void;
 }>) {
     return (
-        <div className="relative flex h-full flex-col p-4">
+        <div className="relative flex flex-col p-4">
             <h1 className="text-2xl">记账基地</h1>
-            <div className="mb-2 flex justify-end gap-2">
+            <div className="mb-4 mt-2 flex flex-wrap justify-end gap-2">
                 <AddJiZhangForm />
                 <CalendarDateRangePicker
                     date={date}
