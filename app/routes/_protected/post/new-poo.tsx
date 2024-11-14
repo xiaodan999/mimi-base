@@ -33,7 +33,7 @@ function Page() {
     }, []);
 
     return (
-        <div className="mt-6 flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 pt-6">
             <img src="/images/poo.png" />
             {!done && (
                 <>
