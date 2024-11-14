@@ -30,8 +30,8 @@
         {
             "name": "💩(´•🐽•`)",
             "description": "记录💩",
-            "url": "/posts/new-poo",
-            "icons": [{ "src": "/images/poo.png", "sizes": "150x130" }]
+            "url": "/post/new-poo",
+            "icons": [{ "src": "/images/poo.png", "sizes": "192x192" }]
         }
     ]
 }
