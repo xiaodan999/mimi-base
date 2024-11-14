@@ -18,6 +18,7 @@ import { Route as ProtectedImport } from './routes/_protected'
 import { Route as IndexImport } from './routes/index'
 import { Route as ProtectedSecretImport } from './routes/_protected/secret'
 import { Route as ProtectedMainImport } from './routes/_protected/_main'
+import { Route as ProtectedPostNewPooImport } from './routes/_protected/post/new-poo'
 import { Route as ProtectedMainHomeImport } from './routes/_protected/_main/home'
 import { Route as ProtectedMainPostsIndexImport } from './routes/_protected/_main/posts/index'
 import { Route as ProtectedMainPhotosIndexImport } from './routes/_protected/_main/photos/index'
@@ -63,6 +64,12 @@ const ProtectedSecretRoute = ProtectedSecretImport.update({
 
 const ProtectedMainRoute = ProtectedMainImport.update({
   id: '/_main',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+
+const ProtectedPostNewPooRoute = ProtectedPostNewPooImport.update({
+  id: '/post/new-poo',
+  path: '/post/new-poo',
   getParentRoute: () => ProtectedRoute,
 } as any)
 
@@ -156,6 +163,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainHomeImport
       parentRoute: typeof ProtectedMainImport
     }
+    '/_protected/post/new-poo': {
+      id: '/_protected/post/new-poo'
+      path: '/post/new-poo'
+      fullPath: '/post/new-poo'
+      preLoaderRoute: typeof ProtectedPostNewPooImport
+      parentRoute: typeof ProtectedImport
+    }
     '/_protected/_main/chat/': {
       id: '/_protected/_main/chat/'
       path: '/chat'
@@ -212,11 +226,13 @@ const ProtectedMainRouteWithChildren = ProtectedMainRoute._addFileChildren(
 interface ProtectedRouteChildren {
   ProtectedMainRoute: typeof ProtectedMainRouteWithChildren
   ProtectedSecretRoute: typeof ProtectedSecretRoute
+  ProtectedPostNewPooRoute: typeof ProtectedPostNewPooRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMainRoute: ProtectedMainRouteWithChildren,
   ProtectedSecretRoute: ProtectedSecretRoute,
+  ProtectedPostNewPooRoute: ProtectedPostNewPooRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
@@ -231,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
+  '/post/new-poo': typeof ProtectedPostNewPooRoute
   '/chat': typeof ProtectedMainChatIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
@@ -245,6 +262,7 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
+  '/post/new-poo': typeof ProtectedPostNewPooRoute
   '/chat': typeof ProtectedMainChatIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
@@ -261,6 +279,7 @@ export interface FileRoutesById {
   '/_protected/_main': typeof ProtectedMainRouteWithChildren
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
+  '/_protected/post/new-poo': typeof ProtectedPostNewPooRoute
   '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
@@ -277,6 +296,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/secret'
     | '/home'
+    | '/post/new-poo'
     | '/chat'
     | '/jizhang'
     | '/photos'
@@ -290,6 +310,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/secret'
     | '/home'
+    | '/post/new-poo'
     | '/chat'
     | '/jizhang'
     | '/photos'
@@ -304,6 +325,7 @@ export interface FileRouteTypes {
     | '/_protected/_main'
     | '/_protected/secret'
     | '/_protected/_main/home'
+    | '/_protected/post/new-poo'
     | '/_protected/_main/chat/'
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
@@ -353,7 +375,8 @@ export const routeTree = rootRoute
       "filePath": "_protected.tsx",
       "children": [
         "/_protected/_main",
-        "/_protected/secret"
+        "/_protected/secret",
+        "/_protected/post/new-poo"
       ]
     },
     "/about": {
@@ -383,6 +406,10 @@ export const routeTree = rootRoute
     "/_protected/_main/home": {
       "filePath": "_protected/_main/home.tsx",
       "parent": "/_protected/_main"
+    },
+    "/_protected/post/new-poo": {
+      "filePath": "_protected/post/new-poo.tsx",
+      "parent": "/_protected"
     },
     "/_protected/_main/chat/": {
       "filePath": "_protected/_main/chat/index.tsx",
