@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Pencil } from "lucide-react";
 
@@ -11,26 +11,53 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@/components/ui/drawer";
+import { LoadingButton } from "@/components/ui/loading-button";
 
 import NewPost from "./-components/new-post";
 import Post from "./-components/post";
-import { usePosts } from "./-data";
+import { usePostsInfinite } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/posts/")({
     component: Posts,
 });
 
 function Posts() {
-    const { data, isPending, isError } = usePosts();
+    const {
+        data,
+        isPending,
+        isError,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = usePostsInfinite(8);
     const [showNewPostDrawer, setShowNewPostDrawer] = useState(false);
     if (isPending) return <LoadingPage />;
     if (isError) return <div>出错啦</div>;
     return (
         <>
-            <section className="relative h-full divide-y divide-green-400 overflow-auto">
-                {data.map((post) => (
-                    <Post key={post.id} {...post} />
-                ))}
+            <section className="relative h-full overflow-auto">
+                <div className="divide-y divide-green-400">
+                    {data.pages.map((page, i) => (
+                        <Fragment key={i}>
+                            {page.posts.map((post) => (
+                                <Post key={post.id} {...post} />
+                            ))}
+                        </Fragment>
+                    ))}
+                </div>
+
+                <div className="mb-4 flex justify-center">
+                    {!hasNextPage && <p>到底了...</p>}
+                    {hasNextPage && (
+                        <LoadingButton
+                            disabled={isFetchingNextPage}
+                            loading={isFetchingNextPage}
+                            onClick={() => fetchNextPage()}
+                        >
+                            加载更多
+                        </LoadingButton>
+                    )}
+                </div>
             </section>
 
             <Drawer
