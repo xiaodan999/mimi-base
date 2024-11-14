@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import LoadingPage from "@/components/LoadingPage";
-import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -23,6 +22,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { LoadingButton } from "@/components/ui/loading-button";
 import { useAuth } from "@/lib/auth";
 
 const FALLBACK = "/home";
@@ -71,7 +71,12 @@ export function Login() {
         const { error } = await login(values);
         if (!error) {
             await router.invalidate();
+            return;
         }
+        form.setError("password", {
+            message: error.message,
+            type: "value",
+        });
     }
 
     return (
@@ -129,9 +134,14 @@ export function Login() {
                             </div>
                         </CardContent>
                         <CardFooter>
-                            <Button className="w-full" type="submit">
+                            <LoadingButton
+                                className="w-full"
+                                type="submit"
+                                disabled={form.formState.isSubmitting}
+                                loading={form.formState.isSubmitting}
+                            >
                                 登录
-                            </Button>
+                            </LoadingButton>
                         </CardFooter>
                     </Card>
                 </form>
