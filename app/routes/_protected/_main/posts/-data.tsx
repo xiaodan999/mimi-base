@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 
 import { queryClient } from "@/app/main";
 import { useAuth, User } from "@/lib/auth";
@@ -69,6 +69,66 @@ export function usePosts() {
 
             return posts;
         },
+    });
+}
+
+export function usePostsInfinite(pageSize = 10) {
+    const { user } = useAuth();
+
+    return useInfiniteQuery({
+        queryKey: ["posts"],
+        queryFn: async ({ pageParam = 0 }) => {
+            const { data: posts } = await supabase
+                .from("posts")
+                .select(
+                    `id, text, author:users(id,user_name,tou_xiang,...tou-xiang-circle(circle:url)), 
+                     createdAt:created_at, post_likes!inner(count), comments!inner(count)`,
+                )
+                .order("created_at", { ascending: false })
+                .range(pageParam, pageParam + pageSize - 1)
+                .returns<PostData[]>()
+                .throwOnError();
+
+            if (!posts) throw new Error("Cannot find any posts.");
+
+            // Add liked to each post
+            const { data: likes } = await supabase
+                .from("post_likes")
+                .select("post_id")
+                .in(
+                    "post_id",
+                    posts.map((post) => post.id),
+                )
+                .eq("user_id", user.id)
+                .throwOnError();
+
+            if (!likes)
+                throw new Error(
+                    "Unable to fetch the user's likes info for each post",
+                );
+
+            posts.forEach((post) => {
+                post.metrics = {
+                    // @ts-expect-error silly sb
+                    likeCount: post.post_likes[0].count,
+                    // @ts-expect-error silly sb
+                    replyCount: post.comments[0].count,
+                };
+
+                post.liked =
+                    likes.findIndex(
+                        (likedPost) => likedPost.post_id === post.id,
+                    ) !== -1;
+            });
+
+            return {
+                posts,
+                nextPage:
+                    posts.length === pageSize ? pageParam + pageSize : null, // Only fetch more if pageSize posts returned
+            };
+        },
+        initialPageParam: 0,
+        getNextPageParam: (lastPage) => lastPage.nextPage,
     });
 }
 
