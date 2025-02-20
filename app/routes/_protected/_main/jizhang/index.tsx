@@ -61,8 +61,16 @@ function Page() {
         );
     }
 
+    const monthTotal = data.reduce((acc, { items }) => {
+        return acc + getSum(items);
+    }, 0);
+
     return (
-        <Layout date={dateRange} onRangeChange={setDateRange}>
+        <Layout
+            monthTotal={monthTotal}
+            date={dateRange}
+            onRangeChange={setDateRange}
+        >
             <ResponsiveMasonry
                 columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3 }}
             >
@@ -86,7 +94,9 @@ function Layout({
     date,
     onRangeChange,
     children,
+    monthTotal,
 }: PropsWithChildren<{
+    monthTotal?: number;
     date: DateRange | undefined;
     onRangeChange: (range: DateRange | undefined) => void;
 }>) {
@@ -94,6 +104,11 @@ function Layout({
         <div className="relative flex flex-col p-4">
             <h1 className="text-2xl">记账基地</h1>
             <div className="mb-4 mt-2 flex flex-wrap justify-end gap-2">
+                {monthTotal && (
+                    <div className="grid place-items-center font-bold text-muted-foreground">
+                        🌛￥{monthTotal}
+                    </div>
+                )}
                 <AddJiZhangForm />
                 <CalendarDateRangePicker
                     date={date}
