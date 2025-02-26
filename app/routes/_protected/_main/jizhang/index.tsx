@@ -106,7 +106,7 @@ function Layout({
             <div className="mb-4 mt-2 flex flex-wrap justify-end gap-2">
                 {monthTotal && (
                     <div className="grid place-items-center font-bold text-muted-foreground">
-                        🌛￥{monthTotal}
+                        🌛￥{monthTotal.toFixed(2)}
                     </div>
                 )}
                 <AddJiZhangForm />
