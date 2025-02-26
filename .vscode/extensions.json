@@ -2,7 +2,6 @@
     "recommendations": [
         "bradlc.vscode-tailwindcss",
         "dbaeumer.vscode-eslint",
-        "maattdd.gitless",
-        "emeraldwalk.runonsave"
+        "maattdd.gitless"
     ]
 }
