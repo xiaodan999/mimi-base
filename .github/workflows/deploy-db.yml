@@ -1,6 +1,6 @@
 name: deploy-db
 
-# Deploys PocketBase (schema migrations + hooks) to huanan-pc by calling the
+# Deploys PocketBase (schema migrations + hooks) by calling the server's
 # server's /db/sync endpoint, which does git pull --ff-only, snapshots pb_data
 # and restarts PB. Requires the DEPLOY_TOKEN secret in the "Production"
 # environment; without it this workflow no-ops.

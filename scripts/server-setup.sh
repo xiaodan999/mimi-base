@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 5 server setup for huanan-pc (Aliyun ECS, run as root).
+# Server setup for the PocketBase host (run as root ON the server).
 # Idempotent: safe to re-run. Leaves PB running via /root/bin/mimi-db
 # (started at boot via an @reboot cron entry; deploys arrive via GitHub
 # Actions POSTing /db/sync), and prints the values needed for the Caddy + GitHub steps.
@@ -22,10 +22,11 @@ cd "$REPO"
 git config pull.ff only
 git pull --ff-only || echo "WARN: git pull failed (continue with current tree)"
 
-# 3. secrets (generated on the box, never transited)
+# 3. secrets (generated on the box, never transited; the superuser email
+#    is yours to choose — export SUPERUSER_EMAIL before running)
 if [ ! -f /root/mimi-secrets.txt ]; then
     {
-        echo "SUPERUSER_EMAIL=mimi@zxvcn.com"
+        echo "SUPERUSER_EMAIL=${SUPERUSER_EMAIL:?export SUPERUSER_EMAIL first}"
         echo "SUPERUSER_PASSWORD=$(openssl rand -hex 16)"
         echo "DEPLOY_TOKEN=$(openssl rand -hex 24)"
     } > /root/mimi-secrets.txt
