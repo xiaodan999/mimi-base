@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Server setup for the PocketBase host. Runs as a NORMAL user — everything
-# (bun install, the PocketBase process on 8090/9001, the crontab) is
-# user-level; only your reverse proxy / TLS step needs root.
+# (bun install, the PocketBase process on 8090/9001) is user-level; only
+# your reverse proxy / TLS step needs root.
 #
 # Everything lives inside the repo clone: the launcher (scripts/mimi-db),
 # the secrets file (.env.prod, gitignored) and the log (mimi-db.log).
+# No cron entries or services are installed — PB does not auto-start at boot.
 #
 # Usage:
 #   git clone https://github.com/xiaodan999/mimi-base && cd mimi-base
@@ -50,11 +51,9 @@ fi
 # 4. the launcher is committed at scripts/mimi-db — just ensure it is executable
 chmod +x scripts/mimi-db
 
-# 5. boot persistence: start PB once at boot (as this user). No watchdog loop,
-# no auto-deploy: deploys arrive via GitHub Actions POSTing /db/sync. Cron
-# needs an absolute path — it points inside this clone.
-( crontab -l 2>/dev/null | grep -v mimi-db || true
-  echo "@reboot sh -c 'nohup $REPO/scripts/mimi-db >> $REPO/mimi-db.log 2>&1 &'" ) | crontab -
+# 5. clean up any legacy mimi-db cron entries from older installs
+#    (boot-start was removed: PB does not auto-start at boot)
+( crontab -l 2>/dev/null | grep -v mimi-db || true ) | crontab -
 
 # 6. start (only if not already running) and register the superuser
 pgrep -f 'pocketbase/server.ts' >/dev/null || \
