@@ -1,8 +1,9 @@
 /**
  * PocketBase supervisor + deploy endpoint.
  *
- *   bun run db                                              # dev: 127.0.0.1:8090
- *   bun run db -- --http 0.0.0.0:8090 --automigrate=false   # prod
+ *   bun run db    # dev:  127.0.0.1:8090 (no .env.prod in the repo)
+ *   bun run db    # prod: binds PB_HTTP from .env.prod (e.g. 0.0.0.0:8090),
+ *                 #       automigrate off, /db/sync armed by DEPLOY_TOKEN
  *
  * Downloads the pinned binary on first run, keeps `./pocketbase serve`
  * running, and serves POST /db/sync on :9001 for GitHub Actions deploys:
@@ -13,11 +14,11 @@
  * pb_hooks relative to the data dir (pocketbase/pb_data/../).
  *
  * NOTE: /db/sync restarts PocketBase only. If the pull changed server.ts
- * itself, the supervisor exits after responding so the prod cron watchdog
- * (or a manual local restart) starts the new version.
+ * itself, the supervisor respawns ITSELF detached so the new version takes
+ * over without downtime (there is no watchdog/cron to do it).
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync } from "node:fs";
+import { chmodSync, existsSync, openSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
 import path from "node:path";
@@ -28,6 +29,19 @@ const bin = path.join(dir, "pocketbase");
 const repo = path.resolve(dir, "..");
 const DEPLOY_PORT = 9001;
 const SNAPSHOT_KEEP = 5;
+
+// Prod config: when .env.prod (gitignored) exists at the repo root, load it
+// (DEPLOY_TOKEN arms /db/sync, PB_HTTP sets the bind address) and switch to
+// prod serve behavior. Without it, dev defaults apply.
+const prodEnvPath = path.join(repo, ".env.prod");
+let isProd = false;
+if (existsSync(prodEnvPath)) {
+    for (const line of (await Bun.file(prodEnvPath).text()).split("\n")) {
+        const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
+        if (m && m[1] && m[2] && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+    }
+    isProd = true;
+}
 
 async function ensureBinary() {
     if (existsSync(bin)) return;
@@ -46,7 +60,10 @@ const serveArgs = [
     "serve",
     ...(argv.some((a) => a.startsWith("--http"))
         ? argv
-        : ["--http", "127.0.0.1:8090", ...argv]),
+        : ["--http", process.env.PB_HTTP ?? "127.0.0.1:8090", ...argv]),
+    ...(isProd && !argv.some((a) => a.startsWith("--automigrate"))
+        ? ["--automigrate=false"]
+        : []),
 ];
 const httpPort = (() => {
     const i = serveArgs.indexOf("--http");
@@ -146,10 +163,18 @@ function startDeployEndpoint() {
                     return new Response("pocketbase did not become healthy after deploy", { status: 500 });
                 }
                 if ((await fileHash(path.join(dir, "server.ts"))) !== serverTsBefore) {
-                    setTimeout(() => {
-                        console.log("server.ts changed on deploy — exiting for the watchdog to start the new supervisor");
+                    setTimeout(async () => {
+                        console.log("server.ts changed on deploy — respawning supervisor");
                         stopping = true;
                         child?.kill("SIGTERM");
+                        await new Promise((r) => setTimeout(r, 1500));
+                        const logFd = openSync(path.join(repo, "mimi-db.log"), "a");
+                        spawn(process.execPath, [Bun.main], {
+                            cwd: repo,
+                            env: process.env,
+                            detached: true,
+                            stdio: ["ignore", logFd, logFd],
+                        }).unref();
                         process.exit(0);
                     }, 1000);
                     return new Response("deploy ok (supervisor restarting)", { status: 200 });

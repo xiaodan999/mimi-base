@@ -5,9 +5,9 @@ everything lives inside the repo clone:
 
 ```
 <mimi>/                          # wherever you clone it = the whole deployment
-├── .env.prod                    # gitignored: SUPERUSER_*, DEPLOY_TOKEN (chmod 600)
+├── .env.prod                    # gitignored: SUPERUSER_*, DEPLOY_TOKEN,
+│                                #   PB_HTTP (chmod 600)
 ├── mimi-db.log                  # gitignored runtime log
-├── scripts/mimi-db              # production launcher (repo-relative paths)
 ├── scripts/server-setup.sh      # one-command server setup (idempotent)
 └── pocketbase/                  # this dir:
     ├── server.ts                # supervisor: spawns the pinned PB binary and
@@ -70,10 +70,11 @@ via `VITE_POCKETBASE_URL` (Vercel env var).
 
 - **Logs**: `mimi-db.log` in the clone root.
 - **Manual start / recovery** (also after a server reboot — nothing
-  auto-starts PB):
-  `nohup scripts/mimi-db >> mimi-db.log 2>&1 &`
+  auto-starts PB; run from the clone root):
+  `nohup bun pocketbase/server.ts >> mimi-db.log 2>&1 &`
 - **Secrets**: `.env.prod` in the clone root — generated on the box, never
-  committed anywhere.
+  committed anywhere. `PB_HTTP` in the same file sets the address
+  PocketBase binds (e.g. `0.0.0.0:8090`).
 - **Uninstall**:
   ```bash
   pkill -f 'pocketbase/server.ts'; pkill -f 'pocketbase serve'

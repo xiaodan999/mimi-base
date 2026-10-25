@@ -3,9 +3,10 @@
 # (bun install, the PocketBase process on 8090/9001) is user-level; only
 # your reverse proxy / TLS step needs root.
 #
-# Everything lives inside the repo clone: the launcher (scripts/mimi-db),
-# the secrets file (.env.prod, gitignored) and the log (mimi-db.log).
-# No cron entries or services are installed — PB does not auto-start at boot.
+# Everything lives inside the repo clone: the supervisor (pocketbase/server.ts,
+# started as plain `bun run db`), the secrets file (.env.prod, gitignored)
+# and the log (mimi-db.log). No cron entries or services — PB does not
+# auto-start at boot.
 #
 # Usage:
 #   git clone https://github.com/xiaodan999/mimi-base && cd mimi-base
@@ -43,21 +44,19 @@ if [ ! -f .env.prod ]; then
         echo "SUPERUSER_EMAIL=$SUPERUSER_EMAIL"
         echo "SUPERUSER_PASSWORD=$(openssl rand -hex 16)"
         echo "DEPLOY_TOKEN=$(openssl rand -hex 24)"
+        echo "PB_HTTP=0.0.0.0:8090"
     } > .env.prod
     chmod 600 .env.prod
 fi
 . .env.prod
 
-# 4. the launcher is committed at scripts/mimi-db — just ensure it is executable
-chmod +x scripts/mimi-db
-
-# 5. clean up any legacy mimi-db cron entries from older installs
+# 4. clean up any legacy mimi-db cron entries from older installs
 #    (boot-start was removed: PB does not auto-start at boot)
 ( crontab -l 2>/dev/null | grep -v mimi-db || true ) | crontab -
 
-# 6. start (only if not already running) and register the superuser
+# 5. start (only if not already running) and register the superuser
 pgrep -f 'pocketbase/server.ts' >/dev/null || \
-    { nohup scripts/mimi-db >> mimi-db.log 2>&1 & }
+    { nohup bun pocketbase/server.ts >> mimi-db.log 2>&1 & }
 sleep 8
 cd pocketbase
 if [ ! -x ./pocketbase ]; then echo "waiting for binary download..."; sleep 20; fi
@@ -66,7 +65,7 @@ if [ ! -x ./pocketbase ]; then echo "waiting for binary download..."; sleep 20; 
 ./pocketbase superuser upsert "$SUPERUSER_EMAIL" "$SUPERUSER_PASSWORD" || \
     echo "WARN: superuser upsert failed — is PB up? check $REPO/mimi-db.log"
 
-# 7. info for the reverse-proxy + GitHub steps
+# 6. info for the reverse-proxy + GitHub steps
 GW=$(docker inspect "$(docker ps -aqf name=caddy 2>/dev/null)" \
         --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' 2>/dev/null \
      | awk '{print $1}' || true)
