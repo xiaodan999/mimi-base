@@ -60,6 +60,8 @@ pgrep -f 'bun pocketbase/server.ts' >/dev/null || \
 sleep 8
 cd "$REPO/pocketbase"
 if [ ! -x ./pocketbase ]; then echo "waiting for binary download..."; sleep 20; fi
+# apply the committed schema (needed on a fresh pb_data; no-op when applied)
+./pocketbase migrate up || echo "WARN: migrate up failed — check pb_migrations"
 ./pocketbase superuser upsert "$SUPERUSER_EMAIL" "$SUPERUSER_PASSWORD" || \
     echo "WARN: superuser upsert failed — is PB up? check /root/mimi-db.log"
 
