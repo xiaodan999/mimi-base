@@ -26,8 +26,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import useLongPress from "@/hooks/useLongPress";
 import { useAuth } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
+import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
-import supabase from "@/lib/supabase-client";
 import { toastPromise } from "@/lib/toast-promise";
 
 export const Route = createFileRoute("/_protected/_main/home")({
@@ -42,13 +42,13 @@ function Page() {
     }, 500);
     return (
         <div>
-            <h1 className="text-4xl font-semibold text-center">
+            <h1 className="text-center text-4xl font-semibold">
                 秘密保存基地 <i>V{APP_VERSION}</i>
                 <br />
             </h1>
-            <p className="text-2xl mt-2">
+            <p className="mt-2 text-2xl">
                 欢迎{" "}
-                <span className="italic text-orange-400 text-3xl font-semibold">
+                <span className="text-3xl font-semibold italic text-orange-400">
                     {user.user_name}
                 </span>{" "}
                 🎉✨🎉✨
@@ -58,13 +58,13 @@ function Page() {
                 <div {...bind}>
                     <TouXiang
                         size={100}
-                        touXiangUrl={user.tou_xiang}
-                        circleUrl={user.circle}
+                        touXiangUrl={getUserAvatarUrl(user)}
+                        circleUrl={getUserCircleUrl(user)}
                     />
                 </div>
             </div>
 
-            <div className="w-[80%] mx-auto flex mt-2">
+            <div className="mx-auto mt-2 flex w-[80%]">
                 <DinnerPicker />
             </div>
 
@@ -77,7 +77,7 @@ function Page() {
                     <DrawerFooter className="text-lg">
                         <div className="divide-y divide-green-500 text-center">
                             <div
-                                className="hover:bg-green-300 hover:cursor-pointer h-14 flex justify-center items-center"
+                                className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300"
                                 onClick={async () => {
                                     setVisible(false);
                                     // 1. 让用户选择图片
@@ -100,45 +100,25 @@ function Page() {
                                             error: "压缩图片失败",
                                         },
                                     );
-                                    // 2. 将此图片上传至supabase storage, `tou-xiang` 并且获取图像的URL
-                                    const path = `${user.id}/${Date.now()}.webp`;
-
-                                    const { path: imgRemotePath } =
-                                        await toastPromise(
-                                            supabase.storage
-                                                .from("tou-xiang")
-                                                .upload(path, file, {
-                                                    cacheControl: "31536000",
-                                                })
-                                                .then(({ error, data }) => {
-                                                    if (error) throw error;
-                                                    return data;
-                                                }),
+                                    // 2. 一次调用同时上传头像文件并更新`users`记录
+                                    const type = file.type || "image/webp";
+                                    const ext = type.split("/")[1] || "webp";
+                                    const formData = new FormData();
+                                    formData.append(
+                                        "tou_xiang",
+                                        new File(
+                                            [file],
+                                            `${Date.now()}.${ext}`,
                                             {
-                                                loading: "上传图片中...",
-                                                success: "上传图片成功",
-                                                error: (e) =>
-                                                    `上传图片失败. ${e}`,
+                                                type,
                                             },
-                                        );
-
-                                    const url = supabase.storage
-                                        .from("tou-xiang")
-                                        .getPublicUrl(imgRemotePath)
-                                        .data.publicUrl;
-
-                                    // 3. 将`users`表格的`tou_xiang`修改为上一步的URL
+                                        ),
+                                    );
 
                                     await toastPromise(
-                                        // @ts-expect-error silly supabase
-                                        supabase
-                                            .from("users")
-                                            .update({ tou_xiang: url })
-                                            .eq("id", user.id)
-                                            .then(({ data, error }) => {
-                                                if (error) throw error;
-                                                return data;
-                                            }),
+                                        pb
+                                            .collection("users")
+                                            .update(user.id, formData),
                                         {
                                             loading: "修改头像中...",
                                             success: () => {
@@ -152,12 +132,12 @@ function Page() {
                             >
                                 修改头像
                             </div>
-                            <div className="hover:bg-green-300 hover:cursor-pointer h-14 flex justify-center items-center">
+                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300">
                                 修改头像框
                             </div>
                         </div>
                         <DrawerClose asChild>
-                            <div className="hover:bg-green-300 hover:cursor-pointer h-14 flex justify-center items-center">
+                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300">
                                 取消
                             </div>
                         </DrawerClose>
@@ -222,15 +202,10 @@ function DinnerPicker() {
     const handleSave = async (dinner: string) => {
         setSaveLoading(true);
         await toastPromise(
-            // @ts-expect-error silly supabase
-            supabase
-                .from("mmi")
-                .insert([
-                    { mimi: `[晚餐抽奖机]: ${dinner}`, author_id: user.id },
-                ])
-                .then(({ error }) => {
-                    if (error) throw error;
-                }),
+            pb.collection("mmi").create({
+                mimi: `[晚餐抽奖机]: ${dinner}`,
+                author_id: user.id,
+            }),
             {
                 loading: `正在记录晚餐 '${dinner}'...`,
                 error: "保存晚餐失败",
@@ -254,10 +229,10 @@ function DinnerPicker() {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        <span className="inline-block align-middle mr-1">
+                        <span className="mr-1 inline-block align-middle">
                             晚餐吃
                         </span>
-                        <span className="inline-block align-middle ">
+                        <span className="inline-block align-middle">
                             {loading ? <LoadingSpinner /> : `"${dinnerName}"`}
                         </span>
                     </DialogTitle>

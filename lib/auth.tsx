@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
-
 import {
     type ReactNode,
     createContext,
@@ -9,15 +6,27 @@ import {
     useEffect,
     useState,
 } from "react";
-import type { AuthTokenResponsePassword } from "@supabase/supabase-js";
 
-import supabase from "./supabase-client";
+import pb from "./pb";
+
+export type Circle = {
+    id: string;
+    name: string;
+    description: string;
+    // file filename ("" when unset)
+    image: string;
+};
 
 export type User = {
     id: string;
     user_name: string;
+    // file filename ("" when unset); the URL comes from pb.files.getURL
     tou_xiang: string;
+    // relation id ("" when unset); the record comes from `expand.circle`
     circle: string;
+    expand?: {
+        circle?: Circle;
+    };
 };
 
 export type AuthContextType = {
@@ -26,18 +35,25 @@ export type AuthContextType = {
     login: (credentials: {
         email: string;
         password: string;
-    }) => Promise<AuthTokenResponsePassword>;
+    }) => Promise<{ error: { message: string } | null }>;
     logout: () => Promise<void>;
     loading: boolean;
     refresh: () => void;
 };
 
-const login = (credentials: { email: string; password: string }) => {
-    return supabase.auth.signInWithPassword(credentials);
+const login = async (credentials: { email: string; password: string }) => {
+    try {
+        await pb
+            .collection("users")
+            .authWithPassword(credentials.email, credentials.password);
+        return { error: null };
+    } catch (error) {
+        return { error: error as { message: string } };
+    }
 };
 
 const logout = async () => {
-    await supabase.auth.signOut();
+    pb.authStore.clear();
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,46 +66,52 @@ export function useAuth() {
     return ctx;
 }
 
+const fetchUser = async (id: string): Promise<User | null> => {
+    // `pb.authStore.record` has no expand, so fetch the profile with the
+    // expanded circle for the avatar / circle rendering.
+    try {
+        const record = await pb.collection("users").getOne(id, {
+            expand: "circle",
+        });
+        return record as unknown as User;
+    } catch (error) {
+        console.log("Failed to fetch the user profile", error);
+        return null;
+    }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<User | null>(null);
     const isAuthenticated = user !== null;
 
-    const refresh = useCallback(() => {
+    const loadUser = useCallback(async () => {
+        const record = pb.authStore.record as User | null;
+        if (!pb.authStore.isValid || !record?.id) {
+            setUser(null);
+            setLoading(false);
+            return;
+        }
         setLoading(true);
-        fetchUser()
-            .then((data) => {
-                setUser(data);
-            })
-            .finally(() => {
-                setLoading(false);
-            });
+        try {
+            const data = await fetchUser(record.id);
+            setUser(data);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
+    const refresh = useCallback(() => {
+        loadUser();
+    }, [loadUser]);
+
     useEffect(() => {
-        let mounted = true;
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((event) => {
-            if (event === "SIGNED_OUT") {
-                setUser(null);
-            } else {
-                (async () => {
-                    setLoading(true);
-                    const data = await fetchUser();
-                    if (mounted) {
-                        setUser(data);
-                        setLoading(false);
-                    }
-                })();
-            }
-            console.log(event);
+        loadUser();
+        // Session restore and login/logout both flow through the auth store.
+        return pb.authStore.onChange(() => {
+            loadUser();
         });
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-        };
-    }, []);
+    }, [loadUser]);
 
     return (
         <AuthContext.Provider
@@ -107,26 +129,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         </AuthContext.Provider>
     );
 }
-
-const fetchUser = async () => {
-    console.log("=============run fetch user");
-    const {
-        data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return null;
-    const { data, error } = await supabase.auth.getUser();
-
-    if (!data.user?.email || error) {
-        return null;
-    }
-
-    const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id,user_name,tou_xiang,...tou-xiang-circle(circle:url)")
-        .eq("id", data.user.id)
-        .single();
-
-    if (userError) return null;
-
-    return userData;
-};

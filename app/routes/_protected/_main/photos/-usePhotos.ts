@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import type { User } from "@/lib/auth";
-import supabase from "@/lib/supabase-client";
+import pb from "@/lib/pb";
 
 export type PhotoData = {
     user: User;
@@ -12,36 +12,39 @@ export type PhotoData = {
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-function transform(data: any): PhotoData[] {
+function transform(data: any[]): PhotoData[] {
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
     const transformed = data.map((p: any) => ({
-        ...p,
+        id: p.id,
+        created_at: p.created,
         storagePath: p.photo,
-        url: supabase.storage.from("hao-duo-zhao-pian").getPublicUrl(p.photo)
-            .data.publicUrl,
+        // the photo field declares thumbs: ["200x200"], the grid displays at
+        // 250x330 with object-cover so the square thumb is enough
+        url: p.photo ? pb.files.getURL(p, p.photo, { thumb: "200x200" }) : "",
+        user: p.expand?.user_id,
     }));
     return transformed;
 }
 
 async function fetchPhotos(cursor: string | null, limit: number) {
-    // Fetch photos from the database using supabase
-    let query = supabase
-        .from("tu-pian-xin-xi")
-        .select(
-            "photo,id,created_at,user:users(id,user_name,tou_xiang,...tou-xiang-circle(circle:url))",
-        )
-        .order("created_at", { ascending: false })
-        .limit(limit);
+    const options: {
+        sort: string;
+        expand: string;
+        filter?: string;
+    } = {
+        sort: "-created",
+        expand: "user_id,user_id.circle",
+    };
 
     if (cursor) {
-        query = query.lt("created_at", cursor);
+        options.filter = pb.filter("created < {:cursor}", { cursor });
     }
 
-    const { data, error } = await query;
-
-    if (error) throw error;
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    return data as any[];
+    // `limit` acts as the perPage of the first page
+    const result = await pb
+        .collection("tu_pian_xin_xi")
+        .getList(1, limit, options);
+    return result.items;
 }
 
 async function getPhotos(cursor: string, limit = 10) {
@@ -56,7 +59,7 @@ async function getPhotos(cursor: string, limit = 10) {
     }
 
     const photos = transform(data); // Transform the first limit photos in the data array
-    const nextCursor: string | null = data.at(-1)!.created_at ?? null; // Set the value of nextCursor
+    const nextCursor: string | null = data.at(-1)?.created ?? null; // Set the value of nextCursor
 
     return { photos, nextCursor, limit }; // Return an object containing the photos array, nextCursor value and limit
 }

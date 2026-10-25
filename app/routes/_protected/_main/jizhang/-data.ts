@@ -3,15 +3,23 @@ import { endOfDay, startOfDay } from "date-fns/esm";
 import { DateRange } from "react-day-picker";
 
 import { queryClient } from "@/app/main";
+import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
-import supabase from "@/lib/supabase-client";
+import pb, { pbDate } from "@/lib/pb";
 
 export type JiZhangItemData = {
     id: string;
     price: number;
     itemName: string;
     createdAt: string;
+};
+
+type JiZhangRecord = {
+    id: string;
+    item_name: string;
+    price: number;
+    created: string;
 };
 
 export function useJiZhang(range: DateRange | undefined) {
@@ -21,37 +29,37 @@ export function useJiZhang(range: DateRange | undefined) {
         queryFn: async () => {
             if (range === undefined || from === undefined) return [];
 
-            const query = supabase
-                .from("ji_zhang_biao")
-                .select("id, price, itemName:item_name, createdAt:created_at");
-            // single day
-            if (to === undefined) {
-                query
-                    .gte("created_at", startOfDay(from).toISOString())
-                    .lte("created_at", endOfDay(from).toISOString());
-            }
-            // range
-            else {
-                query
-                    .gte("created_at", startOfDay(from).toISOString())
-                    .lte("created_at", endOfDay(to).toISOString());
-            }
-
-            const { data: rawData } = await query
-                .order("created_at", { ascending: false })
-                .throwOnError();
-            if (rawData === null) throw new Error("没有找到记账数据");
+            // single day when `to` is undefined, otherwise the full range
+            const end = to ?? from;
+            const rawData = await pb
+                .collection("ji_zhang_biao")
+                .getFullList<JiZhangRecord>({
+                    filter: pb.filter(
+                        "created >= {:from} && created <= {:to}",
+                        {
+                            from: pbDate(startOfDay(from)),
+                            to: pbDate(endOfDay(end)),
+                        },
+                    ),
+                    sort: "-created",
+                });
 
             const transformedData: {
                 date: string;
                 items: JiZhangItemData[];
             }[] = [];
 
-            groupBy(rawData, (item) => myFormatDate(item.createdAt)).forEach(
-                (items, date) => {
-                    transformedData.push({ date, items });
-                },
-            );
+            groupBy(
+                rawData.map((item) => ({
+                    id: item.id,
+                    price: item.price,
+                    itemName: item.item_name,
+                    createdAt: item.created,
+                })),
+                (item) => myFormatDate(item.createdAt),
+            ).forEach((items, date) => {
+                transformedData.push({ date, items });
+            });
 
             return transformedData;
         },
@@ -66,22 +74,19 @@ function myFormatDate(dateStr: string) {
 }
 
 export function useAddJiZhang() {
+    const { user } = useAuth();
     return useMutation({
         mutationKey: ["add-ji-zhang"],
         mutationFn: async (
             newItem: Pick<JiZhangItemData, "itemName" | "price">,
         ) => {
-            const { data } = await supabase
-                .from("ji_zhang_biao")
-                .insert({
-                    item_name: newItem.itemName,
-                    price: newItem.price,
-                })
-                .select("id")
-                .single()
-                .throwOnError();
-            if (!data) throw new Error("Failed to insert a new ji zhang");
-            return data.id;
+            // PocketBase has no column default for user_id, send it.
+            const record = await pb.collection("ji_zhang_biao").create({
+                item_name: newItem.itemName,
+                price: newItem.price,
+                user_id: user.id,
+            });
+            return record.id;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["ji-zhang"] });
@@ -93,14 +98,10 @@ export function useDeleteJiZhang() {
     return useMutation({
         mutationKey: ["delete-ji-zhang"],
         mutationFn: async (itemToDelete: Pick<JiZhangItemData, "id">) => {
-            const { count } = await supabase
-                .from("ji_zhang_biao")
-                .delete({ count: "exact" })
-                .eq("id", itemToDelete.id)
-                .single()
-                .throwOnError();
-
-            if (count !== 1) throw new Error("Failed to delete");
+            const deleted = await pb
+                .collection("ji_zhang_biao")
+                .delete(itemToDelete.id);
+            if (!deleted) throw new Error("Failed to delete");
         },
         onSuccess: () => {
             queryClient.invalidateQueries({

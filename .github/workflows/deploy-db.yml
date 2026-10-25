@@ -1,0 +1,50 @@
+name: deploy-db
+
+# Deploys PocketBase (schema migrations + hooks) to huanan-pc by calling the
+# server's /db/sync endpoint, which does git pull --ff-only, snapshots pb_data
+# and restarts PB. Requires the DEPLOY_TOKEN secret in the "Production"
+# environment; without it this workflow no-ops.
+
+on:
+  push:
+    branches: [master]
+    paths: ["pocketbase/**", ".github/workflows/deploy-db.yml"]
+
+concurrency:
+  group: deploy-db
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # DEPLOY_TOKEN lives in the "Production" environment's secrets
+    environment: Production
+    env:
+      DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+    steps:
+      - name: Trigger /db/sync
+        if: ${{ env.DEPLOY_TOKEN != '' }}
+        timeout-minutes: 20
+        # the CN route from GitHub runners drops out for minutes at a time,
+        # so spread the attempts over a wider window instead of back-to-back
+        run: |
+          for i in 1 2 3 4 5 6 7 8; do
+            if curl --fail-with-body --max-time 60 -sS -X POST \
+              https://dan-pb.zxvcn.com/db/sync \
+              -H "x-deploy-token: $DEPLOY_TOKEN"; then
+              echo "deploy triggered on attempt $i"
+              exit 0
+            fi
+            echo "attempt $i failed; retrying in 60s"
+            sleep 60
+          done
+          echo "all attempts failed — the deploy did NOT happen (re-run this job)"
+          exit 1
+      - name: Health check
+        if: ${{ env.DEPLOY_TOKEN != '' }}
+        run: |
+          curl --fail --max-time 30 -sS --retry 3 --retry-delay 10 --retry-all-errors \
+            https://dan-pb.zxvcn.com/api/health
+      - name: Skip (DEPLOY_TOKEN secret not set)
+        if: ${{ env.DEPLOY_TOKEN == '' }}
+        run: echo "DEPLOY_TOKEN secret is not configured — skipping deploy"

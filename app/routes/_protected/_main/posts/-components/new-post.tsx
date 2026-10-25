@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth";
+import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 
 import { useNewPostMutation } from "../-data";
@@ -60,8 +61,8 @@ export default function NewPost({
             <div className="flex gap-2">
                 <TouXiang
                     className="flex-shrink-0"
-                    circleUrl={user.circle}
-                    touXiangUrl={user.tou_xiang}
+                    circleUrl={getUserCircleUrl(user)}
+                    touXiangUrl={getUserAvatarUrl(user)}
                     size={40}
                 />
                 <Textarea

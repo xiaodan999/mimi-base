@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-    readonly VITE_PUSH_PUBLIC_KEY: string;
+    readonly VITE_POCKETBASE_URL: string;
 }
 
 declare const APP_VERSION: string;

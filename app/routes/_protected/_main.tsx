@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import NavButtons from "@/src/components/NavButtons";
+import NavButtons from "@/components/NavButtons";
 
 export const Route = createFileRoute("/_protected/_main")({
     component: Layout,

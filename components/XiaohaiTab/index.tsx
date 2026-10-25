@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { formatDate } from "@/lib/date";
-import supabase from "@/lib/supabase-client";
+import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 
 import TouXiang from "../TouXiang";
 import { LoadingSpinner } from "../ui/loading-spinner";
@@ -11,48 +11,67 @@ export default function XiaohaiTab() {
     const [allMimi, setAllMimi] = useState([]);
     const [loading, setLoading] = useState(false);
     useEffect(() => {
+        let cancelled = false;
+
         const getAllMimi = async () => {
             setLoading(true);
-            const { data, error } = await supabase
-                .from("mmi")
-                .select(
-                    "id,mimi,created_at,users(user_name,tou_xiang,tou-xiang-circle(url))",
-                )
-                .order("created_at", { ascending: false })
-                .limit(20);
-            if (error) {
-                setAllMimi([]);
-            } else {
-                setAllMimi(data);
+            try {
+                const result = await pb.collection("mmi").getList(1, 20, {
+                    sort: "-created",
+                    // legacy rows have a null author_id, so the expand may be
+                    // missing — always render through `?.author_id`
+                    expand: "author_id,author_id.circle",
+                });
+                if (!cancelled) {
+                    setAllMimi(result.items);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setAllMimi([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
-            setLoading(false);
         };
 
         getAllMimi();
-    }, []);
 
-    useEffect(() => {
-        const channel = supabase
-            .channel("any")
-            .on(
-                "postgres_changes",
-                { event: "INSERT", schema: "public", table: "mmi" },
-                async (payload) => {
-                    const { data } = await supabase
-                        .from("users")
-                        .select("user_name,tou_xiang,tou-xiang-circle(url)")
-                        .eq("id", payload.new.author_id)
-                        .single();
-                    setAllMimi((old) => [
-                        { ...payload.new, users: data },
-                        ...old,
-                    ]);
+        let unsubscribe = () => {};
+        let disposed = false;
+        pb.collection("mmi")
+            .subscribe(
+                "*",
+                (data) => {
+                    if (data.action === "create") {
+                        setAllMimi((old) => [data.record, ...old]);
+                    } else if (data.action === "update") {
+                        setAllMimi((old) =>
+                            old.map((mimi) =>
+                                mimi.id === data.record.id ? data.record : mimi,
+                            ),
+                        );
+                    } else if (data.action === "delete") {
+                        setAllMimi((old) =>
+                            old.filter((mimi) => mimi.id !== data.record.id),
+                        );
+                    }
                 },
+                { expand: "author_id,author_id.circle" },
             )
-            .subscribe();
+            .then((func) => {
+                if (disposed) {
+                    func();
+                } else {
+                    unsubscribe = func;
+                }
+            });
 
         return () => {
-            supabase.removeChannel(channel);
+            cancelled = true;
+            disposed = true;
+            unsubscribe();
         };
     }, []);
 
@@ -84,6 +103,7 @@ export default function XiaohaiTab() {
                     </div>
                 )}
                 {allMimi.map((mimi) => {
+                    const author = mimi.expand?.author_id;
                     return (
                         <li
                             key={mimi.id}
@@ -102,12 +122,12 @@ export default function XiaohaiTab() {
                             <TouXiang
                                 style={{ flexShrink: 0 }}
                                 size={45}
-                                touXiangUrl={mimi.users.tou_xiang}
-                                circleUrl={mimi.users["tou-xiang-circle"]?.url}
+                                touXiangUrl={getUserAvatarUrl(author)}
+                                circleUrl={getUserCircleUrl(author)}
                             />
                             <p style={{ width: "100%", paddingRight: "8px" }}>
                                 <span style={{ fontWeight: "bold" }}>
-                                    {mimi.users.user_name}
+                                    {author?.user_name}
                                 </span>
                                 : {mimi.mimi}
                                 <br />
@@ -121,31 +141,24 @@ export default function XiaohaiTab() {
                                         marginTop: "6px",
                                     }}
                                 >
-                                    {formatDate(mimi.created_at)}
+                                    {formatDate(mimi.created)}
                                 </span>
                             </p>
                             <button
                                 type="button"
                                 onClick={async () => {
-                                    const { error, count, data } =
-                                        await supabase
-                                            .from("mmi")
-                                            .delete()
-                                            .eq("id", mimi.id)
-                                            .select("id");
-                                    console.log({ error, count, data });
-                                    if (
-                                        error ||
-                                        count === 0 ||
-                                        data.length === 0
-                                    ) {
-                                        // Toast.show({ content: "删除失败", icon: "fail" });
-                                    } else {
+                                    try {
+                                        await pb
+                                            .collection("mmi")
+                                            .delete(mimi.id);
                                         setAllMimi(
                                             allMimi.filter(
                                                 (a) => a.id !== mimi.id,
                                             ),
                                         );
+                                    } catch (error) {
+                                        console.log(error);
+                                        // Toast.show({ content: "删除失败", icon: "fail" });
                                     }
                                 }}
                                 style={{

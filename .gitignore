@@ -33,3 +33,18 @@ dist-ssr
 .vercel
 .vinxi
 .output
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+tmp/
+
+# PocketBase
+pocketbase/pocketbase
+pocketbase/pocketbase.zip
+pocketbase/pb_data/
+pocketbase/CHANGELOG.md
+pocketbase/LICENSE.md
+pb_data_snapshots/

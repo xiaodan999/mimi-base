@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toastPromise } from "@/lib/toast-promise";
+import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 
 import { PostData, useDeletePostMutation, usePostLikeMutation } from "../-data";
 
@@ -30,9 +31,9 @@ export default function Post({
             <div className="row flex gap-2">
                 {/* profile image */}
                 <TouXiang
-                    circleUrl={author.circle}
+                    circleUrl={getUserCircleUrl(author)}
                     size={40}
-                    touXiangUrl={author.tou_xiang}
+                    touXiangUrl={getUserAvatarUrl(author)}
                 />
                 {/* main content */}
                 <div className="flex-1">

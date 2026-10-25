@@ -14,8 +14,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useAuth } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import { formatDate } from "@/lib/date";
+import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
-import supabase from "@/lib/supabase-client";
 import { toastPromise } from "@/lib/toast-promise";
 
 export const Route = createFileRoute("/_protected/_main/photos/")({
@@ -97,8 +97,8 @@ function Photo({ user, url, created_at }: PhotoData) {
         <div className="p-2">
             <div className="flex items-center gap-1">
                 <TouXiang
-                    touXiangUrl={user.tou_xiang}
-                    circleUrl={user.circle}
+                    touXiangUrl={getUserAvatarUrl(user)}
+                    circleUrl={getUserCircleUrl(user)}
                     size={32}
                 />
                 <div className="font-light">{user.user_name}</div>
@@ -107,7 +107,7 @@ function Photo({ user, url, created_at }: PhotoData) {
             <div className="flex justify-center">
                 <div className="relative h-[330px] w-[250px] overflow-hidden rounded-md bg-green-100">
                     <img
-                        className="h-full w-full aspect-[3/4] object-cover transition-all hover:scale-105"
+                        className="aspect-[3/4] h-full w-full object-cover transition-all hover:scale-105"
                         src={url}
                         alt="life"
                     />
@@ -116,7 +116,7 @@ function Photo({ user, url, created_at }: PhotoData) {
                 {/* more images ... */}
             </div>
 
-            <div className="text-right text-sm mt-2 text-blue-500 hover:underline hover:opacity-70">
+            <div className="mt-2 text-right text-sm text-blue-500 hover:underline hover:opacity-70">
                 <Link to="/secret">
                     <time dateTime={created_at}>{formatDate(created_at)}</time>
                 </Link>
@@ -149,35 +149,22 @@ function Header() {
                 },
             );
 
-            const path = `photos/${user.id}/${Date.now()}.webp`;
+            // 创建记录的同时上传文件 (PocketBase 一次调用同时保存记录和图片)
+            const type = file.type || "image/webp";
+            const ext = type.split("/")[1] || "webp";
+            const formData = new FormData();
+            formData.append("user_id", user.id);
+            formData.append(
+                "photo",
+                new File([file], `${Date.now()}.${ext}`, { type }),
+            );
+
             await toastPromise(
-                supabase.storage
-                    .from("hao-duo-zhao-pian")
-                    .upload(path, file, { cacheControl: "31536000" })
-                    .then(({ error, data }) => {
-                        if (error) throw error;
-                        return data;
-                    }),
+                pb.collection("tu_pian_xin_xi").create(formData),
                 {
                     loading: "上传图片中...",
                     success: "上传图片成功",
                     error: (e) => `上传图片失败. ${e}`,
-                },
-            );
-
-            await toastPromise(
-                // @ts-expect-error silly supabase
-                supabase
-                    .from("tu-pian-xin-xi")
-                    .insert([{ user_id: user.id, photo: path }])
-                    .then(({ data, error }) => {
-                        if (error) throw error;
-                        return data;
-                    }),
-                {
-                    loading: "记录图片信息中...",
-                    success: "记录图片信息成功",
-                    error: "记录图片信息失败",
                 },
             );
         },
@@ -187,11 +174,11 @@ function Header() {
     });
 
     return (
-        <section className="flex justify-between items-center p-2">
+        <section className="flex items-center justify-between p-2">
             <h1 className="text-3xl">小丹和小海的照片</h1>
             <Button
                 type="button"
-                className="p-1 size-13"
+                className="size-13 p-1"
                 variant="ghost"
                 onClick={() => mutation.mutate()}
                 disabled={mutation.isPending}

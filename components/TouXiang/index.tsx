@@ -1,7 +1,6 @@
 import { SmileFill } from "antd-mobile-icons";
 
-const DEFAULT_CIRCLE =
-    "https://yibqpulkysphrlwghrxe.supabase.co/storage/v1/object/public/circles/blue-circle.png";
+const DEFAULT_CIRCLE = "/images/blue-circle.png";
 
 type TouXiangProps = {
     className?: string;

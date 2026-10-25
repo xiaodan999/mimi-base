@@ -15,7 +15,6 @@ export default defineConfig({
             output: {
                 manualChunks: {
                     "common/react-packages": ["react", "react-dom"],
-                    "common/supabase-js": ["@supabase/supabase-js"],
                     "common/react-query": ["@tanstack/react-query"],
                     "common/tanstack-router": ["@tanstack/react-router"],
                 },
