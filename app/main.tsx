@@ -53,3 +53,9 @@ if (!rootElement.innerHTML) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(<App />);
 }
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((err) => {
+        console.error("service worker registration failed", err);
+    });
+}
