@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Server setup for the PocketBase host (run as root ON the server).
-# Idempotent: safe to re-run. Leaves PB running via /root/bin/mimi-db
-# (started at boot via an @reboot cron entry; deploys arrive via GitHub
-# Actions POSTing /db/sync), and prints the values needed for the Caddy + GitHub steps.
+# Everything lives inside the cloned repo: the launcher (scripts/mimi-db),
+# the secrets file (.env.prod, gitignored) and the log (mimi-db.log).
+# Idempotent: safe to re-run. Deploys arrive via GitHub Actions POSTing
+# /db/sync. Override the install location with: REPO=/path bash server-setup.sh
 set -euo pipefail
 
-REPO=/root/main/mimi-base
+REPO="${REPO:-/root/mimi-base}"
 
 # 1. bun
 if ! command -v bun >/dev/null 2>&1; then
@@ -22,56 +23,49 @@ cd "$REPO"
 git config pull.ff only
 git pull --ff-only || echo "WARN: git pull failed (continue with current tree)"
 
-# 3. secrets (generated on the box, never transited; the superuser email
-#    is yours to choose — export SUPERUSER_EMAIL before running)
-if [ ! -f /root/mimi-secrets.txt ]; then
+# 3. secrets (generated on the box, never transited) -> .env.prod (gitignored).
+#    The superuser email is yours to choose — export SUPERUSER_EMAIL before running.
+if [ ! -f "$REPO/.env.prod" ]; then
     {
         echo "SUPERUSER_EMAIL=${SUPERUSER_EMAIL:?export SUPERUSER_EMAIL first}"
         echo "SUPERUSER_PASSWORD=$(openssl rand -hex 16)"
         echo "DEPLOY_TOKEN=$(openssl rand -hex 24)"
-    } > /root/mimi-secrets.txt
-    chmod 600 /root/mimi-secrets.txt
+    } > "$REPO/.env.prod"
+    chmod 600 "$REPO/.env.prod"
 fi
-. /root/mimi-secrets.txt
+. "$REPO/.env.prod"
 
-echo "DEPLOY_TOKEN=$DEPLOY_TOKEN" > /root/.mimi-db.env
-chmod 600 /root/.mimi-db.env
-
-# 4. supervisor wrapper
-mkdir -p /root/bin
-cat > /root/bin/mimi-db <<'WRAPPER'
-#!/bin/sh
-cd /root/main/mimi-base
-set -a
-. /root/.mimi-db.env
-set +a
-exec /root/.bun/bin/bun run db -- --http 0.0.0.0:8090 --automigrate=false
-WRAPPER
-chmod +x /root/bin/mimi-db
+# 4. the launcher is committed at scripts/mimi-db — just ensure it is executable
+chmod +x "$REPO/scripts/mimi-db"
 
 # 5. boot persistence: start PB once at boot. No watchdog loop, no auto-deploy:
-# deploys arrive via GitHub Actions POSTing /db/sync.
+# deploys arrive via GitHub Actions POSTing /db/sync. (Cron needs absolute
+# paths, but they all point inside the repo.)
 ( crontab -l 2>/dev/null | grep -v mimi-db || true
-  echo "@reboot sh -c 'nohup /root/bin/mimi-db >> /root/mimi-db.log 2>&1 &'" ) | crontab -
+  echo "@reboot sh -c 'nohup $REPO/scripts/mimi-db >> $REPO/mimi-db.log 2>&1 &'" ) | crontab -
 
 # 6. start (only if not already running) and register the superuser
-pgrep -f 'bun pocketbase/server.ts' >/dev/null || \
-    { nohup /root/bin/mimi-db >> /root/mimi-db.log 2>&1 & }
+pgrep -f 'pocketbase/server.ts' >/dev/null || \
+    { nohup "$REPO/scripts/mimi-db" >> "$REPO/mimi-db.log" 2>&1 & }
 sleep 8
 cd "$REPO/pocketbase"
 if [ ! -x ./pocketbase ]; then echo "waiting for binary download..."; sleep 20; fi
 # apply the committed schema (needed on a fresh pb_data; no-op when applied)
 ./pocketbase migrate up || echo "WARN: migrate up failed — check pb_migrations"
 ./pocketbase superuser upsert "$SUPERUSER_EMAIL" "$SUPERUSER_PASSWORD" || \
-    echo "WARN: superuser upsert failed — is PB up? check /root/mimi-db.log"
+    echo "WARN: superuser upsert failed — is PB up? check $REPO/mimi-db.log"
 
 # 7. info for the Caddy + GitHub steps
-GW=$(docker inspect "$(docker ps -aqf name=caddy)" --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' | awk '{print $1}')
+GW=$(docker inspect "$(docker ps -aqf name=caddy 2>/dev/null)" \
+        --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' 2>/dev/null \
+     | awk '{print $1}' || true)
 echo
 echo "================= SETUP DONE ================="
-echo "docker gateway for Caddy -> host: $GW  (use in Caddyfile: reverse_proxy $GW:8090 / :9001)"
+echo "repo:    $REPO"
+echo "log:     $REPO/mimi-db.log"
+echo "secrets: $REPO/.env.prod (chmod 600)"
+echo "caddy gateway: ${GW:-none — proxy to 127.0.0.1:8090 / :9001 directly}"
 echo "health check: curl http://127.0.0.1:8090/api/health"
-echo "secrets: /root/mimi-secrets.txt (chmod 600)"
 echo "  DEPLOY_TOKEN: $DEPLOY_TOKEN   <- also add as the DEPLOY_TOKEN GitHub secret"
 echo "  superuser:    $SUPERUSER_EMAIL / $SUPERUSER_PASSWORD"
 echo "=============================================="

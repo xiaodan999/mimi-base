@@ -1,0 +1,9 @@
+#!/bin/sh
+# Production PocketBase launcher. Fully repo-relative: expects .env.prod
+# (gitignored) at the repo root, logs land in mimi-db.log next to it.
+cd "$(dirname "$0")/.." || exit 1
+export PATH="$HOME/.bun/bin:$PATH"
+set -a
+. ./.env.prod
+set +a
+exec bun run db -- --http 0.0.0.0:8090 --automigrate=false
