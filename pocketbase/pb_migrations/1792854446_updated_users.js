@@ -1,26 +1,25 @@
 /// <reference path="../pb_data/types.d.ts" />
-migrate((app) => {
-  const collection = app.findCollectionByNameOrId("_pb_users_auth_")
 
-  // update collection data
-  unmarshal({
-    "createRule": null,
-    "deleteRule": null,
-    "listRule": "@request.auth.id != \"\"",
-    "viewRule": "@request.auth.id != \"\""
-  }, collection)
+// Let signed-in users list and view each other, but keep sign-up admin-only.
+migrate(
+    (app) => {
+        const users = app.findCollectionByNameOrId("_pb_users_auth_");
 
-  return app.save(collection)
-}, (app) => {
-  const collection = app.findCollectionByNameOrId("_pb_users_auth_")
+        users.listRule = '@request.auth.id != ""';
+        users.viewRule = '@request.auth.id != ""';
+        users.createRule = null;
+        users.deleteRule = null;
 
-  // update collection data
-  unmarshal({
-    "createRule": "",
-    "deleteRule": "id = @request.auth.id",
-    "listRule": "id = @request.auth.id",
-    "viewRule": "id = @request.auth.id"
-  }, collection)
+        app.save(users);
+    },
+    (app) => {
+        const users = app.findCollectionByNameOrId("_pb_users_auth_");
 
-  return app.save(collection)
-})
+        users.listRule = "id = @request.auth.id";
+        users.viewRule = "id = @request.auth.id";
+        users.createRule = "";
+        users.deleteRule = "id = @request.auth.id";
+
+        app.save(users);
+    },
+);

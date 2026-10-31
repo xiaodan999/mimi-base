@@ -1,29 +1,26 @@
 /// <reference path="../pb_data/types.d.ts" />
-migrate((app) => {
-  const collection = app.findCollectionByNameOrId("pbc_533777971")
 
-  // add field
-  collection.fields.addAt(7, new Field({
-    "cascadeDelete": true,
-    "collectionId": "pbc_533777971",
-    "help": "",
-    "hidden": false,
-    "id": "relation1920649840",
-    "maxSelect": 1,
-    "minSelect": 0,
-    "name": "parent_id",
-    "presentable": false,
-    "required": false,
-    "system": false,
-    "type": "relation"
-  }))
+// Threaded replies: a comment can point at another comment.
+migrate(
+    (app) => {
+        const comments = app.findCollectionByNameOrId("comments");
 
-  return app.save(collection)
-}, (app) => {
-  const collection = app.findCollectionByNameOrId("pbc_533777971")
+        comments.fields.add(
+            new RelationField({
+                name: "parent_id",
+                collectionId: comments.id,
+                maxSelect: 1,
+                cascadeDelete: true,
+            }),
+        );
 
-  // remove field
-  collection.fields.removeById("relation1920649840")
+        app.save(comments);
+    },
+    (app) => {
+        const comments = app.findCollectionByNameOrId("comments");
 
-  return app.save(collection)
-})
+        comments.fields.removeByName("parent_id");
+
+        app.save(comments);
+    },
+);
