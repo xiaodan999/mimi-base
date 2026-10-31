@@ -202,8 +202,8 @@ function DinnerPicker() {
     const handleSave = async (dinner: string) => {
         setSaveLoading(true);
         await toastPromise(
-            pb.collection("mmi").create({
-                mimi: `[晚餐抽奖机]: ${dinner}`,
+            pb.collection("posts").create({
+                text: `[晚餐抽奖机]: ${dinner}`,
                 author_id: user.id,
             }),
             {

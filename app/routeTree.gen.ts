@@ -18,7 +18,6 @@ import { Route as ProtectedMainRouteImport } from './routes/_protected/_main'
 import { Route as ProtectedSecretRouteImport } from './routes/_protected/secret'
 import { Route as ProtectedMainHomeRouteImport } from './routes/_protected/_main/home'
 import { Route as ProtectedPostNewPooRouteImport } from './routes/_protected/post/new-poo'
-import { Route as ProtectedMainChatIndexRouteImport } from './routes/_protected/_main/chat/index'
 import { Route as ProtectedMainJizhangIndexRouteImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainPhotosIndexRouteImport } from './routes/_protected/_main/photos/index'
 import { Route as ProtectedMainPostsIndexRouteImport } from './routes/_protected/_main/posts/index'
@@ -66,11 +65,6 @@ const ProtectedPostNewPooRoute = ProtectedPostNewPooRouteImport.update({
   path: '/post/new-poo',
   getParentRoute: () => ProtectedRoute,
 } as any)
-const ProtectedMainChatIndexRoute = ProtectedMainChatIndexRouteImport.update({
-  id: '/chat/',
-  path: '/chat/',
-  getParentRoute: () => ProtectedMainRoute,
-} as any)
 const ProtectedMainJizhangIndexRoute =
   ProtectedMainJizhangIndexRouteImport.update({
     id: '/jizhang/',
@@ -97,7 +91,6 @@ export interface FileRoutesByFullPath {
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/post/new-poo': typeof ProtectedPostNewPooRoute
-  '/chat/': typeof ProtectedMainChatIndexRoute
   '/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/photos/': typeof ProtectedMainPhotosIndexRoute
   '/posts/': typeof ProtectedMainPostsIndexRoute
@@ -110,7 +103,6 @@ export interface FileRoutesByTo {
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/post/new-poo': typeof ProtectedPostNewPooRoute
-  '/chat': typeof ProtectedMainChatIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
   '/posts': typeof ProtectedMainPostsIndexRoute
@@ -126,7 +118,6 @@ export interface FileRoutesById {
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
   '/_protected/post/new-poo': typeof ProtectedPostNewPooRoute
-  '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
   '/_protected/_main/posts/': typeof ProtectedMainPostsIndexRoute
@@ -141,7 +132,6 @@ export interface FileRouteTypes {
     | '/secret'
     | '/home'
     | '/post/new-poo'
-    | '/chat/'
     | '/jizhang/'
     | '/photos/'
     | '/posts/'
@@ -154,7 +144,6 @@ export interface FileRouteTypes {
     | '/secret'
     | '/home'
     | '/post/new-poo'
-    | '/chat'
     | '/jizhang'
     | '/photos'
     | '/posts'
@@ -169,7 +158,6 @@ export interface FileRouteTypes {
     | '/_protected/secret'
     | '/_protected/_main/home'
     | '/_protected/post/new-poo'
-    | '/_protected/_main/chat/'
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
     | '/_protected/_main/posts/'
@@ -248,13 +236,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPostNewPooRouteImport
       parentRoute: typeof ProtectedRoute
     }
-    '/_protected/_main/chat/': {
-      id: '/_protected/_main/chat/'
-      path: '/chat'
-      fullPath: '/chat/'
-      preLoaderRoute: typeof ProtectedMainChatIndexRouteImport
-      parentRoute: typeof ProtectedMainRoute
-    }
     '/_protected/_main/jizhang/': {
       id: '/_protected/_main/jizhang/'
       path: '/jizhang'
@@ -281,7 +262,6 @@ declare module '@tanstack/react-router' {
 
 interface ProtectedMainRouteChildren {
   ProtectedMainHomeRoute: typeof ProtectedMainHomeRoute
-  ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
   ProtectedMainPostsIndexRoute: typeof ProtectedMainPostsIndexRoute
@@ -289,7 +269,6 @@ interface ProtectedMainRouteChildren {
 
 const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainHomeRoute: ProtectedMainHomeRoute,
-  ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
   ProtectedMainPostsIndexRoute: ProtectedMainPostsIndexRoute,
