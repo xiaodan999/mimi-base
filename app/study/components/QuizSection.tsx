@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import { useAi } from "../ai/AiContext";
+import AiVariantSheet from "../ai/AiVariantSheet";
 import { TYPE_ICON, TYPE_NAME, shuffle } from "../engine";
+import { toast } from "../toast";
 import type { QuizItem, QuizType } from "../types";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
@@ -10,14 +13,17 @@ type Session = {
     items: QuizItem[];
     mode: "practice" | "wrong";
     title: string;
+    track?: boolean;
 };
 
 const TYPES: QuizType[] = ["term", "single", "multi", "blank", "short"];
 
 export default function QuizSection({ quick }: { quick?: boolean }) {
     const { subject, progress } = useStudy();
+    const { configured, openSettings } = useAi();
     const [session, setSession] = useState<Session | null>(null);
     const [autoStarted, setAutoStarted] = useState(false);
+    const [variantSource, setVariantSource] = useState<QuizItem | null>(null);
 
     const startType = (type: QuizType) => {
         const pool = shuffle(subject.bank.filter((q) => q.type === type));
@@ -42,12 +48,39 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quick, autoStarted]);
 
+    const startAiVariant = () => {
+        if (!configured) {
+            openSettings();
+            toast("先配置一下 AI Key");
+            return;
+        }
+        const wrong = Object.keys(progress.wrong)
+            .map((id) => subject.bank.find((item) => item.id === id))
+            .filter((item): item is QuizItem => Boolean(item));
+        const pool = wrong.length
+            ? wrong
+            : subject.bank.filter(
+                  (item) => item.type === "single" || item.type === "multi",
+              );
+        const source = shuffle(pool)[0];
+        if (!source) {
+            toast("题库里还没有可以出变式的题");
+            return;
+        }
+        setVariantSource(source);
+    };
+
+    const variantModule = variantSource
+        ? subject.modules.find((mod) => mod.id === variantSource.m)?.name
+        : undefined;
+
     if (session) {
         return (
             <QuizRunner
                 items={session.items}
                 mode={session.mode}
                 onExit={() => setSession(null)}
+                track={session.track ?? true}
             />
         );
     }
@@ -119,7 +152,34 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
                     <div className="mod-t">模拟考</div>
                     <div className="mod-s">计时 · 交卷评分 · 逐题解析</div>
                 </Link>
+                <button
+                    className="mod"
+                    style={{ "--mc": "var(--m3)" } as React.CSSProperties}
+                    onClick={startAiVariant}
+                >
+                    <div className="mod-ic">🧬</div>
+                    <div className="mod-t">AI 变式题</div>
+                    <div className="mod-s">拿一道错题，换 3 种问法</div>
+                    <div className="mod-ring">AI</div>
+                </button>
             </div>
+
+            <AiVariantSheet
+                open={Boolean(variantSource)}
+                onClose={() => setVariantSource(null)}
+                subject={subject}
+                source={variantSource}
+                moduleName={variantModule}
+                onStart={(items) => {
+                    setVariantSource(null);
+                    setSession({
+                        items,
+                        mode: "practice",
+                        title: "AI 变式题",
+                        track: false,
+                    });
+                }}
+            />
         </div>
     );
 }

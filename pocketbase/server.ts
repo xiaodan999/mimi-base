@@ -71,6 +71,18 @@ const httpPort = (() => {
     return Number(serveArgs[i + 1]?.split(":").pop()) || 8090;
 })();
 
+// Dev WSL often exports an HTTP proxy that cannot reach opencode.ai; the AI
+// relay hook uses $http.send and would otherwise fail. Prod keeps the
+// server's network config untouched.
+const pbEnv = { ...process.env };
+if (!isProd) {
+    const bypass = [pbEnv.NO_PROXY, pbEnv.no_proxy, "opencode.ai"]
+        .filter(Boolean)
+        .join(",");
+    pbEnv.NO_PROXY = bypass;
+    pbEnv.no_proxy = bypass;
+}
+
 let child: ChildProcess | null = null;
 let stopping = false;
 let manualRestart = false;
@@ -85,7 +97,11 @@ process.on("SIGTERM", onSignal);
 
 function spawnPB() {
     console.log(`starting: pocketbase ${serveArgs.join(" ")}`);
-    child = spawn(bin, serveArgs, { cwd: dir, stdio: "inherit" });
+    child = spawn(bin, serveArgs, {
+        cwd: dir,
+        stdio: "inherit",
+        env: pbEnv,
+    });
     child.on("exit", (code, signal) => {
         if (stopping || manualRestart) return;
         console.error(`pocketbase exited (code=${code} signal=${signal}), restarting in 2s`);

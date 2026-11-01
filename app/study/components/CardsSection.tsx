@@ -1,7 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import { useAi } from "../ai/AiContext";
+import AiPanel from "../ai/AiPanel";
+import { CARD_CHIPS, explainCardMessages } from "../ai/prompts";
 import { shuffle } from "../engine";
+import { toast } from "../toast";
 import type { Card, QuizItem } from "../types";
 import Demo from "./Demo";
 import QuizRunner from "./QuizRunner";
@@ -20,6 +24,7 @@ function CardItem({
     known,
     onToggle,
     onDrill,
+    onExplain,
 }: {
     card: Card;
     moduleColor: string;
@@ -27,6 +32,7 @@ function CardItem({
     known: boolean;
     onToggle: () => void;
     onDrill: () => void;
+    onExplain: () => void;
 }) {
     const html = (value: string) => ({ __html: value });
 
@@ -134,7 +140,7 @@ function CardItem({
                 )}
             </div>
 
-            <div className="kcard-foot">
+            <div className="kcard-foot" style={{ flexWrap: "wrap" }}>
                 <button
                     className={`st-btn sm ${known ? "ghost" : "line"}`}
                     onClick={onToggle}
@@ -144,6 +150,13 @@ function CardItem({
                 <button className="st-btn sm ghost" onClick={onDrill}>
                     做本模块题
                 </button>
+                <button
+                    className="st-btn sm line"
+                    style={{ flex: "1 1 100%" }}
+                    onClick={onExplain}
+                >
+                    🤖 AI 讲给我听
+                </button>
             </div>
         </article>
     );
@@ -151,10 +164,34 @@ function CardItem({
 
 export default function CardsSection({ moduleId }: { moduleId?: string }) {
     const { subject, progress, update } = useStudy();
+    const { configured, openSettings } = useAi();
     const [drill, setDrill] = useState<QuizItem[] | null>(null);
+    const [explainId, setExplainId] = useState<string | null>(null);
 
     const module = subject.modules.find((m) => m.id === moduleId);
     const cards = moduleId ? subject.cards.filter((c) => c.m === moduleId) : [];
+    const explainCard = explainId
+        ? (subject.cards.find((card) => card.id === explainId) ?? null)
+        : null;
+    const explainModule = explainCard
+        ? subject.modules.find((mod) => mod.id === explainCard.m)
+        : undefined;
+    const explainMessages = useMemo(
+        () =>
+            explainCard
+                ? explainCardMessages(subject, explainCard, explainModule?.name)
+                : [],
+        [explainCard, explainModule?.name, subject],
+    );
+
+    const openExplain = (card: Card) => {
+        if (!configured) {
+            openSettings();
+            toast("先配置一下 AI Key");
+            return;
+        }
+        setExplainId(card.id);
+    };
 
     // 打开模块即视为「看过」
     useEffect(() => {
@@ -274,8 +311,20 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                         }))
                     }
                     onDrill={() => startDrill(card.m)}
+                    onExplain={() => openExplain(card)}
                 />
             ))}
+
+            <AiPanel
+                open={Boolean(explainCard)}
+                onClose={() => setExplainId(null)}
+                title={explainCard ? `AI 讲卡 · ${explainCard.t}` : "AI 讲卡"}
+                subtitle={explainModule?.name}
+                cacheKey={explainCard ? `card:${explainCard.id}` : "card:none"}
+                messages={explainMessages}
+                chips={CARD_CHIPS}
+                intro="不懂就追问，AI 会用生活里的例子讲。"
+            />
         </div>
     );
 }

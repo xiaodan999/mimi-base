@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { useAi } from "../ai/AiContext";
+import AiGradeSheet from "../ai/AiGradeSheet";
 import {
     EXAM_PRESETS,
     TYPE_ICON,
@@ -12,11 +14,13 @@ import {
     type ExamPreset,
     type ExamResult,
 } from "../engine";
+import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
 import { useStudy } from "./StudyContext";
 
 export default function ExamSection() {
     const { subject, progress, update } = useStudy();
+    const { configured, openSettings } = useAi();
     const [preset, setPreset] = useState<ExamPreset | null>(null);
     const [items, setItems] = useState<QuizItem[]>([]);
     const [answers, setAnswers] = useState<Answer[]>([]);
@@ -24,6 +28,10 @@ export default function ExamSection() {
     const [left, setLeft] = useState(0);
     const [startedAt, setStartedAt] = useState(0);
     const [result, setResult] = useState<ExamResult | null>(null);
+    const [gradeTarget, setGradeTarget] = useState<{
+        item: QuizItem;
+        answer: Answer;
+    } | null>(null);
 
     const start = (next: ExamPreset) => {
         const built = buildExam(subject, next);
@@ -302,6 +310,25 @@ export default function ExamSection() {
                                 <b>解析：</b>
                                 {item.exp ?? ""}
                             </div>
+                            {(item.type === "term" ||
+                                item.type === "short") && (
+                                <button
+                                    className="st-btn sm ghost mt-2"
+                                    onClick={() => {
+                                        if (!configured) {
+                                            openSettings();
+                                            toast("先配置一下 AI Key");
+                                            return;
+                                        }
+                                        setGradeTarget({
+                                            item,
+                                            answer: answers[i],
+                                        });
+                                    }}
+                                >
+                                    🤖 AI 批改
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -315,6 +342,19 @@ export default function ExamSection() {
                         再考一次
                     </button>
                 </div>
+
+                <AiGradeSheet
+                    open={Boolean(gradeTarget)}
+                    onClose={() => setGradeTarget(null)}
+                    subject={subject}
+                    item={gradeTarget?.item ?? null}
+                    answer={gradeTarget?.answer}
+                    moduleName={
+                        subject.modules.find(
+                            (mod) => mod.id === gradeTarget?.item.m,
+                        )?.name
+                    }
+                />
             </div>
         );
     }

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Settings2 } from "lucide-react";
 
+import { useAi } from "../ai/AiContext";
 import type { StudySubject } from "../types";
 import { useStudy } from "./StudyContext";
 
@@ -22,6 +23,7 @@ export default function StudyShell({
     children: ReactNode;
 }) {
     const { saving } = useStudy();
+    const { configured, openSettings } = useAi();
     const { pathname } = useLocation();
     const base = `/study/${subject.id}`;
 
@@ -49,6 +51,16 @@ export default function StudyShell({
                 >
                     {saving ? "同步中…" : "已同步"}
                 </span>
+                <button
+                    onClick={openSettings}
+                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-black/5 bg-white shadow-sm"
+                    aria-label="AI 设置"
+                >
+                    <Settings2 className="size-4" />
+                    {!configured && (
+                        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-amber-500" />
+                    )}
+                </button>
             </header>
 
             <nav className="study-tabs mt-2">

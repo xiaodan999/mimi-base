@@ -1262,14 +1262,15 @@ textarea.st-input {
     left: 50%;
     bottom: 96px;
     transform: translateX(-50%);
-    z-index: 80;
-    background: var(--ink);
+    z-index: 100;
+    /* toast 挂在 body 上，不在 .study-root 里，所以不要依赖作用域变量 */
+    background: #111827;
     color: #fff;
     padding: 11px 20px;
     border-radius: 999px;
     font-size: 13.5px;
     font-weight: 700;
-    box-shadow: var(--sh2);
+    box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.28);
     animation: toastIn 0.28s;
     max-width: 80vw;
     text-align: center;
@@ -1523,5 +1524,77 @@ textarea.st-input {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
+    }
+}
+
+/* ---------------- AI ---------------- */
+
+.ai-sheet {
+    animation: ai-sheet-in 0.18s ease-out;
+}
+
+@keyframes ai-sheet-in {
+    from {
+        transform: translateY(24px);
+        opacity: 0.5;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.ai-task {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 13px;
+    background: var(--bg2);
+    text-decoration: none;
+    color: var(--ink);
+}
+
+.ai-task-n {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 12px;
+    font-weight: 800;
+    flex: 0 0 auto;
+}
+
+.ai-md code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: rgba(17, 24, 39, 0.06);
+    padding: 1px 4px;
+    border-radius: 5px;
+}
+
+.ai-score {
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.ai-skeleton {
+    height: 14px;
+    border-radius: 7px;
+    background: linear-gradient(90deg, var(--bg2), var(--card2), var(--bg2));
+    background-size: 200% 100%;
+    animation: ai-shimmer 1.2s infinite;
+}
+
+@keyframes ai-shimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
     }
 }

@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import { useAi } from "../ai/AiContext";
+import AiPanel from "../ai/AiPanel";
+import AiVariantSheet from "../ai/AiVariantSheet";
+import { WRONG_CHIPS, diagnoseWrongMessages } from "../ai/prompts";
 import { answerText, shuffle } from "../engine";
+import { toast } from "../toast";
 import type { QuizItem } from "../types";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
 
 export default function WrongSection() {
     const { subject, progress, update } = useStudy();
-    const [session, setSession] = useState<QuizItem[] | null>(null);
+    const { configured, openSettings } = useAi();
+    const [session, setSession] = useState<{
+        items: QuizItem[];
+        track: boolean;
+    } | null>(null);
+    const [analysis, setAnalysis] = useState<QuizItem | null>(null);
+    const [variantSource, setVariantSource] = useState<QuizItem | null>(null);
 
     const items = Object.keys(progress.wrong)
         .map((id) => subject.bank.find((item) => item.id === id))
@@ -18,12 +29,50 @@ export default function WrongSection() {
                 (progress.wrong[b.id]?.t ?? 0) - (progress.wrong[a.id]?.t ?? 0),
         );
 
+    const analysisModule = analysis
+        ? subject.modules.find((mod) => mod.id === analysis.m)?.name
+        : undefined;
+    const analysisMessages = useMemo(
+        () =>
+            analysis
+                ? diagnoseWrongMessages(
+                      subject,
+                      analysis,
+                      undefined,
+                      analysisModule,
+                  )
+                : [],
+        [analysis, analysisModule, subject],
+    );
+    const variantModule = variantSource
+        ? subject.modules.find((mod) => mod.id === variantSource.m)?.name
+        : undefined;
+
+    const openAnalysis = (item: QuizItem) => {
+        if (!configured) {
+            openSettings();
+            toast("先配置一下 AI Key");
+            return;
+        }
+        setAnalysis(item);
+    };
+
+    const openVariant = (item: QuizItem) => {
+        if (!configured) {
+            openSettings();
+            toast("先配置一下 AI Key");
+            return;
+        }
+        setVariantSource(item);
+    };
+
     if (session) {
         return (
             <QuizRunner
-                items={session}
+                items={session.items}
                 mode="wrong"
                 onExit={() => setSession(null)}
+                track={session.track}
             />
         );
     }
@@ -53,7 +102,9 @@ export default function WrongSection() {
                 <span className="st-chip r">{items.length} 道待复习</span>
                 <button
                     className="st-btn sm line"
-                    onClick={() => setSession(shuffle(items))}
+                    onClick={() =>
+                        setSession({ items: shuffle(items), track: true })
+                    }
                 >
                     全部重练
                 </button>
@@ -87,12 +138,31 @@ export default function WrongSection() {
                         <br />
                         {item.exp ?? ""}
                     </div>
-                    <button
-                        className="st-btn sm ghost mt-2"
-                        onClick={() => setSession([item])}
+                    <div
+                        className="st-row mt-2"
+                        style={{ gap: 8, flexWrap: "wrap" }}
                     >
-                        重做这题
-                    </button>
+                        <button
+                            className="st-btn sm ghost"
+                            onClick={() =>
+                                setSession({ items: [item], track: true })
+                            }
+                        >
+                            重做这题
+                        </button>
+                        <button
+                            className="st-btn sm line"
+                            onClick={() => openAnalysis(item)}
+                        >
+                            🔬 AI 验尸
+                        </button>
+                        <button
+                            className="st-btn sm line"
+                            onClick={() => openVariant(item)}
+                        >
+                            🧬 变式题
+                        </button>
+                    </div>
                 </div>
             ))}
 
@@ -106,6 +176,29 @@ export default function WrongSection() {
             >
                 清空错题本
             </button>
+
+            <AiPanel
+                open={Boolean(analysis)}
+                onClose={() => setAnalysis(null)}
+                title="错题验尸"
+                subtitle={analysisModule}
+                cacheKey={analysis ? `wrong:${analysis.id}` : "wrong:none"}
+                messages={analysisMessages}
+                chips={WRONG_CHIPS}
+                intro="没留下当时的答案也没关系，AI 会分析这道题最常见的误解。"
+            />
+
+            <AiVariantSheet
+                open={Boolean(variantSource)}
+                onClose={() => setVariantSource(null)}
+                subject={subject}
+                source={variantSource}
+                moduleName={variantModule}
+                onStart={(next) => {
+                    setVariantSource(null);
+                    setSession({ items: next, track: false });
+                }}
+            />
         </div>
     );
 }

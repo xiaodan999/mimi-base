@@ -76,6 +76,18 @@ There is no test suite. Verify changes with `bun run build` and the dev server.
 - Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Cache
   keys in use: `["posts"]`, `["photos"]`, `["ji-zhang", from, to]`; invalidate
   them after mutations.
+- Study-base AI features live in `app/study/ai/`. Settings (base URL / model /
+  key) are stored only in `localStorage` (`mimi-study:ai:v1`) and sent directly
+  to the provider; never send the key to PocketBase. Generated content is cached
+  under `mimi-study:ai-cache:v1:*`. The provider must allow browser CORS
+  (DeepSeek / OpenRouter / SiliconFlow / Moonshot do; OpenAI official and
+  OpenCode Go official do not). OpenCode Go also needs `x-opencode-session`;
+  the client adds it automatically. `pocketbase/pb_hooks/ai_proxy.pb.js`
+  exposes a stateless OpenCode Go relay at
+  `/api/ai/opencode/v1/chat/completions`; the key is forwarded per request and
+  never stored. In dev, `server.ts` adds `opencode.ai` to the PB child's
+  `NO_PROXY` because WSL proxy envs often can't reach it; prod keeps the
+  server's network config untouched.
 - Adding a page: create `app/routes/_protected/_main/<name>/index.tsx` with
   `createFileRoute("/_protected/_main/<name>/")`, let the dev server regenerate
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.

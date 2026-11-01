@@ -1,21 +1,36 @@
 import { Link } from "@tanstack/react-router";
+import { Settings2 } from "lucide-react";
 
+import { useAi } from "../ai/AiContext";
 import { cardStats, daysLeft, questionStats } from "../engine";
 import { useStudySummaries } from "../progress";
 import { KIND_LABEL, SUBJECTS } from "../registry";
 
 export default function StudyHub() {
     const { data: summaries } = useStudySummaries();
+    const { configured, openSettings } = useAi();
 
     return (
         <div className="study-root">
-            <div className="px-4 pt-4">
-                <h1 className="text-2xl font-extrabold tracking-tight">
-                    📚 学习基地
-                </h1>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">
-                    所有科目都在这里，进度会跟着账号走。
-                </p>
+            <div className="flex items-start justify-between gap-3 px-4 pt-4">
+                <div>
+                    <h1 className="text-2xl font-extrabold tracking-tight">
+                        📚 学习基地
+                    </h1>
+                    <p className="mt-1 text-[12.5px] text-muted-foreground">
+                        所有科目都在这里，进度会跟着账号走。
+                    </p>
+                </div>
+                <button
+                    onClick={openSettings}
+                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-black/5 bg-white shadow-sm"
+                    aria-label="AI 设置"
+                >
+                    <Settings2 className="size-4" />
+                    {!configured && (
+                        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-amber-500" />
+                    )}
+                </button>
             </div>
 
             <div className="study-body">

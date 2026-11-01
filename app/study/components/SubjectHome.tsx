@@ -1,14 +1,27 @@
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { cardStats, daysLeft, questionStats, streakDays } from "../engine";
 import { useStudy } from "./StudyContext";
+import AiCoachCard from "../ai/AiCoachCard";
+import { useAi } from "../ai/AiContext";
+import AiPanel from "../ai/AiPanel";
+import { WEEKLY_CHIPS, weekKey, weeklyMessages } from "../ai/prompts";
+import { cardStats, daysLeft, questionStats, streakDays } from "../engine";
+import { toast } from "../toast";
 
 export default function SubjectHome() {
     const { subject, progress } = useStudy();
+    const { configured, openSettings } = useAi();
+    const [weeklyOpen, setWeeklyOpen] = useState(false);
     const cards = cardStats(subject, progress);
     const questions = questionStats(progress);
     const left = daysLeft(subject.examDate);
     const streak = streakDays(progress);
+    const weeklyPrompt = useMemo(
+        () => weeklyMessages(subject, progress),
+        [subject, progress],
+    );
+    const weeklyCacheKey = `weekly:v1:${subject.id}:${weekKey()}`;
 
     return (
         <div>
@@ -42,6 +55,35 @@ export default function SubjectHome() {
                     </span>
                     <span>已练 {questions.done} 题</span>
                     <span>连续 {streak} 天</span>
+                </div>
+            </div>
+
+            <div className="st-sec">AI 学习搭子</div>
+            <AiCoachCard subject={subject} progress={progress} />
+
+            <div className="st-card">
+                <div className="st-between">
+                    <div>
+                        <div className="text-[13px] font-extrabold">
+                            📊 本周学习周报
+                        </div>
+                        <div className="st-tiny">
+                            用真实数据写一份有温度的复盘
+                        </div>
+                    </div>
+                    <button
+                        className="st-btn sm line"
+                        onClick={() => {
+                            if (!configured) {
+                                openSettings();
+                                toast("先配置一下 AI Key");
+                                return;
+                            }
+                            setWeeklyOpen(true);
+                        }}
+                    >
+                        生成周报
+                    </button>
                 </div>
             </div>
 
@@ -127,6 +169,17 @@ export default function SubjectHome() {
                           : "按自己的节奏来：先过一遍知识卡，再分题型刷题，最后用模拟考查漏。"}
                 </div>
             </div>
+
+            <AiPanel
+                open={weeklyOpen}
+                onClose={() => setWeeklyOpen(false)}
+                title="本周学习周报"
+                subtitle={`${subject.title} · ${weekKey()}`}
+                cacheKey={weeklyCacheKey}
+                messages={weeklyPrompt}
+                chips={WEEKLY_CHIPS}
+                intro="AI 会引用你的真实进度和错题，不会编数据。"
+            />
         </div>
     );
 }

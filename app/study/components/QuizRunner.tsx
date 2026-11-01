@@ -1,6 +1,15 @@
 import { useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
+import { useAi } from "../ai/AiContext";
+import AiGradeSheet from "../ai/AiGradeSheet";
+import AiPanel from "../ai/AiPanel";
+import { hashText } from "../ai/cache";
+import {
+    WRONG_CHIPS,
+    diagnoseWrongMessages,
+    userAnswerText,
+} from "../ai/prompts";
 import { TYPE_NAME, answerText, isAnswerCorrect, touchDay } from "../engine";
 import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
@@ -10,10 +19,18 @@ type Props = {
     items: QuizItem[];
     mode: "practice" | "wrong";
     onExit: () => void;
+    /** AI 变式题不写进学习进度 */
+    track?: boolean;
 };
 
-export default function QuizRunner({ items, mode, onExit }: Props) {
+export default function QuizRunner({
+    items,
+    mode,
+    onExit,
+    track = true,
+}: Props) {
     const { subject, update } = useStudy();
+    const { configured, openSettings } = useAi();
     const [index, setIndex] = useState(0);
     const [answers, setAnswers] = useState<Answer[]>(() =>
         items.map(() => undefined),
@@ -28,12 +45,21 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
     const [finished, setFinished] = useState(false);
     const startedAt = useRef(Date.now());
     const [revealed, setRevealed] = useState<string[]>([]);
+    const [analysis, setAnalysis] = useState<{
+        item: QuizItem;
+        answer: Answer;
+    } | null>(null);
+    const [gradeTarget, setGradeTarget] = useState<{
+        item: QuizItem;
+        answer: Answer;
+    } | null>(null);
 
     const item = items[index];
     const total = items.length;
     const progressPercent = Math.round(((index + 1) / total) * 100);
 
     const record = (target: QuizItem, ok: boolean) => {
+        if (!track) return;
         update((current) => {
             const stat = current.stat[target.id] ?? { r: 0, w: 0 };
             const nextStat = ok
@@ -108,7 +134,7 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
             prev.map((v, i) => (i === index ? score >= 0.5 : v)),
         );
         record(item, score >= 0.5);
-        if (score === 0.5) {
+        if (score === 0.5 && track) {
             update((current) => {
                 const stat = current.stat[item.id];
                 if (!stat || stat.r === 0) return current;
@@ -134,6 +160,67 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
     };
 
     const rightCount = useMemo(() => result.filter(Boolean).length, [result]);
+
+    const analysisModule = analysis
+        ? subject.modules.find((mod) => mod.id === analysis.item.m)?.name
+        : undefined;
+    const analysisMessages = useMemo(
+        () =>
+            analysis
+                ? diagnoseWrongMessages(
+                      subject,
+                      analysis.item,
+                      analysis.answer,
+                      analysisModule,
+                  )
+                : [],
+        [analysis, analysisModule, subject],
+    );
+    const gradeModule = gradeTarget
+        ? subject.modules.find((mod) => mod.id === gradeTarget.item.m)?.name
+        : undefined;
+
+    const openAnalysis = (item: QuizItem, answer: Answer) => {
+        if (!configured) {
+            openSettings();
+            toast("先配置一下 AI Key");
+            return;
+        }
+        setAnalysis({ item, answer });
+    };
+
+    const overlays = (
+        <>
+            <AiPanel
+                open={Boolean(analysis)}
+                onClose={() => setAnalysis(null)}
+                title="错题验尸"
+                subtitle={analysisModule}
+                cacheKey={
+                    analysis
+                        ? `wrong:${analysis.item.id}:${hashText(
+                              userAnswerText(analysis.item, analysis.answer),
+                          )}`
+                        : "wrong:none"
+                }
+                messages={analysisMessages}
+                chips={WRONG_CHIPS}
+                intro="AI 会猜你当时为什么选它，再告诉你下次怎么识别。"
+            />
+            <AiGradeSheet
+                open={Boolean(gradeTarget)}
+                onClose={() => setGradeTarget(null)}
+                subject={subject}
+                item={gradeTarget?.item ?? null}
+                answer={gradeTarget?.answer}
+                moduleName={gradeModule}
+                onAdopt={(score) => {
+                    if (!graded[index]) selfGrade(score);
+                    setGradeTarget(null);
+                }}
+            />
+        </>
+    );
 
     if (finished) {
         const percent = Math.round((rightCount / total) * 100);
@@ -227,20 +314,34 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
                                 本轮错题（{wrongItems.length}）
                             </div>
                             <div className="st-card">
-                                {wrongItems.map((wrong) => (
-                                    <div className="review" key={wrong.id}>
-                                        <div className="review-q">
-                                            {wrong.stem}
+                                {wrongItems.map((wrong) => {
+                                    const answerIndex = items.indexOf(wrong);
+                                    return (
+                                        <div className="review" key={wrong.id}>
+                                            <div className="review-q">
+                                                {wrong.stem}
+                                            </div>
+                                            <div className="review-a">
+                                                <b>答案：</b>
+                                                {answerText(wrong)}
+                                                <br />
+                                                <b>解析：</b>
+                                                {wrong.exp ?? ""}
+                                            </div>
+                                            <button
+                                                className="st-btn sm ghost mt-2"
+                                                onClick={() =>
+                                                    openAnalysis(
+                                                        wrong,
+                                                        answers[answerIndex],
+                                                    )
+                                                }
+                                            >
+                                                🔬 AI 验尸
+                                            </button>
                                         </div>
-                                        <div className="review-a">
-                                            <b>答案：</b>
-                                            {answerText(wrong)}
-                                            <br />
-                                            <b>解析：</b>
-                                            {wrong.exp ?? ""}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </>
                     )}
@@ -270,6 +371,7 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
                         </button>
                     </div>
                 </div>
+                {overlays}
             </div>
         );
     }
@@ -448,6 +550,19 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
                                     </button>
                                 ))}
                             </div>
+                            <div className="st-row mt-2" style={{ gap: 8 }}>
+                                <button
+                                    className="st-btn sm line"
+                                    onClick={() =>
+                                        setGradeTarget({
+                                            item,
+                                            answer: answers[index],
+                                        })
+                                    }
+                                >
+                                    🤖 AI 批改
+                                </button>
+                            </div>
                             {!graded[index] && (
                                 <>
                                     <div className="st-tiny mt-3">
@@ -493,6 +608,16 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
                             <b>解析：</b>
                             {item.exp ?? ""}
                         </div>
+                        {!result[index] && (
+                            <button
+                                className="st-btn sm line mt-2"
+                                onClick={() =>
+                                    openAnalysis(item, answers[index])
+                                }
+                            >
+                                🔬 AI 验尸：为什么选错
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -506,6 +631,7 @@ export default function QuizRunner({ items, mode, onExit }: Props) {
                     </div>
                 )}
             </div>
+            {overlays}
         </div>
     );
 }
