@@ -19,14 +19,24 @@ export default function NavButtons() {
     return (
         <div className={styles.navBar}>
             {routes.map((route) => (
-                <Link className={styles.link} key={route.path} to={route.path}>
-                    {({ isActive }) => (
-                        <img
-                            className={`${styles.icon} ${isActive ? styles.active : ""}`}
-                            src={route.icon}
-                            alt={route.name}
-                        />
-                    )}
+                <Link
+                    className={styles.link}
+                    activeProps={{
+                        className: `${styles.link} ${styles.activeLink}`,
+                    }}
+                    key={route.path}
+                    to={route.path}
+                    aria-label={route.name}
+                >
+                    <span
+                        className={styles.icon}
+                        style={
+                            {
+                                "--icon": `url("${route.icon}")`,
+                            } as React.CSSProperties
+                        }
+                        aria-hidden="true"
+                    />
                 </Link>
             ))}
         </div>
