@@ -21,6 +21,10 @@ import { Route as ProtectedPostNewPooRouteImport } from './routes/_protected/pos
 import { Route as ProtectedMainJizhangIndexRouteImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainPhotosIndexRouteImport } from './routes/_protected/_main/photos/index'
 import { Route as ProtectedMainPostsIndexRouteImport } from './routes/_protected/_main/posts/index'
+import { Route as ProtectedMainStudyIndexRouteImport } from './routes/_protected/_main/study/index'
+import { Route as ProtectedMainStudySubjectIdRouteImport } from './routes/_protected/_main/study/$subjectId'
+import { Route as ProtectedMainStudySubjectIdIndexRouteImport } from './routes/_protected/_main/study/$subjectId/index'
+import { Route as ProtectedMainStudySubjectIdSectionRouteImport } from './routes/_protected/_main/study/$subjectId/$section'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +86,29 @@ const ProtectedMainPostsIndexRoute = ProtectedMainPostsIndexRouteImport.update({
   path: '/posts/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
+const ProtectedMainStudyIndexRoute = ProtectedMainStudyIndexRouteImport.update({
+  id: '/study/',
+  path: '/study/',
+  getParentRoute: () => ProtectedMainRoute,
+} as any)
+const ProtectedMainStudySubjectIdRoute =
+  ProtectedMainStudySubjectIdRouteImport.update({
+    id: '/study/$subjectId',
+    path: '/study/$subjectId',
+    getParentRoute: () => ProtectedMainRoute,
+  } as any)
+const ProtectedMainStudySubjectIdIndexRoute =
+  ProtectedMainStudySubjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProtectedMainStudySubjectIdRoute,
+  } as any)
+const ProtectedMainStudySubjectIdSectionRoute =
+  ProtectedMainStudySubjectIdSectionRouteImport.update({
+    id: '/$section',
+    path: '/$section',
+    getParentRoute: () => ProtectedMainStudySubjectIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -91,9 +118,13 @@ export interface FileRoutesByFullPath {
   '/secret': typeof ProtectedSecretRoute
   '/home': typeof ProtectedMainHomeRoute
   '/post/new-poo': typeof ProtectedPostNewPooRoute
+  '/study/$subjectId': typeof ProtectedMainStudySubjectIdRouteWithChildren
   '/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/photos/': typeof ProtectedMainPhotosIndexRoute
   '/posts/': typeof ProtectedMainPostsIndexRoute
+  '/study/': typeof ProtectedMainStudyIndexRoute
+  '/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
+  '/study/$subjectId/': typeof ProtectedMainStudySubjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -106,6 +137,9 @@ export interface FileRoutesByTo {
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
   '/posts': typeof ProtectedMainPostsIndexRoute
+  '/study': typeof ProtectedMainStudyIndexRoute
+  '/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
+  '/study/$subjectId': typeof ProtectedMainStudySubjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,9 +152,13 @@ export interface FileRoutesById {
   '/_protected/secret': typeof ProtectedSecretRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
   '/_protected/post/new-poo': typeof ProtectedPostNewPooRoute
+  '/_protected/_main/study/$subjectId': typeof ProtectedMainStudySubjectIdRouteWithChildren
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
   '/_protected/_main/posts/': typeof ProtectedMainPostsIndexRoute
+  '/_protected/_main/study/': typeof ProtectedMainStudyIndexRoute
+  '/_protected/_main/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
+  '/_protected/_main/study/$subjectId/': typeof ProtectedMainStudySubjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,9 +170,13 @@ export interface FileRouteTypes {
     | '/secret'
     | '/home'
     | '/post/new-poo'
+    | '/study/$subjectId'
     | '/jizhang/'
     | '/photos/'
     | '/posts/'
+    | '/study/'
+    | '/study/$subjectId/$section'
+    | '/study/$subjectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -147,6 +189,9 @@ export interface FileRouteTypes {
     | '/jizhang'
     | '/photos'
     | '/posts'
+    | '/study'
+    | '/study/$subjectId/$section'
+    | '/study/$subjectId'
   id:
     | '__root__'
     | '/'
@@ -158,9 +203,13 @@ export interface FileRouteTypes {
     | '/_protected/secret'
     | '/_protected/_main/home'
     | '/_protected/post/new-poo'
+    | '/_protected/_main/study/$subjectId'
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
     | '/_protected/_main/posts/'
+    | '/_protected/_main/study/'
+    | '/_protected/_main/study/$subjectId/$section'
+    | '/_protected/_main/study/$subjectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -257,21 +306,72 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainPostsIndexRouteImport
       parentRoute: typeof ProtectedMainRoute
     }
+    '/_protected/_main/study/': {
+      id: '/_protected/_main/study/'
+      path: '/study'
+      fullPath: '/study/'
+      preLoaderRoute: typeof ProtectedMainStudyIndexRouteImport
+      parentRoute: typeof ProtectedMainRoute
+    }
+    '/_protected/_main/study/$subjectId': {
+      id: '/_protected/_main/study/$subjectId'
+      path: '/study/$subjectId'
+      fullPath: '/study/$subjectId'
+      preLoaderRoute: typeof ProtectedMainStudySubjectIdRouteImport
+      parentRoute: typeof ProtectedMainRoute
+    }
+    '/_protected/_main/study/$subjectId/': {
+      id: '/_protected/_main/study/$subjectId/'
+      path: '/'
+      fullPath: '/study/$subjectId/'
+      preLoaderRoute: typeof ProtectedMainStudySubjectIdIndexRouteImport
+      parentRoute: typeof ProtectedMainStudySubjectIdRoute
+    }
+    '/_protected/_main/study/$subjectId/$section': {
+      id: '/_protected/_main/study/$subjectId/$section'
+      path: '/$section'
+      fullPath: '/study/$subjectId/$section'
+      preLoaderRoute: typeof ProtectedMainStudySubjectIdSectionRouteImport
+      parentRoute: typeof ProtectedMainStudySubjectIdRoute
+    }
   }
 }
 
+interface ProtectedMainStudySubjectIdRouteChildren {
+  ProtectedMainStudySubjectIdSectionRoute: typeof ProtectedMainStudySubjectIdSectionRoute
+  ProtectedMainStudySubjectIdIndexRoute: typeof ProtectedMainStudySubjectIdIndexRoute
+}
+
+const ProtectedMainStudySubjectIdRouteChildren: ProtectedMainStudySubjectIdRouteChildren =
+  {
+    ProtectedMainStudySubjectIdSectionRoute:
+      ProtectedMainStudySubjectIdSectionRoute,
+    ProtectedMainStudySubjectIdIndexRoute:
+      ProtectedMainStudySubjectIdIndexRoute,
+  }
+
+const ProtectedMainStudySubjectIdRouteWithChildren =
+  ProtectedMainStudySubjectIdRoute._addFileChildren(
+    ProtectedMainStudySubjectIdRouteChildren,
+  )
+
 interface ProtectedMainRouteChildren {
   ProtectedMainHomeRoute: typeof ProtectedMainHomeRoute
+  ProtectedMainStudySubjectIdRoute: typeof ProtectedMainStudySubjectIdRouteWithChildren
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
   ProtectedMainPostsIndexRoute: typeof ProtectedMainPostsIndexRoute
+  ProtectedMainStudyIndexRoute: typeof ProtectedMainStudyIndexRoute
 }
 
 const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainHomeRoute: ProtectedMainHomeRoute,
+  ProtectedMainStudySubjectIdRoute:
+    ProtectedMainStudySubjectIdRouteWithChildren,
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
   ProtectedMainPostsIndexRoute: ProtectedMainPostsIndexRoute,
+  ProtectedMainStudyIndexRoute: ProtectedMainStudyIndexRoute,
 }
 
 const ProtectedMainRouteWithChildren = ProtectedMainRoute._addFileChildren(

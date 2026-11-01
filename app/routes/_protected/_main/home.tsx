@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Carrot, Ham } from "lucide-react";
 
+import StudyEntry from "@/app/study/components/StudyEntry";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,8 @@ function Page() {
                     />
                 </div>
             </div>
+
+            <StudyEntry />
 
             <div className="mx-auto mt-2 flex w-[80%]">
                 <DinnerPicker />
