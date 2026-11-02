@@ -76,11 +76,17 @@ const httpPort = (() => {
 // server's network config untouched.
 const pbEnv = { ...process.env };
 if (!isProd) {
+    // Arms pb_hooks/dev_seed.pb.js (local test account only).
+    pbEnv.MIMI_DEV = "1";
     const bypass = [pbEnv.NO_PROXY, pbEnv.no_proxy, "opencode.ai"]
         .filter(Boolean)
         .join(",");
     pbEnv.NO_PROXY = bypass;
     pbEnv.no_proxy = bypass;
+} else {
+    // Never seed the known-password dev account in prod, even if the
+    // surrounding shell exported MIMI_DEV by accident.
+    delete pbEnv.MIMI_DEV;
 }
 
 let child: ChildProcess | null = null;

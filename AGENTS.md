@@ -67,6 +67,10 @@ There is no test suite. Verify changes with `bun run build` and the dev server.
 - Schema changes go in a new committed migration under
   `pocketbase/pb_migrations/`. Never edit an applied migration. Runtime data
   (`pb_data/`) is gitignored.
+- Local dev auto-creates a test user (`test@mimi.local` / `mimi123456`) via
+  `pocketbase/pb_hooks/dev_seed.pb.js`. It only runs when `server.ts` sets
+  `MIMI_DEV=1` (dev, i.e. no `.env.prod`); prod deletes that var, so the
+  account is never created there. Documented in the root `README.md`.
 
 ## Frontend conventions
 
