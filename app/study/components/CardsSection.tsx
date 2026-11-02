@@ -22,6 +22,7 @@ function CardItem({
     moduleColor,
     moduleIcon,
     known,
+    canDrill,
     onToggle,
     onDrill,
     onExplain,
@@ -30,6 +31,7 @@ function CardItem({
     moduleColor: string;
     moduleIcon: string;
     known: boolean;
+    canDrill: boolean;
     onToggle: () => void;
     onDrill: () => void;
     onExplain: () => void;
@@ -147,9 +149,11 @@ function CardItem({
                 >
                     {known ? "取消掌握" : "✓ 标记已掌握"}
                 </button>
-                <button className="st-btn sm ghost" onClick={onDrill}>
-                    做本模块题
-                </button>
+                {canDrill && (
+                    <button className="st-btn sm ghost" onClick={onDrill}>
+                        做这张卡的题
+                    </button>
+                )}
                 <button
                     className="st-btn sm line"
                     style={{ flex: "1 1 100%" }}
@@ -208,25 +212,14 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
         });
     }, [moduleId, subject.cards, progress.cards, update]);
 
-    const startDrill = (modId: string) => {
-        const pool = subject.bank.filter(
-            (item) =>
-                item.m === modId &&
-                (item.type === "single" || item.type === "multi"),
-        );
-        if (!pool.length) return;
+    const startDrill = (card: Card) => {
+        const pool = subject.bank.filter((item) => item.card === card.id);
+        if (!pool.length) {
+            toast("这张卡还没有专属题目，去刷题页练整个模块吧");
+            return;
+        }
         setDrill(shuffle(pool).slice(0, 8));
     };
-
-    if (drill) {
-        return (
-            <QuizRunner
-                items={drill}
-                mode="practice"
-                onExit={() => setDrill(null)}
-            />
-        );
-    }
 
     if (!module) {
         return (
@@ -298,6 +291,9 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                     moduleColor={module.c}
                     moduleIcon={module.icon}
                     known={Boolean(progress.cards[card.id]?.k)}
+                    canDrill={subject.bank.some(
+                        (item) => item.card === card.id,
+                    )}
                     onToggle={() =>
                         update((current) => ({
                             ...current,
@@ -310,7 +306,7 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                             },
                         }))
                     }
-                    onDrill={() => startDrill(card.m)}
+                    onDrill={() => startDrill(card)}
                     onExplain={() => openExplain(card)}
                 />
             ))}
@@ -325,6 +321,15 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                 chips={CARD_CHIPS}
                 intro="不懂就追问，AI 会用生活里的例子讲。"
             />
+
+            {/* 保留卡片列表挂载，退出做题后滚动位置不丢 */}
+            {drill && (
+                <QuizRunner
+                    items={drill}
+                    mode="practice"
+                    onExit={() => setDrill(null)}
+                />
+            )}
         </div>
     );
 }

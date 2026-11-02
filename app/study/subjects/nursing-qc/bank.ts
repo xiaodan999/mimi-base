@@ -4,6 +4,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t01",
         m: "m1",
+        card: "c03",
         type: "term",
         stem: "危急值",
         ans: "指某项检验、检查结果出现时，患者可能正处于生命危险的边缘状态，临床医生需要立即得到检验信息，并迅速给予干预或治疗，否则可能失去最佳抢救机会。",
@@ -12,6 +13,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t02",
         m: "m1",
+        card: "c01",
         type: "term",
         stem: "患者身份识别",
         ans: "用两种及以上方法（姓名、住院号、出生日期等）核对患者身份，并核对腕带信息，严禁仅以床号识别患者。",
@@ -20,6 +22,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t03",
         m: "m1",
+        card: "c05",
         type: "term",
         stem: "口头医嘱",
         ans: "医生在抢救急危重患者或手术时以口头方式下达的医嘱。护士须完整复述确认、双人核对后执行，保留空安瓿，抢救或手术结束 30 分钟内由医生据实补记。",
@@ -28,6 +31,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t04",
         m: "m1",
+        card: "c02",
         type: "term",
         stem: "手术安全核查",
         ans: "由手术医师、麻醉医师、手术室护士三方，在麻醉实施前、手术开始前、患者离室前三个时点，共同核对患者身份、术式、部位等信息的制度。",
@@ -36,6 +40,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t05",
         m: "m2",
+        card: "c07",
         type: "term",
         stem: "跌倒/坠床高危患者",
         ans: "按跌倒/坠床危险因子评估表评分，累计 ≥4 分的住院患者，需告知并每日评估、列为护理问题、实施重点预防。",
@@ -44,6 +49,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t06",
         m: "m2",
+        card: "c11",
         type: "term",
         stem: "Braden 评分",
         ans: "预测压疮发生危险性的评估工具，包括感觉、湿度、活动能力、移动能力、营养、摩擦/剪切力 6 个维度，每项 1–4 分，总分 23 分，分值越低风险越高。",
@@ -52,6 +58,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t07",
         m: "m2",
+        card: "c13",
         type: "term",
         stem: "压力性损伤（压疮）",
         ans: "由压力、剪切力或摩擦力所致的皮肤和/或皮下组织的局部损伤，常发生于骨隆突处。",
@@ -60,6 +67,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t08",
         m: "m2",
+        card: "c13",
         type: "term",
         stem: "深部组织损伤（DTPI）",
         ans: "皮肤完整，局部呈紫色或黑紫色，或有血疱，伴疼痛、硬结、皮温改变，提示皮下深层组织已发生损伤，可能快速发展为深层破溃。",
@@ -68,6 +76,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t09",
         m: "m2",
+        card: "c13",
         type: "term",
         stem: "不可分期压疮",
         ans: "全层皮肤缺损，伤口被腐肉或焦痂覆盖，只有彻底清创后才能判断真实深度和分期，否则无法分期。",
@@ -76,6 +85,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t10",
         m: "m2",
+        card: "c13",
         type: "term",
         stem: "TIME 原则",
         ans: "伤口处理原则：T 清除坏死组织，I 抗感染，M 吸收渗出液、促进肉芽生长，E 促进上皮爬行。",
@@ -84,6 +94,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t11",
         m: "m2",
+        card: "c14",
         type: "term",
         stem: "身体约束",
         ans: "使用任何物理或机械装置、材料或工具，限制患者活动自由，以防止患者伤害自己或他人。需知情同意、记录，每 2 小时放松 3–5 分钟并评估。",
@@ -92,6 +103,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t12",
         m: "m2",
+        card: "c15",
         type: "term",
         stem: "NRS 数字分级法",
         ans: "用 0–10 共 11 个数字表示疼痛程度，0 为无痛、10 为最痛，由患者自行选择一个最能代表其疼痛程度的数字。",
@@ -100,6 +112,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t13",
         m: "m2",
+        card: "c15",
         type: "term",
         stem: "FPS 面部表情疼痛评分",
         ans: "用从快乐到悲伤及哭泣的 6 个不同面容，让患者选择一张最能表达其疼痛的脸谱。适用于急性疼痛者、老人、小儿、文化程度较低者、表达能力丧失者及认知功能障碍者。",
@@ -108,6 +121,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t14",
         m: "m2",
+        card: "c17",
         type: "term",
         stem: "ADL（日常生活活动能力）",
         ans: "人们为独立生活而每天必须反复进行的、最基本的、具有共性的身体动作群。本表 10 项、总分 100 分，分数越高越独立。",
@@ -116,6 +130,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t15",
         m: "m2",
+        card: "c18",
         type: "term",
         stem: "三短六洁",
         ans: "三短：指甲短、头发短、胡须短；六洁：脸、头发、手足、皮肤、会阴、肛门清洁。",
@@ -124,6 +139,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t16",
         m: "m3",
+        card: "c22",
         type: "term",
         stem: "麻精药品「五专」",
         ans: "麻醉药品和第一类精神药品的管理要求：专人、专柜、专锁、专册登记、专用处方。",
@@ -132,6 +148,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t17",
         m: "m3",
+        card: "c21",
         type: "term",
         stem: "高危药品",
         ans: "药理作用显著且迅速、若使用不当易发生严重不良反应甚至危及患者生命的药品，如血管活性药、高浓度电解质、胰岛素、化疗药等，配置和使用时需双人核对。",
@@ -140,6 +157,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t18",
         m: "m3",
+        card: "c25",
         type: "term",
         stem: "输血「三查九对」",
         ans: "三查：血的有效期、血液质量、输血装置是否完好；九对：床号、姓名、性别、年龄、住院号、血型、血袋号、血液的种类和剂量（及献血者编号）。",
@@ -148,6 +166,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t19",
         m: "m3",
+        card: "c27",
         type: "term",
         stem: "溶血反应",
         ans: "输血后红细胞在受血者体内大量破坏，表现为寒战、高热、腰背剧痛、酱油色尿、黄疸、血压下降甚至急性肾衰竭，是最严重的输血反应。",
@@ -156,6 +175,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t20",
         m: "m3",
+        card: "c24",
         type: "term",
         stem: "药物不良反应（ADR）",
         ans: "合格药品在正常用法用量下出现的与用药目的无关的或意外的有害反应。发现后应立即停药、换输液器、报告医生、保留药物及器具送检并上报。",
@@ -164,6 +184,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t21",
         m: "m4",
+        card: "c29",
         type: "term",
         stem: "手卫生",
         ans: "医务人员洗手、卫生手消毒和外科手消毒的总称。",
@@ -172,6 +193,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t22",
         m: "m4",
+        card: "c29",
         type: "term",
         stem: "七步洗手法",
         ans: "按内、外、夹、弓、大、立、腕七个步骤洗手，每步不少于 15 秒、来回不少于 5 次。",
@@ -180,6 +202,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t23",
         m: "m4",
+        card: "c29",
         type: "term",
         stem: "标准预防",
         ans: "认定所有患者的血液、体液、分泌物、排泄物（不含汗液）均具有传染性，接触上述物质时必须采取相应防护措施。",
@@ -188,6 +211,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t24",
         m: "m4",
+        card: "c30",
         type: "term",
         stem: "终末消毒",
         ans: "患者出院、转科或死亡后，对其所住病室、床单位及所用物品进行的彻底消毒。",
@@ -196,6 +220,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t25",
         m: "m5",
+        card: "c32",
         type: "term",
         stem: "RACB",
         ans: "火灾应急程序：R 救援（Rescue）、A 报警（Alarm）、C 限制（Confine）、B 灭火或疏散（Evacuate）。",
@@ -204,6 +229,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t26",
         m: "m5",
+        card: "c34",
         type: "term",
         stem: "抢救车「四固定」",
         ans: "定人保管、定点放置、定数量品种、定期维修及消毒灭菌。",
@@ -212,6 +238,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t27",
         m: "m6",
+        card: "c37",
         type: "term",
         stem: "护理不良事件",
         ans: "在护理过程中发生的、不在计划中的、未预计到的或通常不希望发生的事件，如跌倒、坠床、给药错误、管路滑脱、压疮、输血反应等。",
@@ -220,6 +247,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t28",
         m: "m6",
+        card: "c40",
         type: "term",
         stem: "三凹征",
         ans: "吸气时胸骨上窝、锁骨上窝、肋间隙出现明显凹陷，由上部气道部分梗阻所致的吸气性呼吸困难。",
@@ -228,6 +256,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t29",
         m: "m6",
+        card: "c39",
         type: "term",
         stem: "电除颤",
         ans: "用高能量脉冲电流通过心脏，使全部或大部分心肌细胞在瞬间同时除极，造成心脏短暂的电活动停止，再由最高自律性起搏点重新主导心脏节律的治疗方法。",
@@ -236,6 +265,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t30",
         m: "m7",
+        card: "c42",
         type: "term",
         stem: "分级护理",
         ans: "根据患者病情轻重缓急及自理能力，由医生下达特级、一级、二级、三级护理医嘱，护士按相应级别要求实施护理与巡视。",
@@ -244,6 +274,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t31",
         m: "m7",
+        card: "c44",
         type: "term",
         stem: "职业暴露",
         ans: "医务人员在诊疗护理工作中，意外被血源性传播疾病患者的血液、体液污染破损皮肤或黏膜，或被含病原体的锐器刺破皮肤，有可能被感染的情况。",
@@ -252,6 +283,7 @@ export const BANK: QuizItem[] = [
     {
         id: "t32",
         m: "m7",
+        card: "c45",
         type: "term",
         stem: "SBAR 沟通",
         ans: "一种结构化交接沟通工具：S 现状（Situation）、B 背景（Background）、A 评估（Assessment）、R 建议（Recommendation）。",
@@ -261,6 +293,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s01",
         m: "m1",
+        card: "c01",
         type: "single",
         stem: "护士为患者进行身份识别时，最正确的做法是：",
         o: [
@@ -275,6 +308,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s02",
         m: "m1",
+        card: "c02",
         type: "single",
         stem: "手术安全核查的三个时点不包括：",
         o: ["麻醉实施前", "手术开始前（切皮前）", "患者离室前", "患者出院前"],
@@ -284,6 +318,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s03",
         m: "m1",
+        card: "c02",
         type: "single",
         stem: "手术部位标记应由谁完成：",
         o: ["责任护士", "手术医师", "麻醉医师", "患者家属"],
@@ -293,6 +328,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s04",
         m: "m1",
+        card: "c03",
         type: "single",
         stem: "成人动脉血 pH 的危急值下限是：",
         o: ["7.25", "7.20", "7.15", "7.10"],
@@ -302,6 +338,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s05",
         m: "m1",
+        card: "c03",
         type: "single",
         stem: "血清钾的危急值上限是：",
         o: ["5.5 mmol/L", "6.0 mmol/L", "6.5 mmol/L", "7.0 mmol/L"],
@@ -311,6 +348,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s06",
         m: "m1",
+        card: "c03",
         type: "single",
         stem: "血糖的危急值下限是：",
         o: ["2.2 mmol/L", "2.8 mmol/L", "3.0 mmol/L", "3.9 mmol/L"],
@@ -320,6 +358,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s07",
         m: "m1",
+        card: "c03",
         type: "single",
         stem: "血小板的危急值下限是：",
         o: ["10×10⁹/L", "20×10⁹/L", "50×10⁹/L", "100×10⁹/L"],
@@ -329,6 +368,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s08",
         m: "m1",
+        card: "c03",
         type: "single",
         stem: "血红蛋白的危急值下限是：",
         o: ["55 g/L", "60 g/L", "70 g/L", "80 g/L"],
@@ -338,6 +378,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s09",
         m: "m1",
+        card: "c04",
         type: "single",
         stem: "接到危急值报告电话后，护士的第一步应是：",
         o: [
@@ -352,6 +393,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s10",
         m: "m1",
+        card: "c04",
         type: "single",
         stem: "危急值登记本上必须有的是：",
         o: ["护士签名即可", "医生签名及确认时间", "家属签名", "科主任签名"],
@@ -361,6 +403,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s11",
         m: "m1",
+        card: "c05",
         type: "single",
         stem: "可以执行口头医嘱的情形是：",
         o: [
@@ -375,6 +418,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s12",
         m: "m1",
+        card: "c05",
         type: "single",
         stem: "口头医嘱执行后，用过的空安瓿应：",
         o: [
@@ -389,6 +433,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s13",
         m: "m1",
+        card: "c05",
         type: "single",
         stem: "抢救结束后，医生据实补记医嘱的时限是：",
         o: ["6 小时内", "2 小时内", "30 分钟内", "24 小时内"],
@@ -398,6 +443,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s14",
         m: "m1",
+        card: "c06",
         type: "single",
         stem: "手术患者返回病房，护士首先应：",
         o: [
@@ -414,6 +460,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s15",
         m: "m2",
+        card: "c08",
         type: "single",
         stem: "跌倒/坠床高危患者的评分界值是：",
         o: ["≥2 分", "≥3 分", "≥4 分", "≥5 分"],
@@ -423,6 +470,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s16",
         m: "m2",
+        card: "c07",
         type: "single",
         stem: '跌倒评分中"体能虚弱（步态不稳健、不平衡）"计几分：',
         o: ["1 分", "2 分", "3 分", "4 分"],
@@ -432,6 +480,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s17",
         m: "m2",
+        card: "c07",
         type: "single",
         stem: '"头晕、眩晕、体位性低血压"计几分：',
         o: ["1 分", "2 分", "3 分", "4 分"],
@@ -441,6 +490,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s18",
         m: "m2",
+        card: "c09",
         type: "single",
         stem: "起床三步曲中每一步应保持：",
         o: ["10 秒", "20 秒", "30 秒", "60 秒"],
@@ -450,6 +500,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s19",
         m: "m2",
+        card: "c11",
         type: "single",
         stem: "Braden 压疮评分的总分是：",
         o: ["20 分", "23 分", "25 分", "28 分"],
@@ -459,6 +510,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s20",
         m: "m2",
+        card: "c11",
         type: "single",
         stem: "Braden 评分 9–12 分的患者应多久评估一次：",
         o: ["每周一次", "每日一次", "每班一次", "每月一次"],
@@ -468,6 +520,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s21",
         m: "m2",
+        card: "c11",
         type: "single",
         stem: "Braden 评分 9 分以下的极高危患者应：",
         o: ["每周评估", "每日评估", "每班评估", "出院时评估"],
@@ -477,6 +530,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s22",
         m: "m2",
+        card: "c12",
         type: "single",
         stem: "压疮预防中，床头抬高应控制在：",
         o: ["＜30°", "30–45°", "45–60°", "＞60°"],
@@ -486,6 +540,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s23",
         m: "m2",
+        card: "c12",
         type: "single",
         stem: "坐轮椅的患者至少每多久抬臀一次：",
         o: ["15 分钟", "30 分钟", "1 小时", "2 小时"],
@@ -495,6 +550,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s24",
         m: "m2",
+        card: "c13",
         type: "single",
         stem: "压疮Ⅰ期（淤血红润期）的关键表现是：",
         o: [
@@ -509,6 +565,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s25",
         m: "m2",
+        card: "c13",
         type: "single",
         stem: "Ⅱ期压疮水泡直径 ＞5mm 的处理是：",
         o: [
@@ -523,6 +580,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s26",
         m: "m2",
+        card: "c13",
         type: "single",
         stem: "Ⅳ期压疮的处理原则是：",
         o: ["RICE 原则", "TIME 原则", "ABCDE 原则", "SBAR 原则"],
@@ -532,6 +590,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s27",
         m: "m2",
+        card: "c13",
         type: "single",
         stem: "伤口被焦痂覆盖、无法判断深度时，应：",
         o: [
@@ -546,6 +605,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s28",
         m: "m2",
+        card: "c14",
         type: "single",
         stem: "约束患者应每多久放松一次：",
         o: [
@@ -560,6 +620,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s29",
         m: "m2",
+        card: "c15",
         type: "single",
         stem: "疼痛评分 ≥4 分应：",
         o: ["继续观察", "通知医生", "按急诊处理", "立即自行给止痛药"],
@@ -569,6 +630,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s30",
         m: "m2",
+        card: "c15",
         type: "single",
         stem: "疼痛评分 ≥7 分应：",
         o: ["通知医生即可", "按急诊处理", "继续观察 1 小时", "仅做心理护理"],
@@ -578,6 +640,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s31",
         m: "m2",
+        card: "c15",
         type: "single",
         stem: "开具镇痛医嘱后，第一次镇痛剂应在多久内给予：",
         o: ["10 分钟", "20 分钟", "30 分钟", "1 小时"],
@@ -587,6 +650,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s32",
         m: "m2",
+        card: "c16",
         type: "single",
         stem: "PCA 镇痛泵应每多久记录一次疼痛及副作用：",
         o: ["每 1 小时", "每 2 小时", "每 4 小时", "每 8 小时"],
@@ -596,6 +660,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s33",
         m: "m2",
+        card: "c17",
         type: "single",
         stem: "ADL 评分 ≤40 分提示：",
         o: ["轻度依赖", "中度依赖", "重度依赖", "无需依赖"],
@@ -605,6 +670,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s34",
         m: "m2",
+        card: "c17",
         type: "single",
         stem: "ADL 评分 100 分提示：",
         o: ["重度依赖", "中度依赖", "轻度依赖", "无需依赖，完全自理"],
@@ -614,6 +680,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s35",
         m: "m2",
+        card: "c17",
         type: "single",
         stem: "下列不属于 ADL 评估时点的是：",
         o: ["入院时", "出院时", "转科时", "每周固定评估一次"],
@@ -623,6 +690,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s36",
         m: "m2",
+        card: "c18",
         type: "single",
         stem: '患者"八知道"不包括：',
         o: [
@@ -639,6 +707,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s37",
         m: "m3",
+        card: "c19",
         type: "single",
         stem: "冰箱内药物的储存温度应控制在：",
         o: ["0–4℃", "2–8℃", "4–10℃", "10–30℃"],
@@ -648,6 +717,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s38",
         m: "m3",
+        card: "c19",
         type: "single",
         stem: "冰箱应至少多久除霜一次：",
         o: ["每周", "每月", "每季度", "每年"],
@@ -657,6 +727,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s39",
         m: "m3",
+        card: "c20",
         type: "single",
         stem: "冰箱温度异常、调节后应观察多久：",
         o: ["10 分钟", "30 分钟", "1 小时", "2 小时"],
@@ -666,6 +737,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s40",
         m: "m3",
+        card: "c19",
         type: "single",
         stem: "药物储藏区域的温度应控制在：",
         o: ["2–8℃", "10–30℃", "15–25℃", "20–30℃"],
@@ -675,6 +747,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s41",
         m: "m3",
+        card: "c19",
         type: "single",
         stem: "药物储藏区域的湿度应控制在：",
         o: ["20%–40%", "30%–50%", "45%–75%", "60%–80%"],
@@ -684,6 +757,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s42",
         m: "m3",
+        card: "c22",
         type: "single",
         stem: '麻精药品"五专"不包括：',
         o: ["专人", "专柜", "专车", "专用处方"],
@@ -693,6 +767,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s43",
         m: "m3",
+        card: "c22",
         type: "single",
         stem: "麻精药品应多久清点核对一次：",
         o: ["每日", "每班", "每周", "每月"],
@@ -702,6 +777,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s44",
         m: "m3",
+        card: "c21",
         type: "single",
         stem: "下列不属于需双人核对的高危药物是：",
         o: ["血管活性药物", "高浓度电解质", "胰岛素", "维生素 C"],
@@ -711,6 +787,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s45",
         m: "m3",
+        card: "c25",
         type: "single",
         stem: '输血"三查"不包括：',
         o: ["血的有效期", "血液的质量", "输血装置是否完好", "献血者的体重"],
@@ -720,6 +797,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s46",
         m: "m3",
+        card: "c26",
         type: "single",
         stem: "血液出库后应在多久内开始输注：",
         o: ["15 分钟", "30 分钟", "1 小时", "2 小时"],
@@ -729,6 +807,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s47",
         m: "m3",
+        card: "c26",
         type: "single",
         stem: "每袋血应在多久内输注完毕：",
         o: ["2 小时", "4 小时", "6 小时", "8 小时"],
@@ -738,6 +817,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s48",
         m: "m3",
+        card: "c26",
         type: "single",
         stem: "输血完毕后的血袋应：",
         o: [
@@ -752,6 +832,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s49",
         m: "m3",
+        card: "c26",
         type: "single",
         stem: "输血开始时的滴速应：",
         o: ["＜20 滴/分", "20–40 滴/分", "40–60 滴/分", "60–80 滴/分"],
@@ -761,6 +842,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s50",
         m: "m3",
+        card: "c26",
         type: "single",
         stem: "两袋血之间应使用什么冲管：",
         o: ["5% 葡萄糖注射液", "生理盐水", "林格液", "灭菌注射用水"],
@@ -770,6 +852,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s51",
         m: "m3",
+        card: "c27",
         type: "single",
         stem: "输血后出现寒战、高热、腰背剧痛、酱油色尿，最可能是：",
         o: ["发热反应", "过敏反应", "溶血反应", "肺水肿"],
@@ -779,6 +862,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s52",
         m: "m3",
+        card: "c27",
         type: "single",
         stem: "发生输血反应后，输血反应报告表应上报：",
         o: ["护理部", "血库", "医务处", "院感科"],
@@ -788,6 +872,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s53",
         m: "m3",
+        card: "c24",
         type: "single",
         stem: "发生药物不良反应后，下列做法错误的是：",
         o: [
@@ -804,6 +889,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s54",
         m: "m4",
+        card: "c28",
         type: "single",
         stem: "护理开放性肺结核患者应佩戴：",
         o: ["普通医用口罩", "外科口罩", "医用防护口罩", "纱布口罩"],
@@ -813,6 +899,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s55",
         m: "m4",
+        card: "c28",
         type: "single",
         stem: "护理流行性感冒患者应佩戴：",
         o: ["普通医用口罩", "外科口罩", "医用防护口罩", "不需要戴口罩"],
@@ -822,6 +909,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s56",
         m: "m4",
+        card: "c29",
         type: "single",
         stem: '手卫生"五个时刻"不包括：',
         o: ["接触患者前", "清洁/无菌操作前", "接触患者后", "下班离开科室前"],
@@ -831,6 +919,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s57",
         m: "m4",
+        card: "c29",
         type: "single",
         stem: "七步洗手法的正确顺序是：",
         o: [
@@ -845,6 +934,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s58",
         m: "m4",
+        card: "c30",
         type: "single",
         stem: "干罐应多久更换一次：",
         o: ["每 2 小时", "每 4 小时", "每 8 小时", "每天"],
@@ -854,6 +944,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s59",
         m: "m4",
+        card: "c30",
         type: "single",
         stem: "体温计用 0.1% 含氯消毒液浸泡，正确的是：",
         o: [
@@ -868,6 +959,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s60",
         m: "m4",
+        card: "c31",
         type: "single",
         stem: "储藏室物品放置应离地：",
         o: ["5cm", "10cm", "20cm", "50cm"],
@@ -879,6 +971,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s61",
         m: "m5",
+        card: "c32",
         type: "single",
         stem: "RACB 中的 C 代表：",
         o: ["救援 Rescue", "报警 Alarm", "限制 Confine", "疏散 Evacuate"],
@@ -888,6 +981,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s62",
         m: "m5",
+        card: "c32",
         type: "single",
         stem: "火灾疏散的原则是：",
         o: [
@@ -902,6 +996,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s63",
         m: "m5",
+        card: "c32",
         type: "single",
         stem: "火灾疏散时应：",
         o: [
@@ -916,6 +1011,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s64",
         m: "m5",
+        card: "c33",
         type: "single",
         stem: "发生停氧时，护士应首先：",
         o: [
@@ -930,6 +1026,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s65",
         m: "m5",
+        card: "c33",
         type: "single",
         stem: "呼吸机发生故障时，应立即：",
         o: ["关机等待", "用简易呼吸器替代", "调高参数继续使用", "等待维修人员"],
@@ -939,6 +1036,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s66",
         m: "m5",
+        card: "c34",
         type: "single",
         stem: '抢救车"四固定"不包括：',
         o: ["定人保管", "定点放置", "定数量品种", "定期更换品牌"],
@@ -948,6 +1046,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s67",
         m: "m5",
+        card: "c35",
         type: "single",
         stem: "各类仪器的时间应至少多久校对一次：",
         o: ["每天", "每周", "每月", "每季度"],
@@ -959,6 +1058,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s68",
         m: "m6",
+        card: "c38",
         type: "single",
         stem: "心电监护白色导联应放置在：",
         o: ["左锁骨下靠近左肩", "右锁骨下靠近右肩", "右下腹", "左下腹"],
@@ -968,6 +1068,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s69",
         m: "m6",
+        card: "c38",
         type: "single",
         stem: "心电监护绿色导联应放置在：",
         o: ["右锁骨下", "左锁骨下", "右下腹", "左下腹"],
@@ -977,6 +1078,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s70",
         m: "m6",
+        card: "c39",
         type: "single",
         stem: '除颤"左右位"时，一块电极板应放在：',
         o: [
@@ -991,6 +1093,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s71",
         m: "m6",
+        card: "c39",
         type: "single",
         stem: "双相波除颤的常用能量范围是：",
         o: ["50–100 J", "120–200 J", "300–360 J", "400 J 以上"],
@@ -1000,6 +1103,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s72",
         m: "m6",
+        card: "c40",
         type: "single",
         stem: "三凹征提示：",
         o: ["肺实质病变", "上部气道部分梗阻", "左心衰竭", "自发性气胸"],
@@ -1009,6 +1113,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s73",
         m: "m6",
+        card: "c37",
         type: "single",
         stem: "护理不良事件发生后，护士长应在多久内报告护理部：",
         o: ["2 小时", "24 小时", "48 小时", "72 小时"],
@@ -1018,6 +1123,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s74",
         m: "m6",
+        card: "c37",
         type: "single",
         stem: "患者家属不在且无法联系时，白天应报告：",
         o: ["总值班", "医务处", "保卫科", "院感科"],
@@ -1027,6 +1133,7 @@ export const BANK: QuizItem[] = [
     {
         id: "s75",
         m: "m6",
+        card: "c37",
         type: "single",
         stem: "护理不良事件发生后，下列做法错误的是：",
         o: [
@@ -1041,6 +1148,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m01",
         m: "m1",
+        card: "c01",
         type: "multi",
         stem: "患者身份识别可以采用的方法包括：",
         o: ["姓名", "住院号", "出生日期", "床号"],
@@ -1050,6 +1158,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m02",
         m: "m1",
+        card: "c02",
         type: "multi",
         stem: "手术安全核查由哪三方共同完成：",
         o: ["手术医师", "麻醉医师", "手术室护士", "患者家属"],
@@ -1059,6 +1168,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m03",
         m: "m1",
+        card: "c04",
         type: "multi",
         stem: "接到危急值报告后，必须完成的工作包括：",
         o: [
@@ -1073,6 +1183,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m04",
         m: "m1",
+        card: "c05",
         type: "multi",
         stem: "关于口头医嘱，下列正确的是：",
         o: [
@@ -1087,6 +1198,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m05",
         m: "m1",
+        card: "c06",
         type: "multi",
         stem: "手术患者返回病房时，需要评估的内容包括：",
         o: ["神志", "生命体征", "切口敷料", "管道情况"],
@@ -1096,6 +1208,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m06",
         m: "m1",
+        card: "c06",
         type: "multi",
         stem: "送手术前，责任护士需要确认的内容包括：",
         o: [
@@ -1111,6 +1224,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m07",
         m: "m2",
+        card: "c07",
         type: "multi",
         stem: "跌倒/坠床危险因子评估表包含：",
         o: ["年龄 ＞65 岁", "视力障碍", "体能虚弱（步态不稳）", "血型"],
@@ -1120,6 +1234,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m08",
         m: "m2",
+        card: "c09",
         type: "multi",
         stem: "跌倒/坠床的预防措施包括：",
         o: [
@@ -1134,6 +1249,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m09",
         m: "m2",
+        card: "c11",
         type: "multi",
         stem: "Braden 压疮评分的维度包括：",
         o: ["感觉", "湿度", "营养", "体温"],
@@ -1143,6 +1259,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m10",
         m: "m2",
+        card: "c12",
         type: "multi",
         stem: "压疮预防措施包括：",
         o: [
@@ -1157,6 +1274,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m11",
         m: "m2",
+        card: "c13",
         type: "multi",
         stem: "压疮的分期包括：",
         o: ["Ⅰ期 淤血红润期", "Ⅱ期 炎性浸润期", "深部组织损伤", "不可分期"],
@@ -1166,6 +1284,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m12",
         m: "m2",
+        card: "c14",
         type: "multi",
         stem: "身体约束的管理要求包括：",
         o: [
@@ -1180,6 +1299,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m13",
         m: "m2",
+        card: "c15",
         type: "multi",
         stem: "疼痛护理记录应包括：",
         o: ["疼痛部位", "疼痛性质", "疼痛程度", "措施及结果"],
@@ -1189,6 +1309,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m14",
         m: "m2",
+        card: "c16",
         type: "multi",
         stem: "PCA 术后镇痛的常见并发症包括：",
         o: ["恶心呕吐", "嗜睡", "尿潴留", "皮肤瘙痒"],
@@ -1198,6 +1319,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m15",
         m: "m2",
+        card: "c17",
         type: "multi",
         stem: "ADL 评定的项目包括：",
         o: ["进食", "穿衣", "洗澡", "血型"],
@@ -1207,6 +1329,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m16",
         m: "m2",
+        card: "c18",
         type: "multi",
         stem: '患者"八知道"包括：',
         o: ["床号、姓名", "诊断、主要病情", "治疗、饮食", "家庭住址、收入"],
@@ -1217,6 +1340,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m17",
         m: "m3",
+        card: "c19",
         type: "multi",
         stem: "冰箱管理的要求包括：",
         o: [
@@ -1231,6 +1355,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m18",
         m: "m3",
+        card: "c22",
         type: "multi",
         stem: '麻精药品"五专"包括：',
         o: ["专人", "专柜", "专锁", "专用处方"],
@@ -1240,6 +1365,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m19",
         m: "m3",
+        card: "c21",
         type: "multi",
         stem: "配置和使用时需双人核对的高危药物包括：",
         o: ["血管活性药物", "高浓度电解质", "胰岛素", "化疗药"],
@@ -1249,6 +1375,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m20",
         m: "m3",
+        card: "c25",
         type: "multi",
         stem: '输血"三查"包括：',
         o: ["血的有效期", "血液的质量", "输血装置是否完好", "献血者的姓名"],
@@ -1258,6 +1385,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m21",
         m: "m3",
+        card: "c27",
         type: "multi",
         stem: "常见的输血反应包括：",
         o: ["发热反应", "过敏反应", "溶血反应", "肺水肿"],
@@ -1267,6 +1395,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m22",
         m: "m3",
+        card: "c26",
         type: "multi",
         stem: "输血过程中的正确做法包括：",
         o: [
@@ -1281,6 +1410,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m23",
         m: "m3",
+        card: "c24",
         type: "multi",
         stem: "发生药物不良反应后，正确的处理包括：",
         o: [
@@ -1296,6 +1426,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m24",
         m: "m4",
+        card: "c29",
         type: "multi",
         stem: '手卫生的"五个时刻"包括：',
         o: [
@@ -1310,6 +1441,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m25",
         m: "m4",
+        card: "c28",
         type: "multi",
         stem: "外科口罩的适用范围包括：",
         o: [
@@ -1324,6 +1456,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m26",
         m: "m4",
+        card: "c30",
         type: "multi",
         stem: "关于仪器设备的清洁消毒，正确的是：",
         o: [
@@ -1339,6 +1472,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m27",
         m: "m5",
+        card: "c32",
         type: "multi",
         stem: "火灾应急程序 RACB 包括：",
         o: ["救援 Rescue", "报警 Alarm", "限制 Confine", "灭火或疏散 Evacuate"],
@@ -1348,6 +1482,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m28",
         m: "m5",
+        card: "c32",
         type: "multi",
         stem: "发生火灾时，正确的做法包括：",
         o: [
@@ -1362,6 +1497,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m29",
         m: "m5",
+        card: "c33",
         type: "multi",
         stem: "停水、停电、停氧的处理，正确的是：",
         o: [
@@ -1376,6 +1512,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m30",
         m: "m5",
+        card: "c34",
         type: "multi",
         stem: '抢救车"四固定"包括：',
         o: ["定人保管", "定点放置", "定数量品种", "定期维修及消毒灭菌"],
@@ -1386,6 +1523,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m31",
         m: "m6",
+        card: "c38",
         type: "multi",
         stem: "心电监护导联颜色与位置，正确的是：",
         o: [
@@ -1400,6 +1538,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m32",
         m: "m6",
+        card: "c39",
         type: "multi",
         stem: "除颤时正确的做法包括：",
         o: [
@@ -1414,6 +1553,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m33",
         m: "m6",
+        card: "c40",
         type: "multi",
         stem: "三凹征的凹陷部位包括：",
         o: ["胸骨上窝", "锁骨上窝", "肋间隙", "腹上角"],
@@ -1423,6 +1563,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m34",
         m: "m6",
+        card: "c37",
         type: "multi",
         stem: "护理不良事件的上报要求包括：",
         o: [
@@ -1437,6 +1578,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m35",
         m: "m6",
+        card: "c36",
         type: "multi",
         stem: "危重患者转运前需评估的内容包括：",
         o: [
@@ -1452,6 +1594,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m36",
         m: "m7",
+        card: "c41",
         type: "multi",
         stem: '查对制度中的"七对"包括：',
         o: ["床号、姓名", "药名、浓度", "剂量、用法", "时间"],
@@ -1461,6 +1604,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m37",
         m: "m7",
+        card: "c43",
         type: "multi",
         stem: "医疗废物分类包括：",
         o: ["感染性废物", "损伤性废物", "病理性废物", "药物性废物"],
@@ -1470,6 +1614,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m38",
         m: "m7",
+        card: "c44",
         type: "multi",
         stem: "发生职业暴露后，正确的处理包括：",
         o: [
@@ -1484,6 +1629,7 @@ export const BANK: QuizItem[] = [
     {
         id: "m39",
         m: "m7",
+        card: "c45",
         type: "multi",
         stem: "VTE 的预防措施包括：",
         o: [
@@ -1498,6 +1644,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b01",
         m: "m1",
+        card: "c01",
         type: "blank",
         stem: "患者身份识别必须使用____种及以上方法，并核对腕带。",
         ans: ["两|2|二"],
@@ -1506,6 +1653,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b02",
         m: "m1",
+        card: "c01",
         type: "blank",
         stem: "严禁仅以____识别患者。",
         ans: ["床号"],
@@ -1514,6 +1662,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b03",
         m: "m1",
+        card: "c02",
         type: "blank",
         stem: "手术安全核查的第二个时点是____。",
         ans: ["手术开始前|切皮前|手术开始前（切皮前）"],
@@ -1522,6 +1671,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b04",
         m: "m1",
+        card: "c03",
         type: "blank",
         stem: "动脉血 pH 的危急值低限是____。",
         ans: ["7.15"],
@@ -1530,6 +1680,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b05",
         m: "m1",
+        card: "c03",
         type: "blank",
         stem: "血清钾的危急值高限是____ mmol/L。",
         ans: ["6.0|6"],
@@ -1538,6 +1689,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b06",
         m: "m1",
+        card: "c03",
         type: "blank",
         stem: "血糖的危急值低限是____ mmol/L。",
         ans: ["2.8"],
@@ -1546,6 +1698,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b07",
         m: "m1",
+        card: "c03",
         type: "blank",
         stem: "血小板的危急值低限是____×10⁹/L。",
         ans: ["20"],
@@ -1554,6 +1707,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b08",
         m: "m1",
+        card: "c03",
         type: "blank",
         stem: "血红蛋白的危急值低限是____ g/L。",
         ans: ["55"],
@@ -1562,6 +1716,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b09",
         m: "m1",
+        card: "c04",
         type: "blank",
         stem: "接到危急值报告电话后，护士首先应完整____。",
         ans: ["复述|复述确认"],
@@ -1570,6 +1725,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b10",
         m: "m1",
+        card: "c05",
         type: "blank",
         stem: "抢救或手术结束后____分钟内，医生应据实补记医嘱。",
         ans: ["30|三十"],
@@ -1579,6 +1735,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b11",
         m: "m2",
+        card: "c08",
         type: "blank",
         stem: "跌倒/坠床评分 ≥____ 分即为高危患者。",
         ans: ["4|四"],
@@ -1587,6 +1744,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b12",
         m: "m2",
+        card: "c07",
         type: "blank",
         stem: '跌倒评分中"体能虚弱（步态不稳健、不平衡）"计____分。',
         ans: ["3|三"],
@@ -1595,6 +1753,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b13",
         m: "m2",
+        card: "c09",
         type: "blank",
         stem: "起床三步曲：平躺、坐起、站立各____秒。",
         ans: ["30|三十"],
@@ -1603,6 +1762,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b14",
         m: "m2",
+        card: "c11",
         type: "blank",
         stem: "Braden 压疮评分的总分是____分。",
         ans: ["23"],
@@ -1611,6 +1771,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b15",
         m: "m2",
+        card: "c11",
         type: "blank",
         stem: "Braden 评分 9–12 分的患者需____评估一次。",
         ans: ["每日|每天"],
@@ -1619,6 +1780,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b16",
         m: "m2",
+        card: "c11",
         type: "blank",
         stem: "Braden 评分 9 分以下的极高危患者需____评估一次。",
         ans: ["每班"],
@@ -1627,6 +1789,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b17",
         m: "m2",
+        card: "c12",
         type: "blank",
         stem: "压疮预防时床头抬高应小于____°。",
         ans: ["30|三十"],
@@ -1635,6 +1798,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b18",
         m: "m2",
+        card: "c12",
         type: "blank",
         stem: "坐轮椅的患者至少每____分钟抬臀一次。",
         ans: ["30|三十"],
@@ -1643,6 +1807,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b19",
         m: "m2",
+        card: "c14",
         type: "blank",
         stem: "约束患者应每____小时放松 3–5 分钟。",
         ans: ["2|两|二"],
@@ -1651,6 +1816,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b20",
         m: "m2",
+        card: "c15",
         type: "blank",
         stem: "疼痛评分 ≥____ 分应通知医生。",
         ans: ["4|四"],
@@ -1659,6 +1825,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b21",
         m: "m2",
+        card: "c15",
         type: "blank",
         stem: "疼痛评分 ≥____ 分应按急诊处理。",
         ans: ["7|七"],
@@ -1667,6 +1834,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b22",
         m: "m2",
+        card: "c15",
         type: "blank",
         stem: "开具镇痛医嘱后，应在____分钟内给予第一次镇痛剂。",
         ans: ["20|二十"],
@@ -1675,6 +1843,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b23",
         m: "m2",
+        card: "c16",
         type: "blank",
         stem: "PCA 镇痛泵应每____小时记录一次疼痛及副作用。",
         ans: ["4|四"],
@@ -1683,6 +1852,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b24",
         m: "m2",
+        card: "c17",
         type: "blank",
         stem: "ADL 评分 ≤____ 分为重度依赖。",
         ans: ["40|四十"],
@@ -1692,6 +1862,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b25",
         m: "m3",
+        card: "c19",
         type: "blank",
         stem: "冰箱内药物储存温度应控制在____℃。",
         ans: ["2-8|2~8|2—8|2至8|2到8"],
@@ -1700,6 +1871,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b26",
         m: "m3",
+        card: "c19",
         type: "blank",
         stem: "冰箱应每月至少除霜____次。",
         ans: ["1|一"],
@@ -1708,6 +1880,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b27",
         m: "m3",
+        card: "c19",
         type: "blank",
         stem: "药物储藏区域的温度应控制在____℃。",
         ans: ["10-30|10~30|10—30|10至30"],
@@ -1716,6 +1889,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b28",
         m: "m3",
+        card: "c19",
         type: "blank",
         stem: "药物储藏区域的湿度应控制在____%。",
         ans: ["45-75|45~75|45—75|45至75"],
@@ -1724,6 +1898,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b29",
         m: "m3",
+        card: "c22",
         type: "blank",
         stem: '麻精药品"五专"：专人、专柜、专锁、____、专用处方。',
         ans: ["专册登记|专册|专册登记本"],
@@ -1732,6 +1907,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b30",
         m: "m3",
+        card: "c26",
         type: "blank",
         stem: "血液出库后应在____分钟内开始输注。",
         ans: ["30|三十"],
@@ -1740,6 +1916,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b31",
         m: "m3",
+        card: "c26",
         type: "blank",
         stem: "每袋血应在____小时内输注完毕。",
         ans: ["4|四"],
@@ -1748,6 +1925,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b32",
         m: "m3",
+        card: "c26",
         type: "blank",
         stem: "输血完毕后血袋应送回血库保留____小时。",
         ans: ["24|二十四"],
@@ -1757,6 +1935,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b33",
         m: "m4",
+        card: "c29",
         type: "blank",
         stem: "七步洗手法：内、外、夹、____、大、立、腕。",
         ans: ["弓"],
@@ -1765,6 +1944,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b34",
         m: "m4",
+        card: "c30",
         type: "blank",
         stem: "干罐应每____小时更换一次。",
         ans: ["4|四"],
@@ -1773,6 +1953,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b35",
         m: "m4",
+        card: "c31",
         type: "blank",
         stem: "储藏室物品放置应离地____cm。",
         ans: ["20|二十"],
@@ -1781,6 +1962,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b36",
         m: "m4",
+        card: "c31",
         type: "blank",
         stem: "储藏室物品放置应距墙____cm。",
         ans: ["5|五"],
@@ -1790,6 +1972,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b37",
         m: "m5",
+        card: "c32",
         type: "blank",
         stem: "火灾应急程序 RACB 中的 R 代表____。",
         ans: ["救援|Rescue"],
@@ -1798,6 +1981,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b38",
         m: "m5",
+        card: "c32",
         type: "blank",
         stem: "火灾疏散应遵循____先撤、病重患者及老人先撤、医务人员最后撤。",
         ans: ["高层"],
@@ -1806,6 +1990,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b39",
         m: "m5",
+        card: "c35",
         type: "blank",
         stem: "各类仪器的时间应每周至少校对____次。",
         ans: ["1|一"],
@@ -1814,6 +1999,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b40",
         m: "m5",
+        card: "c34",
         type: "blank",
         stem: '抢救车"四固定"：定人保管、定点放置、____、定期维修及消毒灭菌。',
         ans: ["定数量品种|定数量|定量"],
@@ -1823,6 +2009,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b41",
         m: "m6",
+        card: "c38",
         type: "blank",
         stem: "心电监护白色导联应放置在____。",
         ans: ["右锁骨下|右锁骨下靠近右肩|右肩|右侧锁骨下"],
@@ -1831,6 +2018,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b42",
         m: "m6",
+        card: "c38",
         type: "blank",
         stem: "心电监护绿色导联应放置在____。",
         ans: ["右下腹"],
@@ -1839,6 +2027,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b43",
         m: "m6",
+        card: "c39",
         type: "blank",
         stem: "双相波除颤的常用能量范围是____J。",
         ans: ["120-200|120~200|120—200|120至200"],
@@ -1847,6 +2036,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b44",
         m: "m6",
+        card: "c40",
         type: "blank",
         stem: "三凹征指吸气时____、锁骨上窝、肋间隙出现明显凹陷。",
         ans: ["胸骨上窝"],
@@ -1855,6 +2045,7 @@ export const BANK: QuizItem[] = [
     {
         id: "b45",
         m: "m6",
+        card: "c37",
         type: "blank",
         stem: "护理不良事件发生后，护士长应在____小时内口头或电话报告护理部。",
         ans: ["24|二十四"],
@@ -1863,6 +2054,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j01",
         m: "m1",
+        card: "c04",
         type: "short",
         stem: "简述危急值的接获与处理流程。",
         ans: "① 接到报告电话后，复述患者床号、姓名、住院号、检验项目和结果，以及报告人姓名、工号；② 即刻通知主管医生、责任护士；③ 登记危急值登记本，注明接收时间；④ 主管医生在登记本上确认签名并注明确认时间；⑤ 确认危急值与临床相符；⑥ 给予患者干预措施或治疗；⑦ 护士根据医嘱积极处理，及时记录（处理医嘱、处理后病情观察情况）。",
@@ -1871,6 +2063,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j02",
         m: "m1",
+        card: "c05",
         type: "short",
         stem: "简述口头医嘱的执行要求。",
         ans: "① 原则上不执行口头或电话医嘱，仅在抢救急危重患者或医生手术时；② 护士向医生完整复述确认一遍，确认无误后双人核对再执行；③ 执行后及时记录医嘱时间、内容、患者当时情况；④ 保留用过的安瓿，双人核对后方可弃去；⑤ 抢救或手术结束 30 分钟内，医生据实补记医嘱，执行护士注明执行时间并签名。",
@@ -1879,6 +2072,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j03",
         m: "m1",
+        card: "c06",
         type: "short",
         stem: "简述手术患者返回病房时的接待流程。",
         ans: "① 妥善安置患者，核对腕带信息、确认身份；② 听取手术室护士交班，了解术中情况、输血用药、麻醉方式、术后诊断；③ 评估神志、生命体征、肢体活动、切口敷料、管道情况；④ 交代患者或家属术后注意事项；⑤ 在交接单上签字，做好护理记录；⑥ 执行术后医嘱，继续观察病情变化。",
@@ -1894,6 +2088,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j04",
         m: "m2",
+        card: "c10",
         type: "short",
         stem: "简述跌倒/坠床的处理流程。",
         ans: "① 立即评估，根据损伤情况就地、回病房或抢救室安置；疑有骨折或脊柱损伤应就地平卧，避免随意搬动；② 立即通知值班医生、护士长，必要时向院领导汇报，家属不在立即通知家属；③ 测量血压、呼吸、脉搏，观察神志、瞳孔，查看有无外伤，倾听主诉；④ 根据病情安排必要检查（如 X 线），遵医嘱治疗；⑤ 做好保护措施（护栏等），要求家属陪护；⑥ 做好心理护理，安慰患者；⑦ 填写坠床/跌倒事件报告表，一份上交护理部、一份留科室；⑧ 科室组织讨论、分析、提出整改措施。",
@@ -1909,6 +2104,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j05",
         m: "m2",
+        card: "c09",
         type: "short",
         stem: "简述跌倒/坠床的预防措施。",
         ans: "① 病室光线充足，地面清洁不潮湿，移开障碍物；② 穿合适的裤子和鞋子；③ 睡觉拉起床栏，离床活动有人陪伴；④ 常用物品放固定易取处；⑤ 出现头晕、眼前发黑、步态不稳立即原地坐下或靠墙呼救；⑥ 改变体位缓慢，起床三步曲：平躺、坐起、站立各 30 秒；⑦ 必要时给予合适的身体约束；⑧ 加强健康宣教，取得患者及家属配合。",
@@ -1924,6 +2120,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j06",
         m: "m2",
+        card: "c12",
         type: "short",
         stem: "简述压疮的预防措施。",
         ans: "① 皮肤护理：中性温和清洁剂清洁皮肤；保持床单位衣物清洁平整；使用吸收垫控制潮湿及时更换；正确摆放管道预防压迫；痱子粉保持皮肤干燥。② 体位与活动：定时翻身或更换体位；坐轮椅至少每 30 分钟抬臀一次；床头抬高 ＜30°；指导肢体主动被动活动。③ 辅助工具：软枕、翻身垫支托骨突处；使用翻身床、气垫床等特殊床。④ 健康宣教：指导防护目的与方法、翻身及防护用品使用、注意饮食摄入。",
@@ -1939,6 +2136,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j07",
         m: "m2",
+        card: "c13",
         type: "short",
         stem: "简述压疮的分期及各期主要表现。",
         ans: "① 深部组织损伤：皮肤完整，局部黑紫或暗红，可有水疱，伴硬结、疼痛、皮温改变；② Ⅰ期淤血红润期：皮肤完整，受压区指压不变白的红斑；③ Ⅱ期炎性浸润期：表皮或真皮缺损，浅表开放溃疡或完整/破溃的水疱；④ Ⅲ期浅度溃疡期：全层缺损至皮下脂肪，未及筋膜，呈火山口状，可有腐肉、潜行、窦道；⑤ Ⅳ期坏死溃疡期：全层缺损，骨骼、肌腱、肌肉暴露，常有潜行窦道，可伴骨髓炎；⑥ 不可分期：全层缺损被腐肉或焦痂覆盖，清创后才能分期。",
@@ -1954,6 +2152,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j08",
         m: "m2",
+        card: "c14",
         type: "short",
         stem: "简述身体约束的管理要求。",
         ans: "① 种类：全身约束法、肩部约束法、肢体约束法；② 约束开始有记录，并有知情同意书；③ 每 2 小时放松 3–5 分钟，并有记录；④ 每 2 小时对约束部位皮肤及血液循环情况、停止约束部位的皮肤血运情况进行评估并记录；⑤ 约束期间应满足患者喝水、进食、如厕等要求。",
@@ -1968,6 +2167,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j09",
         m: "m2",
+        card: "c15",
         type: "short",
         stem: "简述疼痛的评估与处置要求。",
         ans: "① 工具：NRS 数字分级法、FPS 面部表情评分；② 频次：每班评估，每天至少记录 1 次；③ 记录内容：疼痛部位、性质、程度、相关因素、措施及结果；④ 处置：≥4 分通知医生；≥7 分按急诊处理；开具医嘱后 20 分钟内获得第一次镇痛剂。",
@@ -1976,6 +2176,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j10",
         m: "m2",
+        card: "c16",
         type: "short",
         stem: "简述 PCA（镇痛泵）患者的管理要求。",
         ans: "① PCA 属高危管道，每 4 小时记录一次疼痛及有无恶心等副作用；② 手术回病房向患者及家属告知使用方法及注意事项；③ 接班了解镇痛泵类型、是否连接妥当；使用中检查连接及泵体管道有无漏液，了解镇痛效果与副作用；④ 使用中的问题可直接联系麻醉科值班医生；⑤ 告知患者/家属出现呼吸困难、胸闷、嗜睡、呼唤不醒及时通知医务人员；⑥ 并发症：镇痛不全、恶心呕吐、嗜睡、尿潴留、皮肤瘙痒、下肢麻木。",
@@ -1991,6 +2192,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j11",
         m: "m2",
+        card: "c17",
         type: "short",
         stem: "简述 ADL 的分级标准及评估时点。",
         ans: "分级：总分 ≤40 分为重度依赖；41–60 分为中度依赖；61–99 分为轻度依赖；100 分为无需依赖、完全自理。评估时点：A 入院、B 出院、C 转科、D 手术当天（返回病房时）、E 病情变化时。",
@@ -1999,6 +2201,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j12",
         m: "m3",
+        card: "c22",
         type: "short",
         stem: '简述麻醉药品和第一类精神药品的"五专"管理。',
         ans: '五专：专人、专柜、专锁、专册登记、专用处方。① 存放于保险箱内、专人负责，每班清点核对，做好交接班记录并双签名；② 保险箱密码和钥匙配合使用，钥匙由专人保管；③ 凭医生开具的专用处方执行；有备用针剂的病区凭电脑医嘱单、专用处方和空安瓿到药房取药；④ 执行时双人核对，对残余药处置（如注入下水道）并记录日期、姓名、药名、规格、用法用量、残余量及处置、执行人、核对人，夜班护士与医生核对签名；⑤ 患者拒绝使用已剖开的药品按残余液处理并注明"患者拒绝使用"；未剖开的针剂或医嘱开错，当日内退还住院药房。',
@@ -2014,6 +2217,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j13",
         m: "m3",
+        card: "c24",
         type: "short",
         stem: "简述药物不良反应的处理与上报流程。",
         ans: "① 立即停药，更换液体及输液器；② 报告医生；③ 保留输液器和药物并送检；④ 遵医嘱给药，就地抢救；⑤ 观察生命体征及病情变化；⑥ 记录抢救过程；⑦ 患者家属有异议时，立即按有关程序对液体及输液器具进行封存；⑧ 及时上报并填写不良反应事件上报表，一份上交护理部、一份留科室。",
@@ -2029,6 +2233,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j14",
         m: "m3",
+        card: "c25",
         type: "short",
         stem: "简述输血的查对内容及输注时间要求。",
         ans: "三查：查血的有效期、血液的质量、输血装置是否完好。九对：床号、姓名、性别、年龄、住院号、血型、血袋号、血液的种类和剂量（及献血者编号）。一确认：确认患者血型与交叉配血单上的血型一致并签字。时间：血液出库后 30 分钟内开始输注，4 小时内输注完毕。记录：开始输血、输血 15 分钟、输血毕、输血毕后 15 分钟记录生命体征及有无输血反应。血袋：黄色垃圾袋包裹后送回血库保留 24 小时。",
@@ -2037,6 +2242,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j15",
         m: "m3",
+        card: "c27",
         type: "short",
         stem: "简述输血反应的应急预案和处理流程。",
         ans: "① 立即停止输血，更换输血器，更换生理盐水；② 报告医生及护士长，遵医嘱给予抗过敏药物，保留未输完的血袋备检；③ 病情紧急者备好抢救药物和物品，配合医生紧急救治，给予氧气吸入；④ 一般过敏反应遵医嘱对症处理，密切观察病情并记录，安慰患者；⑤ 怀疑溶血等严重反应时，保留血袋及余血送检，必要时取患者血样一起送检；⑥ 加强巡视及病情观察，做好抢救记录；⑦ 填写输血反应报告表，上报血库；⑧ 及时向护理部和医务科汇报。",
@@ -2052,6 +2258,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j16",
         m: "m4",
+        card: "c28",
         type: "short",
         stem: "简述三类口罩的适用范围。",
         ans: "① 外科口罩：接触飞沫传播的疾病（流感、流行性腮腺炎、流脑、百日咳、真菌孢子等）；有创或呼吸道操作（手术、气管切开、支气管镜、换药）；预检分诊、呼吸科/发热/感染性疾病门诊、口腔科、儿科门诊、内镜、PICC、输液室、人流室。② 普通医用口罩：一般医疗活动及普通侵入性操作（如抽血），未接触传染患者时。③ 医用防护口罩：经空气传播的呼吸道传染病（如开放性肺结核）；SARS、高致病性禽流感等患者近距离诊疗活动。",
@@ -2060,6 +2267,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j17",
         m: "m4",
+        card: "c29",
         type: "short",
         stem: "简述手卫生的五个时刻和七步洗手法。",
         ans: "五个时刻（两前三后）：① 接触患者前；② 清洁/无菌操作前；③ 接触患者体液、血液、分泌物后；④ 接触患者后；⑤ 接触患者周围物品后。七步洗手法：内、外、夹、弓、大、立、腕，每一步不少于 15 秒，来回不少于 5 次。",
@@ -2068,6 +2276,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j18",
         m: "m5",
+        card: "c32",
         type: "short",
         stem: "简述火灾的应急处理流程（RACB）。",
         ans: "RACB：R 救援、A 报警、C 限制、B 灭火或疏散。① 发现火灾立即通知在场所有工作人员，护士长及科主任指挥，二者不在时主班护士指挥；② 火势不大用灭火器灭火，情况紧急立即用就近电话或消防按钮报 119（讲清单位、楼层、起火部位、火势大小、燃烧物质）；③ 关闭邻近房间门窗防止蔓延，断开燃火部位的电闸和氧源；④ 上报医务处、护理部、保卫科；⑤ 疏散经消防安全通道走楼梯、不可乘电梯，遵循高层先撤、病重患者及老人先撤、医务人员最后撤；⑥ 用湿毛巾、口罩或湿纱布罩住口鼻；⑦ 清点人数，缺人立即通知主管领导或消防人员。",
@@ -2076,6 +2285,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j19",
         m: "m5",
+        card: "c33",
         type: "short",
         stem: "简述停氧和停电的处理流程。",
         ans: "停氧：发现故障，备用氧气袋接吸氧管或启用备用氧气筒，严密观察病情变化，向患者及家属解释安慰，通知维修。停电：突然停电时采取替代措施保证抢救工作正常运转，开启应急照明设备，加强巡视病房，安抚患者并做好解释，防火防盗，与电工班联系查询停电原因。",
@@ -2084,6 +2294,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j20",
         m: "m6",
+        card: "c38",
         type: "short",
         stem: "简述心电监护五色导联的安放位置。",
         ans: "白色（右臂）电极安放在锁骨下、靠近右肩；黑色（左臂）电极安放在锁骨下、靠近左肩；绿色（右腿）电极安放在右下腹；红色（左腿）电极安放在左下腹；棕色（胸部）电极安放在胸导联位置。",
@@ -2092,6 +2303,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j21",
         m: "m6",
+        card: "c39",
         type: "short",
         stem: "简述除颤电极的位置及能量选择。",
         ans: "左右位（前侧位）：一块放置在胸部右侧锁骨中线第 2 肋间，另一块放置在左乳头外侧腋前线第 5 肋间。前后位：胸骨除颤电极板放在左肩胛下区，心尖除颤电极板置于左乳头下（左腋前线第 5–6 肋间）。能量：双相波 120–200 J（按厂家推荐），单相波 360 J。",
@@ -2100,6 +2312,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j22",
         m: "m6",
+        card: "c37",
         type: "short",
         stem: "简述护理不良事件的上报要求。",
         ans: "① 发生后立即评估患者病情，通知医生，积极采取有效救治措施，防止损害发生；② 发现者立即向科护士长或科主任汇报，护士长在 24 小时内口头或电话报告护理部，并填写《护理不良事件报告表》，重大事故立即报告护理部，护理部汇报院领导；③ 各种有关记录、检验报告及造成事件的药品、器械等均应妥善保管，不得擅自涂改、销毁，以备鉴定；④ 科室按严重程度组织全科讨论，分析原因，提出整改措施。",
@@ -2115,6 +2328,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j23",
         m: "m6",
+        card: "c40",
         type: "short",
         stem: "简述三凹征的定义及临床意义。",
         ans: "定义：指吸气时胸骨上窝、锁骨上窝、肋间隙出现明显凹陷。机制：由上部气道部分梗阻所致的吸气性呼吸困难。临床意义：常见于喉、气管、大支气管的狭窄或梗阻（异物、喉头水肿、肿瘤、痉挛），提示上气道梗阻，需及时解除梗阻。",
@@ -2130,6 +2344,7 @@ export const BANK: QuizItem[] = [
     {
         id: "j24",
         m: "m7",
+        card: "c42",
         type: "short",
         stem: "简述分级护理的四个级别及巡视要求。",
         ans: "① 特级护理：病情危重随时需抢救、重症监护、复杂大手术后等，专人 24 小时护理，严密观察；② 一级护理：病情趋向稳定的重症、手术后或治疗期间需严格卧床、生活完全不能自理，每小时巡视；③ 二级护理：病情稳定仍需卧床、生活部分自理，每 2 小时巡视；④ 三级护理：病情稳定、生活完全自理，每 3 小时巡视。",

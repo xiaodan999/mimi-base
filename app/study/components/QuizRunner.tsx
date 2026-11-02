@@ -44,6 +44,7 @@ export default function QuizRunner({
     );
     const [finished, setFinished] = useState(false);
     const startedAt = useRef(Date.now());
+    const scrollRef = useRef<HTMLDivElement>(null);
     const [revealed, setRevealed] = useState<string[]>([]);
     const [analysis, setAnalysis] = useState<{
         item: QuizItem;
@@ -156,7 +157,7 @@ export default function QuizRunner({
         }
         setIndex(index + 1);
         setRevealed([]);
-        window.scrollTo(0, 0);
+        scrollRef.current?.scrollTo({ top: 0 });
     };
 
     const rightCount = useMemo(() => result.filter(Boolean).length, [result]);
@@ -230,7 +231,7 @@ export default function QuizRunner({
         const wrongItems = items.filter((_, i) => !result[i]);
         return (
             <div className="study-root fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
-                <div className="flex-1 overflow-auto px-4 py-6">
+                <div className="flex-1 overflow-auto overscroll-contain px-4 py-6">
                     <div
                         className="st-card st-center"
                         style={{ padding: "24px 16px" }}
@@ -398,7 +399,10 @@ export default function QuizRunner({
                 </button>
             </div>
 
-            <div className="flex-1 overflow-auto px-4 pb-8">
+            <div
+                ref={scrollRef}
+                className="flex-1 overflow-auto overscroll-contain px-4 pb-8"
+            >
                 <div className="st-row" style={{ gap: 6, marginBottom: 8 }}>
                     <span className="st-chip b">{TYPE_NAME[item.type]}</span>
                     <span className="st-chip">

@@ -53,6 +53,8 @@ type BaseItem = {
     id: string;
     /** 所属模块 id */
     m: string;
+    /** 所属知识卡 id；用于「做这张卡的题」按卡片抽题 */
+    card?: string;
     stem: string;
     exp?: string;
 };
