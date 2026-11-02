@@ -8,12 +8,22 @@ export type CommentData = {
     text: string;
     author: User;
     createdAt: string;
+    // "" for a top-level comment.
+    parentId: string;
+};
+
+export type CommentThread = {
+    root: CommentData;
+    // Every descendant, flattened in chronological order. The `回复 @name`
+    // prefix in the UI keeps the actual parent visible without deep indents.
+    replies: CommentData[];
 };
 
 type CommentRecord = {
     id: string;
     text: string;
     created: string;
+    parent_id?: string;
     expand?: {
         author_id?: User;
     };
@@ -44,9 +54,48 @@ export function useComments(postId: string, enabled = true) {
                 text: record.text,
                 author: record.expand?.author_id ?? EMPTY_AUTHOR,
                 createdAt: record.created,
+                parentId: record.parent_id ?? "",
             }));
         },
     });
+}
+
+/**
+ * Groups a flat comment list into threads. Replies of any depth belong to the
+ * nearest top-level ancestor; orphans (e.g. a deleted parent) become roots so
+ * no comment disappears from the sheet.
+ */
+export function buildCommentThreads(comments: CommentData[]): CommentThread[] {
+    const ids = new Set(comments.map((comment) => comment.id));
+    const children = new Map<string, CommentData[]>();
+    const roots: CommentData[] = [];
+
+    for (const comment of comments) {
+        if (!comment.parentId || !ids.has(comment.parentId)) {
+            roots.push(comment);
+            continue;
+        }
+        const siblings = children.get(comment.parentId) ?? [];
+        siblings.push(comment);
+        children.set(comment.parentId, siblings);
+    }
+
+    const collectReplies = (rootId: string) => {
+        const replies: CommentData[] = [];
+        const walk = (parentId: string) => {
+            for (const child of children.get(parentId) ?? []) {
+                replies.push(child);
+                walk(child.id);
+            }
+        };
+        walk(rootId);
+        return replies.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    };
+
+    return roots.map((root) => ({
+        root,
+        replies: collectReplies(root.id),
+    }));
 }
 
 export function useNewCommentMutation(postId: string) {
@@ -55,12 +104,19 @@ export function useNewCommentMutation(postId: string) {
 
     return useMutation({
         mutationKey: ["new_comment", postId],
-        mutationFn: async ({ text }: { text: string }) => {
+        mutationFn: async ({
+            text,
+            parentId,
+        }: {
+            text: string;
+            parentId?: string;
+        }) => {
             // comment_count on the post is bumped by post_counters.pb.js.
             await pb.collection("comments").create({
                 text,
                 post_id: postId,
                 author_id: user.id,
+                parent_id: parentId ?? "",
             });
         },
         onSuccess: () => {
@@ -78,6 +134,7 @@ export function useDeleteCommentMutation(postId: string) {
     return useMutation({
         mutationKey: ["delete_comment", postId],
         mutationFn: async ({ id }: { id: string }) => {
+            // Replies cascade; the counter hook runs for each removed record.
             await pb.collection("comments").delete(id);
         },
         onSuccess: () => {

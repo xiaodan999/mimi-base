@@ -68,7 +68,11 @@ There is no test suite. Verify changes with `bun run build` and the dev server.
   create.
 - `posts.like_count` / `comment_count` are denormalized and maintained by
   `pocketbase/pb_hooks/post_counters.pb.js` on like/comment create/delete. Do
-  not bump them again on the client.
+  not bump them again on the client. The delete hook runs for cascaded replies
+  too, so deleting a comment keeps the count accurate.
+- `comments.parent_id` supports unlimited reply depth. `buildCommentThreads`
+  groups every descendant under its top-level comment and the UI shows
+  `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).
 - `posts.images` holds up to 9 filenames; upload them as `FormData` fields in
   the same request that creates the post. `posts.layout` is `moments`
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
