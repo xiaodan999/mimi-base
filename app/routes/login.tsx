@@ -80,11 +80,11 @@ export function Login() {
     }
 
     return (
-        <div className="flex h-dvh w-dvw items-center justify-center">
+        <div className="flex h-full w-full overflow-y-auto">
             <Form {...form}>
                 <form
                     onSubmit={form.handleSubmit(onSubmit)}
-                    className="min-w-96 space-y-8"
+                    className="m-auto w-full max-w-sm space-y-8 p-4"
                 >
                     <Card className="w-full max-w-sm">
                         <CardHeader>

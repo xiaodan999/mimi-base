@@ -225,7 +225,7 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange }) => {
         };
 
     return (
-        <div className="flex items-center rounded-lg border px-1 text-sm">
+        <div className="flex items-center rounded-lg border px-1 text-base md:text-sm">
             <input
                 type="text"
                 ref={yearRef}

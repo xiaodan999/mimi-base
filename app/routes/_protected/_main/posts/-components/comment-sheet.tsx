@@ -54,11 +54,11 @@ export default function CommentSheet({
     );
 
     useEffect(() => {
-        if (!open) {
-            setText("");
-            setReplyingTo(null);
-        }
-    }, [open]);
+        // Clear only when switching posts; closing the sheet (or dismissing the
+        // keyboard) keeps the draft so it isn't lost by accident.
+        setText("");
+        setReplyingTo(null);
+    }, [postId]);
 
     useEffect(() => {
         if (open && replyingTo) inputRef.current?.focus();
@@ -106,7 +106,7 @@ export default function CommentSheet({
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="h-[80dvh]">
+            <DrawerContent className="kb-max-h h-[80dvh]">
                 <DrawerHeader className="border-b pb-3 text-center">
                     <DrawerTitle className="text-base">
                         评论

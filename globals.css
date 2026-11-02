@@ -44,6 +44,18 @@
 }
 
 @layer base {
+    html,
+    body {
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+    }
+
+    /* Set from useVisualViewport so the shell follows the keyboard. */
+    #app {
+        height: var(--app-vvh, 100dvh);
+    }
+
     * {
         @apply border-border;
     }
@@ -54,6 +66,43 @@
             "rlig" 1,
             "calt" 1;
     }
+}
+
+/*
+ * Keyboard-aware fixed layout helpers. `--app-*` are published by
+ * useVisualViewport (visualViewport API), which is the only reliable way to
+ * know how much of the screen the software keyboard is covering.
+ */
+
+/* Full-screen overlays (drawer pages, quiz runner) sized to the visible area. */
+.kb-screen {
+    top: var(--app-vv-top, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: var(--app-vvh, 100dvh);
+}
+
+/* Bottom-anchored surfaces (vaul drawers, AI sheets) lifted above the keyboard. */
+.kb-bottom {
+    bottom: var(--app-kb-inset, 0px);
+}
+
+/* Cap a sheet's height to the space above the keyboard. */
+.kb-max-h {
+    max-height: calc(var(--app-vvh, 100dvh) - 8px);
+}
+
+/* Tall panels: never taller than 88% of the screen or the visible area. */
+.kb-sheet-max {
+    max-height: min(88dvh, calc(var(--app-vvh, 100dvh) - 8px));
+}
+
+/* Dialogs centered in the visible area, so the keyboard can't cover them. */
+.kb-dialog {
+    top: calc(var(--app-vv-top, 0px) + var(--app-vvh, 100dvh) / 2);
+    max-height: calc(var(--app-vvh, 100dvh) - 2rem);
+    overflow-y: auto;
 }
 
 /* 

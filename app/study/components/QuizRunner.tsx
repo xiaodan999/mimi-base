@@ -230,7 +230,7 @@ export default function QuizRunner({
         const seconds = Math.round((Date.now() - startedAt.current) / 1000);
         const wrongItems = items.filter((_, i) => !result[i]);
         return (
-            <div className="study-root fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
+            <div className="study-root kb-screen fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
                 <div className="flex-1 overflow-auto overscroll-contain px-4 py-6">
                     <div
                         className="st-card st-center"
@@ -382,7 +382,7 @@ export default function QuizRunner({
     const picked = answers[index];
 
     return (
-        <div className="study-root fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
+        <div className="study-root kb-screen fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
             <div className="flex items-center gap-3 px-4 pb-2 pt-3">
                 <div className="qprog">
                     <i style={{ width: `${progressPercent}%` }} />

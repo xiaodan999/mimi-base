@@ -54,7 +54,7 @@ export default function AddJiZhangForm() {
         return (
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>{TriggerButton}</DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="kb-dialog sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>开始记账</DialogTitle>
                         <DialogDescription>请如实交代吧</DialogDescription>
@@ -68,7 +68,7 @@ export default function AddJiZhangForm() {
     return (
         <Drawer open={open} onOpenChange={setOpen}>
             <DrawerTrigger asChild>{TriggerButton}</DrawerTrigger>
-            <DrawerContent>
+            <DrawerContent className="kb-max-h overflow-y-auto">
                 <DrawerHeader className="text-left">
                     <DrawerTitle>开始记账</DrawerTitle>
                     <DrawerDescription>请如实交代吧</DrawerDescription>

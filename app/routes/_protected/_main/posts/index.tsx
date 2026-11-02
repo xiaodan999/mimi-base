@@ -5,7 +5,6 @@ import { useInView } from "react-intersection-observer";
 
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 import CommentSheet from "./-components/comment-sheet";
@@ -105,27 +104,20 @@ function Posts() {
                 </div>
             </section>
 
-            <Drawer
+            <div className="fixed bottom-[70px] right-4">
+                <Button
+                    className="size-14 rounded-full p-0"
+                    onClick={() => setShowNewPostDrawer(true)}
+                    aria-label="发布动态"
+                >
+                    <Pencil className="size-[50%]" />
+                </Button>
+            </div>
+
+            <NewPost
                 open={showNewPostDrawer}
                 onOpenChange={setShowNewPostDrawer}
-            >
-                <div className="fixed bottom-[70px] right-4">
-                    <Button
-                        className="size-14 rounded-full p-0"
-                        onClick={() => setShowNewPostDrawer(true)}
-                        aria-label="发布动态"
-                    >
-                        <Pencil className="size-[50%]" />
-                    </Button>
-                </div>
-
-                <DrawerContent>
-                    <NewPost
-                        onClose={() => setShowNewPostDrawer(false)}
-                        onSuccess={() => setShowNewPostDrawer(false)}
-                    />
-                </DrawerContent>
-            </Drawer>
+            />
 
             <CommentSheet
                 postId={commentPostId}

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 
 import { Toaster } from "@/components/ui/sonner";
+import { useVisualViewport } from "@/hooks/use-visual-viewport";
 import type { AuthContextType } from "@/lib/auth";
 
 import "globals.css";
@@ -22,11 +23,10 @@ const TanStackRouterDevtools =
                   // default: res.TanStackRouterDevtoolsPanel
               })),
           );
-export const Route = createRootRouteWithContext<{
-    auth: AuthContextType;
-    queryClient: QueryClient;
-}>()({
-    component: () => (
+function RootComponent() {
+    useVisualViewport();
+
+    return (
         <>
             <Outlet />
             <ScrollRestoration getKey={(location) => location.pathname} />
@@ -34,5 +34,12 @@ export const Route = createRootRouteWithContext<{
 
             <TanStackRouterDevtools position="bottom-right" />
         </>
-    ),
+    );
+}
+
+export const Route = createRootRouteWithContext<{
+    auth: AuthContextType;
+    queryClient: QueryClient;
+}>()({
+    component: RootComponent,
 });
