@@ -7,7 +7,7 @@ import {
     useState,
 } from "react";
 
-import pb from "./pb";
+import pb, { clearFileToken, ensureFileToken } from "./pb";
 
 export type Circle = {
     id: string;
@@ -54,6 +54,7 @@ const login = async (credentials: { email: string; password: string }) => {
 
 const logout = async () => {
     pb.authStore.clear();
+    clearFileToken();
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -88,13 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadUser = useCallback(async () => {
         const record = pb.authStore.record as User | null;
         if (!pb.authStore.isValid || !record?.id) {
+            clearFileToken();
             setUser(null);
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const data = await fetchUser(record.id);
+            // Protected files need a token before any avatar/image renders.
+            const [data] = await Promise.all([
+                fetchUser(record.id),
+                ensureFileToken(true),
+            ]);
             setUser(data);
         } finally {
             setLoading(false);
@@ -112,6 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loadUser();
         });
     }, [loadUser]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        // File tokens expire after 3 minutes; refresh ahead of time so newly
+        // rendered avatars and images always get a valid URL.
+        const timer = window.setInterval(() => {
+            void ensureFileToken(true);
+        }, 120_000);
+        return () => window.clearInterval(timer);
+    }, [isAuthenticated]);
 
     return (
         <AuthContext.Provider

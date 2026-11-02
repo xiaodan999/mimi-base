@@ -18,11 +18,18 @@ function Page() {
         let mounted = true;
         (async () => {
             if (!mounted) return;
-            await toastPromise(newPostMutation.mutateAsync({ text: "💩" }), {
-                loading: "记录💩中...",
-                success: "成功记录了一个💩",
-                error: "记录失败",
-            });
+            await toastPromise(
+                newPostMutation.mutateAsync({
+                    text: "💩",
+                    layout: "moments",
+                    images: [],
+                }),
+                {
+                    loading: "记录💩中...",
+                    success: "成功记录了一个💩",
+                    error: "记录失败",
+                },
+            );
             setDone(true);
         })();
 

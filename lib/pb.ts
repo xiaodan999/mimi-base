@@ -8,6 +8,77 @@ const pb = new PocketBase(ENV.POCKETBASE_URL);
 // disable the SDK's auto cancellation so they don't abort each other.
 pb.autoCancellation(false);
 
+// Protected file URLs need a short-lived token because <img> can't send the
+// Authorization header. AuthProvider keeps this fresh while signed in.
+let fileToken = "";
+let fileTokenExpiresAt = 0;
+let pendingFileToken: Promise<string> | null = null;
+
+function jwtExpiry(token: string): number {
+    try {
+        const payload = token.split(".")[1] ?? "";
+        const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const json = JSON.parse(
+            atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")),
+        );
+        return typeof json.exp === "number" ? json.exp * 1000 : 0;
+    } catch {
+        return 0;
+    }
+}
+
+/**
+ * Returns a valid file token, fetching a new one when the cached token is
+ * missing or about to expire (PocketBase issues 3-minute tokens).
+ */
+export async function ensureFileToken(force = false): Promise<string> {
+    if (!pb.authStore.isValid) {
+        clearFileToken();
+        return "";
+    }
+    if (!force && fileToken && Date.now() < fileTokenExpiresAt - 60_000) {
+        return fileToken;
+    }
+    if (!pendingFileToken) {
+        pendingFileToken = pb.files
+            .getToken()
+            .then((token) => {
+                // The request may resolve after a logout; don't keep it then.
+                if (!pb.authStore.isValid) return "";
+                fileToken = token;
+                fileTokenExpiresAt = jwtExpiry(token);
+                return token;
+            })
+            .catch(() => fileToken)
+            .finally(() => {
+                pendingFileToken = null;
+            });
+    }
+    return pendingFileToken;
+}
+
+export function clearFileToken() {
+    fileToken = "";
+    fileTokenExpiresAt = 0;
+}
+
+export function getFileToken() {
+    return fileToken;
+}
+
+export function getFileUrl(
+    record: FileRecord,
+    filename: string,
+    thumb?: string,
+) {
+    if (!filename) return "";
+    const token = getFileToken();
+    return pb.files.getURL(record, filename, {
+        ...(thumb ? { thumb } : {}),
+        ...(token ? { token } : {}),
+    });
+}
+
 /**
  * PocketBase filter literals expect dates as "YYYY-MM-DD HH:mm:ss.SSSZ".
  */
@@ -17,7 +88,9 @@ export function pbDate(date: Date): string {
 
 type FileRecord = {
     id: string;
-    [key: string]: any;
+    collectionId?: string;
+    collectionName?: string;
+    [key: string]: unknown;
 };
 
 type WithExpandedCircle = {
@@ -34,7 +107,7 @@ export function getUserAvatarUrl(
     user: { tou_xiang?: string } | null | undefined,
 ): string {
     if (!user?.tou_xiang) return "";
-    return pb.files.getURL(user as FileRecord, user.tou_xiang);
+    return getFileUrl(user as FileRecord, user.tou_xiang);
 }
 
 /**
@@ -49,7 +122,7 @@ export function getUserCircleUrl(
         { image?: string } | string | undefined;
     if (!circle || typeof circle === "string") return "";
     if (!circle.image) return "";
-    return pb.files.getURL(circle as FileRecord, circle.image);
+    return getFileUrl(circle as FileRecord, circle.image);
 }
 
 export default pb;

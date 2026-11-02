@@ -1,12 +1,14 @@
-import {
-    useInfiniteQuery,
-    useMutation,
-    useQueryClient,
-} from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 
 import { queryClient } from "@/app/main";
 import { useAuth, type User } from "@/lib/auth";
 import pb from "@/lib/pb";
+
+export type PostLayout = "moments" | "instagram";
+
+export type PostImage = {
+    name: string;
+};
 
 export type PostData = {
     id: string;
@@ -14,6 +16,10 @@ export type PostData = {
     author: User;
     createdAt: string;
     liked: boolean;
+    layout: PostLayout;
+    // Needed to build protected file URLs at render time.
+    collectionId: string;
+    images: PostImage[];
     metrics: {
         likeCount: number;
         replyCount: number;
@@ -26,6 +32,11 @@ type PostRecord = {
     created: string;
     like_count: number;
     comment_count: number;
+    images?: string[];
+    layout?: string;
+    // Files are served relative to the record's collection/record id.
+    collectionId: string;
+    collectionName: string;
     expand?: {
         author_id?: User;
     };
@@ -35,11 +46,6 @@ type PostsPage = {
     posts: PostData[];
     nextPage: number | null;
 };
-
-// export type CommentData = {
-//     id: string;
-//     text: string;
-// };
 
 const POST_EXPAND = "author_id,author_id.circle";
 
@@ -57,6 +63,9 @@ function toPostData(post: PostRecord, likedPostIds: Set<string>): PostData {
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
         createdAt: post.created,
         liked: likedPostIds.has(post.id),
+        layout: post.layout === "instagram" ? "instagram" : "moments",
+        collectionId: post.collectionId,
+        images: (post.images ?? []).map((name) => ({ name })),
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,
@@ -191,12 +200,24 @@ export function useNewPostMutation() {
     const { user } = useAuth();
     return useMutation({
         mutationKey: ["new_post"],
-        mutationFn: async ({ text }: { text: string }) => {
-            // PocketBase has no column default for author_id, send it.
-            await pb.collection("posts").create({
-                text,
-                author_id: user.id,
-            });
+        mutationFn: async ({
+            text,
+            layout,
+            images,
+        }: {
+            text: string;
+            layout: PostLayout;
+            images: File[];
+        }) => {
+            // PocketBase has no column default for author_id, send it. Files
+            // upload in the same request as the record.
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("layout", layout);
+            formData.append("author_id", user.id);
+            images.forEach((image) => formData.append("images", image));
+
+            await pb.collection("posts").create(formData);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["posts"] });
