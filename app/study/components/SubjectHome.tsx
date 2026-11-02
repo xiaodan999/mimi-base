@@ -51,7 +51,7 @@ export default function SubjectHome() {
                 </div>
                 <div className="hero-meta">
                     <span>
-                        已掌握 {cards.known}/{cards.total} 张卡
+                        掌握 {cards.known}/{cards.total} · 互动 {cards.played}
                     </span>
                     <span>已练 {questions.done} 题</span>
                     <span>连续 {streak} 天</span>

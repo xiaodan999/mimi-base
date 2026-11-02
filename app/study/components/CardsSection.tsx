@@ -7,7 +7,7 @@ import { CARD_CHIPS, explainCardMessages } from "../ai/prompts";
 import { shuffle } from "../engine";
 import { toast } from "../toast";
 import type { Card, QuizItem } from "../types";
-import Demo from "./Demo";
+import CardDemo from "./CardDemo";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
 
@@ -22,6 +22,7 @@ function CardItem({
     moduleColor,
     moduleIcon,
     known,
+    played,
     canDrill,
     onToggle,
     onDrill,
@@ -31,6 +32,7 @@ function CardItem({
     moduleColor: string;
     moduleIcon: string;
     known: boolean;
+    played: boolean;
     canDrill: boolean;
     onToggle: () => void;
     onDrill: () => void;
@@ -54,12 +56,13 @@ function CardItem({
                             {card.tag}
                         </span>
                         {known && <span className="st-chip g">✓ 已掌握</span>}
+                        {played && <span className="st-chip b">🎮 已互动</span>}
                     </div>
                 </div>
             </div>
 
             <div className="kcard-b">
-                {card.demo && <Demo id={card.demo} arg={card.demoArg} />}
+                <CardDemo card={card} />
 
                 {card.points && (
                     <ul>
@@ -267,6 +270,7 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
     }
 
     const known = cards.filter((c) => progress.cards[c.id]?.k).length;
+    const played = cards.filter((c) => progress.widgets?.[c.id]?.done).length;
 
     return (
         <div>
@@ -280,6 +284,9 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                 </Link>
                 <div style={{ flex: 1 }} />
                 <span className="st-chip b">
+                    🎮 {played}/{cards.length} 已互动
+                </span>
+                <span className="st-chip g">
                     {known}/{cards.length} 已掌握
                 </span>
             </div>
@@ -291,6 +298,7 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                     moduleColor={module.c}
                     moduleIcon={module.icon}
                     known={Boolean(progress.cards[card.id]?.k)}
+                    played={Boolean(progress.widgets?.[card.id]?.done)}
                     canDrill={subject.bank.some(
                         (item) => item.card === card.id,
                     )}

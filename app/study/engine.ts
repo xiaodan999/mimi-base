@@ -276,11 +276,16 @@ export function cardStats(subject: StudySubject, progress: Progress) {
     const total = subject.cards.length;
     const known = subject.cards.filter((c) => progress.cards[c.id]?.k).length;
     const seen = subject.cards.filter((c) => progress.cards[c.id]?.seen).length;
+    const played = subject.cards.filter(
+        (c) => progress.widgets?.[c.id]?.done,
+    ).length;
     return {
         total,
         known,
         seen,
+        played,
         percent: total ? Math.round((known / total) * 100) : 0,
+        playedPercent: total ? Math.round((played / total) * 100) : 0,
     };
 }
 

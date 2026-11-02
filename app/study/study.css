@@ -405,7 +405,8 @@
 
 .hero-meta {
     display: flex;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 8px 14px;
     margin-top: 8px;
     font-size: 11.5px;
     opacity: 0.92;
@@ -710,6 +711,1875 @@
     width: 100%;
     height: auto;
     display: block;
+}
+
+/* ---------------- 知识卡互动 ---------------- */
+
+.iw-wrap {
+    padding: 10px 12px 11px;
+}
+
+.iw {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    color: var(--ink);
+}
+
+.iw-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 18px;
+}
+
+.iw-badge {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.iw-hint {
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--ink3);
+}
+
+.iw-chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.iw-chips::-webkit-scrollbar {
+    display: none;
+}
+
+.iw-chips.wrap {
+    flex-wrap: wrap;
+    overflow: visible;
+}
+
+.iw-chip {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    min-height: 36px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--hair);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: left;
+    transition: 0.16s;
+}
+
+.iw-chip small {
+    color: var(--ink3);
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.iw-chip.on {
+    color: var(--brand-ink);
+    background: var(--brand);
+    border-color: var(--brand);
+}
+
+.iw-chip.on small {
+    color: color-mix(in srgb, var(--brand-ink) 78%, transparent);
+}
+
+.iw-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.iw-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-height: 38px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    border: 1px solid var(--hair);
+    background: var(--card);
+    color: var(--ink);
+    text-align: left;
+    transition: 0.16s;
+}
+
+.iw-check.on {
+    border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+
+.iw-check.t-bad.on {
+    border-color: color-mix(in srgb, var(--no) 45%, transparent);
+    background: color-mix(in srgb, var(--no) 8%, transparent);
+}
+
+.iw-check-box {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    margin-top: 1px;
+    border-radius: 6px;
+    border: 1.5px solid color-mix(in srgb, var(--ink3) 40%, transparent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.iw-check.on .iw-check-box {
+    border-color: var(--brand);
+    background: var(--brand);
+}
+
+.iw-check.t-bad.on .iw-check-box {
+    border-color: var(--no);
+    background: var(--no);
+}
+
+.iw-check-txt {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.iw-check-txt small {
+    display: block;
+    margin-top: 1px;
+    color: var(--ink3);
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+
+.iw-checks.compact .iw-check {
+    min-height: 32px;
+    padding: 5px 8px;
+}
+
+.iw-bar {
+    flex: 1;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--bg2);
+}
+
+.iw-bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--brand);
+    transition: width 0.25s ease;
+}
+
+.iw-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.iw-step button {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 9px;
+    text-align: left;
+    transition: 0.16s;
+}
+
+.iw-step.on button {
+    background: color-mix(in srgb, var(--brand) 9%, transparent);
+}
+
+.iw-step.done button {
+    opacity: 0.62;
+}
+
+.iw-step-dot {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: var(--bg2);
+    color: var(--ink2);
+    font-size: 10.5px;
+    font-weight: 800;
+}
+
+.iw-step.on .iw-step-dot {
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-step.done .iw-step-dot {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.iw-step-txt {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.iw-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 7px;
+    margin-top: 2px;
+}
+
+.iw-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 12px;
+    font-weight: 800;
+    transition: 0.16s;
+}
+
+.iw-btn:disabled {
+    opacity: 0.45;
+}
+
+.iw-btn.ghost {
+    border-color: var(--hair);
+    background: var(--card);
+    color: var(--ink2);
+}
+
+.iw-btn.sm {
+    min-height: 29px;
+    padding: 0 10px;
+    font-size: 11px;
+}
+
+.iw-btn.wide {
+    width: 100%;
+    margin-top: 2px;
+}
+
+.iw-score {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 11px;
+    border-radius: 11px;
+    background: var(--card2);
+    border: 1px solid var(--hair);
+}
+
+.iw-score > div {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    line-height: 1;
+}
+
+.iw-score b {
+    font-size: 25px;
+    line-height: 1;
+    color: var(--ink);
+}
+
+.iw-score small {
+    color: var(--ink3);
+    font-size: 10.5px;
+}
+
+.iw-score > span {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ink2);
+    text-align: right;
+}
+
+.iw-score.ok {
+    background: var(--ok-bg);
+    border-color: transparent;
+}
+
+.iw-score.ok b,
+.iw-score.ok > span {
+    color: var(--ok);
+}
+
+.iw-score.warn {
+    background: var(--warn-bg);
+    border-color: transparent;
+}
+
+.iw-score.warn b,
+.iw-score.warn > span {
+    color: var(--warn);
+}
+
+.iw-score.bad {
+    background: var(--no-bg);
+    border-color: transparent;
+}
+
+.iw-score.bad b,
+.iw-score.bad > span {
+    color: var(--no);
+}
+
+.iw-seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--bg2);
+}
+
+.iw-seg button {
+    min-width: 28px;
+    min-height: 26px;
+    padding: 0 6px;
+    border-radius: 6px;
+    color: var(--ink2);
+    font-size: 11px;
+    font-weight: 800;
+    transition: 0.15s;
+}
+
+.iw-seg button.on {
+    background: var(--card);
+    color: var(--brand);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+}
+
+.iw-note {
+    padding: 7px 9px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--brand) 7%, transparent);
+    color: var(--ink2);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.iw-note b {
+    color: var(--ink);
+}
+
+.iw-note.ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.iw-note.warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+}
+
+.iw-note.bad {
+    background: var(--no-bg);
+    color: var(--no);
+}
+
+.iw-done {
+    color: var(--ok);
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+/* 疼痛 */
+
+.iw-faces {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.iw-face-btn {
+    padding: 1px;
+    border-radius: 50%;
+}
+
+.iw-face {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.iw-face circle {
+    fill: var(--card);
+    stroke: var(--line);
+    stroke-width: 1.2;
+}
+
+.iw-face .eye {
+    fill: #334155;
+    stroke: none;
+}
+
+.iw-face .mouth {
+    fill: none;
+    stroke: #334155;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+}
+
+.iw-face.on circle {
+    fill: color-mix(in srgb, var(--brand) 14%, var(--card));
+    stroke: var(--brand);
+    stroke-width: 2;
+}
+
+.iw-face.on .eye {
+    fill: var(--brand);
+}
+
+.iw-face.on .mouth {
+    stroke: var(--brand);
+}
+
+.iw-pain-read {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.iw-pain-read b {
+    font-size: 29px;
+    line-height: 1;
+}
+
+.iw-pain-read > span {
+    color: var(--ink3);
+    font-size: 11px;
+}
+
+.iw-pain-tag {
+    margin-left: auto;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: right;
+}
+
+.iw-pain-tag.ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.iw-pain-tag.warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+}
+
+.iw-pain-tag.bad {
+    background: var(--no-bg);
+    color: var(--no);
+}
+
+.iw-range {
+    width: 100%;
+    height: 30px;
+    margin: 0;
+    accent-color: var(--brand);
+    cursor: pointer;
+    touch-action: pan-y;
+}
+
+.iw-range.pain {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+}
+
+.iw-range.pain::-webkit-slider-runnable-track {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+}
+
+.iw-range.pain::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    margin-top: -7px;
+    border: 3px solid var(--ink);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.25);
+}
+
+.iw-range.pain::-moz-range-track {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+}
+
+.iw-range.pain::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--ink);
+    border-radius: 50%;
+    background: #fff;
+}
+
+.iw-scale {
+    display: grid;
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+    gap: 1px;
+    margin-top: -2px;
+}
+
+.iw-scale button {
+    min-height: 26px;
+    border-radius: 6px;
+    color: var(--ink3);
+    font-size: 9.5px;
+    font-weight: 700;
+}
+
+.iw-scale button.on {
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-scale-ends {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    color: var(--ink3);
+    font-size: 9.5px;
+}
+
+/* 危急值仪表 */
+
+.iw-gauge {
+    width: 100%;
+    height: auto;
+    max-height: 132px;
+}
+
+.iw-gauge-tick {
+    fill: var(--ink3);
+    font-size: 8px;
+}
+
+.iw-gauge-tick.mid,
+.iw-gauge-tick.end {
+    text-anchor: middle;
+}
+
+.iw-gauge-tick.end {
+    text-anchor: end;
+}
+
+.iw-big-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 5px;
+    margin-top: -6px;
+}
+
+.iw-big-value b {
+    font-size: 25px;
+    line-height: 1;
+}
+
+.iw-big-value span {
+    color: var(--ink3);
+    font-size: 10px;
+}
+
+.iw-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 9.5px;
+}
+
+.iw-legend span {
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-weight: 700;
+}
+
+.iw-legend .ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.iw-legend .warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+}
+
+.iw-legend .bad {
+    background: var(--no-bg);
+    color: var(--no);
+}
+
+/* 跌倒评分 */
+
+.iw-scoreline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.iw-scoreline .iw-score {
+    flex: 1;
+}
+
+.iw-factors {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.iw-factor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 38px;
+    padding: 6px 9px;
+    border-radius: 9px;
+    border: 1px solid var(--hair);
+    background: var(--card);
+    color: var(--ink);
+    text-align: left;
+}
+
+.iw-factor.on {
+    border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+
+.iw-factor-txt {
+    flex: 1;
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+
+.iw-factor em {
+    flex: 0 0 auto;
+    color: var(--ink3);
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.iw-factor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 2px;
+    border-bottom: 1px dashed var(--hair);
+}
+
+.iw-factor-row:last-child {
+    border-bottom: none;
+}
+
+/* Braden / ADL */
+
+.iw-braden {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.iw-radar {
+    width: 100%;
+    height: auto;
+}
+
+.iw-radar-label {
+    fill: var(--ink2);
+    font-size: 8.5px;
+}
+
+.iw-dims {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.iw-dim {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 1px;
+}
+
+.iw-dim > span {
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.iw-dim > em {
+    min-width: 22px;
+    color: var(--ink3);
+    font-size: 10.5px;
+    font-style: normal;
+    text-align: right;
+}
+
+/* 冰箱 */
+
+.iw-temp {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.iw-temp-num {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.iw-temp-num b {
+    font-size: 31px;
+    line-height: 1;
+}
+
+.iw-temp-num span {
+    color: var(--ink3);
+    font-size: 12px;
+}
+
+.iw-temp-num.ok b {
+    color: var(--ok);
+}
+
+.iw-temp-num.bad b {
+    color: var(--no);
+}
+
+.iw-temp-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.iw-temp-state small {
+    color: var(--ink3);
+    font-size: 9.5px;
+    font-weight: 500;
+}
+
+.iw-temp-state.ok {
+    color: var(--ok);
+}
+
+.iw-temp-state.bad {
+    color: var(--no);
+}
+
+.iw-tempbar {
+    position: relative;
+    height: 9px;
+    margin: 2px 9px 0;
+    border-radius: 999px;
+    background: var(--bg2);
+}
+
+.iw-tempbar .safe {
+    position: absolute;
+    left: 16.67%;
+    width: 50%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ok-bg);
+}
+
+.iw-tempbar i {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border: 3px solid var(--card);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 1px 4px rgba(16, 24, 40, 0.3);
+    transform: translate(-50%, -50%);
+    transition: left 0.12s linear;
+}
+
+/* 约束计时 */
+
+.iw-clock {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.iw-ring {
+    --p: 0;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--brand) calc(var(--p) * 1turn),
+        var(--bg2) 0
+    );
+}
+
+.iw-ring.bad {
+    background: conic-gradient(var(--no) calc(var(--p) * 1turn), var(--bg2) 0);
+}
+
+.iw-ring-in {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--card);
+}
+
+.iw-ring-in b {
+    font-size: 23px;
+    line-height: 1;
+}
+
+.iw-ring-in span {
+    color: var(--ink3);
+    font-size: 9px;
+}
+
+.iw-clock-side {
+    flex: 1;
+    min-width: 0;
+}
+
+.iw-clock-state {
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.iw-clock-state.bad {
+    color: var(--no);
+}
+
+.iw-clock-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.iw-clock-btns .iw-btn {
+    min-height: 32px;
+    padding: 0 11px;
+    font-size: 11px;
+}
+
+.iw-tiny {
+    margin-top: 4px;
+    color: var(--ink3);
+    font-size: 9.5px;
+    line-height: 1.4;
+}
+
+/* 身份识别 */
+
+.iw-band {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    background: var(--card);
+}
+
+.iw-band-photo {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg2);
+    font-size: 19px;
+}
+
+.iw-band-info {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.iw-band-info b {
+    font-size: 12.5px;
+}
+
+.iw-band-info span {
+    color: var(--ink3);
+    font-size: 10px;
+}
+
+.iw-band-chip {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 9.5px;
+    font-weight: 800;
+}
+
+/* 分组小标题 */
+
+.iw-progress-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink3);
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.iw-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.iw-sub-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    color: var(--ink);
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.iw-sub-h em {
+    color: var(--ink3);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+/* 输血全流程 */
+
+.iw-phase-tabs {
+    display: flex;
+    gap: 5px;
+}
+
+.iw-phase-tabs button {
+    flex: 1;
+    min-height: 32px;
+    padding: 4px 5px;
+    border: 1px solid var(--hair);
+    border-radius: 9px;
+    background: var(--card);
+    color: var(--ink2);
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.iw-phase-tabs button.on {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-phase-tabs button.done {
+    color: var(--ok);
+}
+
+.iw-phase-card {
+    padding: 9px 10px;
+    border-radius: 11px;
+    background: var(--card2);
+}
+
+.iw-phase-title {
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.iw-phase-list {
+    margin: 5px 0 0 15px;
+    padding: 0;
+    color: var(--ink2);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* 火灾 RACB */
+
+.iw-fire-progress {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.iw-fire-progress span {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px dashed var(--line);
+    border-radius: 50%;
+    color: var(--ink3);
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.iw-fire-progress span.on {
+    border-style: solid;
+    border-color: var(--no);
+    background: var(--no);
+    color: #fff;
+}
+
+.iw-fire-progress span.next {
+    border-color: var(--no);
+    color: var(--no);
+    animation: iw-pulse 1.4s ease-in-out infinite;
+}
+
+.iw-fire-progress em {
+    margin-left: auto;
+    color: var(--ink3);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.iw-fire-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.iw-fire {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    min-height: 80px;
+    padding: 8px;
+    border: 1px solid var(--hair);
+    border-radius: 11px;
+    background: var(--card);
+    text-align: left;
+    transition: 0.16s;
+}
+
+.iw-fire b {
+    color: var(--no);
+    font-size: 19px;
+    line-height: 1;
+}
+
+.iw-fire span {
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.iw-fire small {
+    color: var(--ink3);
+    font-size: 9px;
+}
+
+.iw-fire em {
+    margin-top: 2px;
+    color: var(--ink2);
+    font-size: 9.5px;
+    font-style: normal;
+    line-height: 1.35;
+}
+
+.iw-fire.next {
+    border-color: var(--no);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--no) 12%, transparent);
+}
+
+.iw-fire.done {
+    opacity: 0.55;
+    background: var(--ok-bg);
+    border-color: transparent;
+}
+
+.iw-fire.wrong {
+    animation: iw-shake 0.38s ease;
+}
+
+/* 七步洗手 */
+
+.iw-hand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px;
+    border-radius: 12px;
+    background: var(--card2);
+}
+
+.iw-hand-key {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 27px;
+    font-weight: 900;
+}
+
+.iw-hand-info {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.iw-hand-info b {
+    font-size: 11.5px;
+}
+
+.iw-hand-info span {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.iw-hand-info small {
+    color: var(--ink3);
+    font-size: 9.5px;
+    line-height: 1.4;
+}
+
+.iw-hand-steps {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.iw-hand-steps button {
+    min-height: 33px;
+    border-radius: 8px;
+    background: var(--bg2);
+    color: var(--ink2);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.iw-hand-steps button.on {
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-hand-steps button.done {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+/* 手卫生五时刻 */
+
+.iw-moments {
+    display: flex;
+    gap: 9px;
+}
+
+.iw-moment-hub {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    border-radius: 12px;
+    background: var(--card2);
+    gap: 1px;
+}
+
+.iw-moment-hub span {
+    font-size: 24px;
+}
+
+.iw-moment-hub b {
+    font-size: 10px;
+}
+
+.iw-moment-hub small {
+    color: var(--ink3);
+    font-size: 8.5px;
+}
+
+.iw-moment-list {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.iw-moment {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 5px 6px;
+    border-radius: 8px;
+    text-align: left;
+    transition: 0.15s;
+}
+
+.iw-moment.on {
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+}
+
+.iw-moment-num {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: var(--bg2);
+    color: var(--ink2);
+    font-size: 9.5px;
+    font-weight: 800;
+}
+
+.iw-moment.on .iw-moment-num {
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-moment b {
+    display: block;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.iw-moment small {
+    display: block;
+    color: var(--ink3);
+    font-size: 9.5px;
+    line-height: 1.35;
+}
+
+/* 五专 / 抢救车 */
+
+.iw-locks {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.iw-lock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 2px;
+    border: 1px solid var(--hair);
+    border-radius: 9px;
+    background: var(--card);
+}
+
+.iw-lock.on {
+    border-color: color-mix(in srgb, var(--m3) 45%, transparent);
+    background: color-mix(in srgb, var(--m3) 9%, transparent);
+}
+
+.iw-lock-icon {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.iw-lock b {
+    font-size: 9.5px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.iw-cart {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.iw-cart-box {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    width: 76px;
+    padding: 8px 4px;
+    border-radius: 11px;
+    background: var(--card2);
+}
+
+.iw-cart-box span {
+    font-size: 25px;
+}
+
+.iw-cart-box b {
+    font-size: 10.5px;
+}
+
+.iw-cart-box small {
+    color: var(--ink3);
+    font-size: 8.5px;
+}
+
+.iw-cart-box.on {
+    background: var(--ok-bg);
+}
+
+.iw-cart-box.on small {
+    color: var(--ok);
+}
+
+.iw-cart-grid {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.iw-cart-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 34px;
+    padding: 4px 6px;
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    background: var(--card);
+    text-align: left;
+}
+
+.iw-cart-item span {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--bg2);
+    color: var(--ink2);
+    font-size: 8.5px;
+    font-weight: 800;
+}
+
+.iw-cart-item b {
+    font-size: 9.5px;
+    line-height: 1.25;
+}
+
+.iw-cart-item.on {
+    border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+    background: color-mix(in srgb, var(--brand) 7%, transparent);
+}
+
+.iw-cart-item.on span {
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+/* 心肺复苏 */
+
+.iw-cpr {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.iw-cpr-heart {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: var(--no-bg);
+    font-size: 27px;
+}
+
+.iw-cpr-heart.on {
+    animation: iw-beat 0.6s ease-in-out infinite;
+}
+
+.iw-cpr-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.iw-cpr-count {
+    margin-top: 5px;
+    color: var(--ink2);
+    font-size: 10.5px;
+}
+
+.iw-cpr-count b {
+    color: var(--ink);
+    font-size: 17px;
+}
+
+.iw-cpr-count span {
+    display: block;
+    color: var(--ink3);
+    font-size: 9.5px;
+}
+
+.iw-cpr-btns {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.iw-cpr-btns .iw-btn {
+    min-height: 31px;
+    padding: 0 10px;
+    font-size: 10.5px;
+}
+
+/* 心电 / 除颤 / 三凹 */
+
+.iw-torso {
+    width: 100%;
+    height: auto;
+}
+
+.iw-torso-head,
+.iw-torso-body {
+    fill: var(--card2);
+    stroke: var(--line);
+}
+
+.iw-torso-mid {
+    fill: none;
+    stroke: var(--line);
+    stroke-dasharray: 2 3;
+}
+
+.iw-lead {
+    cursor: pointer;
+}
+
+.iw-lead-ring {
+    fill: none;
+    stroke: var(--brand);
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: iw-ping 1.5s ease-out infinite;
+}
+
+.iw-lead-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.iw-lead-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 30px;
+    padding: 4px 7px;
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink2);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.iw-lead-chip i {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid transparent;
+    border-radius: 50%;
+}
+
+.iw-lead-chip.on {
+    border-color: var(--brand);
+    background: color-mix(in srgb, var(--brand) 8%, transparent);
+    color: var(--ink);
+}
+
+.iw-pad {
+    fill: var(--m5);
+    opacity: 0.85;
+}
+
+.iw-pad.back {
+    opacity: 0.32;
+    stroke: var(--m5);
+    stroke-dasharray: 4 3;
+}
+
+.iw-pad-label {
+    fill: var(--ink2);
+    font-size: 7.5px;
+    text-anchor: middle;
+}
+
+.iw-defib-title {
+    fill: var(--ink2);
+    font-size: 9px;
+    text-anchor: middle;
+}
+
+.iw-energy {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.iw-energy > span {
+    color: var(--ink3);
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.iw-energy button {
+    min-height: 30px;
+    padding: 4px 9px;
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--ink2);
+    font-size: 10.5px;
+    font-weight: 800;
+}
+
+.iw-energy button.on {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-breath-site {
+    cursor: pointer;
+}
+
+.iw-breath-ring {
+    fill: none;
+    stroke: var(--no);
+    stroke-width: 2;
+    stroke-dasharray: 4 3;
+}
+
+.iw-breath-site.on .iw-breath-ring {
+    fill: color-mix(in srgb, var(--no) 18%, transparent);
+    stroke-width: 3;
+    stroke-dasharray: none;
+}
+
+.iw-breath-label {
+    fill: var(--ink2);
+    font-size: 8.5px;
+}
+
+.iw-breath-foot {
+    fill: var(--ink3);
+    font-size: 8.5px;
+    text-anchor: middle;
+}
+
+/* 压疮分期 */
+
+.iw-skin-svg {
+    overflow: hidden;
+    border-radius: 10px;
+    background: var(--bg2);
+}
+
+.iw-skin-svg svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.iw-skin-info {
+    padding: 8px 9px;
+    border-radius: 9px;
+    background: var(--card2);
+}
+
+.iw-skin-info b {
+    font-size: 11.5px;
+}
+
+.iw-skin-info p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.iw-skin-info small {
+    display: block;
+    margin-top: 4px;
+    color: var(--ink3);
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+/* 无演示卡的回忆自测 */
+
+.iw-recall-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--ink3);
+    font-size: 10.5px;
+}
+
+.iw-recall-list {
+    margin: 0;
+    padding-left: 17px;
+    font-size: 12px;
+    line-height: 1.9;
+}
+
+.iw-recall-list li {
+    margin-bottom: 3px;
+}
+
+.iw-blank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    margin: 0 2px;
+    padding: 1px 7px;
+    border: 1px dashed color-mix(in srgb, var(--brand) 50%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--brand) 9%, transparent);
+    color: var(--brand);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.4;
+    vertical-align: baseline;
+    transition: 0.16s;
+}
+
+.iw-blank.on {
+    border-style: solid;
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--brand-ink);
+}
+
+.iw-blank-mask {
+    letter-spacing: 1px;
+    opacity: 0.85;
+}
+
+.iw-recall-table {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.iw-recall-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    background: var(--card2);
+}
+
+.iw-recall-label {
+    flex: 0 0 72px;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.5;
+}
+
+.iw-recall-cells {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.iw-flip {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid var(--hair);
+    border-radius: 11px;
+    background: var(--card);
+    text-align: left;
+}
+
+.iw-flip.on {
+    background: color-mix(in srgb, var(--brand) 6%, var(--card));
+    border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+}
+
+.iw-flip-front {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.iw-flip-front b {
+    font-size: 12px;
+}
+
+.iw-flip-front small {
+    color: var(--ink3);
+    font-size: 10px;
+}
+
+.iw-flip-back {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.iw-flip-back em {
+    display: block;
+    margin-top: 6px;
+    color: var(--no);
+    font-size: 11px;
+    font-style: normal;
+    line-height: 1.5;
+}
+
+@keyframes iw-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-4px);
+    }
+    75% {
+        transform: translateX(4px);
+    }
+}
+
+@keyframes iw-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@keyframes iw-ping {
+    0% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.7);
+    }
+}
+
+@keyframes iw-beat {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    18% {
+        transform: scale(1.12);
+    }
+    36% {
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 360px) {
+    .iw-braden {
+        grid-template-columns: 1fr;
+    }
+
+    .iw-clock {
+        gap: 9px;
+    }
+
+    .iw-ring {
+        width: 82px;
+        height: 82px;
+    }
+
+    .iw-ring-in {
+        width: 64px;
+        height: 64px;
+    }
+
+    .iw-locks {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 /* ---------------- 刷题 ---------------- */

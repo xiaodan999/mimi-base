@@ -114,6 +114,23 @@ export type StudySubject = {
     bank: QuizItem[];
 };
 
+/** 知识卡里互动演示的状态（存 study_progress.data.widgets） */
+export type CardWidgetState = {
+    /** 单值：滑杆刻度 / 计时分钟 / 总分等 */
+    value?: number;
+    /** 流程走到第几步（从 0 开始） */
+    step?: number;
+    /** 当前选中的选项 id */
+    option?: string;
+    /** 多选清单里已勾选的 id */
+    checks?: string[];
+    /** 多项评分：维度 id -> 分值 */
+    vals?: Record<string, number>;
+    /** 用户至少完整玩过一次 */
+    done?: 1;
+    updated?: number;
+};
+
 /** 一条学习进度（存 PocketBase 的 study_progress.data） */
 export type Progress = {
     cards: Record<string, { seen?: 1; k?: 0 | 1 }>;
@@ -123,6 +140,7 @@ export type Progress = {
     terms: Record<string, { k?: number; flip?: number }>;
     days: string[];
     lastDay: string;
+    widgets: Record<string, CardWidgetState>;
 };
 
 export function emptyProgress(): Progress {
@@ -134,5 +152,6 @@ export function emptyProgress(): Progress {
         terms: {},
         days: [],
         lastDay: "",
+        widgets: {},
     };
 }
