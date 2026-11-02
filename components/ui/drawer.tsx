@@ -7,10 +7,17 @@ import { cn } from "@/lib/utils";
 
 const Drawer = ({
     shouldScaleBackground = true,
+    // Our own keyboard handling (useVisualViewport + .kb-max-h / .kb-bottom in
+    // globals.css) already sizes sheets above the keyboard. Vaul's
+    // repositionInputs instead writes an inline `height` on the content and,
+    // after the keyboard closes, restores the height it captured while the
+    // keyboard was open — leaving the sheet permanently shorter.
+    repositionInputs = false,
     ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
     <DrawerPrimitive.Root
         shouldScaleBackground={shouldScaleBackground}
+        repositionInputs={repositionInputs}
         {...props}
     />
 );
