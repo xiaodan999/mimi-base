@@ -85,7 +85,9 @@
 
 /* Bottom-anchored surfaces (vaul drawers, AI sheets) lifted above the keyboard. */
 .kb-bottom {
-    bottom: var(--app-kb-inset, 0px);
+    /* `!important` because vaul writes an inline `bottom` while handling the
+       keyboard itself, and its measurement is not reliable on every WebView. */
+    bottom: var(--app-kb-inset, 0px) !important;
 }
 
 /* Cap a sheet's height to the space above the keyboard. */

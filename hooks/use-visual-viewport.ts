@@ -2,6 +2,12 @@ import { useEffect } from "react";
 
 const EDITABLE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
+type VirtualKeyboard = {
+    boundingRect: DOMRectReadOnly;
+    addEventListener: (type: "geometrychange", listener: () => void) => void;
+    removeEventListener: (type: "geometrychange", listener: () => void) => void;
+};
+
 function isEditable(element: Element | null): element is HTMLElement {
     if (!element) return false;
     const html = element as HTMLElement;
@@ -24,20 +30,52 @@ export function useVisualViewport() {
     useEffect(() => {
         const root = document.documentElement;
         const viewport = window.visualViewport;
+        const virtualKeyboard = (
+            navigator as Navigator & {
+                virtualKeyboard?: VirtualKeyboard;
+            }
+        ).virtualKeyboard;
 
         let scrollTimer: number | undefined;
+        let settleTimer: number | undefined;
+        // Largest layout height seen so far; used to tell "the browser
+        // resized the layout viewport" apart from "the keyboard overlays it".
+        let baselineHeight = 0;
+
+        const layoutHeight = () => {
+            const clientHeight = root.clientHeight;
+            return clientHeight > 0 ? clientHeight : window.innerHeight;
+        };
 
         const update = () => {
-            const height = Math.round(viewport?.height ?? window.innerHeight);
-            const offsetTop = Math.round(viewport?.offsetTop ?? 0);
-            const layoutHeight = Math.round(window.innerHeight);
+            const layout = layoutHeight();
+            baselineHeight = Math.max(baselineHeight, layout);
 
-            root.style.setProperty("--app-vvh", `${height}px`);
+            const visualHeight = viewport?.height ?? 0;
+            const offsetTop = viewport?.offsetTop ?? 0;
+            const keyboardHeight = virtualKeyboard?.boundingRect.height ?? 0;
+
+            // Fall back to the layout viewport when the browser reports a
+            // zero-sized visual viewport (happens while the tab is loading or
+            // backgrounded).
+            let visibleHeight = visualHeight > 0 ? visualHeight : layout;
+            let keyboardInset = Math.max(0, layout - visibleHeight - offsetTop);
+
+            // Some Android WebViews keep both viewports at full height while
+            // the keyboard overlays the page. Only trust the VirtualKeyboard
+            // geometry when the layout viewport has not already shrunk.
+            if (
+                keyboardInset === 0 &&
+                keyboardHeight > 0 &&
+                layout >= baselineHeight - 1
+            ) {
+                keyboardInset = keyboardHeight;
+                visibleHeight = Math.max(0, layout - keyboardHeight);
+            }
+
+            root.style.setProperty("--app-vvh", `${visibleHeight}px`);
             root.style.setProperty("--app-vv-top", `${offsetTop}px`);
-            root.style.setProperty(
-                "--app-kb-inset",
-                `${Math.max(0, layoutHeight - height - offsetTop)}px`,
-            );
+            root.style.setProperty("--app-kb-inset", `${keyboardInset}px`);
         };
 
         // The focused field is laid out against the old viewport height, so
@@ -54,19 +92,46 @@ export function useVisualViewport() {
             scrollTimer = window.setTimeout(revealActiveElement, 150);
         };
 
+        // A few browsers open the keyboard without firing a resize event, so
+        // re-measure shortly after focus changes as well.
+        const handleFocusChange = () => {
+            update();
+            window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(update, 350);
+        };
+
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") update();
+        };
+
         update();
+        window.requestAnimationFrame(update);
 
         viewport?.addEventListener("resize", handleResize);
         viewport?.addEventListener("scroll", update);
+        virtualKeyboard?.addEventListener("geometrychange", handleResize);
         window.addEventListener("resize", update);
         window.addEventListener("orientationchange", update);
+        window.addEventListener("pageshow", update);
+        document.addEventListener("visibilitychange", handleVisibility);
+        document.addEventListener("focusin", handleFocusChange);
+        document.addEventListener("focusout", handleFocusChange);
 
         return () => {
             window.clearTimeout(scrollTimer);
+            window.clearTimeout(settleTimer);
             viewport?.removeEventListener("resize", handleResize);
             viewport?.removeEventListener("scroll", update);
+            virtualKeyboard?.removeEventListener(
+                "geometrychange",
+                handleResize,
+            );
             window.removeEventListener("resize", update);
             window.removeEventListener("orientationchange", update);
+            window.removeEventListener("pageshow", update);
+            document.removeEventListener("visibilitychange", handleVisibility);
+            document.removeEventListener("focusin", handleFocusChange);
+            document.removeEventListener("focusout", handleFocusChange);
         };
     }, []);
 }
