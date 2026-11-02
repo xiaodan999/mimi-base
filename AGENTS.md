@@ -38,6 +38,7 @@ bun install
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
 bun run dev               # Vite on :3000
+bun run dev:all           # both, PB health-checked before Vite starts
 bun run build             # vite build to build/ + tsc --noEmit
 bunx tsc --noEmit         # typecheck
 bunx eslint .             # lint (components/ui is ignored)

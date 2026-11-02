@@ -22,6 +22,7 @@ everything lives inside the repo clone:
 ## Local dev
 
 ```
+bun run dev:all            # both of the below, PB first (reuses a running PB)
 bun run db                 # serves on 127.0.0.1:8090, automigrate ON
 bun run dev                # frontend on :3000 (VITE_POCKETBASE_URL in .env)
 ```

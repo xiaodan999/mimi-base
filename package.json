@@ -8,6 +8,7 @@
         "build": "vite build && tsc --noEmit",
         "db": "bun pocketbase/server.ts",
         "dev": "vite --host --port=3000",
+        "dev:all": "bun scripts/dev.ts",
         "serve": "vite preview --port=3001",
         "start": "vite"
     },
