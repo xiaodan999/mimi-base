@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+# Enable with: bun run setup:hooks
+if git -c safe.directory="*" diff --cached --quiet; then
+    exit 0
+fi
+
+run_checks() {
+    bun fmt --staged
+    bun check
+    bun run test
+}
+
+if command -v bun >/dev/null 2>&1; then
+    run_checks
+    exit 0
+fi
+
+# Windows Git Bash often has git but not Bun. Fall back to WSL when available.
+if command -v wsl.exe >/dev/null 2>&1; then
+    repo_top=$(git -c safe.directory="*" rev-parse --show-toplevel)
+    repo_wsl=$(wsl.exe wslpath -a "$repo_top" | tr -d '\r')
+    if [ -n "$repo_wsl" ]; then
+        wsl.exe -- bash -lc 'export PATH="$HOME/.bun/bin:$PATH"; export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="*"; cd "$1" && bun fmt --staged && bun check && bun run test' mimi-precommit "$repo_wsl"
+        exit 0
+    fi
+fi
+
+echo "pre-commit: bun is not available. Install Bun or commit from a Bun-enabled shell." >&2
+exit 1

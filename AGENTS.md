@@ -39,15 +39,21 @@ cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
 bun run dev               # Vite on :3000
 bun run dev:all           # both, PB health-checked before Vite starts
-bun run build             # vite build to build/ + tsc --noEmit
+bun run build             # vite build + bun check
 bun run test              # bun test app (pure logic, no server needed)
-bunx tsc --noEmit         # typecheck
-bunx eslint .             # lint (components/ui, build, PocketBase ignored)
-bunx prettier --check .   # or --write
+bun run typecheck         # bun check (TS 7, all cores)
+bun run typecheck:tsc     # tsc --noEmit fallback
+bun run lint              # eslint (flat config)
+bun run format            # bun fmt
+bun run format:check      # bun fmt --check
+bun run setup:hooks       # enable .githooks/pre-commit once per clone
 ```
 
-Unit tests use Bun's built-in runner and cover pure logic only (scoring,
-normalization). Verify UI changes with `bun run build` and the dev server.
+Formatting is Bun's native formatter (`bunfig.toml`), linting is the ESLint
+flat config (`eslint.config.js`), and typechecking is `bun check`. There is no
+`bun lint`; don't reintroduce Prettier or `.eslintrc`. Unit tests use Bun's
+built-in runner and cover pure logic only. Verify UI changes with
+`bun run build` and the dev server.
 
 ## Backend / data rules
 
@@ -93,9 +99,10 @@ normalization). Verify UI changes with `bun run build` and the dev server.
 ## Frontend conventions
 
 - `@/*` maps to the repo root; use it instead of deep relative imports.
-- Prettier: 4 spaces, double quotes, semicolons, 80 cols, trailing commas.
-  ESLint enforces import order (`react` first, then `@tanstack`, then other
-  externals, blank line between groups).
+- Formatting: `bun fmt` using `bunfig.toml` (4 spaces, double quotes, 80 cols,
+  trailing commas, Tailwind class sorting). Import order is owned by ESLint;
+  keep `sortImports = false`. Lint rules live in the flat `eslint.config.js`.
+  `components/ui/`, `build/`, and PocketBase scripts are ignored.
 - Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Define
   every key in `lib/query-keys.ts` (`qk.*`); per-user keys include the user id,
   and mutations invalidate the `qk.*.all` prefix. Don't import `queryClient`
@@ -131,6 +138,10 @@ normalization). Verify UI changes with `bun run build` and the dev server.
 
 - Router context (`auth`, `queryClient`) is injected in `app/main.tsx`; add new
   root context keys in both the router and `__root.tsx`.
+- `bun check` uses TS 7: keep `"types": ["bun"]` and no `baseUrl` in
+  `tsconfig.json`. `tsc` remains available as `bun run typecheck:tsc`.
+- Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`
+  (`bun fmt --staged`, `bun check`, `bun run test`).
 - `APP_VERSION` is a Vite `define` global (declared in `vite-env.d.ts`), not an
   environment variable.
 - `pb.autoCancellation(false)` in `lib/pb.ts` is intentional: the feed and like

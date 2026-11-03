@@ -1,9 +1,0 @@
-components/ui/*.tsx
-build/
-tmp/
-# Service worker and PocketBase JSVM scripts run outside the browser bundle.
-public/sw.js
-pocketbase/
-# CommonJS tooling config
-tailwind.config.js
-postcss.config.js

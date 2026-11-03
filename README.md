@@ -28,6 +28,9 @@
     bun install
     ```
 
+    建议再运行一次 `bun run setup:hooks`，这样每次提交前会自动
+    整理格式并检查类型和测试。
+
 3. 创建本地配置文件：
 
     ```bash
@@ -90,16 +93,18 @@ bun run dev
 
 ## 六、常用命令
 
-| 命令                      | 作用                               |
-| ------------------------- | ---------------------------------- |
-| `bun run dev:all`         | 同时启动数据库和页面（推荐）       |
-| `bun run db`              | 只启动数据库                       |
-| `bun run dev`             | 只启动页面                         |
-| `bun run build`           | 打包正式版本，并检查代码有没有错误 |
-| `bunx tsc --noEmit`       | 只检查代码类型                     |
-| `bunx eslint .`           | 检查代码规范                       |
-| `bunx prettier --check .` | 检查代码格式                       |
-| `bunx prettier --write .` | 自动整理代码格式                   |
+| 命令                   | 作用                               |
+| ---------------------- | ---------------------------------- |
+| `bun run dev:all`      | 同时启动数据库和页面（推荐）       |
+| `bun run db`           | 只启动数据库                       |
+| `bun run dev`          | 只启动页面                         |
+| `bun run build`        | 打包正式版本，并检查代码有没有错误 |
+| `bun run typecheck`    | 只检查代码类型（bun check）        |
+| `bun run lint`         | 检查代码规范（ESLint）             |
+| `bun run format`       | 自动整理代码格式（bun fmt）        |
+| `bun run format:check` | 检查代码格式                       |
+| `bun run test`         | 运行单元测试                       |
+| `bun run setup:hooks`  | 启用提交前自动检查（只需运行一次） |
 
 ## 七、项目目录（只列常见的）
 

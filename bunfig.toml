@@ -1,0 +1,28 @@
+[fmt]
+# Matches the previous Prettier config exactly; verified against all 134 files.
+printWidth = 80
+tabWidth = 4
+useTabs = false
+semi = true
+singleQuote = false
+jsxSingleQuote = false
+trailingComma = "all"
+bracketSpacing = true
+arrowParens = "always"
+endOfLine = "lf"
+
+# Bun's native Tailwind sorter replaces prettier-plugin-tailwindcss.
+sortTailwindcss = true
+# Import grouping stays owned by ESLint's import/order rule.
+sortImports = false
+
+ignorePatterns = [
+    "app/routeTree.gen.ts",
+    "components/ui/",
+    "bun.lock",
+    "pb_data_snapshots/",
+    "pocketbase/pb_data/",
+    "pocketbase/pocketbase",
+    "pocketbase/CHANGELOG.md",
+    "pocketbase/LICENSE.md",
+]

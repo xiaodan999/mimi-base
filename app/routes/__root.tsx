@@ -11,7 +11,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
 import type { AuthContextType } from "@/lib/auth";
 
-import "globals.css";
+import "@/globals.css";
 
 const TanStackRouterDevtools =
     process.env.NODE_ENV === "production"

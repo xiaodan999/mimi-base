@@ -17,10 +17,10 @@
         "allowJs": true,
         "forceConsistentCasingInFileNames": true,
         "strictNullChecks": true,
-        "baseUrl": ".",
         "paths": {
             "@/*": ["./*"]
         },
+        "types": ["bun"],
         "noEmit": true
     }
 }
