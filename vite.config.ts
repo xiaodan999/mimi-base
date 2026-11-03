@@ -1,6 +1,6 @@
 // vite.config.ts
 
-import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, loadEnv } from "vite";
@@ -25,29 +25,31 @@ export default defineConfig(({ mode }) => {
             sourcemap: false,
             rollupOptions: {
                 output: {
-                    // Rolldown requires a function here, not a package map.
-                    manualChunks(id) {
-                        if (id.includes("node_modules/react/")) {
-                            return "common/react-packages";
-                        }
-                        if (id.includes("node_modules/react-dom/")) {
-                            return "common/react-packages";
-                        }
-                        if (id.includes("node_modules/@tanstack/react-query")) {
-                            return "common/react-query";
-                        }
-                        if (
-                            id.includes("node_modules/@tanstack/react-router")
-                        ) {
-                            return "common/tanstack-router";
-                        }
-                        return undefined;
+                    // Rolldown's replacement for the deprecated
+                    // `manualChunks`. Long-lived vendor chunks keep app
+                    // deploys from invalidating the framework code.
+                    // `[\\/]` matters: module ids use backslashes on Windows.
+                    codeSplitting: {
+                        groups: [
+                            {
+                                name: "common/react-packages",
+                                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                            },
+                            {
+                                name: "common/react-query",
+                                test: /node_modules[\\/]@tanstack[\\/](react-query|query-core)[\\/]/,
+                            },
+                            {
+                                name: "common/tanstack-router",
+                                test: /node_modules[\\/]@tanstack[\\/](react-router|router-core|history|react-store|store)[\\/]/,
+                            },
+                        ],
                     },
                 },
             },
         },
         plugins: [
-            TanStackRouterVite({
+            tanstackRouter({
                 routesDirectory: "./app/routes",
                 generatedRouteTree: "./app/routeTree.gen.ts",
                 // Split each route (and its study data) into its own chunk.
