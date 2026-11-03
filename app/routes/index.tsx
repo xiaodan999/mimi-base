@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
     return (
-        <section className="flex h-full flex-col p-4">
+        <section className="flex h-full flex-col p-4 pt-[calc(1rem+env(safe-area-inset-top))]">
             <h1 className="text-center text-3xl font-semibold">秘密基地</h1>
             <img
                 className="mx-auto flex size-80"
