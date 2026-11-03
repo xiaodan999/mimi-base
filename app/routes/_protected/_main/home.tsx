@@ -14,6 +14,7 @@ import {
 import StudyEntry from "@/app/study/components/StudyEntry";
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
+import ThemeToggle from "@/components/ThemeToggle";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +109,7 @@ function Page() {
                             {user.user_name || "朋友"}
                         </h1>
                     </div>
+                    <ThemeToggle className="shrink-0 self-start border-border/60 bg-background/60" />
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                     今天也来记录一点什么吧。

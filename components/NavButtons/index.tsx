@@ -7,7 +7,6 @@ import {
     type LucideIcon,
 } from "lucide-react";
 
-import ThemeToggle from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 type NavRoute = {
@@ -72,10 +71,6 @@ export default function NavButtons() {
                     </Link>
                 );
             })}
-
-            <div className="flex w-11 items-center justify-center border-l border-border/60">
-                <ThemeToggle className="size-10 border-0 bg-transparent" />
-            </div>
         </nav>
     );
 }
