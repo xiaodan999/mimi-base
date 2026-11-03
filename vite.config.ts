@@ -4,19 +4,33 @@ import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 
-// https://vitejs.dev/config/
+// https://vite.dev/config/
 export default defineConfig({
+    // Vite 8 resolves tsconfig `paths` natively; no vite-tsconfig-paths plugin.
+    resolve: {
+        tsconfigPaths: true,
+    },
     build: {
         outDir: "build",
         sourcemap: false,
         rollupOptions: {
             output: {
-                manualChunks: {
-                    "common/react-packages": ["react", "react-dom"],
-                    "common/react-query": ["@tanstack/react-query"],
-                    "common/tanstack-router": ["@tanstack/react-router"],
+                // Rolldown requires a function here, not a package map.
+                manualChunks(id) {
+                    if (id.includes("node_modules/react/")) {
+                        return "common/react-packages";
+                    }
+                    if (id.includes("node_modules/react-dom/")) {
+                        return "common/react-packages";
+                    }
+                    if (id.includes("node_modules/@tanstack/react-query")) {
+                        return "common/react-query";
+                    }
+                    if (id.includes("node_modules/@tanstack/react-router")) {
+                        return "common/tanstack-router";
+                    }
+                    return undefined;
                 },
             },
         },
@@ -29,10 +43,6 @@ export default defineConfig({
             autoCodeSplitting: true,
         }),
         viteReact(),
-        // this is the plugin that enables path aliases
-        viteTsConfigPaths({
-            projects: ["./tsconfig.json"],
-        }),
         // put it the last one
         visualizer({
             emitFile: true,
