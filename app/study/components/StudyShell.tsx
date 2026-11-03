@@ -98,7 +98,11 @@ export default function StudyShell({
                 })}
             </nav>
 
-            <div className="study-body">{children}</div>
+            <div className="study-body">
+                <div key={pathname} className="section-enter">
+                    {children}
+                </div>
+            </div>
         </div>
     );
 }

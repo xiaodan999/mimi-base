@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Settings2 } from "lucide-react";
+import { BookOpen, Settings2 } from "lucide-react";
 
 import { useAi } from "../ai/AiContext";
 import { cardStats, daysLeft, questionStats } from "../engine";
 import { useStudySummaries } from "../progress";
 import { KIND_LABEL, SUBJECTS } from "../registry";
+import ProgressRing from "./ProgressRing";
 
 export default function StudyHub() {
     const { data: summaries } = useStudySummaries();
@@ -14,8 +15,12 @@ export default function StudyHub() {
         <div className="study-root">
             <div className="flex items-start justify-between gap-3 px-4 pt-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight">
-                        📚 学习基地
+                    <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+                        <BookOpen
+                            className="size-6 text-primary"
+                            aria-hidden="true"
+                        />
+                        学习基地
                     </h1>
                     <p className="mt-1 text-[12.5px] text-muted-foreground">
                         所有科目都在这里，进度会跟着账号走。
@@ -69,14 +74,22 @@ export default function StudyHub() {
                                             {subject.subtitle}
                                         </div>
                                     </div>
+                                    <ProgressRing
+                                        value={cards?.percent ?? 0}
+                                        size={46}
+                                        stroke={5}
+                                        color={subject.accent}
+                                        label={`${cards?.percent ?? 0}%`}
+                                        className="mt-0.5"
+                                    />
+                                </div>
+
+                                <div className="hub-meta">
                                     {left !== null && (
                                         <span className="st-chip w shrink-0">
                                             剩 {left} 天
                                         </span>
                                     )}
-                                </div>
-
-                                <div className="hub-meta">
                                     <span className="st-chip">
                                         {KIND_LABEL[subject.kind]}
                                     </span>
