@@ -102,12 +102,15 @@ type WithExpandedCircle = {
 
 /**
  * users.tou_xiang stores a filename after the migration; build the URL.
+ * The avatar is rendered at 56px at most, so ask PocketBase for a thumbnail
+ * instead of the full upload (which can be several megabytes).
  */
 export function getUserAvatarUrl(
     user: { tou_xiang?: string } | null | undefined,
+    thumb = "200x200",
 ): string {
     if (!user?.tou_xiang) return "";
-    return getFileUrl(user as FileRecord, user.tou_xiang);
+    return getFileUrl(user as FileRecord, user.tou_xiang, thumb);
 }
 
 /**
@@ -117,12 +120,13 @@ export function getUserAvatarUrl(
  */
 export function getUserCircleUrl(
     user: WithExpandedCircle | null | undefined,
+    thumb = "200x200",
 ): string {
     const circle = (user?.expand?.circle ?? user?.circle) as
         { image?: string } | string | undefined;
     if (!circle || typeof circle === "string") return "";
     if (!circle.image) return "";
-    return getFileUrl(circle as FileRecord, circle.image);
+    return getFileUrl(circle as FileRecord, circle.image, thumb);
 }
 
 export default pb;

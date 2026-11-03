@@ -12,6 +12,35 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
     const port = Number(env.VITE_PORT) || 3000;
 
+    // The first auth/profile request goes to a different origin; opening the
+    // TCP+TLS connection while the entry chunk downloads saves a full RTT on
+    // high-latency (especially cross-border) links.
+    const preconnectPocketBase = {
+        name: "preconnect-pocketbase",
+        transformIndexHtml() {
+            const raw = env.VITE_POCKETBASE_URL;
+            if (!raw) return [];
+            let origin: string;
+            try {
+                origin = new URL(raw).origin;
+            } catch {
+                return [];
+            }
+            return [
+                {
+                    tag: "link",
+                    attrs: { rel: "preconnect", href: origin, crossorigin: "" },
+                    injectTo: "head-prepend" as const,
+                },
+                {
+                    tag: "link",
+                    attrs: { rel: "dns-prefetch", href: origin },
+                    injectTo: "head-prepend" as const,
+                },
+            ];
+        },
+    };
+
     return {
         server: {
             port,
@@ -56,9 +85,12 @@ export default defineConfig(({ mode }) => {
                 autoCodeSplitting: true,
             }),
             viteReact(),
-            // put it the last one
+            preconnectPocketBase,
+            // Keep the 1.2 MB report out of `build/`; it used to be deployed
+            // publicly at /stats.html. It now lands in the gitignored tmp/.
             visualizer({
-                emitFile: true,
+                emitFile: false,
+                filename: "tmp/stats.html",
                 template: "treemap",
             }),
         ],

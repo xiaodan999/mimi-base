@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
     Link,
     useRouter,
@@ -6,23 +7,42 @@ import {
 import { AlertTriangle, Compass, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { isChunkLoadError, reloadOnce } from "@/lib/chunk-load-error";
 
 /** Router-level error screen: keeps the app shell and offers a real retry. */
 export function RouteError({ error, reset }: ErrorComponentProps) {
     const router = useRouter();
-    const message = error instanceof Error ? error.message : "未知错误";
+    // A lazy chunk that failed to download cannot be retried in place: the
+    // memoised rejection keeps throwing. Reload so the tab fetches the assets
+    // the current deploy actually has (new hashes after an update).
+    const chunkError = isChunkLoadError(error);
+
+    useEffect(() => {
+        if (chunkError) reloadOnce();
+    }, [chunkError]);
+
+    const title = chunkError ? "需要刷新页面" : "这里出了点问题";
+    const message = chunkError
+        ? "页面文件没能下载下来，可能是网络波动或新版本刚发布。刷新一下就好。"
+        : error instanceof Error
+          ? error.message
+          : "未知错误";
 
     return (
         <div className="grid min-h-[60vh] place-items-center p-6 text-center">
             <div className="max-w-sm">
                 <AlertTriangle className="mx-auto size-10 text-amber-500" />
-                <h1 className="mt-3 text-lg font-semibold">这里出了点问题</h1>
+                <h1 className="mt-3 text-lg font-semibold">{title}</h1>
                 <p className="mt-1 break-words text-sm text-muted-foreground">
                     {message}
                 </p>
                 <Button
                     className="mt-4"
                     onClick={() => {
+                        if (chunkError) {
+                            window.location.reload();
+                            return;
+                        }
                         reset();
                         void router.invalidate();
                     }}

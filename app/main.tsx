@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
@@ -5,6 +6,7 @@ import ReactDOM from "react-dom/client";
 import LoadingPage from "@/components/LoadingPage";
 import { RouteError } from "@/components/RouteError";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { reloadOnce } from "@/lib/chunk-load-error";
 import { registerServiceWorker } from "@/lib/service-worker";
 import { ThemeProvider } from "@/lib/theme";
 
@@ -44,6 +46,12 @@ function InnerApp() {
 }
 
 function App() {
+    // The static splash in index.html covers the first paint; hand the
+    // screen over once React has committed the first frame.
+    useEffect(() => {
+        document.getElementById("boot-splash")?.remove();
+    }, []);
+
     return (
         <ThemeProvider>
             <AuthProvider>
@@ -59,6 +67,12 @@ if (!rootElement.innerHTML) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(<App />);
 }
+
+// A route chunk that fails to preload would leave the tab referencing assets
+// the current deploy no longer has; reload once to pick up the new hashes.
+window.addEventListener("vite:preloadError", (event) => {
+    if (reloadOnce()) event.preventDefault();
+});
 
 if (import.meta.env.PROD) {
     registerServiceWorker();

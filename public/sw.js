@@ -1,4 +1,4 @@
-const VERSION = "v9.0.0";
+const VERSION = "v9.0.1";
 const CACHE_NAME = `mimi-base-${VERSION}`;
 
 console.log(VERSION);
@@ -57,8 +57,34 @@ const OFFLINE_HTML = `<!doctype html>
 </html>`;
 
 self.addEventListener("install", (event) => {
+    // A flaky connection must not block the worker update: the shell is
+    // refreshed on the next successful navigation anyway.
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(["/"])),
+        caches.open(CACHE_NAME).then(async (cache) => {
+            try {
+                const response = await fetch("/", { cache: "reload" });
+                if (!response.ok) return;
+                const html = await response.clone().text();
+                await cache.put("/", response);
+
+                // The worker installs after the first page load, so these
+                // hashed assets are already in the HTTP cache. Precache them
+                // now so the next visit works even if the network stalls.
+                const assets = new Set(
+                    [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map(
+                        (match) => match[1],
+                    ),
+                );
+                await Promise.allSettled(
+                    [...assets].map(async (url) => {
+                        const asset = await fetch(url);
+                        if (asset.ok) await cache.put(url, asset);
+                    }),
+                );
+            } catch {
+                // Offline install: keep whatever the previous worker cached.
+            }
+        }),
     );
 });
 
@@ -66,15 +92,23 @@ self.addEventListener("activate", (event) => {
     event.waitUntil(
         (async () => {
             const names = await caches.keys();
-            await Promise.all(
-                names
-                    .filter(
-                        (name) =>
-                            name.startsWith("mimi-base-") &&
-                            name !== CACHE_NAME,
-                    )
-                    .map((name) => caches.delete(name)),
-            );
+            const cache = await caches.open(CACHE_NAME);
+            for (const name of names) {
+                if (!name.startsWith("mimi-base-") || name === CACHE_NAME) {
+                    continue;
+                }
+                const old = await caches.open(name);
+                // Migrate instead of wiping: a new worker on a slow link
+                // should not re-download every hashed chunk.
+                for (const request of await old.keys()) {
+                    if (await cache.match(request)) continue;
+                    const response = await old.match(request);
+                    if (response) {
+                        await cache.put(request, response).catch(() => {});
+                    }
+                }
+                await caches.delete(name);
+            }
             await self.clients.claim();
         })(),
     );
@@ -99,32 +133,51 @@ self.addEventListener("fetch", (event) => {
     if (url.origin !== self.location.origin) return;
 
     if (request.mode === "navigate") {
-        event.respondWith(networkFirst(request, "/"));
+        event.respondWith(networkFirst(event, request, "/"));
         return;
     }
 
     // the manifest must always come fresh from the network, otherwise shortcut/icon
     // updates in it would never reach installed apps
     if (url.pathname === "/manifest.json") {
-        event.respondWith(networkFirst(request));
+        event.respondWith(networkFirst(event, request));
         return;
     }
 
-    event.respondWith(staleWhileRevalidate(request));
+    event.respondWith(staleWhileRevalidate(event, request));
 });
 
-async function networkFirst(request, fallbackUrl) {
+// A stalled cross-border navigation must not keep the cached shell hidden.
+const NAV_TIMEOUT_MS = 3000;
+
+async function networkFirst(event, request, fallbackUrl) {
     const cache = await caches.open(CACHE_NAME);
-    try {
-        const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
+    const cached =
+        (await cache.match(request)) ??
+        (fallbackUrl ? await cache.match(fallbackUrl) : undefined);
+    const network = fetch(request).then(async (response) => {
+        if (response.ok) {
+            await cache.put(request, response.clone()).catch(() => {});
+        }
         return response;
-    } catch {
-        const cached =
-            (await cache.match(request)) ??
-            (fallbackUrl ? await cache.match(fallbackUrl) : undefined);
-        return cached ?? offlineResponse();
+    });
+
+    if (!cached) {
+        try {
+            return await network;
+        } catch {
+            return offlineResponse();
+        }
     }
+
+    // Keep the update alive even when we answer from the cache.
+    event.waitUntil(network.catch(() => undefined));
+
+    const timeout = new Promise((resolve) =>
+        setTimeout(resolve, NAV_TIMEOUT_MS),
+    );
+    const fresh = await Promise.race([network.catch(() => undefined), timeout]);
+    return fresh ?? cached;
 }
 
 function offlineResponse() {
@@ -134,15 +187,19 @@ function offlineResponse() {
     });
 }
 
-async function staleWhileRevalidate(request) {
+async function staleWhileRevalidate(event, request) {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(request);
     const networkUpdate = fetch(request)
-        .then((response) => {
-            if (response.ok) cache.put(request, response.clone());
+        .then(async (response) => {
+            if (response.ok) {
+                await cache.put(request, response.clone()).catch(() => {});
+            }
             return response;
         })
         .catch(() => undefined);
+    // Keep the worker alive until the background update is stored.
+    event.waitUntil(networkUpdate);
     return cached ?? (await networkUpdate) ?? Response.error();
 }
 

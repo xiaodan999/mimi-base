@@ -26,8 +26,10 @@ import { useAuth } from "@/lib/auth";
 const FALLBACK = "/home";
 
 export const Route = createFileRoute("/login")({
-    validateSearch: z.object({
-        redirect: z.string().optional().catch(""),
+    // Keep this route definition free of zod so the login chunk is not part
+    // of the initial bundle (the route tree imports this module at startup).
+    validateSearch: (search: Record<string, unknown>) => ({
+        redirect: typeof search.redirect === "string" ? search.redirect : "",
     }),
     beforeLoad: async ({ context, search }) => {
         // Wait for the session restore so a signed-in user never sees the
@@ -40,14 +42,14 @@ export const Route = createFileRoute("/login")({
     component: Login,
 });
 
-const formSchema = z.object({
-    email: z.email(),
-    password: z.string().min(1, "请输入密码"),
-});
-
 function Login() {
     const navigate = useNavigate();
     const search = Route.useSearch();
+
+    const formSchema = z.object({
+        email: z.email(),
+        password: z.string().min(1, "请输入密码"),
+    });
 
     const { login } = useAuth();
     const form = useForm<z.infer<typeof formSchema>>({
@@ -73,7 +75,7 @@ function Login() {
     }
 
     return (
-        <div className="flex h-full w-full overflow-y-auto">
+        <main className="flex h-full w-full overflow-y-auto">
             <Form {...form}>
                 <form
                     onSubmit={form.handleSubmit(onSubmit)}
@@ -139,6 +141,6 @@ function Login() {
                     </Card>
                 </form>
             </Form>
-        </div>
+        </main>
     );
 }
