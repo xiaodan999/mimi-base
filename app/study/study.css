@@ -7,8 +7,10 @@
 .study-root {
     --bg: hsl(var(--background));
     --bg2: hsl(var(--muted));
-    --card: hsl(var(--card));
     --card2: hsl(var(--muted));
+    /* Local surface token. Do not name it `--card`: referencing itself would
+       make the property invalid and every study card transparent. */
+    --panel: hsl(var(--card));
     --ink: hsl(var(--foreground));
     --ink2: hsl(var(--muted-foreground));
     --ink3: hsl(var(--muted-foreground));
@@ -109,7 +111,7 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--ink2);
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     transition: 0.16s;
     white-space: nowrap;
@@ -145,7 +147,7 @@
 /* ---------------- 通用 ---------------- */
 
 .st-card {
-    background: var(--card);
+    background: var(--panel);
     border-radius: 18px;
     border: 1px solid var(--hair);
     box-shadow: var(--sh);
@@ -216,7 +218,7 @@
 }
 
 .st-btn.ghost {
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink);
     box-shadow: var(--sh);
     border: 1px solid var(--hair);
@@ -291,7 +293,7 @@
     overflow: hidden;
     padding: 16px;
     border-radius: 18px;
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     box-shadow: var(--sh);
     text-decoration: none;
@@ -444,7 +446,7 @@
     overflow: hidden;
     border-radius: 16px;
     padding: 13px;
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     box-shadow: var(--sh);
     text-decoration: none;
@@ -503,7 +505,7 @@
     display: block;
     padding: 13px;
     border-radius: 15px;
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     box-shadow: var(--sh);
     text-decoration: none;
@@ -528,7 +530,7 @@
 
 .kcard {
     --mc: var(--brand);
-    background: var(--card);
+    background: var(--panel);
     border-radius: 18px;
     border: 1px solid var(--hair);
     box-shadow: var(--sh2);
@@ -794,7 +796,7 @@
     padding: 6px 10px;
     border-radius: 10px;
     border: 1px solid var(--hair);
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink);
     font-size: 12px;
     font-weight: 700;
@@ -834,7 +836,7 @@
     padding: 7px 9px;
     border-radius: 10px;
     border: 1px solid var(--hair);
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink);
     text-align: left;
     transition: 0.16s;
@@ -999,7 +1001,7 @@
 
 .iw-btn.ghost {
     border-color: var(--hair);
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink2);
 }
 
@@ -1100,7 +1102,7 @@
 }
 
 .iw-seg button.on {
-    background: var(--card);
+    background: var(--panel);
     color: var(--brand);
     box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
 }
@@ -1159,7 +1161,7 @@
 }
 
 .iw-face circle {
-    fill: var(--card);
+    fill: var(--panel);
     stroke: var(--line);
     stroke-width: 1.2;
 }
@@ -1177,7 +1179,7 @@
 }
 
 .iw-face.on circle {
-    fill: color-mix(in srgb, var(--brand) 14%, var(--card));
+    fill: color-mix(in srgb, var(--brand) 14%, var(--panel));
     stroke: var(--brand);
     stroke-width: 2;
 }
@@ -1401,7 +1403,7 @@
     padding: 6px 9px;
     border-radius: 9px;
     border: 1px solid var(--hair);
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink);
     text-align: left;
 }
@@ -1562,7 +1564,7 @@
     top: 50%;
     width: 16px;
     height: 16px;
-    border: 3px solid var(--card);
+    border: 3px solid var(--panel);
     border-radius: 50%;
     background: var(--ink);
     box-shadow: 0 1px 4px rgba(16, 24, 40, 0.3);
@@ -1602,7 +1604,7 @@
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--card);
+    background: var(--panel);
 }
 
 .iw-ring-in b {
@@ -1659,7 +1661,7 @@
     padding: 9px 10px;
     border: 1px solid var(--hair);
     border-radius: 12px;
-    background: var(--card);
+    background: var(--panel);
 }
 
 .iw-band-photo {
@@ -1746,7 +1748,7 @@
     padding: 4px 5px;
     border: 1px solid var(--hair);
     border-radius: 9px;
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink2);
     font-size: 10.5px;
     font-weight: 800;
@@ -1837,7 +1839,7 @@
     padding: 8px;
     border: 1px solid var(--hair);
     border-radius: 11px;
-    background: var(--card);
+    background: var(--panel);
     text-align: left;
     transition: 0.16s;
 }
@@ -2054,7 +2056,7 @@
     padding: 7px 2px;
     border: 1px solid var(--hair);
     border-radius: 9px;
-    background: var(--card);
+    background: var(--panel);
 }
 
 .iw-lock.on {
@@ -2128,7 +2130,7 @@
     padding: 4px 6px;
     border: 1px solid var(--hair);
     border-radius: 8px;
-    background: var(--card);
+    background: var(--panel);
     text-align: left;
 }
 
@@ -2263,7 +2265,7 @@
     padding: 4px 7px;
     border: 1px solid var(--hair);
     border-radius: 8px;
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink2);
     font-size: 10px;
     font-weight: 700;
@@ -2324,7 +2326,7 @@
     padding: 4px 9px;
     border: 1px solid var(--hair);
     border-radius: 8px;
-    background: var(--card);
+    background: var(--panel);
     color: var(--ink2);
     font-size: 10.5px;
     font-weight: 800;
@@ -2489,12 +2491,12 @@
     padding: 11px;
     border: 1px solid var(--hair);
     border-radius: 11px;
-    background: var(--card);
+    background: var(--panel);
     text-align: left;
 }
 
 .iw-flip.on {
-    background: color-mix(in srgb, var(--brand) 6%, var(--card));
+    background: color-mix(in srgb, var(--brand) 6%, var(--panel));
     border-color: color-mix(in srgb, var(--brand) 30%, transparent);
 }
 
@@ -2673,7 +2675,7 @@
     text-align: left;
     padding: 13px 14px;
     border-radius: 13px;
-    background: var(--card);
+    background: var(--panel);
     border: 1.5px solid var(--line);
     font-size: 15px;
     line-height: 1.55;
@@ -2696,7 +2698,7 @@
 
 .opt.sel {
     border-color: var(--brand);
-    background: color-mix(in srgb, var(--brand) 8%, var(--card));
+    background: color-mix(in srgb, var(--brand) 8%, var(--panel));
 }
 
 .opt.sel .opt-k {
@@ -2801,7 +2803,7 @@
     padding: 13px 14px;
     border-radius: 13px;
     border: 1.5px solid var(--line);
-    background: var(--card);
+    background: var(--panel);
     outline: none;
     transition: 0.16s;
     box-shadow: var(--sh);
@@ -2921,7 +2923,7 @@ textarea.st-input {
     place-items: center;
     font-size: 11px;
     font-weight: 800;
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     color: var(--ink3);
 }
@@ -3027,7 +3029,7 @@ textarea.st-input {
 }
 
 .face-back {
-    background: var(--card);
+    background: var(--panel);
     border: 1px solid var(--hair);
     transform: rotateY(180deg);
     justify-content: flex-start;
@@ -3065,7 +3067,7 @@ textarea.st-input {
 }
 
 .stat {
-    background: var(--card);
+    background: var(--panel);
     border-radius: 15px;
     padding: 13px 10px;
     text-align: center;
