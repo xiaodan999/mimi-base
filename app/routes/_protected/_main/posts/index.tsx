@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Pencil } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 
-import LoadingPage from "@/components/LoadingPage";
+import { ErrorState } from "@/components/ErrorState";
+import { FeedSkeleton } from "@/components/FeedSkeleton";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
@@ -27,6 +28,7 @@ function Posts() {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
+        refetch,
     } = usePostsInfinite(8);
     const [showNewPostDrawer, setShowNewPostDrawer] = useState(false);
     const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -48,12 +50,13 @@ function Posts() {
         [data],
     );
 
-    if (isPending) return <LoadingPage />;
+    if (isPending) return <FeedSkeleton />;
     if (isError) {
         return (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-                出错啦：{error?.message ?? "未知错误"}
-            </div>
+            <ErrorState
+                message={error?.message ?? "未知错误"}
+                onRetry={() => void refetch()}
+            />
         );
     }
 

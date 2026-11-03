@@ -38,7 +38,8 @@ let isProd = false;
 if (existsSync(prodEnvPath)) {
     for (const line of (await Bun.file(prodEnvPath).text()).split("\n")) {
         const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/);
-        if (m && m[1] && m[2] && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+        if (m && m[1] && m[2] && process.env[m[1]] === undefined)
+            process.env[m[1]] = m[2];
     }
     isProd = true;
 }
@@ -51,7 +52,10 @@ async function ensureBinary() {
     if (!res.ok) throw new Error(`download failed: ${res.status} ${url}`);
     const zip = path.join(dir, "pocketbase.zip");
     await Bun.write(zip, res);
-    execSync("unzip -o pocketbase.zip && rm pocketbase.zip", { cwd: dir, stdio: "inherit" });
+    execSync("unzip -o pocketbase.zip && rm pocketbase.zip", {
+        cwd: dir,
+        stdio: "inherit",
+    });
     chmodSync(bin, 0o755);
 }
 
@@ -110,7 +114,9 @@ function spawnPB() {
     });
     child.on("exit", (code, signal) => {
         if (stopping || manualRestart) return;
-        console.error(`pocketbase exited (code=${code} signal=${signal}), restarting in 2s`);
+        console.error(
+            `pocketbase exited (code=${code} signal=${signal}), restarting in 2s`,
+        );
         setTimeout(spawnPB, 2000);
     });
 }
@@ -148,11 +154,16 @@ async function waitForHealth(timeoutMs: number): Promise<boolean> {
 // ---------- /db/sync deploy endpoint ----------
 
 const fileHash = async (p: string) =>
-    createHash("sha256").update(await Bun.file(p).text()).digest("hex");
+    createHash("sha256")
+        .update(await Bun.file(p).text())
+        .digest("hex");
 
 const safeEqual = (a: string | null, b: string) => {
     if (!a) return false;
-    return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
+    return timingSafeEqual(
+        createHash("sha256").update(a).digest(),
+        createHash("sha256").update(b).digest(),
+    );
 };
 
 function startDeployEndpoint() {
@@ -165,15 +176,27 @@ function startDeployEndpoint() {
         port: DEPLOY_PORT,
         async fetch(req) {
             const url = new URL(req.url);
-            if (url.pathname !== "/db/sync") return new Response("not found", { status: 404 });
-            if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-            if (!safeEqual(req.headers.get("x-deploy-token"), process.env.DEPLOY_TOKEN!)) {
+            if (url.pathname !== "/db/sync")
+                return new Response("not found", { status: 404 });
+            if (req.method !== "POST")
+                return new Response("method not allowed", { status: 405 });
+            if (
+                !safeEqual(
+                    req.headers.get("x-deploy-token"),
+                    process.env.DEPLOY_TOKEN!,
+                )
+            ) {
                 return new Response("unauthorized", { status: 401 });
             }
-            if (deploying) return new Response("deploy already in progress", { status: 409 });
+            if (deploying)
+                return new Response("deploy already in progress", {
+                    status: 409,
+                });
             deploying = true;
             try {
-                const serverTsBefore = await fileHash(path.join(dir, "server.ts"));
+                const serverTsBefore = await fileHash(
+                    path.join(dir, "server.ts"),
+                );
                 execSync("git pull --ff-only", { cwd: repo, stdio: "inherit" });
                 execSync(
                     `mkdir -p pb_data_snapshots && tar -czf pb_data_snapshots/$(date +%Y%m%d-%H%M%S).tar.gz --exclude pb_data/backups -C pocketbase pb_data && ls -1t pb_data_snapshots/*.tar.gz | tail -n +${SNAPSHOT_KEEP + 1} | xargs -r rm`,
@@ -182,15 +205,26 @@ function startDeployEndpoint() {
                 await restartPB();
                 const healthy = await waitForHealth(30_000);
                 if (!healthy) {
-                    return new Response("pocketbase did not become healthy after deploy", { status: 500 });
+                    return new Response(
+                        "pocketbase did not become healthy after deploy",
+                        { status: 500 },
+                    );
                 }
-                if ((await fileHash(path.join(dir, "server.ts"))) !== serverTsBefore) {
+                if (
+                    (await fileHash(path.join(dir, "server.ts"))) !==
+                    serverTsBefore
+                ) {
                     setTimeout(async () => {
-                        console.log("server.ts changed on deploy — respawning supervisor");
+                        console.log(
+                            "server.ts changed on deploy — respawning supervisor",
+                        );
                         stopping = true;
                         child?.kill("SIGTERM");
                         await new Promise((r) => setTimeout(r, 1500));
-                        const logFd = openSync(path.join(repo, "mimi-db.log"), "a");
+                        const logFd = openSync(
+                            path.join(repo, "mimi-db.log"),
+                            "a",
+                        );
                         spawn(process.execPath, [Bun.main], {
                             cwd: repo,
                             env: process.env,
@@ -199,7 +233,9 @@ function startDeployEndpoint() {
                         }).unref();
                         process.exit(0);
                     }, 1000);
-                    return new Response("deploy ok (supervisor restarting)", { status: 200 });
+                    return new Response("deploy ok (supervisor restarting)", {
+                        status: 200,
+                    });
                 }
                 return new Response("deploy ok", { status: 200 });
             } catch (err) {

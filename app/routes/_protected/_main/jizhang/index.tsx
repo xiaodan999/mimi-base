@@ -6,7 +6,7 @@ import { DateRange } from "react-day-picker";
 // @ts-expect-error no types
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 
-import LoadingPage from "@/components/LoadingPage";
+import { ErrorState } from "@/components/ErrorState";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -14,6 +14,7 @@ import {
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import CalendarDateRangePicker from "@/components/ui/shadcn-date-range-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toastPromise } from "@/lib/toast-promise";
 
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
@@ -30,13 +31,16 @@ function Page() {
         from: initialStart,
         to: initialEnd,
     });
-    const { data, isPending, isError, error, isRefetching } =
+    const { data, isPending, isError, error, isRefetching, refetch } =
         useJiZhang(dateRange);
 
     if (isError) {
         return (
             <Layout date={dateRange} onRangeChange={setDateRange}>
-                <div>Error: {error.message}</div>
+                <ErrorState
+                    message={error.message}
+                    onRetry={() => void refetch()}
+                />
             </Layout>
         );
     }
@@ -44,7 +48,7 @@ function Page() {
     if (isPending) {
         return (
             <Layout date={dateRange} onRangeChange={setDateRange}>
-                <LoadingPage />
+                <JiZhangSkeleton />
             </Layout>
         );
     }
@@ -85,8 +89,34 @@ function Page() {
                 </Masonry>
             </ResponsiveMasonry>
 
-            {isRefetching && <LoadingPage />}
+            {isRefetching && (
+                <p className="py-1 text-center text-xs text-muted-foreground">
+                    更新中…
+                </p>
+            )}
         </Layout>
+    );
+}
+
+function JiZhangSkeleton() {
+    return (
+        <div className="space-y-3" aria-busy="true" aria-label="账目加载中">
+            {[0, 1, 2].map((index) => (
+                <div
+                    key={index}
+                    className="rounded-lg border border-green-200 bg-card p-4"
+                >
+                    <div className="mb-4 flex items-center justify-between">
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                    </div>
+                    <div className="space-y-3">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }
 

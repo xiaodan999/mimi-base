@@ -1,8 +1,12 @@
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import {
+    useInfiniteQuery,
+    useMutation,
+    useQueryClient,
+} from "@tanstack/react-query";
 
-import { queryClient } from "@/app/main";
-import { useAuth, type User } from "@/lib/auth";
+import { useCurrentUser, type User } from "@/lib/auth";
 import pb from "@/lib/pb";
+import { qk } from "@/lib/query-keys";
 
 export type PostLayout = "moments" | "instagram";
 
@@ -74,34 +78,53 @@ function toPostData(post: PostRecord, likedPostIds: Set<string>): PostData {
 }
 
 /**
- * PocketBase has no count aggregation, so the per-user likes are fetched once
- * and turned into a lookup set.
+ * Only the likes for the ids on this page are needed. The old version pulled
+ * the user's entire like history on every page, which grows forever.
  */
-async function fetchCurrentUserLikeIds(userId: string): Promise<Set<string>> {
+async function fetchLikedPostIds(
+    userId: string,
+    postIds: string[],
+): Promise<Set<string>> {
+    if (postIds.length === 0) return new Set();
+
+    const params: Record<string, string> = { userId };
+    const clauses = postIds.map((postId, index) => {
+        const key = `post${index}`;
+        params[key] = postId;
+        return `post_id = {:${key}}`;
+    });
+
     const likes = await pb.collection("post_likes").getFullList<{
         post_id: string;
     }>({
-        filter: pb.filter("user_id = {:userId}", { userId }),
+        filter: pb.filter(
+            `user_id = {:userId} && (${clauses.join(" || ")})`,
+            params,
+        ),
     });
     return new Set(likes.map((like) => like.post_id));
 }
 
 export function usePostsInfinite(pageSize = 10) {
-    const { user } = useAuth();
+    const user = useCurrentUser();
 
     return useInfiniteQuery({
-        queryKey: ["posts"],
+        queryKey: qk.posts.list(user.id),
         queryFn: async ({ pageParam = 1 }): Promise<PostsPage> => {
             const page = pageParam as number;
             // Posts carry denormalized like_count / comment_count, the author
             // comes from the expand.
-            const [result, likedPostIds] = await Promise.all([
-                pb.collection("posts").getList<PostRecord>(page, pageSize, {
+            const result = await pb
+                .collection("posts")
+                .getList<PostRecord>(page, pageSize, {
                     sort: "-created",
                     expand: POST_EXPAND,
-                }),
-                fetchCurrentUserLikeIds(user.id),
-            ]);
+                });
+
+            const likedPostIds = await fetchLikedPostIds(
+                user.id,
+                result.items.map((post) => post.id),
+            );
 
             return {
                 posts: result.items.map((post) =>
@@ -117,7 +140,10 @@ export function usePostsInfinite(pageSize = 10) {
 }
 
 export function usePostLikeMutation() {
-    const { user } = useAuth();
+    const user = useCurrentUser();
+    const queryClient = useQueryClient();
+    const userPostsKey = qk.posts.list(user.id);
+
     return useMutation({
         mutationKey: ["mutate_post_like"],
         mutationFn: async ({
@@ -149,17 +175,18 @@ export function usePostLikeMutation() {
         onMutate: async ({ postId, like }) => {
             // Cancel any outgoing refetches
             // (so they don't overwrite our optimistic update)
-            await queryClient.cancelQueries({ queryKey: ["posts"] });
+            await queryClient.cancelQueries({ queryKey: userPostsKey });
 
-            const previousPosts = queryClient.getQueriesData({
-                queryKey: ["posts"],
-            });
+            const previousPosts = queryClient.getQueryData<{
+                pages: PostsPage[];
+                pageParams: unknown[];
+            }>(userPostsKey);
 
             // The cache holds an infinite query: { pages: PostsPage[] }.
             queryClient.setQueryData<{
                 pages: PostsPage[];
                 pageParams: unknown[];
-            }>(["posts"], (old) => {
+            }>(userPostsKey, (old) => {
                 if (!old) return old;
                 return {
                     ...old,
@@ -186,18 +213,21 @@ export function usePostLikeMutation() {
             return { previousPosts };
         },
         onError: (err, updatedPost, context) => {
-            context?.previousPosts.forEach(([key, value]) => {
-                queryClient.setQueryData(key, value);
-            });
+            // Roll back only the optimistic like; the post itself is fine.
+            if (context?.previousPosts) {
+                queryClient.setQueryData(userPostsKey, context.previousPosts);
+            }
         },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["posts"] });
-        },
+        // No settle-time invalidation: the optimistic row is the source of
+        // truth until the next natural refetch, so liking doesn't refetch the
+        // whole feed.
     });
 }
 
 export function useNewPostMutation() {
-    const { user } = useAuth();
+    const user = useCurrentUser();
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationKey: ["new_post"],
         mutationFn: async ({
@@ -220,12 +250,14 @@ export function useNewPostMutation() {
             await pb.collection("posts").create(formData);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["posts"] });
+            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }
 
 export function useDeletePostMutation() {
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationKey: ["delete_post"],
         mutationFn: async ({ id }: { id: string }) => {
@@ -233,7 +265,7 @@ export function useDeletePostMutation() {
             if (!deleted) throw new Error("Failed to delete the post " + id);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["posts"] });
+            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }

@@ -1,12 +1,17 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import {
+    keepPreviousData,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from "@tanstack/react-query";
 import { endOfDay, startOfDay } from "date-fns/esm";
 import { DateRange } from "react-day-picker";
 
-import { queryClient } from "@/app/main";
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import { formatDate } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
 import pb, { pbDate } from "@/lib/pb";
+import { qk } from "@/lib/query-keys";
 
 export type JiZhangItemData = {
     id: string;
@@ -23,9 +28,10 @@ type JiZhangRecord = {
 };
 
 export function useJiZhang(range: DateRange | undefined) {
+    const user = useCurrentUser();
     const { from, to } = range ?? {};
     return useQuery({
-        queryKey: ["ji-zhang", from, to],
+        queryKey: qk.jiZhang.list(user.id, from, to),
         queryFn: async () => {
             if (range === undefined || from === undefined) return [];
 
@@ -74,7 +80,9 @@ function myFormatDate(dateStr: string) {
 }
 
 export function useAddJiZhang() {
-    const { user } = useAuth();
+    const user = useCurrentUser();
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationKey: ["add-ji-zhang"],
         mutationFn: async (
@@ -89,12 +97,14 @@ export function useAddJiZhang() {
             return record.id;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["ji-zhang"] });
+            queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
         },
     });
 }
 
 export function useDeleteJiZhang() {
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationKey: ["delete-ji-zhang"],
         mutationFn: async (itemToDelete: Pick<JiZhangItemData, "id">) => {
@@ -104,9 +114,7 @@ export function useDeleteJiZhang() {
             if (!deleted) throw new Error("Failed to delete");
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: ["ji-zhang"],
-            });
+            queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
         },
     });
 }

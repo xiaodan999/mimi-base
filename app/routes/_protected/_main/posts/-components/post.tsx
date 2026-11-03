@@ -9,7 +9,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import { getFileUrl, getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 
@@ -36,7 +36,7 @@ export default function Post({
     onOpenComments,
     onOpenImage,
 }: PostProps) {
-    const { user } = useAuth();
+    const user = useCurrentUser();
     const likeMutation = usePostLikeMutation();
     const deleteMutation = useDeletePostMutation();
     const isMine = author.id === user.id;

@@ -1,10 +1,8 @@
-import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter, createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import LoadingPage from "@/components/LoadingPage";
 import {
     Card,
     CardContent,
@@ -31,23 +29,15 @@ export const Route = createFileRoute("/login")({
     validateSearch: z.object({
         redirect: z.string().optional().catch(""),
     }),
-    beforeLoad: ({ context, search }) => {
-        // console.log("run beforeLoad in /login", context.auth);
-        if (context.auth.loading === null) return;
-        if (context.auth.isAuthenticated) {
+    beforeLoad: async ({ context, search }) => {
+        // Wait for the session restore so a signed-in user never sees the
+        // login form flash before the redirect.
+        const { status } = await context.auth.waitForAuth();
+        if (status === "authenticated") {
             throw redirect({ to: search.redirect || FALLBACK });
         }
     },
-    component: function Component() {
-        const router = useRouter();
-        const { loading, isAuthenticated } = useAuth();
-        useEffect(() => {
-            if (!loading) router.invalidate();
-        }, [loading, router]);
-
-        const showLoading = isAuthenticated || loading;
-        return showLoading ? <LoadingPage /> : <Login />;
-    },
+    component: Login,
 });
 
 const formSchema = z.object({
@@ -56,7 +46,8 @@ const formSchema = z.object({
 });
 
 export function Login() {
-    const router = useRouter();
+    const navigate = useNavigate();
+    const search = Route.useSearch();
 
     const { login } = useAuth();
     const form = useForm<z.infer<typeof formSchema>>({
@@ -70,7 +61,9 @@ export function Login() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         const { error } = await login(values);
         if (!error) {
-            await router.invalidate();
+            // `login` waits for the profile fetch, so the guard on the target
+            // route already sees the authenticated state.
+            await navigate({ to: search.redirect || FALLBACK });
             return;
         }
         form.setError("password", {

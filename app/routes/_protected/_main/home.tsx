@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import useLongPress from "@/hooks/useLongPress";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
@@ -36,7 +36,8 @@ export const Route = createFileRoute("/_protected/_main/home")({
 });
 
 function Page() {
-    const { user, refresh } = useAuth();
+    const user = useCurrentUser();
+    const { refresh } = useAuth();
     const [visible, setVisible] = useState(false);
     const bind = useLongPress(() => {
         setVisible(true);
@@ -189,7 +190,7 @@ const generateMealFn = () => {
 };
 
 function DinnerPicker() {
-    const { user } = useAuth();
+    const user = useCurrentUser();
     const [dinnerName, setDinnerName] = useState("");
     const [loading, setLoading] = useState(false);
     const [saveLoading, setSaveLoading] = useState(false);

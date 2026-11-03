@@ -1,9 +1,9 @@
-import { useEffect } from "react";
 import {
+    Navigate,
     Outlet,
     createFileRoute,
     redirect,
-    useRouter,
+    useLocation,
 } from "@tanstack/react-router";
 
 import LoadingPage from "@/components/LoadingPage";
@@ -11,8 +11,8 @@ import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/_protected")({
     beforeLoad: async ({ context, location }) => {
-        if (context.auth.loading) return;
-        if (!context.auth.isAuthenticated) {
+        const { status } = await context.auth.waitForAuth();
+        if (status !== "authenticated") {
             throw redirect({
                 to: "/login",
                 search: {
@@ -22,15 +22,20 @@ export const Route = createFileRoute("/_protected")({
         }
     },
     component: function Component() {
-        const router = useRouter();
-        const { loading, isAuthenticated } = useAuth();
-        useEffect(() => {
-            if (!loading) router.invalidate();
-        }, [loading, router]);
+        const { status } = useAuth();
+        const location = useLocation();
 
-        if (isAuthenticated) return <Outlet />;
-        if (loading) return <LoadingPage />;
+        if (status === "authenticated") return <Outlet />;
+        if (status === "loading") return <LoadingPage />;
 
-        return null;
+        // The session can end after the guard ran (expired token, logout in
+        // another tab). Send the user back to login instead of a blank screen.
+        return (
+            <Navigate
+                to="/login"
+                search={{ redirect: location.href }}
+                replace
+            />
+        );
     },
 });

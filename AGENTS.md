@@ -40,19 +40,22 @@ bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
 bun run dev               # Vite on :3000
 bun run dev:all           # both, PB health-checked before Vite starts
 bun run build             # vite build to build/ + tsc --noEmit
+bun run test              # bun test app (pure logic, no server needed)
 bunx tsc --noEmit         # typecheck
-bunx eslint .             # lint (components/ui is ignored)
+bunx eslint .             # lint (components/ui, build, PocketBase ignored)
 bunx prettier --check .   # or --write
 ```
 
-There is no test suite. Verify changes with `bun run build` and the dev server.
+Unit tests use Bun's built-in runner and cover pure logic only (scoring,
+normalization). Verify UI changes with `bun run build` and the dev server.
 
 ## Backend / data rules
 
 - Use the singleton `pb` from `lib/pb.ts`; don't create another client.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
-  `post_likes`, `comment_likes`, `ji_zhang_biao`, `mmi`, `tu_pian_xin_xi`
-  (legacy: its rows were migrated into `posts`).
+  `post_likes`, `comment_likes` (schema only, unused by the UI),
+  `ji_zhang_biao`, `study_progress`; `tu_pian_xin_xi` is legacy (its rows were
+  migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. File fields are `protected`, so unauthenticated requests to
   `/api/files/...` return 404.
@@ -93,9 +96,17 @@ There is no test suite. Verify changes with `bun run build` and the dev server.
 - Prettier: 4 spaces, double quotes, semicolons, 80 cols, trailing commas.
   ESLint enforces import order (`react` first, then `@tanstack`, then other
   externals, blank line between groups).
-- Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Cache
-  keys in use: `["posts"]`, `["comments", postId]`,
-  `["ji-zhang", from, to]`; invalidate them after mutations.
+- Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Define
+  every key in `lib/query-keys.ts` (`qk.*`); per-user keys include the user id,
+  and mutations invalidate the `qk.*.all` prefix. Don't import `queryClient`
+  from `app/main` — use `useQueryClient()`.
+- Auth: `useAuth().user` is nullable. Protected screens call
+  `useCurrentUser()`; route guards await `auth.waitForAuth()` and branch on
+  `status` (`_protected.tsx`, `login.tsx`). Don't add `router.invalidate()`
+  effects to paper over auth loading.
+- `vite.config.ts` enables `autoCodeSplitting`. Keep heavy feature data behind
+  route imports (the study bank is its own chunk); don't import it from the
+  app shell.
 - Study-base AI features live in `app/study/ai/`. Settings (base URL / model /
   key) are stored only in `localStorage` (`mimi-study:ai:v1`) and sent directly
   to the provider; never send the key to PocketBase. Generated content is cached

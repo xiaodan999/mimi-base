@@ -77,10 +77,10 @@ via `VITE_POCKETBASE_URL` (Vercel env var).
   committed anywhere. `PB_HTTP` in the same file sets the address
   PocketBase binds (e.g. `0.0.0.0:8090`).
 - **Uninstall**:
-  ```bash
-  pkill -f 'pocketbase/server.ts'; pkill -f 'pocketbase serve'
-  ( crontab -l | grep -v mimi-db ) | crontab -   # removes entries from older installs
-  rm -rf <mimi>            # removes the database + files — back up pb_data first
-  ```
-  (plus remove the site from your reverse proxy and the `DEPLOY_TOKEN`
-  secret / workflow URL on GitHub if decommissioning for good)
+    ```bash
+    pkill -f 'pocketbase/server.ts'; pkill -f 'pocketbase serve'
+    ( crontab -l | grep -v mimi-db ) | crontab -   # removes entries from older installs
+    rm -rf <mimi>            # removes the database + files — back up pb_data first
+    ```
+    (plus remove the site from your reverse proxy and the `DEPLOY_TOKEN`
+    secret / workflow URL on GitHub if decommissioning for good)

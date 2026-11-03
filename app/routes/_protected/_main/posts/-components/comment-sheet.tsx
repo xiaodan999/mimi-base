@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 
@@ -36,7 +36,7 @@ export default function CommentSheet({
     open,
     onOpenChange,
 }: CommentSheetProps) {
-    const { user } = useAuth();
+    const user = useCurrentUser();
     const { data: comments = [], isPending } = useComments(
         postId ?? "",
         open && !!postId,

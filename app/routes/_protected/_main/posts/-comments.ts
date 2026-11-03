@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useAuth, type User } from "@/lib/auth";
+import { useCurrentUser, type User } from "@/lib/auth";
 import pb from "@/lib/pb";
+import { qk } from "@/lib/query-keys";
 
 export type CommentData = {
     id: string;
@@ -38,7 +39,7 @@ const EMPTY_AUTHOR: User = {
 
 export function useComments(postId: string, enabled = true) {
     return useQuery({
-        queryKey: ["comments", postId],
+        queryKey: qk.comments.all(postId),
         enabled,
         queryFn: async (): Promise<CommentData[]> => {
             const records = await pb
@@ -99,7 +100,7 @@ export function buildCommentThreads(comments: CommentData[]): CommentThread[] {
 }
 
 export function useNewCommentMutation(postId: string) {
-    const { user } = useAuth();
+    const user = useCurrentUser();
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -121,9 +122,9 @@ export function useNewCommentMutation(postId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["comments", postId],
+                queryKey: qk.comments.all(postId),
             });
-            queryClient.invalidateQueries({ queryKey: ["posts"] });
+            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }
@@ -139,9 +140,9 @@ export function useDeleteCommentMutation(postId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["comments", postId],
+                queryKey: qk.comments.all(postId),
             });
-            queryClient.invalidateQueries({ queryKey: ["posts"] });
+            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import { showFilesPicker } from "@/lib/showFilePicker";
@@ -40,7 +40,7 @@ async function prepareImage(file: File, index: number): Promise<File> {
 }
 
 export default function NewPost({ open, onOpenChange }: NewPostProps) {
-    const { user } = useAuth();
+    const user = useCurrentUser();
     const newPostMutation = useNewPostMutation();
     const [text, setText] = useState("");
     const [layout, setLayout] = useState<PostLayout>("moments");

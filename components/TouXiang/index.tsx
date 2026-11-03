@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { SmileFill } from "antd-mobile-icons";
 
 const DEFAULT_CIRCLE = "/images/blue-circle.png";
@@ -7,8 +8,7 @@ type TouXiangProps = {
     size: number;
     touXiangUrl: string;
     circleUrl: string;
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    style?: any;
+    style?: CSSProperties;
 };
 
 export default function TouXiang({

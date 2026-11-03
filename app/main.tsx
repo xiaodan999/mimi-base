@@ -3,6 +3,8 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
+import LoadingPage from "@/components/LoadingPage";
+import { RouteError } from "@/components/RouteError";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 import { routeTree } from "./routeTree.gen";
@@ -20,6 +22,8 @@ const router = createRouter({
     // Since we're using React Query, we don't want loader calls to ever be stale
     // This will ensure that the loader is always called when the route is preloaded or visited
     defaultPreloadStaleTime: 0,
+    defaultPendingComponent: LoadingPage,
+    defaultErrorComponent: RouteError,
 });
 // Register things for typesafety
 declare module "@tanstack/react-router" {

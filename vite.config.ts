@@ -25,6 +25,8 @@ export default defineConfig({
         TanStackRouterVite({
             routesDirectory: "./app/routes",
             generatedRouteTree: "./app/routeTree.gen.ts",
+            // Split each route (and its study data) into its own chunk.
+            autoCodeSplitting: true,
         }),
         viteReact(),
         // this is the plugin that enables path aliases

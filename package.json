@@ -10,7 +10,8 @@
         "dev": "vite --host --port=3000",
         "dev:all": "bun scripts/dev.ts",
         "serve": "vite preview --port=3001",
-        "start": "vite"
+        "start": "vite",
+        "test": "bun test app"
     },
     "browserslist": {
         "production": [

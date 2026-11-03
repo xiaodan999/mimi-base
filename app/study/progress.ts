@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/lib/auth";
 import pb from "@/lib/pb";
+import { qk } from "@/lib/query-keys";
 
 import { emptyProgress, type Progress } from "./types";
 
@@ -58,7 +59,7 @@ export function useStudyProgress(subjectId: string) {
     const hydrated = useRef(false);
 
     const queryKey = useMemo(
-        () => ["study-progress", subjectId, userId],
+        () => qk.studyProgress(userId, subjectId),
         [subjectId, userId],
     );
 
@@ -177,7 +178,7 @@ export function useStudySummaries() {
     const userId = user?.id ?? "";
 
     return useQuery({
-        queryKey: ["study-summaries", userId],
+        queryKey: qk.studySummaries(userId),
         enabled: Boolean(userId),
         staleTime: 60 * 1000,
         queryFn: async (): Promise<Record<string, Progress>> => {
