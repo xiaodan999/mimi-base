@@ -88,15 +88,14 @@ export default function AddJiZhangForm() {
 const formSchema = z.object({
     itemName: z.string().min(2, "至少写 2 个字").max(50, "别超过 50 个字"),
     price: z
-        .union([
-            z.string().transform((x) => x.replace(/[^0-9.-]+/g, "")),
-            z.number(),
-        ])
+        .union([z.string(), z.number()])
+        .transform((value) =>
+            typeof value === "number"
+                ? value
+                : Number(value.replace(/[^0-9.-]+/g, "")),
+        )
         .pipe(
-            z.coerce
-                .number()
-                .min(0.0001, "金额要大于 0")
-                .max(999999999, "金额太大了"),
+            z.number().min(0.0001, "金额要大于 0").max(999999999, "金额太大了"),
         ),
     category: z.string(),
 });
@@ -110,7 +109,12 @@ function AddForm({
 }) {
     const mutation = useAddJiZhang();
 
-    const form = useForm<z.infer<typeof formSchema>>({
+    // The form holds the raw string|number price; the resolver parses it to a
+    // number for `onSubmit`.
+    type FormValues = z.input<typeof formSchema>;
+    type SubmitValues = z.output<typeof formSchema>;
+
+    const form = useForm<FormValues, unknown, SubmitValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             itemName: "",
@@ -120,7 +124,7 @@ function AddForm({
     });
     const category = form.watch("category");
 
-    async function onSubmit(values: z.infer<typeof formSchema>) {
+    async function onSubmit(values: SubmitValues) {
         await toastPromise(mutation.mutateAsync(values), {
             loading: "记录中...",
             success: "记录在案！",

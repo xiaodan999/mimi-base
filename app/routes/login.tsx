@@ -41,8 +41,8 @@ export const Route = createFileRoute("/login")({
 });
 
 const formSchema = z.object({
-    email: z.string().email(),
-    password: z.string(),
+    email: z.email(),
+    password: z.string().min(1, "请输入密码"),
 });
 
 function Login() {
