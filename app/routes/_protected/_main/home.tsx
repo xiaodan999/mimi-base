@@ -1,8 +1,19 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { Carrot, Ham } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import {
+    Carrot,
+    Flame,
+    Ham,
+    MessageCircle,
+    UtensilsCrossed,
+    Wallet,
+    type LucideIcon,
+} from "lucide-react";
 
 import StudyEntry from "@/app/study/components/StudyEntry";
+import { streakDays } from "@/app/study/engine";
+import { useStudySummaries } from "@/app/study/progress";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +39,11 @@ import useLongPress from "@/hooks/useLongPress";
 import { useAuth, useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
 import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
+import { qk } from "@/lib/query-keys";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
+
+import { useHomeStats } from "./-home-data";
 
 export const Route = createFileRoute("/_protected/_main/home")({
     component: Page,
@@ -38,42 +52,107 @@ export const Route = createFileRoute("/_protected/_main/home")({
 function Page() {
     const user = useCurrentUser();
     const { refresh } = useAuth();
+    const { data: stats } = useHomeStats();
+    const { data: summaries } = useStudySummaries();
+    const streak = Math.max(
+        0,
+        ...Object.values(summaries ?? {}).map((progress) =>
+            streakDays(progress),
+        ),
+    );
     const [visible, setVisible] = useState(false);
     const bind = useLongPress(() => {
         setVisible(true);
     }, 500);
+
+    const now = new Date();
+    const hour = now.getHours();
+    const greeting =
+        hour < 6
+            ? "夜深了"
+            : hour < 12
+              ? "早上好"
+              : hour < 18
+                ? "下午好"
+                : "晚上好";
+    const dateLabel = new Intl.DateTimeFormat("zh-CN", {
+        month: "long",
+        day: "numeric",
+    }).format(now);
+    const weekday = new Intl.DateTimeFormat("zh-CN", {
+        weekday: "short",
+    }).format(now);
+
     return (
         <div className="px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
-            <div className="text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                    秘密保存基地
-                </h1>
-                <p className="mt-1 text-xs font-medium text-muted-foreground">
-                    V{APP_VERSION}
-                </p>
-            </div>
-            <p className="mt-4 text-lg text-muted-foreground">
-                欢迎{" "}
-                <span className="text-2xl font-semibold text-primary">
-                    {user.user_name || "朋友"}
-                </span>
-            </p>
-
-            <div className="mt-4 flex justify-center">
-                <div {...bind}>
-                    <TouXiang
-                        size={100}
-                        touXiangUrl={getUserAvatarUrl(user)}
-                        circleUrl={getUserCircleUrl(user)}
-                    />
+            <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        {...bind}
+                        className="shrink-0 rounded-full"
+                        aria-label="更换头像"
+                    >
+                        <TouXiang
+                            size={56}
+                            touXiangUrl={getUserAvatarUrl(user)}
+                            circleUrl={getUserCircleUrl(user)}
+                        />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                            {greeting} · {dateLabel} {weekday}
+                        </p>
+                        <h1 className="truncate text-2xl font-semibold tracking-tight">
+                            {user.user_name || "朋友"}
+                        </h1>
+                    </div>
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                    今天也来记录一点什么吧。
+                </p>
+            </section>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+                <Stat
+                    icon={MessageCircle}
+                    label="今日动态"
+                    value={stats?.postsToday ?? "—"}
+                    unit={stats ? "条" : undefined}
+                />
+                <Stat
+                    icon={Wallet}
+                    label="本月花费"
+                    value={stats ? formatMoney(stats.monthSpend) : "—"}
+                />
+                <Stat icon={Flame} label="连续学习" value={streak} unit="天" />
             </div>
 
-            <StudyEntry />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                <QuickLink to="/posts" icon={MessageCircle} label="记录动态" />
+                <QuickLink to="/jizhang" icon={Wallet} label="记一笔" />
+            </div>
 
-            <div className="mx-auto mt-2 flex w-[80%]">
+            <div className="mt-4">
+                <StudyEntry />
+            </div>
+
+            <section className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                    <UtensilsCrossed className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">今晚吃什么</p>
+                    <p className="text-xs text-muted-foreground">
+                        让抽奖机替你决定
+                    </p>
+                </div>
                 <DinnerPicker />
-            </div>
+            </section>
+
+            <p className="mt-6 text-center text-[10px] font-medium text-muted-foreground">
+                秘密基地 · V{APP_VERSION}
+            </p>
 
             <Drawer open={visible} onOpenChange={setVisible}>
                 <DrawerContent>
@@ -82,9 +161,9 @@ function Page() {
                     </DrawerHeader>
                     <DrawerDescription>点击以下的选项</DrawerDescription>
                     <DrawerFooter className="text-lg">
-                        <div className="divide-y divide-green-500 text-center">
+                        <div className="divide-y divide-border text-center">
                             <div
-                                className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300"
+                                className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent"
                                 onClick={async () => {
                                     setVisible(false);
                                     // 1. 让用户选择图片
@@ -139,12 +218,12 @@ function Page() {
                             >
                                 修改头像
                             </div>
-                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300">
+                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
                                 修改头像框
                             </div>
                         </div>
                         <DrawerClose asChild>
-                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-green-300">
+                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
                                 取消
                             </div>
                         </DrawerClose>
@@ -152,6 +231,59 @@ function Page() {
                 </DrawerContent>
             </Drawer>
         </div>
+    );
+}
+
+function formatMoney(value: number) {
+    return `¥${value.toFixed(2).replace(/\.?0+$/, "")}`;
+}
+
+function Stat({
+    icon: Icon,
+    label,
+    value,
+    unit,
+}: {
+    icon: LucideIcon;
+    label: string;
+    value: string | number;
+    unit?: string;
+}) {
+    return (
+        <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft">
+            <Icon className="size-4 text-primary" aria-hidden="true" />
+            <div className="mt-2 flex items-baseline gap-0.5">
+                <span className="text-xl font-semibold tabular-nums">
+                    {value}
+                </span>
+                {unit && (
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                        {unit}
+                    </span>
+                )}
+            </div>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{label}</p>
+        </div>
+    );
+}
+
+function QuickLink({
+    to,
+    icon: Icon,
+    label,
+}: {
+    to: "/posts" | "/jizhang";
+    icon: LucideIcon;
+    label: string;
+}) {
+    return (
+        <Link
+            to={to}
+            className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card px-4 py-3 text-sm font-semibold shadow-soft transition-all duration-150 hover:bg-accent active:scale-[0.99]"
+        >
+            <Icon className="size-4 text-primary" aria-hidden="true" />
+            {label}
+        </Link>
     );
 }
 
@@ -194,6 +326,7 @@ const generateMealFn = () => {
 
 function DinnerPicker() {
     const user = useCurrentUser();
+    const queryClient = useQueryClient();
     const [dinnerName, setDinnerName] = useState("");
     const [loading, setLoading] = useState(false);
     const [saveLoading, setSaveLoading] = useState(false);
@@ -208,29 +341,43 @@ function DinnerPicker() {
 
     const handleSave = async (dinner: string) => {
         setSaveLoading(true);
-        await toastPromise(
-            pb.collection("posts").create({
-                text: `[晚餐抽奖机]: ${dinner}`,
-                author_id: user.id,
-            }),
-            {
-                loading: `正在记录晚餐 '${dinner}'...`,
-                error: "保存晚餐失败",
-                success: `已将 '${dinner}' 记录在案, 去吃吧.`,
-                finally: () => {
-                    setVisible(false);
-                    setSaveLoading(false);
+        try {
+            await toastPromise(
+                pb.collection("posts").create({
+                    text: `[晚餐抽奖机]: ${dinner}`,
+                    author_id: user.id,
+                }),
+                {
+                    loading: `正在记录晚餐 '${dinner}'...`,
+                    error: "保存晚餐失败",
+                    success: `已将 '${dinner}' 记录在案, 去吃吧.`,
+                    finally: () => {
+                        setVisible(false);
+                        setSaveLoading(false);
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.homeStats.all,
+                        });
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.posts.all,
+                        });
+                    },
                 },
-            },
-        );
+            );
+        } catch {
+            // toastPromise already surfaced the error.
+        }
     };
 
     return (
         <Dialog open={visible} onOpenChange={setVisible}>
             <DialogTrigger asChild>
-                <Button size="lg" className="flex-1 gap-1" onClick={handlePick}>
-                    <Ham />
-                    <span>抽取晚餐</span>
+                <Button
+                    size="sm"
+                    className="shrink-0 gap-1"
+                    onClick={handlePick}
+                >
+                    <Ham className="size-4" />
+                    <span>抽一下</span>
                 </Button>
             </DialogTrigger>
             <DialogContent>
@@ -252,7 +399,7 @@ function DinnerPicker() {
                         disabled={loading || saveLoading}
                         onClick={() => handleSave(dinnerName)}
                     >
-                        <Carrot />
+                        <Carrot className="size-4" />
                         <span>保存</span>
                     </Button>
                 </DialogFooter>

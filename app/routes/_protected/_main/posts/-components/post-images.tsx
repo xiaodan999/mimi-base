@@ -37,7 +37,7 @@ export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
     return (
         <div
             className={cn(
-                "mt-2 grid w-full gap-1",
+                "mt-3 grid w-full gap-1.5",
                 width,
                 columns === 1 && "grid-cols-1",
                 columns === 2 && "grid-cols-2",
@@ -50,7 +50,7 @@ export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
                     type="button"
                     onClick={() => onOpen(index)}
                     aria-label={`查看第 ${index + 1} 张图片`}
-                    className="relative aspect-square overflow-hidden rounded-sm bg-muted"
+                    className="relative aspect-square overflow-hidden rounded-lg bg-muted"
                 >
                     <img
                         src={image.thumbUrl}
@@ -86,7 +86,7 @@ export function InstagramCarousel({ images, onOpen }: ImageListProps) {
     };
 
     return (
-        <div className="relative bg-black">
+        <div className="relative bg-muted">
             <div
                 ref={stripRef}
                 onScroll={handleScroll}

@@ -136,7 +136,7 @@ function Layout({
             <div className="mb-4 mt-2 flex flex-wrap justify-end gap-2">
                 {monthTotal && (
                     <div className="grid place-items-center font-bold text-muted-foreground">
-                        🌛￥{monthTotal.toFixed(2)}
+                        🌛 ¥{monthTotal.toFixed(2)}
                     </div>
                 )}
                 <AddJiZhangForm />
@@ -163,7 +163,7 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                 <div className="text-muted-foreground">
                     合计:{" "}
                     <span className="font-bold">
-                        ￥{getSum(items).toFixed(2)}
+                        ¥{getSum(items).toFixed(2)}
                     </span>
                 </div>
             </div>
@@ -188,12 +188,12 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                                                         new Date(
                                                             item.createdAt,
                                                         ),
-                                                        "yyyy/M/d, h:mm a",
+                                                        "M月d日 HH:mm",
                                                     )}
                                                 </p>
                                             </div>
                                             <div className="inline-flex items-center text-base font-semibold text-foreground">
-                                                ￥{item.price}
+                                                ¥{item.price}
                                             </div>
                                         </div>
                                     </div>

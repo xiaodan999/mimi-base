@@ -144,7 +144,8 @@ export default function CommentSheet({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-baseline justify-between gap-2">
                                                 <span className="truncate text-sm font-semibold">
-                                                    {root.author.user_name}
+                                                    {root.author.user_name ||
+                                                        "朋友"}
                                                 </span>
                                                 <time
                                                     className="shrink-0 text-xs text-muted-foreground"
@@ -194,10 +195,9 @@ export default function CommentSheet({
                                                 >
                                                     <p className="whitespace-pre-wrap break-words">
                                                         <span className="font-semibold">
-                                                            {
-                                                                reply.author
-                                                                    .user_name
-                                                            }
+                                                            {reply.author
+                                                                .user_name ||
+                                                                "朋友"}
                                                         </span>
                                                         <span className="text-muted-foreground">
                                                             {" "}
@@ -207,7 +207,7 @@ export default function CommentSheet({
                                                             {commentsById.get(
                                                                 reply.parentId,
                                                             )?.author
-                                                                .user_name ??
+                                                                .user_name ||
                                                                 "该评论"}
                                                         </span>
                                                         <span>
@@ -268,7 +268,7 @@ export default function CommentSheet({
                             <span className="truncate">
                                 回复{" "}
                                 <span className="font-semibold">
-                                    @{replyingTo.author.user_name}
+                                    @{replyingTo.author.user_name || "朋友"}
                                 </span>
                             </span>
                             <button
@@ -293,7 +293,7 @@ export default function CommentSheet({
                             }}
                             placeholder={
                                 replyingTo
-                                    ? `回复 ${replyingTo.author.user_name}...`
+                                    ? `回复 ${replyingTo.author.user_name || "朋友"}...`
                                     : "说点什么..."
                             }
                             rows={1}

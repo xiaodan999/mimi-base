@@ -26,4 +26,9 @@ export const qk = {
     studyProgress: (userId: string, subjectId: string) =>
         ["study-progress", subjectId, userId] as const,
     studySummaries: (userId: string) => ["study-summaries", userId] as const,
+    homeStats: {
+        all: ["home-stats"] as const,
+        get: (userId: string, day: string) =>
+            ["home-stats", userId, day] as const,
+    },
 };

@@ -139,12 +139,12 @@ export default function Post({
 
     if (layout === "instagram") {
         return (
-            <article className="py-3">
-                <div className="flex items-center gap-2 px-4">
+            <article className="mb-3 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
+                <div className="flex items-center gap-3 px-4 pt-4">
                     {avatar}
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold">
-                            {author.user_name}
+                            {author.user_name || "朋友"}
                         </div>
                         <time
                             className="text-xs text-muted-foreground"
@@ -157,7 +157,7 @@ export default function Post({
                 </div>
 
                 {images.length > 0 && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                         <InstagramCarousel
                             images={gridImages}
                             onOpen={openImage}
@@ -165,12 +165,12 @@ export default function Post({
                     </div>
                 )}
 
-                <div className="px-4 pt-2">{actions}</div>
+                <div className="px-4 pt-3">{actions}</div>
 
                 {text && (
-                    <p className="mt-1 whitespace-pre-wrap break-words px-4 text-sm">
+                    <p className="mt-1 whitespace-pre-wrap break-words px-4 pb-4 text-[15px] leading-relaxed">
                         <span className="font-semibold">
-                            {author.user_name}
+                            {author.user_name || "朋友"}
                         </span>{" "}
                         {text}
                     </p>
@@ -180,19 +180,19 @@ export default function Post({
     }
 
     return (
-        <article className="px-4 py-4">
-            <div className="flex gap-2">
+        <article className="mb-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+            <div className="flex gap-3">
                 {avatar}
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                         <span className="truncate font-semibold">
-                            {author.user_name}
+                            {author.user_name || "朋友"}
                         </span>
                         {menu}
                     </div>
 
                     {text && (
-                        <p className="mt-1 whitespace-pre-wrap break-words">
+                        <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                             {text}
                         </p>
                     )}

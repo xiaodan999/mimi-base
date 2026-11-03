@@ -251,6 +251,7 @@ export function useNewPostMutation() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.posts.all });
+            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
         },
     });
 }
@@ -266,6 +267,7 @@ export function useDeletePostMutation() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.posts.all });
+            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
         },
     });
 }

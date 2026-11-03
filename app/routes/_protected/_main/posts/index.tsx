@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Pencil } from "lucide-react";
+import { Pencil, MessageCircle } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 
 import { ErrorState } from "@/components/ErrorState";
@@ -62,7 +62,7 @@ function Posts() {
 
     return (
         <>
-            <section className="divide-y divide-border/60 pb-24">
+            <section className="px-3 pb-24 pt-3">
                 {posts.map((post, index) => {
                     const previous = posts[index - 1];
                     const showDivider =
@@ -72,8 +72,10 @@ function Posts() {
                     return (
                         <Fragment key={post.id}>
                             {showDivider && (
-                                <div className="bg-muted/70 px-4 py-2 text-center text-xs text-muted-foreground">
-                                    {formatDayDivider(post.createdAt)}
+                                <div className="sticky top-0 z-10 -mx-3 mb-2 px-3 py-1.5">
+                                    <span className="inline-flex rounded-full bg-background/85 px-3 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
+                                        {formatDayDivider(post.createdAt)}
+                                    </span>
                                 </div>
                             )}
                             <Post
@@ -100,14 +102,20 @@ function Posts() {
                             到底了...
                         </p>
                     ) : (
-                        <p className="py-16 text-sm text-muted-foreground">
-                            还没有动态，点右下角记录一条吧
-                        </p>
+                        <div className="mt-6 w-full rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">
+                            <MessageCircle className="mx-auto size-8 text-muted-foreground" />
+                            <p className="mt-3 text-sm font-medium">
+                                还没有动态
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                点右下角的按钮，记录第一条吧
+                            </p>
+                        </div>
                     )}
                 </div>
             </section>
 
-            <div className="fixed bottom-[70px] right-4">
+            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4">
                 <Button
                     className="size-14 rounded-full p-0"
                     onClick={() => setShowNewPostDrawer(true)}

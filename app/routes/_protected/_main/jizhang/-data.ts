@@ -98,6 +98,7 @@ export function useAddJiZhang() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
+            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
         },
     });
 }
@@ -115,6 +116,7 @@ export function useDeleteJiZhang() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
+            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
         },
     });
 }
