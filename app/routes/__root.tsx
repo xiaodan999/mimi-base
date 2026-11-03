@@ -1,4 +1,3 @@
-import { lazy } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import {
     Outlet,
@@ -13,17 +12,6 @@ import type { AuthContextType } from "@/lib/auth";
 
 import "@/globals.css";
 
-const TanStackRouterDevtools =
-    process.env.NODE_ENV === "production"
-        ? () => null // Render nothing in production
-        : lazy(() =>
-              // Lazy load in development
-              import("@tanstack/router-devtools").then((res) => ({
-                  default: res.TanStackRouterDevtools,
-                  // For Embedded Mode
-                  // default: res.TanStackRouterDevtoolsPanel
-              })),
-          );
 function RootComponent() {
     useVisualViewport();
 
@@ -32,10 +20,6 @@ function RootComponent() {
             <Outlet />
             <ScrollRestoration getKey={(location) => location.pathname} />
             <Toaster />
-
-            <div className="hidden md:block">
-                <TanStackRouterDevtools position="top-right" />
-            </div>
         </>
     );
 }
