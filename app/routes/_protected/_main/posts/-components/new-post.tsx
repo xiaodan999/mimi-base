@@ -214,12 +214,18 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                     hidden because the close button is the obvious affordance
                     with a mouse. `overflow-clip` (not `hidden`): hidden still
                     lets focus scrollIntoView scroll this container, which
-                    pushes the header out of the sheet when the draft grows. */}
-                <DrawerContent className="kb-max-h mx-auto w-full max-w-2xl overflow-clip rounded-t-3xl border-x-0 border-b-0 border-t border-border/70 p-0 shadow-lift md:mb-5 md:rounded-3xl md:border md:[--kb-max-offset:28px] md:[&>div:first-child]:hidden">
+                    pushes the header out of the sheet when the draft grows.
+                    The primitive's handle is replaced by one inside the header
+                    so the tint reaches the sheet's top edge. */}
+                <DrawerContent className="kb-max-h mx-auto w-full max-w-2xl overflow-clip rounded-t-3xl border-x-0 border-b-0 border-t border-border/70 p-0 shadow-lift md:mb-5 md:rounded-3xl md:border md:[--kb-max-offset:28px] [&>div:first-child]:hidden">
                     {/* The tint fades straight down to fully transparent, so
                         it never draws a band or a bright pill against the
                         header divider. */}
-                    <header className="relative shrink-0 overflow-hidden border-b border-border/60 bg-gradient-to-b from-primary/[0.08] to-primary/0 px-4 py-4 md:px-6">
+                    <header className="relative shrink-0 overflow-hidden border-b border-border/60 bg-gradient-to-b from-primary/[0.08] to-primary/0 px-4 pb-4 pt-3 md:px-6">
+                        <div
+                            aria-hidden="true"
+                            className="mx-auto mb-3 h-1.5 w-24 rounded-full bg-muted-foreground/30 md:hidden"
+                        />
                         <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                             <Button
                                 type="button"
