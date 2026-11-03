@@ -1,10 +1,11 @@
 import {
     keepPreviousData,
+    queryOptions,
     useMutation,
     useQuery,
     useQueryClient,
 } from "@tanstack/react-query";
-import { endOfDay, startOfDay } from "date-fns/esm";
+import { endOfDay, startOfDay, startOfMonth } from "date-fns/esm";
 import { DateRange } from "react-day-picker";
 
 import { useCurrentUser } from "@/lib/auth";
@@ -32,9 +33,22 @@ type JiZhangRecord = {
 
 export function useJiZhang(range: DateRange | undefined) {
     const user = useCurrentUser();
+    return useQuery(jiZhangQueryOptions(user.id, range));
+}
+
+/** The range the page opens with: the current month up to today. */
+export function defaultJiZhangRange(): DateRange {
+    const now = new Date();
+    return { from: startOfMonth(now), to: endOfDay(now) };
+}
+
+export function jiZhangQueryOptions(
+    userId: string,
+    range: DateRange | undefined,
+) {
     const { from, to } = range ?? {};
-    return useQuery({
-        queryKey: qk.jiZhang.list(user.id, from, to),
+    return queryOptions({
+        queryKey: qk.jiZhang.list(userId, from, to),
         queryFn: async () => {
             if (range === undefined || from === undefined) return [];
 

@@ -1,13 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-    endOfDay,
-    format,
-    isSameDay,
-    parse,
-    startOfMonth,
-    subDays,
-} from "date-fns/esm";
+import { format, isSameDay, parse, subDays } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
 import { Trash2, Wallet } from "lucide-react";
 import { DateRange } from "react-day-picker";
@@ -27,7 +20,12 @@ import { cn } from "@/lib/utils";
 
 import { getExpenseCategory } from "./-categories";
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
-import { useDeleteJiZhang, useJiZhang } from "./-data";
+import {
+    defaultJiZhangRange,
+    jiZhangQueryOptions,
+    useDeleteJiZhang,
+    useJiZhang,
+} from "./-data";
 import {
     buildTrend,
     sumExpenses,
@@ -38,14 +36,27 @@ import {
 } from "./-summary";
 
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
+    // Warm the opening range before the page commits. With
+    // `defaultPreload: "intent"` a tap starts this loader, so the page mounts
+    // with rows in the cache instead of flashing its skeleton.
+    loader: async ({ context }) => {
+        const { user } = await context.auth.waitForAuth();
+        if (!user) return;
+        try {
+            await context.queryClient.ensureQueryData(
+                jiZhangQueryOptions(user.id, defaultJiZhangRange()),
+            );
+        } catch {
+            // The page renders its own error state with a retry button.
+        }
+    },
     component: Page,
 });
 
 function Page() {
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(() => ({
-        from: startOfMonth(new Date()),
-        to: endOfDay(new Date()),
-    }));
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(
+        defaultJiZhangRange,
+    );
     const { data, isPending, isError, error, isRefetching, refetch } =
         useJiZhang(dateRange);
 
