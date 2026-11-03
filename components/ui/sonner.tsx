@@ -2,12 +2,16 @@
 
 import { Toaster as Sonner } from "sonner";
 
+import { useTheme } from "@/lib/theme";
+
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
+	const { resolvedTheme } = useTheme();
+
 	return (
 		<Sonner
-			theme="system"
+			theme={resolvedTheme}
 			position="top-center"
 			offset="calc(1rem + env(safe-area-inset-top))"
 			className="toaster group"

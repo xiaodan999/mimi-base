@@ -4,51 +4,137 @@
 
 @layer base {
     :root {
-        --theme-color: #c4f2d0;
-        /* --background: 0 0% 100%; */
-        --background: 136, 64%, 86%;
+        /* Warm paper canvas + forest ink. */
+        --background: 42 38% 97%;
+        --foreground: 160 22% 12%;
 
-        --foreground: 222.2 47.4% 11.2%;
-
-        /* --muted: 210 40% 96.1%; */
-        --muted: 149.3 80.4% 90%;
-        --muted-foreground: 215.4 16.3% 46.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 160 22% 12%;
 
         --popover: 0 0% 100%;
-        --popover-foreground: 222.2 47.4% 11.2%;
+        --popover-foreground: 160 22% 12%;
 
-        /* --border: 214.3 31.8% 91.4%; */
-        --border: 152.4 76% 80.4%;
-        /* --input: 214.3 31.8% 91.4%; */
-        --input: 158.1 64.4% 51.6%;
+        --primary: 161 42% 28%;
+        --primary-foreground: 42 38% 97%;
 
-        --card: 149.3 80.4% 90%;
-        --card-foreground: 222.2 47.4% 11.2%;
+        --secondary: 150 20% 94%;
+        --secondary-foreground: 160 25% 18%;
 
-        --primary: 162.9 93.5% 24.3%;
-        --primary-foreground: 210 40% 98%;
+        --muted: 150 18% 94%;
+        --muted-foreground: 160 9% 42%;
 
-        --secondary: 210 40% 96.1%;
-        --secondary-foreground: 222.2 47.4% 11.2%;
+        --accent: 152 40% 92%;
+        --accent-foreground: 161 35% 22%;
 
-        --accent: 151.8 81% 95.9%;
-        --accent-foreground: 222.2 47.4% 11.2%;
+        --destructive: 0 68% 47%;
+        --destructive-foreground: 0 0% 100%;
 
-        --destructive: 0 100% 50%;
-        --destructive-foreground: 210 40% 98%;
+        --success: 152 45% 32%;
+        --success-foreground: 0 0% 100%;
+        --warning: 32 85% 40%;
+        --warning-foreground: 42 38% 97%;
+        --info: 199 70% 38%;
+        --info-foreground: 0 0% 100%;
 
-        --ring: 215 20.2% 65.1%;
+        --border: 150 14% 87%;
+        --input: 150 14% 84%;
+        --ring: 161 42% 38%;
 
-        --radius: 0.5rem;
+        --radius: 1rem;
+
+        --shadow-soft:
+            0 1px 2px rgba(16, 24, 40, 0.04),
+            0 8px 24px -16px rgba(16, 24, 40, 0.18);
+        --shadow-lift:
+            0 2px 6px rgba(16, 24, 40, 0.05),
+            0 18px 40px -24px rgba(16, 24, 40, 0.25);
     }
-}
 
-@layer base {
+    .dark {
+        --background: 160 18% 7%;
+        --foreground: 42 25% 94%;
+
+        --card: 160 14% 11%;
+        --card-foreground: 42 25% 94%;
+
+        --popover: 160 14% 11%;
+        --popover-foreground: 42 25% 94%;
+
+        --primary: 152 45% 60%;
+        --primary-foreground: 160 30% 8%;
+
+        --secondary: 160 12% 17%;
+        --secondary-foreground: 42 20% 92%;
+
+        --muted: 160 10% 15%;
+        --muted-foreground: 150 8% 64%;
+
+        --accent: 160 14% 18%;
+        --accent-foreground: 42 20% 92%;
+
+        --destructive: 0 65% 55%;
+        --destructive-foreground: 160 30% 8%;
+
+        --success: 152 45% 62%;
+        --success-foreground: 160 30% 8%;
+        --warning: 38 80% 62%;
+        --warning-foreground: 160 30% 8%;
+        --info: 199 60% 62%;
+        --info-foreground: 160 30% 8%;
+
+        --border: 160 8% 20%;
+        --input: 160 8% 24%;
+        --ring: 152 45% 55%;
+
+        --shadow-soft:
+            0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px -16px rgba(0, 0, 0, 0.5);
+        --shadow-lift:
+            0 2px 6px rgba(0, 0, 0, 0.3), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+    }
+
+    html {
+        height: 100%;
+        color-scheme: light;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    html.dark {
+        color-scheme: dark;
+    }
+
     html,
     body {
-        height: 100%;
         overflow: hidden;
         overscroll-behavior: none;
+    }
+
+    body {
+        height: 100%;
+        font-family:
+            "PingFang SC",
+            "Hiragino Sans GB",
+            "Noto Sans SC",
+            "Microsoft YaHei",
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            "Segoe UI",
+            sans-serif;
+        font-feature-settings:
+            "rlig" 1,
+            "calt" 1;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        @apply bg-background text-foreground;
+        background-image: radial-gradient(
+            1200px 600px at 50% -10%,
+            hsl(var(--primary) / 0.06),
+            transparent 70%
+        );
+    }
+
+    ::selection {
+        background: hsl(var(--primary) / 0.2);
     }
 
     /* Set from useVisualViewport so the shell follows the keyboard. */
@@ -58,13 +144,6 @@
 
     * {
         @apply border-border;
-    }
-
-    body {
-        @apply bg-background text-foreground;
-        font-feature-settings:
-            "rlig" 1,
-            "calt" 1;
     }
 }
 
@@ -106,8 +185,3 @@
     max-height: calc(var(--app-vvh, 100dvh) - 2rem);
     overflow-y: auto;
 }
-
-/* 
-body{
-  background-color: var(--theme-color);
-} */

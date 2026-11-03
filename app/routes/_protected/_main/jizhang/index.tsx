@@ -57,7 +57,7 @@ function Page() {
         return (
             <Layout date={dateRange} onRangeChange={setDateRange}>
                 <div className="flex flex-1 flex-col items-center justify-center">
-                    <Smile className="mb-4 size-16 text-blue-600" />
+                    <Smile className="mb-4 size-16 text-primary" />
                     <h2 className="text-xl">无记录</h2>
                     <p className="text-gray-500">没有找到消费记录</p>
                 </div>
@@ -104,7 +104,7 @@ function JiZhangSkeleton() {
             {[0, 1, 2].map((index) => (
                 <div
                     key={index}
-                    className="rounded-lg border border-green-200 bg-card p-4"
+                    className="rounded-lg border border-border/70 bg-card p-4"
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <Skeleton className="h-5 w-24" />
@@ -154,9 +154,9 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
     const deleteMutation = useDeleteJiZhang();
 
     return (
-        <div className="rounded-lg border border-green-200 bg-card p-4 text-card shadow sm:p-8">
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-soft sm:p-8">
             <div className="mb-4 flex items-center justify-between">
-                <h5 className="text-xl font-bold leading-none text-gray-900">
+                <h5 className="text-xl font-bold leading-none text-foreground">
                     {date}
                 </h5>
 
@@ -169,7 +169,7 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
             </div>
 
             <div className="flow-root">
-                <ul role="list" className="divide-y divide-green-300">
+                <ul role="list" className="divide-y divide-border/70">
                     {items.map((item) => (
                         <ContextMenu key={item.id}>
                             <ContextMenuTrigger asChild>
@@ -177,13 +177,13 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                                     <div className="rounded-md px-2 py-3 transition-colors hover:cursor-pointer hover:bg-accent sm:py-4">
                                         <div className="flex items-center">
                                             <div className="flex-shrink-0">
-                                                <Banknote className="text-black" />
+                                                <Banknote className="text-muted-foreground" />
                                             </div>
                                             <div className="ms-4 min-w-0 flex-1">
-                                                <p className="truncate text-sm font-medium text-gray-900">
+                                                <p className="truncate text-sm font-medium text-foreground">
                                                     {item.itemName}
                                                 </p>
-                                                <p className="truncate text-sm text-gray-500">
+                                                <p className="truncate text-sm text-muted-foreground">
                                                     {format(
                                                         new Date(
                                                             item.createdAt,
@@ -192,7 +192,7 @@ function Group({ date, items }: { date: string; items: JiZhangItemData[] }) {
                                                     )}
                                                 </p>
                                             </div>
-                                            <div className="inline-flex items-center text-base font-semibold text-gray-900">
+                                            <div className="inline-flex items-center text-base font-semibold text-foreground">
                                                 ￥{item.price}
                                             </div>
                                         </div>

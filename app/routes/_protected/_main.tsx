@@ -10,8 +10,8 @@ export const Route = createFileRoute("/_protected/_main")({
 
 function Layout() {
     return (
-        <div className="flex h-full flex-col">
-            <main className="flex-1 overflow-auto">
+        <div className="flex h-full flex-col bg-background">
+            <main className="flex-1 overflow-auto overscroll-contain">
                 <Outlet />
             </main>
 

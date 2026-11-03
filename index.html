@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hans">
     <head>
         <meta charset="UTF-8" />
         <meta
@@ -7,8 +7,36 @@
             content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
         />
         <title>小蛋🏡的秘密基地</title>
-        <meta name="description" content="一個記錄秘密的秘密基地。" />
-        <meta name="theme-color" content="#c4f2d0" />
+        <meta name="description" content="一个记录秘密的秘密基地。" />
+        <meta
+            name="theme-color"
+            media="(prefers-color-scheme: light)"
+            content="#fbfaf6"
+        />
+        <meta
+            name="theme-color"
+            media="(prefers-color-scheme: dark)"
+            content="#0e1512"
+        />
+        <script>
+            // Apply the stored theme before first paint to avoid a flash.
+            (() => {
+                try {
+                    const stored = localStorage.getItem("mimi-theme");
+                    const dark =
+                        stored === "dark" ||
+                        ((!stored || stored === "system") &&
+                            window.matchMedia("(prefers-color-scheme: dark)")
+                                .matches);
+                    document.documentElement.classList.toggle("dark", dark);
+                    document.documentElement.style.colorScheme = dark
+                        ? "dark"
+                        : "light";
+                } catch {
+                    // Storage can be unavailable in private mode.
+                }
+            })();
+        </script>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

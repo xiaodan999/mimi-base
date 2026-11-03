@@ -1,42 +1,81 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
+import {
+    BookOpen,
+    House,
+    MessageCircle,
+    Wallet,
+    type LucideIcon,
+} from "lucide-react";
 
-import styles from "./buttons.module.css";
-import ChatIcon from "./icons/chat.png";
-import StudyIcon from "./icons/study.png";
-import VideoIcon from "./icons/video.png";
-import WalletIcon from "./icons/wallet.png";
+import ThemeToggle from "@/components/ThemeToggle";
+import { cn } from "@/lib/utils";
 
-const routes = [
-    { name: "视频基地", path: "/home", icon: VideoIcon },
-    { name: "动态基地", path: "/posts", icon: ChatIcon },
-    { name: "记账基地", path: "/jizhang", icon: WalletIcon },
-    { name: "学习基地", path: "/study", icon: StudyIcon },
-] as const;
+type NavRoute = {
+    name: string;
+    path: string;
+    icon: LucideIcon;
+    exact?: boolean;
+};
+
+const routes: NavRoute[] = [
+    { name: "首页", path: "/home", icon: House, exact: true },
+    { name: "动态", path: "/posts", icon: MessageCircle },
+    { name: "记账", path: "/jizhang", icon: Wallet },
+    { name: "学习", path: "/study", icon: BookOpen },
+];
 
 export default function NavButtons() {
+    const { pathname } = useLocation();
+
     return (
-        <div className={styles.navBar}>
-            {routes.map((route) => (
-                <Link
-                    className={styles.link}
-                    activeProps={{
-                        className: `${styles.link} ${styles.activeLink}`,
-                    }}
-                    key={route.path}
-                    to={route.path}
-                    aria-label={route.name}
-                >
-                    <span
-                        className={styles.icon}
-                        style={
-                            {
-                                "--icon": `url("${route.icon}")`,
-                            } as React.CSSProperties
-                        }
-                        aria-hidden="true"
-                    />
-                </Link>
-            ))}
-        </div>
+        <nav
+            aria-label="主导航"
+            className="z-30 flex items-stretch gap-0.5 border-t border-border/70 bg-background/85 px-1.5 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl"
+        >
+            {routes.map(({ name, path, icon: Icon, exact }) => {
+                const active = exact
+                    ? pathname === path
+                    : pathname === path || pathname.startsWith(`${path}/`);
+
+                return (
+                    <Link
+                        key={path}
+                        to={path}
+                        aria-label={name}
+                        aria-current={active ? "page" : undefined}
+                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 py-2 outline-none"
+                    >
+                        <span
+                            className={cn(
+                                "grid h-8 w-12 place-items-center rounded-full transition-all duration-200",
+                                active
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground group-hover:text-foreground",
+                            )}
+                        >
+                            <Icon
+                                className="size-[18px]"
+                                strokeWidth={active ? 2.4 : 2}
+                                aria-hidden="true"
+                            />
+                        </span>
+                        <span
+                            className={cn(
+                                "text-[10px] font-semibold tracking-wide transition-colors",
+                                active
+                                    ? "text-primary"
+                                    : "text-muted-foreground",
+                            )}
+                        >
+                            {name}
+                        </span>
+                    </Link>
+                );
+            })}
+
+            <div className="flex w-11 items-center justify-center border-l border-border/60">
+                <ThemeToggle className="size-8 border-0 bg-transparent" />
+            </div>
+        </nav>
     );
 }

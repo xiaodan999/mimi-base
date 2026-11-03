@@ -45,7 +45,7 @@ const formSchema = z.object({
     password: z.string(),
 });
 
-export function Login() {
+function Login() {
     const navigate = useNavigate();
     const search = Route.useSearch();
 

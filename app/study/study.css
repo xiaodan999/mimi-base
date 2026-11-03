@@ -7,23 +7,23 @@
 .study-root {
     --bg: hsl(var(--background));
     --bg2: hsl(var(--muted));
-    --card: #ffffff;
+    --card: hsl(var(--card));
     --card2: hsl(var(--muted));
     --ink: hsl(var(--foreground));
     --ink2: hsl(var(--muted-foreground));
-    --ink3: #6b7280;
+    --ink3: hsl(var(--muted-foreground));
     --line: hsl(var(--border));
-    --hair: rgba(17, 24, 39, 0.07);
+    --hair: hsl(var(--border) / 0.7);
 
     --brand: hsl(var(--primary));
     --brand-ink: hsl(var(--primary-foreground));
 
-    --ok: #16a34a;
-    --ok-bg: #dcfce7;
-    --no: #dc2626;
-    --no-bg: #fee2e2;
-    --warn: #d97706;
-    --warn-bg: #fef3c7;
+    --ok: hsl(var(--success));
+    --ok-bg: hsl(var(--success) / 0.14);
+    --no: hsl(var(--destructive));
+    --no-bg: hsl(var(--destructive) / 0.12);
+    --warn: hsl(var(--warning));
+    --warn-bg: hsl(var(--warning) / 0.16);
 
     --m1: #ef4444;
     --m2: #f59e0b;
@@ -32,17 +32,19 @@
     --m5: #3b82f6;
     --m6: #ec4899;
 
-    --sh:
-        0 1px 2px rgba(16, 24, 40, 0.05),
-        0 8px 22px -12px rgba(16, 24, 40, 0.22);
-    --sh2:
-        0 2px 6px rgba(16, 24, 40, 0.06),
-        0 18px 40px -20px rgba(16, 24, 40, 0.28);
+    --sh: var(--shadow-soft);
+    --sh2: var(--shadow-lift);
 
     color: var(--ink);
     font-size: 16px;
     line-height: 1.6;
     -webkit-tap-highlight-color: transparent;
+}
+
+.dark .study-root {
+    --ok-bg: hsl(var(--success) / 0.18);
+    --no-bg: hsl(var(--destructive) / 0.18);
+    --warn-bg: hsl(var(--warning) / 0.2);
 }
 
 .study-root *,
@@ -2693,7 +2695,7 @@
 
 .opt.ok .opt-k {
     background: var(--ok);
-    color: #fff;
+    color: hsl(var(--success-foreground));
 }
 
 .opt.bad {
@@ -2703,7 +2705,7 @@
 
 .opt.bad .opt-k {
     background: var(--no);
-    color: #fff;
+    color: hsl(var(--destructive-foreground));
 }
 
 .opt:active {
@@ -3134,8 +3136,8 @@ textarea.st-input {
     transform: translateX(-50%);
     z-index: 100;
     /* toast 挂在 body 上，不在 .study-root 里，所以不要依赖作用域变量 */
-    background: #111827;
-    color: #fff;
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
     padding: 11px 20px;
     border-radius: 999px;
     font-size: 13.5px;
@@ -3441,7 +3443,7 @@ textarea.st-input {
 .ai-md code {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.9em;
-    background: rgba(17, 24, 39, 0.06);
+    background: hsl(var(--foreground) / 0.07);
     padding: 1px 4px;
     border-radius: 5px;
 }

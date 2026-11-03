@@ -62,7 +62,7 @@ function Posts() {
 
     return (
         <>
-            <section className="divide-y divide-black/5 pb-24">
+            <section className="divide-y divide-border/60 pb-24">
                 {posts.map((post, index) => {
                     const previous = posts[index - 1];
                     const showDivider =
@@ -72,7 +72,7 @@ function Posts() {
                     return (
                         <Fragment key={post.id}>
                             {showDivider && (
-                                <div className="bg-black/5 px-4 py-2 text-center text-xs text-muted-foreground">
+                                <div className="bg-muted/70 px-4 py-2 text-center text-xs text-muted-foreground">
                                     {formatDayDivider(post.createdAt)}
                                 </div>
                             )}

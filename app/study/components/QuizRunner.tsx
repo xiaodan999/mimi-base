@@ -391,7 +391,7 @@ export default function QuizRunner({
                     {index + 1}/{total}
                 </div>
                 <button
-                    className="grid size-8 place-items-center rounded-full bg-white shadow-sm"
+                    className="grid size-8 place-items-center rounded-full bg-card shadow-sm"
                     onClick={onExit}
                     aria-label="退出练习"
                 >

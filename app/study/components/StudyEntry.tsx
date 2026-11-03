@@ -34,9 +34,9 @@ export default function StudyEntry() {
                             key={subject.id}
                             to="/study/$subjectId"
                             params={{ subjectId: subject.id }}
-                            className="flex items-center gap-3 rounded-2xl border border-green-300/70 bg-white/70 p-2.5"
+                            className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-card/80 p-2.5"
                         >
-                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-green-100 text-xl">
+                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-xl">
                                 {subject.icon}
                             </span>
                             <span className="min-w-0 flex-1">

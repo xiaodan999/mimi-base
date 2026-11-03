@@ -33,7 +33,9 @@ function RootComponent() {
             <ScrollRestoration getKey={(location) => location.pathname} />
             <Toaster />
 
-            <TanStackRouterDevtools position="bottom-right" />
+            <div className="hidden md:block">
+                <TanStackRouterDevtools position="top-right" />
+            </div>
         </>
     );
 }

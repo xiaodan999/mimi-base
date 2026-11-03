@@ -6,6 +6,7 @@ import ReactDOM from "react-dom/client";
 import LoadingPage from "@/components/LoadingPage";
 import { RouteError } from "@/components/RouteError";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { ThemeProvider } from "@/lib/theme";
 
 import { routeTree } from "./routeTree.gen";
 
@@ -38,16 +39,20 @@ function InnerApp() {
     return (
         <QueryClientProvider client={queryClient}>
             <RouterProvider router={router} context={{ auth }} />
-            <ReactQueryDevtools initialIsOpen={false} />
+            <div className="hidden md:block">
+                <ReactQueryDevtools initialIsOpen={false} />
+            </div>
         </QueryClientProvider>
     );
 }
 
 function App() {
     return (
-        <AuthProvider>
-            <InnerApp />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <InnerApp />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
 

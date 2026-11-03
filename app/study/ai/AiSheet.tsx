@@ -43,7 +43,7 @@ export default function AiSheet({
             aria-label={title}
         >
             <div className="absolute inset-0 bg-black/35" onClick={onClose} />
-            <div className="ai-sheet kb-sheet-max relative flex w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+            <div className="ai-sheet kb-sheet-max relative flex w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-2xl">
                 <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
                     <div className="min-w-0 flex-1">
                         <div className="truncate text-[15px] font-extrabold">

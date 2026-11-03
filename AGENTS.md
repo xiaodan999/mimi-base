@@ -130,7 +130,11 @@ built-in runner and cover pure logic only. Verify UI changes with
   `createFileRoute("/_protected/_main/<name>/")`, let the dev server regenerate
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.
 - Style with Tailwind + `components/ui` primitives + `cn()` from
-  `lib/utils.ts`. Only `NavButtons` uses a CSS module.
+  `lib/utils.ts`. There are no CSS modules; the nav uses lucide icons.
+- Theme tokens live in `globals.css` (`:root` + `.dark`). Prefer semantic
+  classes (`bg-card`, `text-muted-foreground`, `border-border`, `shadow-soft`)
+  over raw colors so both schemes keep working. `ThemeProvider` is in
+  `lib/theme.tsx`; the nav toggle persists the choice under `mimi-theme`.
 - Use `toastPromise` for async user actions (loading/success/error toasts).
 - The shell assumes `100dvh`; keep page scrolling inside the `_main` outlet.
 

@@ -43,20 +43,23 @@ function Page() {
         setVisible(true);
     }, 500);
     return (
-        <div>
-            <h1 className="text-center text-4xl font-semibold">
-                秘密保存基地 <i>V{APP_VERSION}</i>
-                <br />
-            </h1>
-            <p className="mt-2 text-2xl">
+        <div className="px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
+            <div className="text-center">
+                <h1 className="text-3xl font-semibold tracking-tight">
+                    秘密保存基地
+                </h1>
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    V{APP_VERSION}
+                </p>
+            </div>
+            <p className="mt-4 text-lg text-muted-foreground">
                 欢迎{" "}
-                <span className="text-3xl font-semibold italic text-orange-400">
-                    {user.user_name}
-                </span>{" "}
-                🎉✨🎉✨
+                <span className="text-2xl font-semibold text-primary">
+                    {user.user_name || "朋友"}
+                </span>
             </p>
 
-            <div className="flex justify-center">
+            <div className="mt-4 flex justify-center">
                 <div {...bind}>
                     <TouXiang
                         size={100}

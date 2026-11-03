@@ -32,7 +32,7 @@ export default function StudyShell({
             <header className="flex items-center gap-2 px-3 pt-3">
                 <Link
                     to="/study"
-                    className="grid size-9 place-items-center rounded-xl border border-black/5 bg-white shadow-sm"
+                    className="grid size-9 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
                     aria-label="返回学习基地"
                 >
                     <ChevronLeft className="size-5" />
@@ -53,7 +53,7 @@ export default function StudyShell({
                 </span>
                 <button
                     onClick={openSettings}
-                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-black/5 bg-white shadow-sm"
+                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
                     aria-label="AI 设置"
                 >
                     <Settings2 className="size-4" />

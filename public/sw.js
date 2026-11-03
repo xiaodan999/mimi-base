@@ -1,4 +1,4 @@
-const VERSION = "v7.0.0";
+const VERSION = "v8.0.0";
 const CACHE_NAME = `mimi-base-${VERSION}`;
 
 console.log(VERSION);

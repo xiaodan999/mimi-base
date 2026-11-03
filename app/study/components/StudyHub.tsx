@@ -23,7 +23,7 @@ export default function StudyHub() {
                 </div>
                 <button
                     onClick={openSettings}
-                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-black/5 bg-white shadow-sm"
+                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
                     aria-label="AI 设置"
                 >
                     <Settings2 className="size-4" />
