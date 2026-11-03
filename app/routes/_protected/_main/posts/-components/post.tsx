@@ -114,7 +114,7 @@ export default function Post({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                    className="text-red-600 hover:cursor-pointer hover:!bg-red-100 hover:!text-red-600"
+                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
                     onClick={async () => {
                         try {
                             await toastPromise(

@@ -350,7 +350,7 @@ function DayCard({ day }: { day: ExpenseDay }) {
                             </ContextMenuTrigger>
                             <ContextMenuContent>
                                 <ContextMenuItem
-                                    className="text-red-600 hover:cursor-pointer hover:!bg-red-100 hover:!text-red-600"
+                                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
                                     onClick={() => {
                                         toastPromise(
                                             deleteMutation.mutateAsync(item),

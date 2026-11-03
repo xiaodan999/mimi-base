@@ -43,7 +43,7 @@ export default function NavButtons() {
                         to={path}
                         aria-label={name}
                         aria-current={active ? "page" : undefined}
-                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 py-2 outline-none"
+                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 focus-visible:bg-accent/60"
                     >
                         <span
                             className={cn(
@@ -74,7 +74,7 @@ export default function NavButtons() {
             })}
 
             <div className="flex w-11 items-center justify-center border-l border-border/60">
-                <ThemeToggle className="size-8 border-0 bg-transparent" />
+                <ThemeToggle className="size-10 border-0 bg-transparent" />
             </div>
         </nav>
     );

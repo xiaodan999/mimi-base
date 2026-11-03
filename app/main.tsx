@@ -6,6 +6,7 @@ import ReactDOM from "react-dom/client";
 import LoadingPage from "@/components/LoadingPage";
 import { RouteError } from "@/components/RouteError";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { registerServiceWorker } from "@/lib/service-worker";
 import { ThemeProvider } from "@/lib/theme";
 
 import { routeTree } from "./routeTree.gen";
@@ -63,8 +64,6 @@ if (!rootElement.innerHTML) {
     root.render(<App />);
 }
 
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((err) => {
-        console.error("service worker registration failed", err);
-    });
+if (import.meta.env.PROD) {
+    registerServiceWorker();
 }

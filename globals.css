@@ -21,7 +21,7 @@
         --secondary-foreground: 160 25% 18%;
 
         --muted: 150 18% 94%;
-        --muted-foreground: 160 9% 42%;
+        --muted-foreground: 160 10% 38%;
 
         --accent: 152 40% 92%;
         --accent-foreground: 161 35% 22%;
@@ -31,7 +31,7 @@
 
         --success: 152 45% 32%;
         --success-foreground: 0 0% 100%;
-        --warning: 32 85% 40%;
+        --warning: 32 85% 31%;
         --warning-foreground: 42 38% 97%;
         --info: 199 70% 38%;
         --info-foreground: 0 0% 100%;
@@ -137,6 +137,20 @@
         background: hsl(var(--primary) / 0.2);
     }
 
+    /* Keyboard focus. Zero specificity so component rings still win. */
+    :where(
+        a,
+        button,
+        input,
+        select,
+        textarea,
+        summary,
+        [role="button"]
+    ):focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 2px;
+    }
+
     /* Set from useVisualViewport so the shell follows the keyboard. */
     #app {
         height: var(--app-vvh, 100dvh);
@@ -144,6 +158,21 @@
 
     * {
         @apply border-border;
+    }
+}
+
+/*
+ * Respect the OS reduced-motion setting for every decorative animation the app
+ * ships (page transitions, shimmer skeletons, study demos).
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }
 

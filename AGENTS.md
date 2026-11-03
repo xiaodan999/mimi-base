@@ -142,6 +142,10 @@ built-in runner and cover pure logic only. Verify UI changes with
   `lib/theme.tsx`; the nav toggle persists the choice under `mimi-theme`.
 - Use `toastPromise` for async user actions (loading/success/error toasts).
 - The shell assumes `100dvh`; keep page scrolling inside the `_main` outlet.
+- Accessibility: `globals.css` provides a global `:focus-visible` outline and
+  disables decorative animation under `prefers-reduced-motion`. Don't add
+  `outline-none` to interactive elements; keep icon-only controls labelled.
+  `_main.tsx` ships a skip link to `#main-content`.
 
 ## Gotchas
 
@@ -160,7 +164,10 @@ built-in runner and cover pure logic only. Verify UI changes with
 - Build output is `build/` (not `dist`). `vercel.json` rewrites all paths to
   `/` for SPA routing.
 - PWA: `public/sw.js` is hand-written with a `VERSION` constant; bump it when
-  caching behavior changes. It is registered only in production builds.
+  caching behavior changes. It is registered only in production builds by
+  `lib/service-worker.ts`. New workers wait for `SKIP_WAITING`; the app shows a
+  "有新版本可用" toast and reloads only after the user accepts. Navigation
+  failures fall back to the cached shell, then to an inline offline page.
 - `lib/env.ts` validates `VITE_POCKETBASE_URL` at module load — a missing env
   var crashes the app immediately.
 - Default branch is `master`. Pushing `pocketbase/**` to `master` triggers
