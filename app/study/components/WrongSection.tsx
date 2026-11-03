@@ -6,6 +6,7 @@ import AiPanel from "../ai/AiPanel";
 import AiVariantSheet from "../ai/AiVariantSheet";
 import { WRONG_CHIPS, diagnoseWrongMessages } from "../ai/prompts";
 import { answerText, shuffle } from "../engine";
+import { gameForModule } from "../games/registry";
 import { toast } from "../toast";
 import type { QuizItem } from "../types";
 import QuizRunner from "./QuizRunner";
@@ -110,61 +111,83 @@ export default function WrongSection() {
                 </button>
             </div>
 
-            {items.map((item) => (
-                <div className="st-card" key={item.id}>
-                    <div className="st-row" style={{ gap: 6, marginBottom: 6 }}>
-                        <span className="st-chip">
-                            {
+            {items.map((item) => {
+                const game = gameForModule(item.m);
+                return (
+                    <div className="st-card" key={item.id}>
+                        <div
+                            className="st-row"
+                            style={{ gap: 6, marginBottom: 6 }}
+                        >
+                            <span className="st-chip">
                                 {
-                                    term: "名词解释",
-                                    single: "单选题",
-                                    multi: "多选题",
-                                    blank: "填空题",
-                                    short: "简答题",
-                                }[item.type]
-                            }
-                        </span>
-                        <span className="st-chip">
-                            {subject.modules.find((m) => m.id === item.m)?.name}
-                        </span>
-                        <span className="st-chip r">
-                            错 {progress.wrong[item.id]?.c ?? 1} 次
-                        </span>
-                    </div>
-                    <div className="review-q">{item.stem}</div>
-                    <div className="review-a">
-                        <b>答案：</b>
-                        {answerText(item)}
-                        <br />
-                        {item.exp ?? ""}
-                    </div>
-                    <div
-                        className="st-row mt-2"
-                        style={{ gap: 8, flexWrap: "wrap" }}
-                    >
-                        <button
-                            className="st-btn sm ghost"
-                            onClick={() =>
-                                setSession({ items: [item], track: true })
-                            }
+                                    {
+                                        term: "名词解释",
+                                        single: "单选题",
+                                        multi: "多选题",
+                                        blank: "填空题",
+                                        short: "简答题",
+                                    }[item.type]
+                                }
+                            </span>
+                            <span className="st-chip">
+                                {
+                                    subject.modules.find((m) => m.id === item.m)
+                                        ?.name
+                                }
+                            </span>
+                            <span className="st-chip r">
+                                错 {progress.wrong[item.id]?.c ?? 1} 次
+                            </span>
+                        </div>
+                        <div className="review-q">{item.stem}</div>
+                        <div className="review-a">
+                            <b>答案：</b>
+                            {answerText(item)}
+                            <br />
+                            {item.exp ?? ""}
+                        </div>
+                        <div
+                            className="st-row mt-2"
+                            style={{ gap: 8, flexWrap: "wrap" }}
                         >
-                            重做这题
-                        </button>
-                        <button
-                            className="st-btn sm line"
-                            onClick={() => openAnalysis(item)}
-                        >
-                            🔬 AI 验尸
-                        </button>
-                        <button
-                            className="st-btn sm line"
-                            onClick={() => openVariant(item)}
-                        >
-                            🧬 变式题
-                        </button>
+                            <button
+                                className="st-btn sm ghost"
+                                onClick={() =>
+                                    setSession({ items: [item], track: true })
+                                }
+                            >
+                                重做这题
+                            </button>
+                            <button
+                                className="st-btn sm line"
+                                onClick={() => openAnalysis(item)}
+                            >
+                                🔬 AI 验尸
+                            </button>
+                            <button
+                                className="st-btn sm line"
+                                onClick={() => openVariant(item)}
+                            >
+                                🧬 变式题
+                            </button>
+                            {game && (
+                                <Link
+                                    to="/study/$subjectId/$section"
+                                    params={{
+                                        subjectId: subject.id,
+                                        section: "games",
+                                    }}
+                                    search={{ game: game.id }}
+                                    className="st-btn sm line"
+                                >
+                                    🎮 去实战：{game.title}
+                                </Link>
+                            )}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
 
             <button
                 className="st-btn ghost mt-4 block"

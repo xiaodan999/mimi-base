@@ -1,5 +1,6 @@
 import type {
     Answer,
+    DailyStats,
     Progress,
     QuizItem,
     QuizType,
@@ -237,6 +238,75 @@ export function touchDay(progress: Progress): Progress {
         ? progress.days
         : [...progress.days, key].slice(-400);
     return { ...progress, days, lastDay: key };
+}
+
+/* ---------------- 每日任务 ---------------- */
+
+export const DAILY_TASKS = [
+    { id: "games", label: "完成 1 局实战", target: 1, unit: "局" },
+    { id: "questions", label: "答 10 道题", target: 10, unit: "题" },
+    { id: "cards", label: "看 1 张知识卡", target: 1, unit: "张" },
+] as const;
+
+export type DailyTask = (typeof DAILY_TASKS)[number];
+export type DailyTaskStatus = DailyTask & { n: number; done: boolean };
+
+/** 每日任务全清奖励 */
+export const DAILY_BONUS_XP = 30;
+
+/** 取今天的计数；跨天时返回一份归零的副本 */
+export function dailyToday(progress: Progress): DailyStats {
+    const today = dayKey();
+    if (progress.daily?.date === today) return progress.daily;
+    return { date: today, questions: 0, correct: 0, cards: 0, games: 0 };
+}
+
+export function dailyTaskStatus(progress: Progress): DailyTaskStatus[] {
+    const daily = dailyToday(progress);
+    return DAILY_TASKS.map((task) => {
+        const n = daily[task.id];
+        return { ...task, n, done: n >= task.target };
+    });
+}
+
+/** 三个任务都完成时，当天只发一次 30 XP */
+export function settleDailyQuest(progress: Progress): Progress {
+    const daily = dailyToday(progress);
+    const done = DAILY_TASKS.every((task) => daily[task.id] >= task.target);
+    if (!done) return progress;
+    if (progress.quest?.date === daily.date && progress.quest.awarded) {
+        return progress;
+    }
+    return {
+        ...progress,
+        xp: (progress.xp ?? 0) + DAILY_BONUS_XP,
+        quest: { date: daily.date, awarded: 1 },
+    };
+}
+
+/**
+ * 记录当天的一次学习行为，并顺带结算每日任务。
+ * 所有计数都先按今天归一化，所以跨天不需要额外清理。
+ */
+export function bumpDaily(
+    progress: Progress,
+    patch: Partial<Omit<DailyStats, "date">>,
+): Progress {
+    const daily = dailyToday(progress);
+    const nextDaily: DailyStats = { ...daily };
+    for (const key of ["questions", "correct", "cards", "games"] as const) {
+        if (patch[key] === undefined) continue;
+        nextDaily[key] = Math.max(0, (daily[key] ?? 0) + patch[key]!);
+    }
+    const next: Progress = {
+        ...progress,
+        daily: nextDaily,
+        quest:
+            progress.quest?.date === daily.date
+                ? progress.quest
+                : { date: daily.date },
+    };
+    return settleDailyQuest(touchDay(next));
 }
 
 export function streakDays(progress: Progress): number {

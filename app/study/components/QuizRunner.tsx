@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 
 import { useAi } from "../ai/AiContext";
@@ -10,7 +11,8 @@ import {
     diagnoseWrongMessages,
     userAnswerText,
 } from "../ai/prompts";
-import { TYPE_NAME, answerText, isAnswerCorrect, touchDay } from "../engine";
+import { TYPE_NAME, answerText, bumpDaily, isAnswerCorrect } from "../engine";
+import { gameForModule } from "../games/registry";
 import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
 import { useStudy } from "./StudyContext";
@@ -75,11 +77,14 @@ export default function QuizRunner({
                     t: Date.now(),
                 };
             }
-            return touchDay({
-                ...current,
-                stat: { ...current.stat, [target.id]: nextStat },
-                wrong,
-            });
+            return bumpDaily(
+                {
+                    ...current,
+                    stat: { ...current.stat, [target.id]: nextStat },
+                    wrong,
+                },
+                { questions: 1, correct: ok ? 1 : 0 },
+            );
         });
     };
 
@@ -317,6 +322,7 @@ export default function QuizRunner({
                             <div className="st-card">
                                 {wrongItems.map((wrong) => {
                                     const answerIndex = items.indexOf(wrong);
+                                    const game = gameForModule(wrong.m);
                                     return (
                                         <div className="review" key={wrong.id}>
                                             <div className="review-q">
@@ -329,17 +335,44 @@ export default function QuizRunner({
                                                 <b>解析：</b>
                                                 {wrong.exp ?? ""}
                                             </div>
-                                            <button
-                                                className="st-btn sm ghost mt-2"
-                                                onClick={() =>
-                                                    openAnalysis(
-                                                        wrong,
-                                                        answers[answerIndex],
-                                                    )
-                                                }
+                                            <div
+                                                className="st-row mt-2"
+                                                style={{
+                                                    gap: 6,
+                                                    flexWrap: "wrap",
+                                                }}
                                             >
-                                                🔬 AI 验尸
-                                            </button>
+                                                <button
+                                                    className="st-btn sm ghost"
+                                                    onClick={() =>
+                                                        openAnalysis(
+                                                            wrong,
+                                                            answers[
+                                                                answerIndex
+                                                            ],
+                                                        )
+                                                    }
+                                                >
+                                                    🔬 AI 验尸
+                                                </button>
+                                                {game && (
+                                                    <Link
+                                                        to="/study/$subjectId/$section"
+                                                        params={{
+                                                            subjectId:
+                                                                subject.id,
+                                                            section: "games",
+                                                        }}
+                                                        search={{
+                                                            game: game.id,
+                                                        }}
+                                                        className="st-btn sm line"
+                                                    >
+                                                        🎮 去实战：
+                                                        {game.title}
+                                                    </Link>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 
+import { useStudy } from "./StudyContext";
 import { useAi } from "../ai/AiContext";
 import AiGradeSheet from "../ai/AiGradeSheet";
 import {
@@ -8,15 +10,15 @@ import {
     TYPE_NAME,
     answerText,
     buildExam,
+    bumpDaily,
     fmtTime,
     scoreExam,
-    touchDay,
     type ExamPreset,
     type ExamResult,
 } from "../engine";
+import { gameForModule } from "../games/registry";
 import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
-import { useStudy } from "./StudyContext";
 
 export default function ExamSection() {
     const { subject, progress, update } = useStudy();
@@ -66,20 +68,26 @@ export default function ExamSection() {
                     };
                 }
             });
-            return touchDay({
-                ...current,
-                stat,
-                wrong,
-                exams: [
-                    ...current.exams,
-                    {
-                        name: preset.name,
-                        score: graded.score,
-                        date: new Date().toLocaleDateString("zh-CN"),
-                        ts: Date.now(),
-                    },
-                ].slice(-30),
-            });
+            return bumpDaily(
+                {
+                    ...current,
+                    stat,
+                    wrong,
+                    exams: [
+                        ...current.exams,
+                        {
+                            name: preset.name,
+                            score: graded.score,
+                            date: new Date().toLocaleDateString("zh-CN"),
+                            ts: Date.now(),
+                        },
+                    ].slice(-30),
+                },
+                {
+                    questions: items.length,
+                    correct: graded.detail.filter(Boolean).length,
+                },
+            );
         });
     };
 
@@ -197,6 +205,24 @@ export default function ExamSection() {
                   : "var(--no)";
         const rightCount = result.detail.filter(Boolean).length;
         const seconds = Math.round((Date.now() - startedAt) / 1000);
+        const moduleStats = subject.modules
+            .map((mod) => {
+                const indexes = items
+                    .map((item, index) => (item.m === mod.id ? index : -1))
+                    .filter((index) => index >= 0);
+                if (!indexes.length) return null;
+                const ok = indexes.filter(
+                    (index) => result.detail[index],
+                ).length;
+                return {
+                    mod,
+                    ok,
+                    total: indexes.length,
+                    pct: Math.round((ok / indexes.length) * 100),
+                };
+            })
+            .filter((item): item is NonNullable<typeof item> => Boolean(item))
+            .sort((a, b) => a.pct - b.pct);
         return (
             <div>
                 <div
@@ -289,6 +315,54 @@ export default function ExamSection() {
                             </div>
                         </div>
                     ))}
+                </div>
+
+                <div className="st-sec">下一步：用实战补短板</div>
+                <div className="st-card">
+                    {moduleStats.slice(0, 3).map(({ mod, ok, total, pct }) => {
+                        const game = gameForModule(mod.id);
+                        return (
+                            <div
+                                key={mod.id}
+                                className="st-between"
+                                style={{ padding: "8px 0", gap: 10 }}
+                            >
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 800 }}>
+                                        {mod.icon} {mod.name}
+                                    </div>
+                                    <div className="st-tiny">
+                                        {ok}/{total} 题 · 正确率 {pct}%
+                                    </div>
+                                </div>
+                                {game ? (
+                                    <Link
+                                        to="/study/$subjectId/$section"
+                                        params={{
+                                            subjectId: subject.id,
+                                            section: "games",
+                                        }}
+                                        search={{ game: game.id }}
+                                        className="st-btn sm line"
+                                    >
+                                        🎮 {game.title}
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        to="/study/$subjectId/$section"
+                                        params={{
+                                            subjectId: subject.id,
+                                            section: "cards",
+                                        }}
+                                        search={{ m: mod.id }}
+                                        className="st-btn sm ghost"
+                                    >
+                                        📖 看卡
+                                    </Link>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="st-sec">逐题解析</div>

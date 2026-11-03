@@ -1,0 +1,1743 @@
+/* ==========================================================================
+   学习基地 · 实战小游戏
+   游戏区域始终使用深色「游戏卡带」视觉，和外面浅色的学习页形成对比。
+   ========================================================================== */
+
+.game-hub,
+.game-shell,
+.ward-intro,
+.blood-intro {
+    --g-bg: #0b1220;
+    --g-panel: #111d30;
+    --g-panel2: #16253c;
+    --g-line: #24344d;
+    --g-line2: #2f4664;
+    --g-ink: #e6eefc;
+    --g-muted: #93a7c4;
+    --g-dim: #64748b;
+    --g-accent: #38bdf8;
+    --g-ok: #34d399;
+    --g-warn: #fbbf24;
+    --g-bad: #fb7185;
+    color: var(--g-ink);
+}
+
+/* ---------------- 通用 ---------------- */
+
+.g-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: 1px solid var(--g-line2);
+    border-radius: 12px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        transform 0.15s ease,
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.g-btn:hover {
+    border-color: var(--g-accent);
+}
+
+.g-btn:active {
+    transform: scale(0.97);
+}
+
+.g-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.g-btn.primary {
+    border-color: transparent;
+    background: var(--g-accent);
+    color: #04121f;
+}
+
+.g-btn.primary:hover {
+    background: #7dd3fc;
+}
+
+.g-btn.ghost {
+    background: transparent;
+}
+
+.g-btn.lg {
+    padding: 13px 26px;
+    font-size: 15px;
+}
+
+.g-stars {
+    letter-spacing: 1px;
+    color: #334155;
+}
+
+.g-stars .on {
+    color: var(--g-warn);
+}
+
+/* ---------------- Hub ---------------- */
+
+.game-hub {
+    padding: 2px 0 24px;
+}
+
+.gh-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            120% 160% at 0% 0%,
+            rgba(56, 189, 248, 0.22),
+            transparent 52%
+        ),
+        linear-gradient(135deg, #13233b, #0d1728 62%);
+    box-shadow: 0 18px 40px -28px rgba(2, 8, 23, 0.9);
+}
+
+.gh-rank-icon {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 18px;
+    background: rgba(56, 189, 248, 0.14);
+    font-size: 27px;
+    box-shadow: inset 0 0 18px rgba(56, 189, 248, 0.18);
+}
+
+.gh-rank-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.gh-eyebrow {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g-accent);
+}
+
+.gh-rank-name {
+    margin-top: 2px;
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.gh-xp {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--g-muted);
+}
+
+.gh-xp-bar {
+    position: relative;
+    display: block;
+    height: 7px;
+    flex: 1;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #23324a;
+}
+
+.gh-xp-bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #22d3ee, #38bdf8);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+    transition: width 0.4s ease;
+}
+
+.gh-rank-next {
+    margin-top: 5px;
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+.gh-streak {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex: 0 0 auto;
+    padding-left: 10px;
+    border-left: 1px solid var(--g-line);
+}
+
+.gh-streak b {
+    font-size: 22px;
+    line-height: 1;
+    color: var(--g-warn);
+}
+
+.gh-streak span {
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.gh-quest,
+.gh-floor-wrap,
+.gh-games,
+.gh-badges {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid var(--g-line);
+    border-radius: 18px;
+    background: var(--g-panel);
+}
+
+.gh-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.gh-sec-head h2 {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+}
+
+.gh-sec-head > span {
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+.gh-quest-list {
+    display: grid;
+    gap: 9px;
+}
+
+.gh-quest-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.gh-quest-mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    border: 1px solid var(--g-line2);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--g-dim);
+}
+
+.gh-quest-row.done .gh-quest-mark {
+    border-color: rgba(52, 211, 153, 0.5);
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--g-ok);
+}
+
+.gh-quest-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.gh-quest-title {
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.gh-quest-bar {
+    height: 5px;
+    margin-top: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #23324a;
+}
+
+.gh-quest-bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--g-accent);
+    transition: width 0.3s ease;
+}
+
+.gh-quest-row.done .gh-quest-bar i {
+    background: var(--g-ok);
+}
+
+.gh-quest-n {
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--g-muted);
+}
+
+.gh-quest-foot {
+    margin-top: 11px;
+    padding-top: 9px;
+    border-top: 1px dashed var(--g-line);
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+.gh-quest-foot.on {
+    color: var(--g-ok);
+}
+
+.gh-floor {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.gh-floor-note {
+    margin-top: 6px;
+    padding-top: 7px;
+    border-top: 1px dashed var(--g-line);
+    font-size: 9.5px;
+    line-height: 1.5;
+    color: var(--g-dim);
+}
+
+.gh-floor-tile {
+    outline: none;
+    transition: opacity 0.15s ease;
+}
+
+.gh-floor-tile.ready:hover {
+    opacity: 0.86;
+}
+
+.gh-floor-tile:focus-visible {
+    outline: 2px solid var(--g-accent);
+    outline-offset: 2px;
+}
+
+.gh-games {
+    display: grid;
+    gap: 9px;
+}
+
+.gh-game-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 12px;
+    border: 1px solid var(--g-line);
+    border-left: 3px solid var(--accent, var(--g-accent));
+    border-radius: 14px;
+    background: linear-gradient(
+        100deg,
+        rgba(56, 189, 248, 0.06),
+        transparent 62%
+    );
+    color: inherit;
+    text-decoration: none;
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease;
+}
+
+.gh-game-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent, var(--g-accent));
+    background: linear-gradient(
+        100deg,
+        rgba(56, 189, 248, 0.12),
+        transparent 70%
+    );
+}
+
+.gh-game-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    border: 1px solid var(--g-line2);
+    border-radius: 13px;
+    background: var(--g-panel2);
+    font-size: 21px;
+}
+
+.gh-game-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.gh-game-copy b {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 900;
+}
+
+.gh-game-copy > span {
+    display: block;
+    font-size: 11.5px;
+    color: var(--g-muted);
+}
+
+.gh-game-copy p {
+    margin: 5px 0 0;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--g-dim);
+}
+
+.gh-game-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    flex: 0 0 auto;
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+.gh-badge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.gh-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--g-line);
+    border-radius: 12px;
+    background: #0e1929;
+    opacity: 0.55;
+}
+
+.gh-badge.on {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: linear-gradient(140deg, rgba(251, 191, 36, 0.13), #0e1929 65%);
+    opacity: 1;
+}
+
+.gh-badge-icon {
+    font-size: 18px;
+}
+
+.gh-badge b {
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.gh-badge > span:last-child {
+    font-size: 9.5px;
+    line-height: 1.4;
+    color: var(--g-dim);
+}
+
+.gh-note {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--g-dim);
+}
+
+.gh-study {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.gh-study-cell {
+    padding: 10px 6px;
+    border: 1px solid var(--g-line);
+    border-radius: 14px;
+    background: var(--g-panel);
+    text-align: center;
+}
+
+.gh-study-cell b {
+    display: block;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--g-ink);
+}
+
+.gh-study-cell span {
+    display: block;
+    margin-top: 3px;
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.gh-next {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid var(--g-line);
+    border-radius: 18px;
+    background:
+        radial-gradient(
+            100% 120% at 100% 0%,
+            rgba(56, 189, 248, 0.08),
+            transparent 60%
+        ),
+        var(--g-panel);
+}
+
+.gh-next-body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gh-next-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.gh-next-copy b {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 800;
+}
+
+.gh-next-copy span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--g-muted);
+}
+
+.gh-next-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.gh-next-btn {
+    padding: 7px 9px;
+    border: 1px solid var(--g-line2);
+    border-radius: 9px;
+    background: var(--g-panel2);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--g-ink);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.gh-next-btn.accent {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--g-accent);
+}
+
+.gh-next-note {
+    margin-top: 9px;
+    font-size: 9.5px;
+    line-height: 1.5;
+    color: var(--g-dim);
+}
+
+.gh-game-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.gh-game-tags span {
+    padding: 2px 5px;
+    border: 1px solid var(--g-line);
+    border-radius: 5px;
+    font-size: 8.5px;
+    color: var(--g-dim);
+}
+
+/* 结算页 → 知识卡 */
+.gr-related {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--g-line);
+    border-radius: 13px;
+    background: rgba(56, 189, 248, 0.05);
+    text-align: left;
+}
+
+.gr-related-h {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--g-accent);
+}
+
+.gr-related-mods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.gr-related-chip {
+    padding: 4px 7px;
+    border: 1px solid var(--g-line2);
+    border-radius: 999px;
+    background: var(--g-panel2);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--g-ink);
+    text-decoration: none;
+}
+
+.gr-related-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.gr-related-card {
+    font-size: 10.5px;
+    color: var(--g-muted);
+    text-decoration: none;
+}
+
+.gr-related-card::before {
+    content: "📖 ";
+}
+
+.gr-related-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px dashed var(--g-line);
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.gr-related-more {
+    color: var(--g-accent);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* ---------------- 3D 加载占位 ---------------- */
+
+.game-loading {
+    display: flex;
+    min-height: 360px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            90% 70% at 50% 0%,
+            rgba(56, 189, 248, 0.15),
+            transparent 60%
+        ),
+        var(--g-bg);
+    text-align: center;
+    color: var(--g-ink);
+}
+
+.game-loading b {
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.game-loading > span:last-child {
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+.game-loading-spin {
+    width: 30px;
+    height: 30px;
+    border: 2px solid var(--g-line2);
+    border-top-color: var(--g-accent);
+    border-radius: 999px;
+    animation: game-spin 0.8s linear infinite;
+}
+
+@keyframes game-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---------------- 游戏外壳 ---------------- */
+
+.game-shell {
+    padding: 10px;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            120% 100% at 100% 0%,
+            rgba(56, 189, 248, 0.1),
+            transparent 55%
+        ),
+        var(--g-bg);
+    box-shadow: 0 24px 50px -34px rgba(2, 8, 23, 0.95);
+}
+
+.game-topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 2px 10px;
+    border-bottom: 1px solid var(--g-line);
+}
+
+.g-back {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border: 1px solid var(--g-line2);
+    border-radius: 11px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 17px;
+    cursor: pointer;
+}
+
+.g-back:hover {
+    border-color: var(--g-accent);
+}
+
+.game-topbar-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.game-topbar-copy b {
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.game-topbar-copy span {
+    font-size: 10.5px;
+    color: var(--g-dim);
+}
+
+/* ---------------- 结算 ---------------- */
+
+.game-result {
+    position: relative;
+    overflow: hidden;
+    padding: 24px 18px 18px;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            90% 70% at 50% 0%,
+            rgba(56, 189, 248, 0.18),
+            transparent 60%
+        ),
+        var(--g-panel);
+    text-align: center;
+}
+
+.gr-kicker {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g-accent);
+}
+
+.gr-stars {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 36px;
+    line-height: 1;
+    color: #334155;
+}
+
+.gr-stars .on {
+    color: var(--g-warn);
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.55));
+    animation: gr-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.gr-score {
+    margin-top: 8px;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
+
+.gr-score small {
+    margin-left: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--g-muted);
+}
+
+.gr-sub {
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: var(--g-muted);
+}
+
+.gr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.gr-chip {
+    padding: 5px 9px;
+    border: 1px solid var(--g-line2);
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--g-muted);
+}
+
+.gr-chip.xp {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--g-accent);
+}
+
+.gr-chip.best {
+    border-color: rgba(251, 191, 36, 0.4);
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--g-warn);
+}
+
+.gr-unlock {
+    margin-top: 14px;
+    padding: 10px;
+    border: 1px dashed rgba(251, 191, 36, 0.35);
+    border-radius: 12px;
+    background: rgba(251, 191, 36, 0.06);
+}
+
+.gr-unlock-h {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--g-warn);
+}
+
+.gr-unlock-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.gr-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.14);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--g-warn);
+}
+
+.gr-list {
+    max-height: 300px;
+    margin-top: 14px;
+    overflow-y: auto;
+    text-align: left;
+    border-top: 1px solid var(--g-line);
+}
+
+.gr-row {
+    display: flex;
+    gap: 8px;
+    padding: 9px 1px;
+    border-bottom: 1px solid var(--g-line);
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
+.gr-mark {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.gr-row.ok .gr-mark {
+    background: rgba(52, 211, 153, 0.18);
+    color: var(--g-ok);
+}
+
+.gr-row.bad .gr-mark {
+    background: rgba(251, 113, 133, 0.18);
+    color: var(--g-bad);
+}
+
+.gr-row b {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.gr-note {
+    display: block;
+    margin-top: 2px;
+    font-size: 10.5px;
+    line-height: 1.55;
+    color: var(--g-muted);
+}
+
+.gr-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* ---------------- 夜巡 ---------------- */
+
+.ward-intro,
+.blood-intro {
+    position: relative;
+    display: flex;
+    min-height: 460px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--g-line);
+    border-radius: 20px;
+    background:
+        radial-gradient(
+            100% 90% at 50% 0%,
+            rgba(56, 189, 248, 0.2),
+            transparent 60%
+        ),
+        var(--g-bg);
+}
+
+.ward-intro-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0.42;
+    pointer-events: none;
+}
+
+.ward-intro-card,
+.blood-intro-card {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 420px);
+    margin: 18px;
+    padding: 24px 22px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: 20px;
+    background: rgba(11, 18, 32, 0.82);
+    box-shadow: 0 30px 60px -40px #000;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.ward-intro-card h1,
+.blood-intro-card h1 {
+    margin: 4px 0 10px;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
+
+.ward-intro-card p,
+.blood-intro-card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--g-muted);
+}
+
+.ward-intro-card ul {
+    margin: 14px 0 18px;
+    padding-left: 18px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--g-muted);
+}
+
+.ward-intro-card li::marker {
+    color: var(--g-accent);
+}
+
+.gi-kicker {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--g-accent);
+}
+
+.gi-note {
+    margin-top: 12px !important;
+    font-size: 10.5px !important;
+    color: var(--g-dim) !important;
+}
+
+.ward-timer {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    border: 1px solid var(--g-line2);
+    border-radius: 10px;
+    background: var(--g-panel2);
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--g-accent);
+}
+
+.ward-stage {
+    padding-top: 10px;
+}
+
+.ward-view {
+    position: relative;
+    height: clamp(320px, 52vh, 460px);
+    overflow: hidden;
+    border: 1px solid var(--g-line);
+    border-radius: 16px;
+    background: var(--g-bg);
+}
+
+.ward-canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.ward-hud {
+    position: absolute;
+    z-index: 3;
+    top: 9px;
+    left: 9px;
+    right: 9px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    pointer-events: none;
+}
+
+.ward-hud-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+    background: rgba(11, 18, 32, 0.72);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--g-ink);
+    backdrop-filter: blur(8px);
+}
+
+.ward-hud-chip.hearts {
+    gap: 2px;
+}
+
+.ward-hud-chip.hearts i {
+    font-style: normal;
+    font-size: 12px;
+    color: #334155;
+}
+
+.ward-hud-chip.hearts i.on {
+    color: var(--g-bad);
+    filter: drop-shadow(0 0 5px rgba(251, 113, 133, 0.65));
+}
+
+.ward-mode {
+    position: absolute;
+    z-index: 4;
+    right: 9px;
+    bottom: 9px;
+    padding: 6px 9px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 9px;
+    background: rgba(11, 18, 32, 0.78);
+    color: var(--g-muted);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+
+.ward-mode:hover {
+    border-color: var(--g-accent);
+    color: var(--g-ink);
+}
+
+.ward-hint {
+    position: absolute;
+    z-index: 3;
+    left: 10px;
+    bottom: 10px;
+    max-width: 62%;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: rgba(11, 18, 32, 0.66);
+    font-size: 9.5px;
+    line-height: 1.4;
+    color: var(--g-dim);
+    pointer-events: none;
+}
+
+.ward-toast {
+    position: absolute;
+    z-index: 4;
+    left: 50%;
+    bottom: 12px;
+    width: max-content;
+    max-width: 86%;
+    transform: translateX(-50%);
+    padding: 9px 12px;
+    border: 1px solid var(--g-line2);
+    border-radius: 11px;
+    background: rgba(11, 18, 32, 0.94);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--g-ink);
+    box-shadow: 0 12px 30px -18px #000;
+    animation: ward-toast-in 0.2s ease both;
+}
+
+.ward-toast.ok {
+    border-color: rgba(52, 211, 153, 0.45);
+}
+
+.ward-toast.bad {
+    border-color: rgba(251, 113, 133, 0.45);
+}
+
+.ward-panel {
+    margin-top: 10px;
+    padding: 13px;
+    border: 1px solid var(--g-line);
+    border-radius: 16px;
+    background: var(--g-panel);
+}
+
+.ward-panel.ok {
+    border-color: rgba(52, 211, 153, 0.45);
+}
+
+.ward-panel.bad {
+    border-color: rgba(251, 113, 133, 0.45);
+}
+
+.ward-panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.ward-panel-kicker {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: var(--g-accent);
+}
+
+.ward-panel.bad .ward-panel-kicker {
+    color: var(--g-bad);
+}
+
+.ward-panel.ok .ward-panel-kicker {
+    color: var(--g-ok);
+}
+
+.ward-panel-head b {
+    font-size: 13.5px;
+    font-weight: 900;
+}
+
+.ward-paused {
+    margin-left: auto;
+    padding: 2px 6px;
+    border: 1px solid var(--g-line2);
+    border-radius: 999px;
+    font-size: 8.5px;
+    color: var(--g-dim);
+}
+
+.ward-prompt {
+    margin: 7px 0 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--g-muted);
+}
+
+.ward-options {
+    display: grid;
+    gap: 7px;
+}
+
+.ward-option {
+    width: 100%;
+    padding: 10px 11px;
+    border: 1px solid var(--g-line2);
+    border-radius: 11px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.ward-option:hover {
+    border-color: var(--g-accent);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.ward-why {
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.08);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--g-ink);
+}
+
+.ward-panel.ok .ward-why {
+    background: rgba(52, 211, 153, 0.1);
+}
+
+.ward-panel.bad .ward-why {
+    background: rgba(251, 113, 133, 0.1);
+}
+
+.ward-source {
+    margin: 7px 0 11px;
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.ward-tip {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px dashed var(--g-line);
+    border-radius: 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--g-dim);
+}
+
+.ward-check {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid rgba(52, 211, 153, 0.6);
+    border-radius: 999px;
+    background: rgba(5, 46, 34, 0.9);
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--g-ok);
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.45);
+}
+
+.ward-list-overlay {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+}
+
+.ward-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    height: 100%;
+    padding: 10px;
+    overflow-y: auto;
+    background:
+        radial-gradient(
+            100% 90% at 50% 0%,
+            rgba(56, 189, 248, 0.08),
+            transparent 65%
+        ),
+        var(--g-bg);
+}
+
+.ward-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--g-line);
+    border-radius: 11px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.ward-list-item:hover {
+    border-color: var(--g-accent);
+}
+
+.ward-list-item:disabled {
+    opacity: 0.55;
+}
+
+/* ---------------- 输血密室 ---------------- */
+
+.blood-intro-glow {
+    position: absolute;
+    inset: -20%;
+    background: radial-gradient(
+        circle at 50% 38%,
+        rgba(251, 113, 133, 0.2),
+        transparent 52%
+    );
+    pointer-events: none;
+}
+
+.blood-intro-doors {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    margin: 18px 0;
+}
+
+.blood-intro-doors span {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--g-line2);
+    border-radius: 11px;
+    background: var(--g-panel2);
+    font-size: 17px;
+}
+
+.blood-danger {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+    font-size: 13px;
+}
+
+.blood-danger i {
+    font-style: normal;
+    color: #334155;
+}
+
+.blood-danger i.on {
+    color: var(--g-bad);
+    filter: drop-shadow(0 0 5px rgba(251, 113, 133, 0.7));
+}
+
+.blood-danger span {
+    margin-left: 4px;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--g-dim);
+}
+
+.blood-doors {
+    display: flex;
+    gap: 5px;
+    padding: 9px 0 3px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.blood-doors::-webkit-scrollbar {
+    display: none;
+}
+
+.blood-door {
+    display: flex;
+    min-width: 52px;
+    flex: 1 0 52px;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 3px;
+    border: 1px solid var(--g-line);
+    border-radius: 10px;
+    background: rgba(17, 29, 48, 0.6);
+    opacity: 0.45;
+}
+
+.blood-door.current {
+    border-color: var(--g-accent);
+    background: rgba(56, 189, 248, 0.1);
+    opacity: 1;
+}
+
+.blood-door.done {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: rgba(52, 211, 153, 0.08);
+    opacity: 0.9;
+}
+
+.blood-door-icon {
+    font-size: 15px;
+    line-height: 1.1;
+    color: var(--g-ok);
+}
+
+.blood-door-name {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--g-muted);
+    white-space: nowrap;
+}
+
+.blood-stage {
+    margin-top: 7px;
+    padding: 14px;
+    border: 1px solid var(--g-line);
+    border-radius: 16px;
+    background: var(--g-panel);
+}
+
+.blood-scene {
+    margin-bottom: 11px;
+    padding-left: 9px;
+    border-left: 2px solid var(--g-accent);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--g-muted);
+}
+
+.blood-stage h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 900;
+}
+
+.blood-question {
+    margin: 5px 0 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.55;
+}
+
+.blood-options {
+    display: grid;
+    gap: 7px;
+}
+
+.blood-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 11px;
+    border: 1px solid var(--g-line2);
+    border-radius: 11px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 11.5px;
+    line-height: 1.55;
+    text-align: left;
+    cursor: pointer;
+}
+
+.blood-option:hover {
+    border-color: var(--g-accent);
+}
+
+.blood-option.picked {
+    border-color: var(--g-accent);
+    background: rgba(56, 189, 248, 0.1);
+}
+
+.blood-radio,
+.blood-check {
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+    border: 1px solid var(--g-line2);
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 900;
+    color: var(--g-accent);
+}
+
+.blood-radio {
+    border-radius: 999px;
+}
+
+.blood-option.picked .blood-radio,
+.blood-option.picked .blood-check {
+    border-color: var(--g-accent);
+    background: rgba(56, 189, 248, 0.16);
+}
+
+.blood-order-hint {
+    margin-bottom: 7px;
+    font-size: 10px;
+    color: var(--g-dim);
+}
+
+.blood-order {
+    display: grid;
+    gap: 6px;
+}
+
+.blood-order-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--g-line2);
+    border-radius: 10px;
+    background: var(--g-panel2);
+    color: var(--g-ink);
+    font-size: 11.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.blood-order-item.picked {
+    border-color: var(--g-accent);
+    background: rgba(56, 189, 248, 0.1);
+}
+
+.blood-order-n {
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--g-accent);
+    font-size: 10px;
+    font-weight: 900;
+    color: #04121f;
+}
+
+.blood-slider {
+    padding: 8px 2px;
+}
+
+.blood-slider-value {
+    text-align: center;
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--g-accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.blood-slider-value span {
+    margin-left: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--g-muted);
+}
+
+.blood-slider input[type="range"] {
+    width: 100%;
+    margin-top: 12px;
+    accent-color: var(--g-accent);
+}
+
+.blood-slider-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3px;
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.blood-feedback {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--g-line2);
+    border-radius: 13px;
+    background: var(--g-panel2);
+}
+
+.blood-feedback.ok {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: rgba(52, 211, 153, 0.07);
+}
+
+.blood-feedback.bad {
+    border-color: rgba(251, 113, 133, 0.45);
+    background: rgba(251, 113, 133, 0.07);
+}
+
+.blood-feedback b {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--g-ok);
+}
+
+.blood-feedback.bad b {
+    color: var(--g-bad);
+}
+
+.blood-feedback p {
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--g-ink);
+}
+
+.blood-source {
+    margin-top: 7px;
+    font-size: 9.5px;
+    color: var(--g-dim);
+}
+
+.blood-confirm {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* ---------------- 动效 ---------------- */
+
+@keyframes gr-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.5) translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes ward-toast-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 5px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+@media (max-width: 420px) {
+    .gh-hero {
+        padding: 13px;
+    }
+
+    .gh-rank-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 23px;
+    }
+
+    .gh-rank-name {
+        font-size: 19px;
+    }
+
+    .gh-streak b {
+        font-size: 19px;
+    }
+
+    .ward-intro-card,
+    .blood-intro-card {
+        padding: 20px 17px;
+    }
+
+    .ward-intro-card h1,
+    .blood-intro-card h1 {
+        font-size: 34px;
+    }
+
+    .ward-view {
+        height: clamp(280px, 46vh, 380px);
+    }
+
+    .gr-stars {
+        font-size: 30px;
+    }
+
+    .gr-score {
+        font-size: 42px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .g-btn,
+    .gh-game-card,
+    .gh-floor-tile,
+    .gh-xp-bar i,
+    .gh-quest-bar i {
+        transition: none;
+    }
+
+    .gr-stars .on,
+    .ward-toast {
+        animation: none;
+    }
+}

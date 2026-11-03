@@ -123,6 +123,19 @@
     border-color: var(--brand);
 }
 
+/* 7 个 tab 在窄屏上一次排开，不用横向滚动也能看全 */
+@media (max-width: 420px) {
+    .study-tabs {
+        gap: 4px;
+        padding: 8px 8px;
+    }
+
+    .study-tab {
+        padding: 6px 9px;
+        font-size: 12px;
+    }
+}
+
 .study-body {
     flex: 1;
     padding: 12px 14px 24px;
@@ -536,6 +549,13 @@
     box-shadow: var(--sh2);
     margin-bottom: 14px;
     overflow: hidden;
+}
+
+.kcard.focused {
+    border-color: var(--brand);
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent),
+        var(--sh2);
 }
 
 .kcard-h {

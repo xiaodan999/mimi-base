@@ -4,7 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { useAi } from "../ai/AiContext";
 import AiPanel from "../ai/AiPanel";
 import { CARD_CHIPS, explainCardMessages } from "../ai/prompts";
-import { shuffle } from "../engine";
+import { bumpDaily, shuffle } from "../engine";
+import { gameForCard } from "../games/registry";
 import { toast } from "../toast";
 import type { Card, QuizItem } from "../types";
 import CardDemo from "./CardDemo";
@@ -19,30 +20,36 @@ const TAG_CLASS: Record<string, string> = {
 
 function CardItem({
     card,
+    subjectId,
     moduleColor,
     moduleIcon,
     known,
     played,
     canDrill,
+    focused,
     onToggle,
     onDrill,
     onExplain,
 }: {
     card: Card;
+    subjectId: string;
     moduleColor: string;
     moduleIcon: string;
     known: boolean;
     played: boolean;
     canDrill: boolean;
+    focused: boolean;
     onToggle: () => void;
     onDrill: () => void;
     onExplain: () => void;
 }) {
     const html = (value: string) => ({ __html: value });
+    const game = gameForCard(card.id);
 
     return (
         <article
-            className="kcard"
+            className={`kcard ${focused ? "focused" : ""}`}
+            data-card-id={card.id}
             style={{ "--mc": moduleColor } as React.CSSProperties}
         >
             <div className="kcard-h">
@@ -57,6 +64,7 @@ function CardItem({
                         </span>
                         {known && <span className="st-chip g">✓ 已掌握</span>}
                         {played && <span className="st-chip b">🎮 已互动</span>}
+                        {game && <span className="st-chip b">⚔️ 有实战</span>}
                     </div>
                 </div>
             </div>
@@ -157,6 +165,16 @@ function CardItem({
                         做这张卡的题
                     </button>
                 )}
+                {game && (
+                    <Link
+                        to="/study/$subjectId/$section"
+                        params={{ subjectId, section: "games" }}
+                        search={{ game: game.id }}
+                        className="st-btn sm line"
+                    >
+                        🎮 去实战：{game.title}
+                    </Link>
+                )}
                 <button
                     className="st-btn sm line"
                     style={{ flex: "1 1 100%" }}
@@ -169,7 +187,14 @@ function CardItem({
     );
 }
 
-export default function CardsSection({ moduleId }: { moduleId?: string }) {
+export default function CardsSection({
+    moduleId,
+    focusCard,
+}: {
+    moduleId?: string;
+    /** 从实战结算跳过来时，定位到具体这张卡 */
+    focusCard?: string;
+}) {
     const { subject, progress, update } = useStudy();
     const { configured, openSettings } = useAi();
     const [drill, setDrill] = useState<QuizItem[] | null>(null);
@@ -180,6 +205,12 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
     const explainCard = explainId
         ? (subject.cards.find((card) => card.id === explainId) ?? null)
         : null;
+
+    useEffect(() => {
+        if (!focusCard) return;
+        const target = document.querySelector(`[data-card-id="${focusCard}"]`);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, [focusCard]);
     const explainModule = explainCard
         ? subject.modules.find((mod) => mod.id === explainCard.m)
         : undefined;
@@ -208,10 +239,13 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
         if (!missing) return;
         update((current) => {
             const next = { ...current.cards };
+            let newlySeen = 0;
             for (const card of list) {
+                if (!current.cards[card.id]?.seen) newlySeen += 1;
                 next[card.id] = { ...next[card.id], seen: 1 };
             }
-            return { ...current, cards: next };
+            if (!newlySeen) return current;
+            return bumpDaily({ ...current, cards: next }, { cards: newlySeen });
         });
     }, [moduleId, subject.cards, progress.cards, update]);
 
@@ -295,10 +329,12 @@ export default function CardsSection({ moduleId }: { moduleId?: string }) {
                 <CardItem
                     key={card.id}
                     card={card}
+                    subjectId={subject.id}
                     moduleColor={module.c}
                     moduleIcon={module.icon}
                     known={Boolean(progress.cards[card.id]?.k)}
                     played={Boolean(progress.widgets?.[card.id]?.done)}
+                    focused={focusCard === card.id}
                     canDrill={subject.bank.some(
                         (item) => item.card === card.id,
                     )}

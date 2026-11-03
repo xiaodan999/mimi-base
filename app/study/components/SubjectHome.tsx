@@ -17,6 +17,7 @@ export default function SubjectHome() {
     const questions = questionStats(progress);
     const left = daysLeft(subject.examDate);
     const streak = streakDays(progress);
+    const ward = progress.games?.["ward-hazard"];
     const weeklyPrompt = useMemo(
         () => weeklyMessages(subject, progress),
         [subject, progress],
@@ -108,6 +109,18 @@ export default function SubjectHome() {
                         {Object.keys(progress.wrong).length
                             ? `${Object.keys(progress.wrong).length} 道待复习`
                             : "还没有错题，先去做几道"}
+                    </span>
+                </Link>
+                <Link
+                    to="/study/$subjectId/$section"
+                    params={{ subjectId: subject.id, section: "games" }}
+                    className="quick"
+                >
+                    <b>🎮 3D 实战</b>
+                    <span>
+                        {ward
+                            ? `${"★".repeat(ward.stars)}${"☆".repeat(3 - ward.stars)} 最佳 ${ward.best} 分`
+                            : "夜巡病房，找出 8 处安全隐患"}
                     </span>
                 </Link>
                 <Link

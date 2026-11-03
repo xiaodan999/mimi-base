@@ -131,6 +131,35 @@ export type CardWidgetState = {
     updated?: number;
 };
 
+/** 一个实战小游戏的个人最佳 */
+export type GameProgress = {
+    /** 玩过几局 */
+    plays: number;
+    /** 最高分（百分制） */
+    best: number;
+    /** 最高星数 */
+    stars: 0 | 1 | 2 | 3;
+    /** 最近一次游玩时间 */
+    last: number;
+    /** 最高连击（夜巡用） */
+    bestCombo?: number;
+};
+
+/** 当天的学习计数，用于每日任务；跨天自动归零 */
+export type DailyStats = {
+    date: string;
+    questions: number;
+    correct: number;
+    cards: number;
+    games: number;
+};
+
+/** 每日任务的领取状态；任务本身由 DailyStats 推导 */
+export type QuestState = {
+    date: string;
+    awarded?: 1;
+};
+
 /** 一条学习进度（存 PocketBase 的 study_progress.data） */
 export type Progress = {
     cards: Record<string, { seen?: 1; k?: 0 | 1 }>;
@@ -141,6 +170,16 @@ export type Progress = {
     days: string[];
     lastDay: string;
     widgets: Record<string, CardWidgetState>;
+    /** 实战小游戏的最佳成绩 */
+    games: Record<string, GameProgress>;
+    /** 累计经验值 */
+    xp: number;
+    /** 已解锁徽章 id */
+    badges: string[];
+    /** 今日计数 */
+    daily: DailyStats;
+    /** 今日任务的领取状态 */
+    quest: QuestState;
 };
 
 export function emptyProgress(): Progress {
@@ -153,5 +192,10 @@ export function emptyProgress(): Progress {
         days: [],
         lastDay: "",
         widgets: {},
+        games: {},
+        xp: 0,
+        badges: [],
+        daily: { date: "", questions: 0, correct: 0, cards: 0, games: 0 },
+        quest: { date: "" },
     };
 }

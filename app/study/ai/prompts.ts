@@ -285,7 +285,7 @@ export function planMessages(
         { role: "system", content: SYSTEM },
         {
             role: "user",
-            content: `${subjectBrief(subject)}\n\n${progressBrief(subject, progress)}\n\n请安排今天 ${minutes} 分钟的学习计划。只输出 JSON：\n{"greeting":"一句开场","focus":"今天的重点","minutes":${minutes},"tasks":[{"title":"任务","why":"为什么做","section":"cards|quiz|exam|terms|wrong|memo","module":"模块 id，没有就空字符串"}],"tip":"一句提醒"}\n3 到 5 个任务，按优先级排，必须能在 ${minutes} 分钟内完成；section 只能从给定值里选，module 必须是上面出现过的模块 id。`,
+            content: `${subjectBrief(subject)}\n\n${progressBrief(subject, progress)}\n\n请安排今天 ${minutes} 分钟的学习计划。只输出 JSON：\n{"greeting":"一句开场","focus":"今天的重点","minutes":${minutes},"tasks":[{"title":"任务","why":"为什么做","section":"cards|quiz|exam|terms|wrong|memo|games","module":"模块 id，没有就空字符串"}],"tip":"一句提醒"}\n3 到 5 个任务，按优先级排，必须能在 ${minutes} 分钟内完成；section 只能从给定值里选，module 必须是上面出现过的模块 id。`,
         },
     ];
 }

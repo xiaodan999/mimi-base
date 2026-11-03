@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { dayKey } from "../engine";
+import { gameForModule } from "../games/registry";
 import { toast } from "../toast";
 import type { Progress, StudySubject } from "../types";
 import { useAi } from "./AiContext";
@@ -14,7 +15,15 @@ type Props = {
     progress: Progress;
 };
 
-const SECTIONS = new Set(["cards", "quiz", "exam", "terms", "wrong", "memo"]);
+const SECTIONS = new Set([
+    "cards",
+    "quiz",
+    "exam",
+    "terms",
+    "wrong",
+    "memo",
+    "games",
+]);
 
 function normalizePlan(
     raw: AiPlan | null | undefined,
@@ -195,7 +204,15 @@ export default function AiCoachCard({ subject, progress }: Props) {
                                 search={
                                     task.section === "cards" && task.module
                                         ? { m: task.module }
-                                        : undefined
+                                        : task.section === "games"
+                                          ? {
+                                                game: task.module
+                                                    ? (gameForModule(
+                                                          task.module,
+                                                      )?.id ?? "ward-hazard")
+                                                    : "ward-hazard",
+                                            }
+                                          : undefined
                                 }
                                 className="ai-task"
                             >

@@ -10,6 +10,7 @@ const TABS = [
     { key: "home", label: "首页" },
     { key: "cards", label: "知识卡" },
     { key: "quiz", label: "刷题" },
+    { key: "games", label: "实战" },
     { key: "exam", label: "模拟考" },
     { key: "terms", label: "背名解" },
     { key: "wrong", label: "错题" },

@@ -49,6 +49,15 @@ export default function StudyHub() {
                             ? questionStats(progress)
                             : null;
                         const left = daysLeft(subject.examDate);
+                        const gamePlays = progress
+                            ? Object.keys(progress.games ?? {}).length
+                            : 0;
+                        const gameStars = progress
+                            ? Object.values(progress.games ?? {}).reduce(
+                                  (sum, game) => sum + game.stars,
+                                  0,
+                              )
+                            : 0;
                         return (
                             <Link
                                 key={subject.id}
@@ -105,6 +114,14 @@ export default function StudyHub() {
                                     {questions && questions.done > 0 && (
                                         <span className="st-chip g">
                                             正确率 {questions.accuracy}%
+                                        </span>
+                                    )}
+                                    {gamePlays > 0 && (
+                                        <span className="st-chip">
+                                            🎮 {gamePlays} 个实战
+                                            {gameStars > 0
+                                                ? ` · ★${gameStars}`
+                                                : ""}
                                         </span>
                                     )}
                                 </div>
