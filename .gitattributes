@@ -4,6 +4,7 @@
 *.tsx   eol=lf
 *.json  eol=lf
 *.css   eol=lf
+bun.lock eol=lf
 /.yarn/**            linguist-vendored
 /.yarn/releases/*    binary
 /.yarn/plugins/**/*  binary
