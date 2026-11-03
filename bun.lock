@@ -27,7 +27,6 @@
         "compressorjs": "^1.2.1",
         "date-fns": "^2.30.0",
         "lucide-react": "^0.453.0",
-        "playwright-core": "1.48.2",
         "pocketbase": "^0.28.1",
         "react": "^18.3.1",
         "react-chartjs-2": "^5.2.0",
@@ -937,8 +936,6 @@
     "picomatch": ["picomatch@4.0.7", "https://registry.npmmirror.com/picomatch/-/picomatch-4.0.7.tgz", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
 
     "pirates": ["pirates@4.0.7", "https://registry.npmmirror.com/pirates/-/pirates-4.0.7.tgz", {}, "sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA=="],
-
-    "playwright-core": ["playwright-core@1.48.2", "https://registry.npmmirror.com/playwright-core/-/playwright-core-1.48.2.tgz", { "bin": { "playwright-core": "cli.js" } }, "sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA=="],
 
     "pocketbase": ["pocketbase@0.28.1", "https://registry.npmmirror.com/pocketbase/-/pocketbase-0.28.1.tgz", {}, "sha512-/3ihkq+rvfcs0MQgrK4sEElOg6gfenHW9S/O+3BSO+V1yT+4B10+9aT22uTQUPqze9ItwNtwWyY5ZmdgVCTdVA=="],
 
