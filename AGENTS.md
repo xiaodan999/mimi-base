@@ -86,6 +86,11 @@ built-in runner and cover pure logic only. Verify UI changes with
   the same request that creates the post. `posts.layout` is `moments`
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
   `/photos` now redirects to `/posts`.
+- `ji_zhang_biao.category` is an optional select. Its allowed values live in
+  `app/routes/_protected/_main/jizhang/-categories.ts` (`food`, `transport`,
+  `shopping`, `home`, `fun`, `health`, `other`); keep the migration's
+  `values` in sync. Rows created before the field existed stay empty and
+  render as 其他.
 - `pb.authStore.record` has no `expand`; fetch the profile with
   `expand: "circle"` (see `lib/auth.tsx`).
 - Schema changes go in a new committed migration under

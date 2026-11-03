@@ -38,6 +38,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import useLongPress from "@/hooks/useLongPress";
 import { useAuth, useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
+import { formatMoney } from "@/lib/money";
 import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import showFilePicker from "@/lib/showFilePicker";
@@ -123,7 +124,7 @@ function Page() {
                 <Stat
                     icon={Wallet}
                     label="本月花费"
-                    value={stats ? formatMoney(stats.monthSpend) : "—"}
+                    value={stats ? formatMoney(stats.monthSpend, true) : "—"}
                 />
                 <Stat icon={Flame} label="连续学习" value={streak} unit="天" />
             </div>
@@ -232,10 +233,6 @@ function Page() {
             </Drawer>
         </div>
     );
-}
-
-function formatMoney(value: number) {
-    return `¥${value.toFixed(2).replace(/\.?0+$/, "")}`;
 }
 
 function Stat({

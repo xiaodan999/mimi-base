@@ -37,6 +37,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
+import { EXPENSE_CATEGORIES } from "../-categories";
 import { useAddJiZhang } from "../-data";
 
 export default function AddJiZhangForm() {
@@ -85,13 +86,19 @@ export default function AddJiZhangForm() {
 }
 
 const formSchema = z.object({
-    itemName: z.string().min(2).max(50),
+    itemName: z.string().min(2, "至少写 2 个字").max(50, "别超过 50 个字"),
     price: z
         .union([
             z.string().transform((x) => x.replace(/[^0-9.-]+/g, "")),
             z.number(),
         ])
-        .pipe(z.coerce.number().min(0.0001).max(999999999)),
+        .pipe(
+            z.coerce
+                .number()
+                .min(0.0001, "金额要大于 0")
+                .max(999999999, "金额太大了"),
+        ),
+    category: z.string(),
 });
 
 function AddForm({
@@ -108,8 +115,10 @@ function AddForm({
         defaultValues: {
             itemName: "",
             price: 0,
+            category: "",
         },
     });
+    const category = form.watch("category");
 
     async function onSubmit(values: z.infer<typeof formSchema>) {
         await toastPromise(mutation.mutateAsync(values), {
@@ -169,6 +178,44 @@ function AddForm({
                         </FormItem>
                     )}
                 />
+
+                <div className="grid gap-2">
+                    <FormLabel>分类</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                        {EXPENSE_CATEGORIES.map(
+                            ({ value, label, icon: Icon }) => {
+                                const active = category === value;
+                                return (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        aria-pressed={active}
+                                        disabled={form.formState.isSubmitting}
+                                        onClick={() =>
+                                            form.setValue(
+                                                "category",
+                                                active ? "" : value,
+                                                { shouldDirty: true },
+                                            )
+                                        }
+                                        className={cn(
+                                            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                                            active
+                                                ? "border-primary/40 bg-primary/10 text-primary"
+                                                : "border-border/70 bg-card text-muted-foreground hover:bg-accent",
+                                        )}
+                                    >
+                                        <Icon
+                                            className="size-3.5"
+                                            aria-hidden="true"
+                                        />
+                                        {label}
+                                    </button>
+                                );
+                            },
+                        )}
+                    </div>
+                </div>
 
                 <LoadingButton
                     type="submit"

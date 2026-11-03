@@ -8,7 +8,7 @@ import { endOfDay, startOfDay } from "date-fns/esm";
 import { DateRange } from "react-day-picker";
 
 import { useCurrentUser } from "@/lib/auth";
-import { formatDate } from "@/lib/date";
+import { getDateString } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
 import pb, { pbDate } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
@@ -18,6 +18,8 @@ export type JiZhangItemData = {
     price: number;
     itemName: string;
     createdAt: string;
+    /** Empty for rows created before the category field was added. */
+    category: string;
 };
 
 type JiZhangRecord = {
@@ -25,6 +27,7 @@ type JiZhangRecord = {
     item_name: string;
     price: number;
     created: string;
+    category?: string;
 };
 
 export function useJiZhang(range: DateRange | undefined) {
@@ -61,8 +64,9 @@ export function useJiZhang(range: DateRange | undefined) {
                     price: item.price,
                     itemName: item.item_name,
                     createdAt: item.created,
+                    category: item.category ?? "",
                 })),
-                (item) => myFormatDate(item.createdAt),
+                (item) => getDateString(new Date(item.createdAt)),
             ).forEach((items, date) => {
                 transformedData.push({ date, items });
             });
@@ -73,12 +77,6 @@ export function useJiZhang(range: DateRange | undefined) {
     });
 }
 
-function myFormatDate(dateStr: string) {
-    let myDate = formatDate(dateStr);
-    myDate = myDate.split(" ")[0];
-    return myDate.replaceAll("/", "-");
-}
-
 export function useAddJiZhang() {
     const user = useCurrentUser();
     const queryClient = useQueryClient();
@@ -86,12 +84,13 @@ export function useAddJiZhang() {
     return useMutation({
         mutationKey: ["add-ji-zhang"],
         mutationFn: async (
-            newItem: Pick<JiZhangItemData, "itemName" | "price">,
+            newItem: Pick<JiZhangItemData, "itemName" | "price" | "category">,
         ) => {
             // PocketBase has no column default for user_id, send it.
             const record = await pb.collection("ji_zhang_biao").create({
                 item_name: newItem.itemName,
                 price: newItem.price,
+                category: newItem.category,
                 user_id: user.id,
             });
             return record.id;

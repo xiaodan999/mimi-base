@@ -16,9 +16,12 @@ export default function CalendarDateRangePicker({
     className,
     date,
     onRangeChange,
+    compact = false,
 }: {
     date: DateRange | undefined;
     onRangeChange: (range: DateRange | undefined) => void;
+    /** Fits the trigger into a dense header row. */
+    compact?: boolean;
 } & React.HTMLAttributes<HTMLDivElement>) {
     const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -29,25 +32,38 @@ export default function CalendarDateRangePicker({
                     <Button
                         id="date"
                         variant={"outline"}
+                        size={compact ? "sm" : "default"}
                         className={cn(
-                            "w-[240px] justify-start text-left font-normal",
+                            compact
+                                ? "h-8 gap-1.5 rounded-full px-3 text-xs font-medium"
+                                : "w-[240px] justify-start text-left font-normal",
                             !date && "text-muted-foreground",
                         )}
                     >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon
+                            className={compact ? "size-3.5" : "mr-2 h-4 w-4"}
+                        />
                         {date?.from ? (
                             date.to ? (
                                 <>
-                                    {format(date.from, "yyyy/M/d", {
-                                        locale: zhCN,
-                                    })}{" "}
+                                    {format(
+                                        date.from,
+                                        compact ? "M月d日" : "yyyy/M/d",
+                                        { locale: zhCN },
+                                    )}{" "}
                                     -{" "}
-                                    {format(date.to, "yyyy/M/d", {
-                                        locale: zhCN,
-                                    })}
+                                    {format(
+                                        date.to,
+                                        compact ? "M月d日" : "yyyy/M/d",
+                                        { locale: zhCN },
+                                    )}
                                 </>
                             ) : (
-                                format(date.from, "yyyy/M/d", { locale: zhCN })
+                                format(
+                                    date.from,
+                                    compact ? "M月d日" : "yyyy/M/d",
+                                    { locale: zhCN },
+                                )
                             )
                         ) : (
                             <span>选择日期</span>
