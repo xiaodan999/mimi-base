@@ -37,8 +37,9 @@ Chinese; keep that style when adding user-facing text.
 bun install
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
-bun run dev               # Vite on :3000
+bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, PB health-checked before Vite starts
+                          # PB_PORT=8091 gives this worktree its own database
 bun run build             # vite build + bun check
 bun run test              # bun test app (pure logic, no server needed)
 bun run typecheck         # bun check (TS 7, all cores)

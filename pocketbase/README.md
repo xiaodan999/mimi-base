@@ -27,6 +27,11 @@ bun run db                 # serves on 127.0.0.1:8090, automigrate ON
 bun run dev                # frontend on :3000 (VITE_POCKETBASE_URL in .env)
 ```
 
+Set `PB_PORT` to run the database on another port (e.g. `PB_PORT=8091`), and
+`VITE_PORT` for the frontend. Each worktree has its own `pb_data/`, so two
+checkouts can run side by side; `dev:all` points the frontend at the PB it
+started. In the split flow, keep `VITE_POCKETBASE_URL` in `.env` in sync.
+
 Admin UI: http://127.0.0.1:8090/_/
 
 ## Server setup (any unprivileged user, no root needed)

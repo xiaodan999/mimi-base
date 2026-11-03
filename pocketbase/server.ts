@@ -1,7 +1,8 @@
 /**
  * PocketBase supervisor + deploy endpoint.
  *
- *   bun run db    # dev:  127.0.0.1:8090 (no .env.prod in the repo)
+ *   bun run db    # dev:  127.0.0.1:8090 (PB_PORT changes the port; no
+ *                 #       .env.prod in the repo)
  *   bun run db    # prod: binds PB_HTTP from .env.prod (e.g. 0.0.0.0:8090),
  *                 #       automigrate off, /db/sync armed by DEPLOY_TOKEN
  *
@@ -60,11 +61,13 @@ async function ensureBinary() {
 }
 
 const argv = process.argv.slice(2);
+const devHttp = `127.0.0.1:${process.env.PB_PORT ?? "8090"}`;
+const bindHttp = process.env.PB_HTTP ?? devHttp;
 const serveArgs = [
     "serve",
     ...(argv.some((a) => a.startsWith("--http"))
         ? argv
-        : ["--http", process.env.PB_HTTP ?? "127.0.0.1:8090", ...argv]),
+        : ["--http", bindHttp, ...argv]),
     ...(isProd && !argv.some((a) => a.startsWith("--automigrate"))
         ? ["--automigrate=false"]
         : []),

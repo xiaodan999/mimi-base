@@ -7,7 +7,7 @@
     "scripts": {
         "build": "vite build && bun check",
         "db": "bun pocketbase/server.ts",
-        "dev": "vite --host --port=3000",
+        "dev": "vite --host",
         "dev:all": "bun scripts/dev.ts",
         "format": "bun fmt",
         "format:check": "bun fmt --check",

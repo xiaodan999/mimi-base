@@ -91,6 +91,27 @@ bun run db
 bun run dev
 ```
 
+如果 3000 端口已经被占用（比如同时在另一个 worktree 里开发），用
+`VITE_PORT` 换一个端口，`dev` 和 `dev:all` 都会读取它：
+
+```bash
+VITE_PORT=3001 bun run dev:all
+```
+
+也可以把 `VITE_PORT=3001` 写进这个 worktree 的 `.env` 里，之后照常运行
+`bun run dev:all` 即可。
+
+数据库端口同理。如果 8090 也被另一个 worktree 占用，加 `PB_PORT`：
+
+```bash
+VITE_PORT=3001 PB_PORT=8091 bun run dev:all
+```
+
+`dev:all` 会在 8091 启动这个 worktree 的 PocketBase，并把前端指向它；
+数据库文件来自当前 worktree 的 `pocketbase/pb_data/`，两边互不影响。
+如果分开启动，记得把 `.env` 里的 `VITE_POCKETBASE_URL` 也改成
+`http://127.0.0.1:8091`。
+
 ## 六、常用命令
 
 | 命令                   | 作用                               |

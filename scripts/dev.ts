@@ -3,6 +3,14 @@
  *
  *   bun run dev:all   # PocketBase on :8090, then Vite on :3000
  *
+ * Set VITE_PORT to run Vite on another port (e.g. when another worktree owns
+ * :3000). `bun run dev` reads the same variable through vite.config.ts.
+ *
+ * Set PB_PORT (or PB_HTTP) to give this worktree its own database; the script
+ * starts PocketBase on that port and points the Vite child's
+ * VITE_POCKETBASE_URL at it. Each worktree keeps its own pocketbase/pb_data,
+ * so two checkouts can run side by side.
+ *
  * `bun run db` and `bun run dev` stay independent on purpose (see AGENTS.md):
  * this script only starts them in order, waits for PocketBase's /api/health
  * so the first feed query doesn't fail, and forwards Ctrl-C to both children.
@@ -14,9 +22,16 @@ import path from "node:path";
 
 const repo = path.resolve(import.meta.dir, "..");
 const HEALTH_TIMEOUT = 120_000;
-const pbHttp = process.env.PB_HTTP ?? "127.0.0.1:8090";
+const pbOverride = process.env.PB_PORT ?? process.env.PB_HTTP;
+const pbHttp =
+    process.env.PB_HTTP ?? `127.0.0.1:${process.env.PB_PORT ?? "8090"}`;
 const pbPort = pbHttp.split(":").pop() || "8090";
 const pbHealthUrl = `http://127.0.0.1:${pbPort}/api/health`;
+// The address a browser can use; 0.0.0.0 is a bind address, not a host.
+const pbHost = pbHttp.slice(0, pbHttp.lastIndexOf(":")) || "127.0.0.1";
+const pbClientUrl = `http://${
+    pbHost === "0.0.0.0" || pbHost === "::" ? "127.0.0.1" : pbHost
+}:${pbPort}`;
 
 let pb: ChildProcess | null = null;
 let vite: ChildProcess | null = null;
@@ -69,11 +84,18 @@ async function waitForPB(): Promise<boolean> {
 }
 
 function startVite() {
-    log("starting Vite on :3000");
+    log(`starting Vite on :${process.env.VITE_PORT ?? "3000"}`);
+    const env = { ...process.env };
+    if (pbOverride) {
+        // Keep the client and the database we started on the same port. Vite
+        // gives process env priority over `.env`.
+        env.VITE_POCKETBASE_URL = pbClientUrl;
+        log(`pointing Vite at ${pbClientUrl}`);
+    }
     vite = spawn(process.execPath, ["run", "dev"], {
         cwd: repo,
         stdio: "inherit",
-        env: process.env,
+        env,
     });
     vite.on("exit", (code, signal) => {
         vite = null;
