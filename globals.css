@@ -198,9 +198,11 @@
     bottom: var(--app-kb-inset, 0px) !important;
 }
 
-/* Cap a sheet's height to the space above the keyboard. */
+/* Cap a sheet's height to the space above the keyboard. The offset can be
+   raised by a surface that also leaves room below itself (e.g. a floating
+   desktop sheet with a bottom margin). */
 .kb-max-h {
-    max-height: calc(var(--app-vvh, 100dvh) - 8px);
+    max-height: calc(var(--app-vvh, 100dvh) - var(--kb-max-offset, 8px));
 }
 
 /* Tall panels: never taller than 88% of the screen or the visible area. */
