@@ -27,6 +27,13 @@ const router = createRouter({
     defaultPreloadStaleTime: 0,
     defaultPendingComponent: LoadingPage,
     defaultErrorComponent: RouteError,
+    // The app scrolls inside <main id="main-content">, not the window. Keying
+    // by URL instead of history entry means the bottom nav restores each tab's
+    // position too, not just back/forward navigation.
+    scrollRestoration: true,
+    scrollToTopSelectors: ["#main-content"],
+    getScrollRestorationKey: (location) =>
+        `${location.pathname}${location.searchStr}`,
 });
 // Register things for typesafety
 declare module "@tanstack/react-router" {

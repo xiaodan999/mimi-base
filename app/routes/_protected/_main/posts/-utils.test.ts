@@ -1,0 +1,52 @@
+import { describe, expect, test } from "bun:test";
+
+import { formatMonthLabel, groupPostMonths, monthKeyOf } from "./-utils";
+
+/** Local-time timestamp so the test never depends on the runner's zone. */
+function at(year: number, month: number, day = 15, hour = 12) {
+    return new Date(year, month - 1, day, hour).toISOString();
+}
+
+describe("monthKeyOf", () => {
+    test("uses the local calendar month", () => {
+        expect(monthKeyOf(at(2024, 3))).toBe("2024-03");
+        expect(monthKeyOf(at(2024, 11))).toBe("2024-11");
+    });
+
+    test("returns an empty key for invalid dates", () => {
+        expect(monthKeyOf("not a date")).toBe("");
+    });
+});
+
+describe("formatMonthLabel", () => {
+    test("drops the zero padding", () => {
+        expect(formatMonthLabel("2024-03")).toBe("2024年3月");
+        expect(formatMonthLabel("2024-12")).toBe("2024年12月");
+    });
+
+    test("keeps malformed keys readable", () => {
+        expect(formatMonthLabel("2024")).toBe("2024");
+    });
+});
+
+describe("groupPostMonths", () => {
+    test("counts posts per month, newest first", () => {
+        const months = groupPostMonths([
+            at(2024, 3),
+            at(2024, 3, 1),
+            at(2023, 12),
+            at(2024, 3, 28),
+            at(2025, 1),
+        ]);
+
+        expect(months).toEqual([
+            { key: "2025-01", label: "2025年1月", count: 1 },
+            { key: "2024-03", label: "2024年3月", count: 3 },
+            { key: "2023-12", label: "2023年12月", count: 1 },
+        ]);
+    });
+
+    test("skips invalid timestamps", () => {
+        expect(groupPostMonths(["", "nope"])).toEqual([]);
+    });
+});

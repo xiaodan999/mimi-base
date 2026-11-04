@@ -66,3 +66,43 @@ export function formatDayDivider(value: string | Date, now = new Date()) {
     if (date.getFullYear() === now.getFullYear()) return shortDate(date);
     return `${date.getFullYear()}年${shortDate(date)}`;
 }
+
+/** Feed filter month key, e.g. "2024-03" (local time). */
+export function monthKeyOf(value: string | Date) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}`;
+}
+
+/** `2024-03` -> `2024年3月`; malformed keys come back unchanged. */
+export function formatMonthLabel(key: string) {
+    const [year, month] = key.split("-").map(Number);
+    if (!year || !month) return key;
+    return `${year}年${month}月`;
+}
+
+export type PostMonth = {
+    /** "YYYY-MM", used in the URL and the feed filter. */
+    key: string;
+    label: string;
+    count: number;
+};
+
+/**
+ * Groups post timestamps into the months that have posts, newest first.
+ *
+ * The archive only needs timestamps, so the caller can fetch `fields=created`
+ * and stay small even with thousands of posts.
+ */
+export function groupPostMonths(values: Array<string | Date>): PostMonth[] {
+    const counts = new Map<string, number>();
+    for (const value of values) {
+        const key = monthKeyOf(value);
+        if (!key) continue;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    return [...counts.entries()]
+        .sort(([a], [b]) => (a === b ? 0 : a < b ? 1 : -1))
+        .map(([key, count]) => ({ key, label: formatMonthLabel(key), count }));
+}
