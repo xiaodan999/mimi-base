@@ -6,6 +6,7 @@ import {
     getExpenseCategory,
     guessCategoryIcon,
     mergeExpenseCategories,
+    needsExpenseCategory,
     normalizeCategoryValue,
 } from "./-categories";
 
@@ -45,6 +46,29 @@ describe("normalizeCategoryValue", () => {
     test("returns an empty value when the model invents a category", () => {
         expect(normalizeCategoryValue("太空旅行", categories)).toBe("");
         expect(normalizeCategoryValue("", categories)).toBe("");
+    });
+});
+
+describe("needsExpenseCategory", () => {
+    const categories = mergeExpenseCategories([pet]);
+
+    test("only never-categorized rows when 其他 is off", () => {
+        expect(needsExpenseCategory("", false, categories)).toBe(true);
+        expect(needsExpenseCategory("other", false, categories)).toBe(false);
+        expect(needsExpenseCategory("recGone", false, categories)).toBe(false);
+    });
+
+    test("includes every row shown as 其他 when the toggle is on", () => {
+        expect(needsExpenseCategory("", true, categories)).toBe(true);
+        expect(needsExpenseCategory("other", true, categories)).toBe(true);
+        // The list renders a deleted custom category as 其他, so backfill it.
+        expect(needsExpenseCategory("recGone", true, categories)).toBe(true);
+        expect(needsExpenseCategory(undefined, true, categories)).toBe(true);
+    });
+
+    test("keeps properly categorized rows out", () => {
+        expect(needsExpenseCategory("food", true, categories)).toBe(false);
+        expect(needsExpenseCategory("recPet", true, categories)).toBe(false);
     });
 });
 

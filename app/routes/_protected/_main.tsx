@@ -20,9 +20,14 @@ function Layout() {
                 >
                     跳到主要内容
                 </a>
+                {/* A stable key for TanStack Router scroll restoration. Its
+                    default nth-child path shifts while a Radix dialog adds
+                    focus-guard spans to <body>, which made every sheet close
+                    snap this container back to the top. */}
                 <main
                     id="main-content"
                     tabIndex={-1}
+                    data-scroll-restoration-id="main-content"
                     className="flex-1 overflow-auto overscroll-contain outline-none"
                 >
                     <Outlet />

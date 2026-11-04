@@ -17,13 +17,17 @@ import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
-import { normalizeCategoryValue } from "../-categories";
+import {
+    needsExpenseCategory,
+    normalizeCategoryValue,
+    type ExpenseCategory,
+} from "../-categories";
 import { useExpenseCategories } from "../-data";
 
 type FixRow = {
     id: string;
     itemName: string;
-    /** Current value: "" when never categorized, otherwise "other" or a key. */
+    /** Current value: "", "other", a built-in key, a custom id, or a stale id. */
     category: string;
 };
 
@@ -43,7 +47,11 @@ function pbErrorText(error: unknown): string {
     return "请稍后重试";
 }
 
-function useFixRows(enabled: boolean, includeOther: boolean) {
+function useFixRows(
+    enabled: boolean,
+    includeOther: boolean,
+    categories: ExpenseCategory[],
+) {
     const user = useCurrentUser();
     return useQuery({
         queryKey: qk.jiZhang.uncategorized(user.id, includeOther),
@@ -57,21 +65,32 @@ function useFixRows(enabled: boolean, includeOther: boolean) {
                 // updateRule is owner-scoped, so only list my own rows —
                 // other users' legacy rows would always fail to update.
                 filter: includeOther
-                    ? pb.filter(
-                          "(category = {:empty} || category = {:other}) && user_id = {:userId}",
-                          { empty: "", other: "other", userId: user.id },
-                      )
+                    ? pb.filter("user_id = {:userId}", { userId: user.id })
                     : pb.filter("category = {:empty} && user_id = {:userId}", {
                           empty: "",
                           userId: user.id,
                       }),
+                fields: "id,item_name,category",
                 sort: "created",
             });
-            return records.map((record) => ({
-                id: record.id,
-                itemName: record.item_name,
-                category: record.category ?? "",
-            }));
+            return (
+                records
+                    .map((record) => ({
+                        id: record.id,
+                        itemName: record.item_name,
+                        category: record.category ?? "",
+                    }))
+                    // A row can hold a value that no longer resolves (a deleted
+                    // custom category, an old AI reply). The expense list shows
+                    // those as 其他 too, so include them here.
+                    .filter((row) =>
+                        needsExpenseCategory(
+                            row.category,
+                            includeOther,
+                            categories,
+                        ),
+                    )
+            );
         },
     });
 }
@@ -96,6 +115,7 @@ export default function AiCategoryFix({
     const { data, isPending, isError, error, refetch } = useFixRows(
         open,
         includeOther,
+        categories,
     );
     const [guesses, setGuesses] = useState<Record<string, string>>({});
     const [guessing, setGuessing] = useState(false);
@@ -153,7 +173,10 @@ export default function AiCategoryFix({
     }, [open, attend]);
 
     /** The category this row would be saved as right now. */
-    const valueFor = (row: FixRow) => guesses[row.id] ?? row.category;
+    const valueFor = (row: FixRow) =>
+        guesses[row.id] ??
+        // A stale id has no <option>; show it honestly as 未分类.
+        normalizeCategoryValue(row.category, categories);
     /** Only rows whose category would actually change get PATCHed. */
     const isChange = (row: FixRow) => {
         const value = valueFor(row);

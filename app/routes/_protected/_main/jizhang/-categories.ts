@@ -180,6 +180,20 @@ export function normalizeCategoryValue(
     return match?.value ?? "";
 }
 
+/**
+ * Whether a row belongs in 补全分类. With the 其他 toggle off only rows that
+ * were never categorized qualify; with it on, every row that renders as 其他
+ * does — including a stale value such as a deleted custom category id.
+ */
+export function needsExpenseCategory(
+    value: string | null | undefined,
+    includeOther: boolean,
+    categories: ExpenseCategory[],
+): boolean {
+    if (!includeOther) return !value;
+    return resolveExpenseCategory(value, categories).value === "other";
+}
+
 const ICON_HINTS: [RegExp, CategoryIconKey][] = [
     [/猫|狗|宠物/, "paw"],
     [/咖啡|奶茶|饮料|茶/, "coffee"],

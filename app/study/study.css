@@ -4,7 +4,11 @@
    - 类名统一 st- 前缀，避免和 shadcn / Tailwind 的通用类撞车
    ========================================================================== */
 
-.study-root {
+/* The AI sheets are app-wide but reuse the `st-*` controls below, so they need
+   the same tokens even when no `.study-root` ancestor is present. This block
+   only publishes variables — the study reset/typography stays on `.study-root`. */
+.study-root,
+.ai-sheet {
     --bg: hsl(var(--background));
     --bg2: hsl(var(--muted));
     --card2: hsl(var(--muted));
@@ -43,7 +47,8 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.dark .study-root {
+.dark .study-root,
+.dark .ai-sheet {
     --ok-bg: hsl(var(--success) / 0.18);
     --no-bg: hsl(var(--destructive) / 0.18);
     --warn-bg: hsl(var(--warning) / 0.2);
