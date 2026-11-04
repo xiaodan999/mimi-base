@@ -198,6 +198,12 @@ bun run dev:all
   over raw colors so both schemes keep working. `ThemeProvider` is in
   `lib/theme.tsx`; the nav toggle persists the choice under `mimi-theme`.
 - Use `toastPromise` for async user actions (loading/success/error toasts).
+- Overlays must close on the mobile back gesture (edge swipe / hardware back)
+  instead of navigating the page behind them away. `lib/useBackDismiss.ts`
+  provides this, and `Dialog`, `Sheet`, `Drawer` and `AiSheet` call it for you.
+  Hand-rolled full-screen surfaces (e.g. `QuizRunner`) must call it themselves.
+  It keeps one shared history entry while any overlay is open and unwinds
+  nested overlays one at a time.
 - The shell assumes `100dvh`; keep page scrolling inside the `_main` outlet.
 - Accessibility: `globals.css` provides a global `:focus-visible` outline and
   disables decorative animation under `prefers-reduced-motion`. Don't add

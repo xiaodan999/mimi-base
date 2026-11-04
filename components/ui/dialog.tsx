@@ -4,9 +4,43 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
 
+import { useBackDismiss } from "@/lib/useBackDismiss";
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+type DialogProps = React.ComponentProps<typeof DialogPrimitive.Root>;
+
+/**
+ * Radix root plus back-gesture dismissal: on mobile the edge swipe is a
+ * history navigation, so an open dialog swallows it and closes instead of
+ * leaving the page underneath.
+ */
+const Dialog = ({
+	open,
+	defaultOpen = false,
+	onOpenChange,
+	...props
+}: DialogProps) => {
+	const [uncontrolledOpen, setUncontrolledOpen] =
+		React.useState(defaultOpen);
+	const isOpen = open ?? uncontrolledOpen;
+	const handleOpenChange = React.useCallback(
+		(next: boolean) => {
+			if (open === undefined) setUncontrolledOpen(next);
+			onOpenChange?.(next);
+		},
+		[open, onOpenChange],
+	);
+
+	useBackDismiss(isOpen, () => handleOpenChange(false));
+
+	return (
+		<DialogPrimitive.Root
+			open={isOpen}
+			onOpenChange={handleOpenChange}
+			{...props}
+		/>
+	);
+};
 
 const DialogTrigger = DialogPrimitive.Trigger;
 

@@ -54,8 +54,6 @@ const SLIDE_MS = 300;
 const ZOOM_MS = 240;
 const DISMISS_MS = 220;
 const EASE_OUT = "cubic-bezier(0.22, 1, 0.36, 1)";
-/** History key used to swallow the back gesture while the viewer is open. */
-const HISTORY_MARKER = "__mimiImageViewer";
 
 type GestureMode = "pending" | "swipe" | "dismiss" | "pan" | "pinch";
 
@@ -79,48 +77,12 @@ type Gesture = {
 };
 
 /**
- * Swallow the next back navigation while `open` is true.
- *
- * Mobile browsers fire the edge-swipe/back gesture as a history navigation.
- * Pushing a duplicate entry means that gesture lands on the same page
- * instead of leaving the feed, and the popstate lets us close the viewer.
- */
-function useBackGestureDismiss(open: boolean, onDismiss: () => void) {
-    const dismissRef = useRef(onDismiss);
-    dismissRef.current = onDismiss;
-
-    useEffect(() => {
-        if (!open) return;
-
-        window.history.pushState(
-            { ...(window.history.state ?? {}), [HISTORY_MARKER]: true },
-            "",
-        );
-
-        let popped = false;
-        const handlePopState = (event: PopStateEvent) => {
-            const state = event.state as Record<string, unknown> | null;
-            if (state?.[HISTORY_MARKER]) return;
-            popped = true;
-            dismissRef.current();
-        };
-
-        window.addEventListener("popstate", handlePopState);
-        return () => {
-            window.removeEventListener("popstate", handlePopState);
-            // Closed from the UI: drop the duplicate entry so the next back
-            // gesture goes where the user expects it to.
-            if (!popped && window.history.state?.[HISTORY_MARKER]) {
-                window.history.back();
-            }
-        };
-    }, [open]);
-}
-
-/**
  * Full-screen image viewer with native-style gestures: swipe between images,
  * pinch or double tap to zoom, drag to pan while zoomed, drag down to
  * dismiss, and the browser back gesture closes the viewer.
+ *
+ * The back gesture is handled by the shared `Dialog` wrapper
+ * (`useBackDismiss`), so every overlay in the app behaves the same way.
  *
  * Motion is animated with the Web Animations API rather than CSS
  * transitions so the target state is applied immediately and a new touch can
@@ -231,8 +193,6 @@ export default function ImageViewer({
 
     const imageTransform = (value: ZoomTransform): string =>
         `translate3d(${value.x}px, ${value.y}px, 0) scale(${value.scale})`;
-
-    useBackGestureDismiss(open, () => onOpenChange(false));
 
     // Reset every gesture/zoom value whenever the viewer (re)opens.
     useEffect(() => {

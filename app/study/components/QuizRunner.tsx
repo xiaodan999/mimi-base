@@ -11,6 +11,7 @@ import {
     diagnoseWrongMessages,
     userAnswerText,
 } from "@/app/ai/prompts";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 
 import { TYPE_NAME, answerText, bumpDaily, isAnswerCorrect } from "../engine";
 import { gameForModule } from "../games/registry";
@@ -34,6 +35,8 @@ export default function QuizRunner({
 }: Props) {
     const { subject, update } = useStudy();
     const { configured, openSettings } = useAi();
+    // 做题是整屏浮层：侧滑返回应该退出练习，而不是退掉下面的页面。
+    useBackDismiss(true, onExit);
     const [index, setIndex] = useState(0);
     const [answers, setAnswers] = useState<Answer[]>(() =>
         items.map(() => undefined),

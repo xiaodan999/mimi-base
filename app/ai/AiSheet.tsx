@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode, type RefObject } from "react";
 import { X } from "lucide-react";
 
+import { useBackDismiss } from "@/lib/useBackDismiss";
+
 type Props = {
     open: boolean;
     onClose: () => void;
@@ -31,6 +33,9 @@ export default function AiSheet({
         document.addEventListener("keydown", handler);
         return () => document.removeEventListener("keydown", handler);
     }, [open, onClose]);
+
+    // 手机侧滑返回时关掉抽屉，而不是把下面的页面退掉。
+    useBackDismiss(open, onClose);
 
     if (!open) return null;
 

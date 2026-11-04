@@ -3,8 +3,14 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
+import { useBackDismiss } from "@/lib/useBackDismiss";
 import { cn } from "@/lib/utils";
 
+/**
+ * Vaul root plus back-gesture dismissal: on mobile the edge swipe is a
+ * history navigation, so an open drawer swallows it and closes instead of
+ * leaving the page underneath.
+ */
 const Drawer = ({
     shouldScaleBackground = true,
     // Our own keyboard handling (useVisualViewport + .kb-max-h / .kb-bottom in
@@ -13,14 +19,33 @@ const Drawer = ({
     // after the keyboard closes, restores the height it captured while the
     // keyboard was open — leaving the sheet permanently shorter.
     repositionInputs = false,
+    open,
+    defaultOpen = false,
+    onOpenChange,
     ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-    <DrawerPrimitive.Root
-        shouldScaleBackground={shouldScaleBackground}
-        repositionInputs={repositionInputs}
-        {...props}
-    />
-);
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
+    const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+    const isOpen = open ?? uncontrolledOpen;
+    const handleOpenChange = React.useCallback(
+        (next: boolean) => {
+            if (open === undefined) setUncontrolledOpen(next);
+            onOpenChange?.(next);
+        },
+        [open, onOpenChange],
+    );
+
+    useBackDismiss(isOpen, () => handleOpenChange(false));
+
+    return (
+        <DrawerPrimitive.Root
+            shouldScaleBackground={shouldScaleBackground}
+            repositionInputs={repositionInputs}
+            open={isOpen}
+            onOpenChange={handleOpenChange}
+            {...props}
+        />
+    );
+};
 Drawer.displayName = "Drawer";
 
 const DrawerTrigger = DrawerPrimitive.Trigger;

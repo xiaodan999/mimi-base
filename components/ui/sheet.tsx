@@ -5,9 +5,43 @@ import { type VariantProps, cva } from "class-variance-authority";
 import { X } from "lucide-react";
 import * as React from "react";
 
+import { useBackDismiss } from "@/lib/useBackDismiss";
 import { cn } from "@/lib/utils";
 
-const Sheet = SheetPrimitive.Root;
+type SheetProps = React.ComponentProps<typeof SheetPrimitive.Root>;
+
+/**
+ * Radix root plus back-gesture dismissal: on mobile the edge swipe is a
+ * history navigation, so an open sheet swallows it and closes instead of
+ * leaving the page underneath.
+ */
+const Sheet = ({
+	open,
+	defaultOpen = false,
+	onOpenChange,
+	...props
+}: SheetProps) => {
+	const [uncontrolledOpen, setUncontrolledOpen] =
+		React.useState(defaultOpen);
+	const isOpen = open ?? uncontrolledOpen;
+	const handleOpenChange = React.useCallback(
+		(next: boolean) => {
+			if (open === undefined) setUncontrolledOpen(next);
+			onOpenChange?.(next);
+		},
+		[open, onOpenChange],
+	);
+
+	useBackDismiss(isOpen, () => handleOpenChange(false));
+
+	return (
+		<SheetPrimitive.Root
+			open={isOpen}
+			onOpenChange={handleOpenChange}
+			{...props}
+		/>
+	);
+};
 
 const SheetTrigger = SheetPrimitive.Trigger;
 
