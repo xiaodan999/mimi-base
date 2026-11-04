@@ -4,6 +4,12 @@ const { fontFamily } = require("tailwindcss/defaultTheme");
 module.exports = {
     darkMode: ["class"],
     content: ["./index.html", "app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    future: {
+        // Touch taps leave `:hover` latched until the next tap, so a ghost
+        // button's background stayed visible after a like. Only emit hover
+        // styles for devices that can actually hover.
+        hoverOnlyWhenSupported: true,
+    },
     theme: {
         container: {
             center: true,

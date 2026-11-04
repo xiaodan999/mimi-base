@@ -293,6 +293,10 @@ before your first commit.
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.
 - Style with Tailwind + `components/ui` primitives + `cn()` from
   `lib/utils.ts`. There are no CSS modules; the nav uses lucide icons.
+- `hover:` styles only reach devices that can hover
+  (`future.hoverOnlyWhenSupported` in `tailwind.config.js`). A touch tap
+  latches `:hover` until the next tap, so a hover-only affordance looks stuck
+  on a phone; use `active:` or state classes for touch feedback.
 - Theme tokens live in `globals.css` (`:root` + `.dark`). Prefer semantic
   classes (`bg-card`, `text-muted-foreground`, `border-border`, `shadow-soft`)
   over raw colors so both schemes keep working. `ThemeProvider` is in
