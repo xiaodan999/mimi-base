@@ -12,6 +12,7 @@ import {
     ContextMenuItem,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import CalendarDateRangePicker from "@/components/ui/shadcn-date-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/money";
@@ -147,8 +148,11 @@ function SummaryCard({
         <section className="mt-4 rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                         本期支出
+                        {refreshing && (
+                            <LoadingSpinner size={12} aria-hidden="true" />
+                        )}
                     </p>
                     <p className="mt-1 text-3xl font-semibold tracking-tight">
                         {formatMoney(summary.total)}
@@ -188,12 +192,6 @@ function SummaryCard({
                     </div>
                     <TrendChart points={trend} />
                 </div>
-            )}
-
-            {refreshing && (
-                <p className="mt-2 text-center text-[10px] text-muted-foreground">
-                    更新中…
-                </p>
             )}
         </section>
     );
