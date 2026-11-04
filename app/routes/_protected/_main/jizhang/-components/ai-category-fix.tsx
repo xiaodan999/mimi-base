@@ -9,6 +9,7 @@ import { categoryGuessMessages } from "@/app/ai/expense";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
@@ -17,7 +18,12 @@ import { toastPromise } from "@/lib/toast-promise";
 import { normalizeCategoryValue } from "../-categories";
 import { useExpenseCategories } from "../-data";
 
-type LegacyRow = { id: string; itemName: string };
+type FixRow = {
+    id: string;
+    itemName: string;
+    /** Current value: "" when never categorized, otherwise "other" or a key. */
+    category: string;
+};
 
 type GuessResponse = {
     items?: { name?: unknown; category?: unknown }[];
@@ -35,26 +41,34 @@ function pbErrorText(error: unknown): string {
     return "请稍后重试";
 }
 
-function useUncategorizedRows(enabled: boolean) {
+function useFixRows(enabled: boolean, includeOther: boolean) {
     const user = useCurrentUser();
     return useQuery({
-        queryKey: qk.jiZhang.uncategorized(user.id),
+        queryKey: qk.jiZhang.uncategorized(user.id, includeOther),
         enabled,
-        queryFn: async (): Promise<LegacyRow[]> => {
-            const records = await pb
-                .collection("ji_zhang_biao")
-                .getFullList<{ id: string; item_name: string }>({
-                    // updateRule is owner-scoped, so only list my own rows —
-                    // other users' legacy rows would always fail to update.
-                    filter: pb.filter(
-                        "category = {:empty} && user_id = {:userId}",
-                        { empty: "", userId: user.id },
-                    ),
-                    sort: "created",
-                });
+        queryFn: async (): Promise<FixRow[]> => {
+            const records = await pb.collection("ji_zhang_biao").getFullList<{
+                id: string;
+                item_name: string;
+                category?: string;
+            }>({
+                // updateRule is owner-scoped, so only list my own rows —
+                // other users' legacy rows would always fail to update.
+                filter: includeOther
+                    ? pb.filter(
+                          "(category = {:empty} || category = {:other}) && user_id = {:userId}",
+                          { empty: "", other: "other", userId: user.id },
+                      )
+                    : pb.filter("category = {:empty} && user_id = {:userId}", {
+                          empty: "",
+                          userId: user.id,
+                      }),
+                sort: "created",
+            });
             return records.map((record) => ({
                 id: record.id,
                 itemName: record.item_name,
+                category: record.category ?? "",
             }));
         },
     });
@@ -74,20 +88,34 @@ export default function AiCategoryFix({
         () => categories.map(({ value, label }) => ({ value, label })),
         [categories],
     );
-    const { data, isPending, isError, error, refetch } =
-        useUncategorizedRows(open);
+    const [includeOther, setIncludeOther] = useState(false);
+    const { data, isPending, isError, error, refetch } = useFixRows(
+        open,
+        includeOther,
+    );
     const [guesses, setGuesses] = useState<Record<string, string>>({});
     const [guessing, setGuessing] = useState(false);
     const [applying, setApplying] = useState(false);
     const [message, setMessage] = useState("");
 
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            setIncludeOther(false);
+            return;
+        }
         setGuesses({});
         setMessage("");
-    }, [open]);
+    }, [open, includeOther]);
 
     const rows = data ?? [];
+
+    /** The category this row would be saved as right now. */
+    const valueFor = (row: FixRow) => guesses[row.id] ?? row.category;
+    /** Only rows whose category would actually change get PATCHed. */
+    const isChange = (row: FixRow) => {
+        const value = valueFor(row);
+        return Boolean(value) && value !== row.category;
+    };
 
     const guess = async () => {
         if (!configured) {
@@ -102,7 +130,9 @@ export default function AiCategoryFix({
             const names = [...new Set(rows.map((row) => row.itemName))];
             const result = await chatJSON<GuessResponse>(
                 settings,
-                categoryGuessMessages(names, categoryOptions),
+                categoryGuessMessages(names, categoryOptions, {
+                    preferSpecific: includeOther,
+                }),
             );
             const byName = new Map<string, string>();
             for (const item of result.items ?? []) {
@@ -117,8 +147,8 @@ export default function AiCategoryFix({
 
             const next: Record<string, string> = {};
             for (const row of rows) {
-                // 没猜到的留空，等用户自己选，不默认写成「其他」。
-                next[row.id] = byName.get(row.itemName.trim()) ?? "";
+                // 没猜到的保持原分类（未分类仍留空），等用户自己选。
+                next[row.id] = byName.get(row.itemName.trim()) ?? row.category;
             }
             setGuesses(next);
         } catch (err) {
@@ -158,13 +188,11 @@ export default function AiCategoryFix({
     };
 
     const apply = async () => {
-        const updates: CategoryUpdate[] = rows
-            .filter((row) => guesses[row.id])
-            .map((row) => ({
-                id: row.id,
-                itemName: row.itemName,
-                category: guesses[row.id],
-            }));
+        const updates: CategoryUpdate[] = rows.filter(isChange).map((row) => ({
+            id: row.id,
+            itemName: row.itemName,
+            category: valueFor(row),
+        }));
         if (updates.length === 0 || applying) return;
 
         setApplying(true);
@@ -193,7 +221,7 @@ export default function AiCategoryFix({
         }
     };
 
-    const guessedCount = rows.filter((row) => guesses[row.id]).length;
+    const guessedCount = rows.filter(isChange).length;
 
     return (
         <AiSheet
@@ -203,6 +231,24 @@ export default function AiCategoryFix({
             subtitle="只改分类，不动金额和项目名"
         >
             <div className="space-y-3 pb-2">
+                <div className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5">
+                    <div className="min-w-0">
+                        <p className="text-[13px] font-medium">
+                            连「其他」一起补
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] leading-5 text-muted-foreground">
+                            以前记成「其他」的账目也让 AI 重新猜一次。
+                        </p>
+                    </div>
+                    <Switch
+                        checked={includeOther}
+                        onCheckedChange={setIncludeOther}
+                        disabled={guessing || applying}
+                        aria-label="连「其他」一起补"
+                        className="mt-0.5 shrink-0"
+                    />
+                </div>
+
                 {isPending ? (
                     <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-6 text-sm text-muted-foreground">
                         <LoadingSpinner size={16} />
@@ -226,19 +272,22 @@ export default function AiCategoryFix({
                         </span>
                         <p className="mt-3 text-sm font-semibold">都分好类了</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            没有需要补的历史账目。
+                            {includeOther
+                                ? "没有需要补的历史账目。"
+                                : "没有需要补的历史账目。想重分「其他」的话，打开上面的开关。"}
                         </p>
                     </div>
                 ) : (
                     <>
                         <p className="text-[12.5px] text-muted-foreground">
-                            有 {rows.length} 笔历史账目还没有分类，AI
-                            会按项目名猜一个。
+                            {includeOther
+                                ? `有 ${rows.length} 笔账目还没分类或停在「其他」，AI 会按项目名重新猜一个。`
+                                : `有 ${rows.length} 笔历史账目还没有分类，AI 会按项目名猜一个。`}
                         </p>
 
                         <ul className="max-h-72 space-y-1.5 overflow-y-auto overscroll-contain">
                             {rows.map((row) => {
-                                const value = guesses[row.id] ?? "";
+                                const value = valueFor(row);
                                 const category = getCategory(value);
                                 return (
                                     <li
