@@ -95,6 +95,38 @@ bun run dev:all
 - Stop the servers (Ctrl-C) before `git worktree remove <path>`. `.env` and
   `pocketbase/pb_data/` are gitignored, so removing the directory is enough.
 
+## Parallel sessions
+
+Several agent sessions may run at once. The **primary checkout** (the first
+entry of `git worktree list`) must stay clean: treat it as read-only. Every
+writing session works in its own worktree.
+
+If a task needs writes and `git rev-parse --show-toplevel` is the primary
+checkout, create and move into a worktree yourself — do not ask the user to
+start a new chat:
+
+```bash
+git worktree add -b feat/<topic> ../mimi-base-<topic> master
+cd ../mimi-base-<topic>
+bun install --frozen-lockfile
+cp .env.example .env
+```
+
+`--frozen-lockfile` stops the install from rewriting `bun.lock`; package
+contents come from the shared Bun cache, so it is fast and needs no network
+unless a dependency is actually new. Re-check `git rev-parse --show-toplevel`
+before your first commit.
+
+- Stop any dev server in the primary checkout before switching — otherwise it
+  keeps regenerating `app/routeTree.gen.ts` in the old tree.
+- If the primary checkout, or any tree you did not create, has uncommitted
+  work, ask before touching it. Never `git reset --hard`, `git checkout .`,
+  `git stash`, or `git clean` in a tree you don't own.
+- One topic, one worktree, one branch. If the directory or branch already
+  exists, pick a variant — never reuse it.
+- Worktrees isolate files, not history. Merge into `master` deliberately, one
+  session at a time.
+
 ## Backend / data rules
 
 - Use the singleton `pb` from `lib/pb.ts`; don't create another client.
