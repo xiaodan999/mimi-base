@@ -108,7 +108,12 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     };
 
     const handleOpenChange = (next: boolean) => {
-        if (!next) setPreviewIndex(null);
+        if (!next) {
+            setPreviewIndex(null);
+            // The caption sheet lives outside the drawer's portal; leaving it
+            // open would strand a dead sheet over the feed.
+            setCaptionOpen(false);
+        }
         onOpenChange(next);
     };
 
