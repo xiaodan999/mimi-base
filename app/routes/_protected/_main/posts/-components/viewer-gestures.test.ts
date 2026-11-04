@@ -4,6 +4,7 @@ import {
     clampScale,
     clampTranslation,
     midpoint,
+    panLimits,
     resolveSwipe,
     shouldDismiss,
     zoomAtPoint,
@@ -12,6 +13,16 @@ import {
 const viewport = { width: 400, height: 800 };
 /** A portrait image that fits the viewport height at scale 1. */
 const base = { width: 300, height: 800 };
+
+describe("panLimits", () => {
+    test("is zero while the image still fits the viewport", () => {
+        expect(panLimits(1, base, viewport)).toEqual({ x: 0, y: 0 });
+    });
+
+    test("grows with the overflowing edges when zoomed", () => {
+        expect(panLimits(2, base, viewport)).toEqual({ x: 100, y: 400 });
+    });
+});
 
 describe("clampTranslation", () => {
     test("keeps a fitted image centred", () => {

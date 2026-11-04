@@ -45,6 +45,17 @@ export function midpoint(a: Point, b: Point): Point {
 }
 
 /**
+ * How far the scaled image may move on each axis before an edge would show.
+ * Zero means the image still fits that axis and cannot pan.
+ */
+export function panLimits(scale: number, base: Size, viewport: Size): Point {
+    return {
+        x: Math.max(0, (base.width * scale - viewport.width) / 2),
+        y: Math.max(0, (base.height * scale - viewport.height) / 2),
+    };
+}
+
+/**
  * Keep the image covering the viewport: once it is larger than the viewport
  * it may pan up to the overflow, but never reveal the background.
  */
@@ -53,18 +64,11 @@ export function clampTranslation(
     base: Size,
     viewport: Size,
 ): ZoomTransform {
-    const limitX = Math.max(
-        0,
-        (base.width * transform.scale - viewport.width) / 2,
-    );
-    const limitY = Math.max(
-        0,
-        (base.height * transform.scale - viewport.height) / 2,
-    );
+    const limit = panLimits(transform.scale, base, viewport);
     return {
         scale: transform.scale,
-        x: clamp(transform.x, -limitX, limitX),
-        y: clamp(transform.y, -limitY, limitY),
+        x: clamp(transform.x, -limit.x, limit.x),
+        y: clamp(transform.y, -limit.y, limit.y),
     };
 }
 

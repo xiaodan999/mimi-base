@@ -22,6 +22,7 @@ import {
     distance,
     DOUBLE_TAP_SCALE,
     midpoint,
+    panLimits,
     resolveSwipe,
     shouldDismiss,
     SNAP_BACK_SCALE,
@@ -71,6 +72,10 @@ type Gesture = {
     pinchDistance: number;
     pinchMid: Point;
     pinchZoom: ZoomTransform;
+    /** Dismiss bookkeeping (a zoomed pan can hand off to dismissal). */
+    dismissStartY: number;
+    dismissBase: number;
+    dismissStartedAt: number;
 };
 
 /**
@@ -131,7 +136,17 @@ export default function ImageViewer({
     const trackRef = useRef<HTMLDivElement>(null);
     const backdropRef = useRef<HTMLDivElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
-    const rectRef = useRef<DOMRect | null>(null);
+    /**
+     * Layout box of the gesture layer. `getBoundingClientRect` is not used
+     * for the size: the dialog's open animation scales it to 95%, and that
+     * scaled width would make every carousel offset 5% short.
+     */
+    const rectRef = useRef<{
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    } | null>(null);
     /** Layout size of the current image, unaffected by its CSS transform. */
     const baseRef = useRef<Size>({ width: 0, height: 0 });
     const pointersRef = useRef(new Map<number, Point>());
@@ -176,11 +191,24 @@ export default function ImageViewer({
         const layer = layerRef.current;
         if (!layer) return;
         const rect = layer.getBoundingClientRect();
-        rectRef.current = rect;
+        // `getComputedStyle` reports the used layout size without the
+        // dialog's animation transform and without clientWidth rounding, so
+        // slide offsets stay exact (390.4, not 390).
+        const computed = getComputedStyle(layer);
+        const width = Number.parseFloat(computed.width) || layer.clientWidth;
+        const height = Number.parseFloat(computed.height) || layer.clientHeight;
+        // Keep the visual centre (correct under any animation transform) but
+        // the layout size (correct for offsets and hit coordinates).
+        rectRef.current = {
+            left: rect.left + (rect.width - width) / 2,
+            top: rect.top + (rect.height - height) / 2,
+            width,
+            height,
+        };
         setViewport((previous) =>
-            previous.width === rect.width && previous.height === rect.height
+            previous.width === width && previous.height === height
                 ? previous
-                : { width: rect.width, height: rect.height },
+                : { width, height },
         );
         const image = imageRef.current;
         if (image?.complete) {
@@ -499,6 +527,9 @@ export default function ImageViewer({
             pinchDistance: distance(a, b),
             pinchMid: localPoint(mid.x, mid.y),
             pinchZoom: currentZoom,
+            dismissStartY: mid.y,
+            dismissBase: 0,
+            dismissStartedAt: now,
         };
     };
 
@@ -525,16 +556,20 @@ export default function ImageViewer({
             return;
         }
 
+        const startedAt = performance.now();
         gestureRef.current = {
             mode: "pending",
             start: { x: event.clientX, y: event.clientY },
-            startedAt: performance.now(),
+            startedAt,
             width: rectRef.current?.width ?? window.innerWidth,
             baseZoom: zoomRef.current,
             moved: false,
             pinchDistance: 0,
             pinchMid: { x: 0, y: 0 },
             pinchZoom: zoomRef.current,
+            dismissStartY: event.clientY,
+            dismissBase: 0,
+            dismissStartedAt: startedAt,
         };
     };
 
@@ -593,16 +628,39 @@ export default function ImageViewer({
         }
 
         if (gesture.mode === "pan") {
+            const proposed = {
+                scale: gesture.baseZoom.scale,
+                x: gesture.baseZoom.x + dx,
+                y: gesture.baseZoom.y + dy,
+            };
             zoomRef.current = clampTranslation(
-                {
-                    scale: gesture.baseZoom.scale,
-                    x: gesture.baseZoom.x + dx,
-                    y: gesture.baseZoom.y + dy,
-                },
+                proposed,
                 baseRef.current,
                 viewSize(),
             );
             setZoom(zoomRef.current);
+
+            // A downward drag past the top edge (or on an image with no
+            // vertical overflow) hands the rest of the gesture to dismissal,
+            // so swiping down works even while zoomed.
+            const limit = panLimits(
+                gesture.baseZoom.scale,
+                baseRef.current,
+                viewSize(),
+            );
+            const pulledPastTop =
+                dy > 12 && dy > Math.abs(dx) * 0.6 && proposed.y > limit.y;
+            if (pulledPastTop) {
+                const overflow = proposed.y - limit.y;
+                const height = viewSize().height || window.innerHeight;
+                gesture.mode = "dismiss";
+                gesture.dismissStartY = event.clientY;
+                gesture.dismissBase = overflow;
+                gesture.dismissStartedAt = performance.now();
+                dragRef.current = { x: 0, y: overflow };
+                setDrag(dragRef.current);
+                commitBackdrop(Math.max(0.15, 1 - overflow / (height * 0.6)));
+            }
             return;
         }
 
@@ -616,14 +674,12 @@ export default function ImageViewer({
         }
 
         if (gesture.mode === "dismiss") {
-            // Swiping up resists instead of dismissing.
-            const y = dy > 0 ? dy : dy * 0.35;
+            const fingerY = event.clientY - gesture.dismissStartY;
+            const y = gesture.dismissBase + Math.max(0, fingerY);
             const height = viewSize().height || window.innerHeight;
-            dragRef.current = { x: dx * 0.2, y };
+            dragRef.current = { x: 0, y };
             setDrag(dragRef.current);
-            commitBackdrop(
-                dy > 0 ? Math.max(0.15, 1 - Math.abs(y) / (height * 0.6)) : 1,
-            );
+            commitBackdrop(Math.max(0.15, 1 - y / (height * 0.6)));
         }
     };
 
@@ -659,7 +715,6 @@ export default function ImageViewer({
         gestureRef.current = null;
 
         const dx = event.clientX - gesture.start.x;
-        const dy = event.clientY - gesture.start.y;
 
         if (gesture.mode === "pending" && !gesture.moved) {
             handleTap(event.clientX, event.clientY);
@@ -686,7 +741,13 @@ export default function ImageViewer({
         }
 
         if (gesture.mode === "dismiss") {
-            if (shouldDismiss(dy, dy / elapsed)) {
+            const dragY = dragRef.current.y;
+            const dismissElapsed = Math.max(
+                1,
+                performance.now() - gesture.dismissStartedAt,
+            );
+            const velocity = (dragY - gesture.dismissBase) / dismissElapsed;
+            if (shouldDismiss(dragY, velocity)) {
                 closeWithGesture();
                 return;
             }
@@ -710,7 +771,7 @@ export default function ImageViewer({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 overlayClassName="bg-transparent"
-                className="flex h-[100dvh] w-screen max-w-none animate-none items-center justify-center rounded-none border-0 bg-transparent p-0 text-white data-[state=closed]:animate-none data-[state=open]:animate-none [&>button]:hidden"
+                className="flex h-[100dvh] w-screen max-w-none !animate-none items-center justify-center rounded-none border-0 bg-transparent p-0 text-white data-[state=closed]:!animate-none data-[state=open]:!animate-none [&>button]:hidden"
                 onKeyDown={(event) => {
                     if (event.key === "ArrowLeft") {
                         event.preventDefault();
