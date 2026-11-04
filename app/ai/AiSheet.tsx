@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { useBackDismiss } from "@/lib/useBackDismiss";
@@ -14,7 +15,13 @@ type Props = {
     bodyRef?: RefObject<HTMLDivElement>;
 };
 
-/** 移动端底部抽屉，AI 面板和设置页共用 */
+/**
+ * 移动端底部抽屉，AI 面板和设置页共用。
+ *
+ * 必须是一个真正的 Radix 模态层。用普通 div 时，下面的抽屉/对话框（都是
+ * Radix 模态）会把面板里的每一次点击都当成「点了自己外面的地方」，于是
+ * 在新动态里点一句 AI 配文，整个新建窗口就跟着关掉了。
+ */
 export default function AiSheet({
     open,
     onClose,
@@ -25,66 +32,62 @@ export default function AiSheet({
     zIndex = 80,
     bodyRef,
 }: Props) {
-    useEffect(() => {
-        if (!open) return;
-        const handler = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
-        };
-        document.addEventListener("keydown", handler);
-        return () => document.removeEventListener("keydown", handler);
-    }, [open, onClose]);
-
     // 手机侧滑返回时关掉抽屉，而不是把下面的页面退掉。
     useBackDismiss(open, onClose);
 
-    if (!open) return null;
-
     return (
-        <div
-            // `pointer-events-auto` because a sheet can be opened while a
-            // Radix modal (vaul drawer, dialog) is open. Those set
-            // `pointer-events: none` on <body> and re-enable it only on their
-            // own content; without this the sheet renders on top but every
-            // tap falls through to the surface underneath.
-            className="kb-screen pointer-events-auto fixed inset-0 flex items-end justify-center"
-            style={{ zIndex }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
+        <DialogPrimitive.Root
+            open={open}
+            onOpenChange={(next) => {
+                if (!next) onClose();
+            }}
         >
-            <div className="absolute inset-0 bg-black/35" onClick={onClose} />
-            <div className="ai-sheet kb-sheet-max relative flex w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-2xl">
-                <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                        <div className="truncate text-[15px] font-extrabold">
-                            {title}
-                        </div>
-                        {subtitle && (
-                            <div className="truncate text-[11px] text-muted-foreground">
-                                {subtitle}
-                            </div>
-                        )}
-                    </div>
-                    <button
-                        className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"
-                        onClick={onClose}
-                        aria-label="关闭"
-                    >
-                        <X className="size-4" />
-                    </button>
-                </div>
+            {/* 不套 Portal：面板留在原来的 DOM 位置，继续继承所在页面的设计
+                变量（学习页的 AI 面板依赖外层的 `.study-root`）。
+                `pointer-events-auto` 只是兜底：Radix 会给最上层的模态单独
+                打开指针事件，下面的层则被关掉。 */}
+            <DialogPrimitive.Content
+                className="kb-screen pointer-events-auto fixed inset-0 flex items-end justify-center"
+                style={{ zIndex }}
+                aria-modal="true"
+            >
                 <div
-                    ref={bodyRef}
-                    className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
-                >
-                    {children}
-                </div>
-                {footer && (
-                    <div className="border-t border-black/5 px-4 py-3">
-                        {footer}
+                    className="absolute inset-0 bg-black/35"
+                    onClick={onClose}
+                />
+                <div className="ai-sheet kb-sheet-max relative flex w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-2xl">
+                    <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                            <DialogPrimitive.Title className="truncate text-[15px] font-extrabold">
+                                {title}
+                            </DialogPrimitive.Title>
+                            {subtitle && (
+                                <DialogPrimitive.Description className="truncate text-[11px] text-muted-foreground">
+                                    {subtitle}
+                                </DialogPrimitive.Description>
+                            )}
+                        </div>
+                        <button
+                            className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"
+                            onClick={onClose}
+                            aria-label="关闭"
+                        >
+                            <X className="size-4" />
+                        </button>
                     </div>
-                )}
-            </div>
-        </div>
+                    <div
+                        ref={bodyRef}
+                        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+                    >
+                        {children}
+                    </div>
+                    {footer && (
+                        <div className="border-t border-black/5 px-4 py-3">
+                            {footer}
+                        </div>
+                    )}
+                </div>
+            </DialogPrimitive.Content>
+        </DialogPrimitive.Root>
     );
 }

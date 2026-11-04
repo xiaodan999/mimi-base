@@ -246,7 +246,10 @@ before your first commit.
   provides this, and `Dialog`, `Sheet`, `Drawer` and `AiSheet` call it for you.
   Hand-rolled full-screen surfaces (e.g. `QuizRunner`) must call it themselves.
   It keeps one shared history entry while any overlay is open and unwinds
-  nested overlays one at a time.
+  nested overlays one at a time. `AiSheet` is a Radix dialog on purpose: a
+  plain `div` over a `Drawer`/`Dialog` is "outside" for them, so tapping any
+  button in the AI panel also closes the sheet underneath (e.g. the new-post
+  composer vanishing when you pick a caption).
 - The shell assumes `100dvh`; keep page scrolling inside the `_main` outlet.
 - Accessibility: `globals.css` provides a global `:focus-visible` outline and
   disables decorative animation under `prefers-reduced-motion`. Don't add
