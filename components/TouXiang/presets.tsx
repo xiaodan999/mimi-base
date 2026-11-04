@@ -29,6 +29,20 @@ export function isCirclePreset(key: string | undefined): boolean {
 
 const RING = { cx: 50, cy: 50, fill: "none" } as const;
 
+/**
+ * Every stroke is placed so its outer edge overshoots the 50-unit viewport
+ * slightly: the avatars underneath are full circles, and a ring that stops
+ * short leaves a sliver of the photo (or of the tile background) showing at
+ * the rim. The overshoot is clipped by the SVG viewport, so the ring ends
+ * exactly at the avatar's edge.
+ */
+const RING_OUTER = 50.5;
+
+/** Stroke radius whose outer edge lands on RING_OUTER. */
+function ringRadius(strokeWidth: number): number {
+    return RING_OUTER - strokeWidth / 2;
+}
+
 export function CirclePresetRing({
     preset,
     className,
@@ -48,10 +62,15 @@ export function CirclePresetRing({
                     viewBox="0 0 100 100"
                     aria-hidden="true"
                 >
-                    <circle {...RING} r="45" stroke="#3b82f6" strokeWidth="6" />
                     <circle
                         {...RING}
-                        r="41"
+                        r={ringRadius(6)}
+                        stroke="#3b82f6"
+                        strokeWidth="6"
+                    />
+                    <circle
+                        {...RING}
+                        r="43.5"
                         stroke="#93c5fd"
                         strokeWidth="1.4"
                         opacity="0.85"
@@ -67,7 +86,7 @@ export function CirclePresetRing({
                 >
                     <circle
                         {...RING}
-                        r="46"
+                        r={ringRadius(2)}
                         className="text-foreground"
                         stroke="currentColor"
                         strokeWidth="2"
@@ -97,7 +116,7 @@ export function CirclePresetRing({
                     </defs>
                     <circle
                         {...RING}
-                        r="45"
+                        r={ringRadius(6)}
                         stroke={`url(#${uid}-gradient)`}
                         strokeWidth="6"
                         strokeLinecap="round"
@@ -114,13 +133,13 @@ export function CirclePresetRing({
                     <g className="avatar-ring-spin">
                         <circle
                             {...RING}
-                            r="45"
+                            r={ringRadius(3)}
                             stroke="#818cf8"
                             strokeWidth="3"
                             strokeDasharray="10 9"
                             strokeLinecap="round"
                         />
-                        <circle cx="50" cy="5" r="3" fill="#c7d2fe" />
+                        <circle cx="50" cy="5" r="2.5" fill="#c7d2fe" />
                         <circle cx="50" cy="95" r="2" fill="#a5b4fc" />
                     </g>
                 </svg>
@@ -150,7 +169,7 @@ export function CirclePresetRing({
                     <circle
                         {...RING}
                         className="avatar-ring-pulse"
-                        r="44.5"
+                        r={ringRadius(3.5)}
                         stroke="#22d3ee"
                         strokeWidth="3.5"
                         filter={`url(#${uid}-glow)`}
@@ -180,13 +199,13 @@ export function CirclePresetRing({
                     </defs>
                     <circle
                         {...RING}
-                        r="45"
+                        r={ringRadius(5)}
                         stroke={`url(#${uid}-gold)`}
                         strokeWidth="5"
                     />
                     <circle
                         {...RING}
-                        r="40.5"
+                        r="43"
                         stroke="#fde68a"
                         strokeWidth="1"
                         opacity="0.8"

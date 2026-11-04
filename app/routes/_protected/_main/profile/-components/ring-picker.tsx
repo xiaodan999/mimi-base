@@ -234,7 +234,7 @@ export default function RingPicker({
                     <span className="text-xs text-muted-foreground">预览</span>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
                     <div className="grid grid-cols-4 gap-1">
                         <Tile
                             active={isSameSelection(draft, {
