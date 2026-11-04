@@ -101,6 +101,44 @@ bun run dev:all
   `git branch -d feat/<topic>`. Leave anything unmerged or dirty alone, and
   mention the cleanup in one line of your summary.
 
+## Landing a worktree
+
+`master` stays linear: a finished branch is rebased onto `master` and merged
+with a fast-forward. Never merge `master` down into a feature branch, and
+never create a merge commit.
+
+```bash
+# in the worktree
+git fetch origin
+git rebase origin/master
+
+# in the primary checkout
+git switch master
+git merge --ff-only feat/<topic>
+git push
+```
+
+- `--ff-only` is the enforcement: if it refuses, the branch is not on top of
+  `master`. Rebase again; do not fall back to a merge commit.
+- Re-run `bun run typecheck` and `bun run test` after the rebase — it replays
+  each commit, so verify the final tree before it lands.
+- Generated-file conflicts (`app/routeTree.gen.ts`, `bun.lock`) are resolved
+  by taking `master`'s side and regenerating (`bun install`, then let the dev
+  server rewrite the route tree); never hand-merge them.
+- Never rebase `master`. Never rebase a branch that is pushed or checked out
+  in another worktree: rebase rewrites commits, so that needs
+  `--force-with-lease` and breaks anyone based on it.
+- Squash fixups with `git rebase -i origin/master` before the final rebase so
+  the linear history stays readable.
+- With linear history there is no per-topic merge commit: back a topic out by
+  reverting its range (`git revert <first>^..<last>`), not by hunting a merge
+  SHA.
+- Recommended once per clone: `git config merge.ff only` and
+  `git config pull.rebase true`, so a plain merge or pull cannot create a
+  merge commit by accident.
+- Push `master` only when the user asks; the cleanup rule above applies once
+  it is fast-forwarded and pushed.
+
 ## Parallel sessions
 
 Several agent sessions may run at once. The **primary checkout** (the first
@@ -130,8 +168,9 @@ before your first commit.
   `git stash`, or `git clean` in a tree you don't own.
 - One topic, one worktree, one branch. If the directory or branch already
   exists, pick a variant — never reuse it.
-- Worktrees isolate files, not history. Merge into `master` deliberately, one
-  session at a time, then remove the merged worktree.
+- Worktrees isolate files, not history. Land one by rebasing it onto `master`
+  and fast-forwarding `master` (see Landing a worktree), one session at a
+  time, then remove the merged worktree.
 
 ## Backend / data rules
 
