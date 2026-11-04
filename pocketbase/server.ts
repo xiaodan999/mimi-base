@@ -19,14 +19,34 @@
  * over without downtime (there is no watchdog/cron to do it).
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, openSync } from "node:fs";
-import { execSync } from "node:child_process";
+import {
+    chmodSync,
+    copyFileSync,
+    existsSync,
+    mkdirSync,
+    openSync,
+    readFileSync,
+    readdirSync,
+    unlinkSync,
+    writeFileSync,
+} from "node:fs";
+import { execFileSync, execSync } from "node:child_process";
 import { createHash, timingSafeEqual } from "node:crypto";
+import { homedir } from "node:os";
 import path from "node:path";
 
 const PB_VERSION = "0.40.6";
+const isWindows = process.platform === "win32";
+/** Release asset suffix, e.g. linux_amd64 / windows_amd64 / darwin_arm64. */
+const platformTag = (() => {
+    if (process.platform === "win32") return "windows_amd64";
+    const arch = process.arch === "arm64" ? "arm64" : "amd64";
+    if (process.platform === "darwin") return `darwin_${arch}`;
+    return `linux_${arch}`;
+})();
+const binName = isWindows ? "pocketbase.exe" : "pocketbase";
 const dir = import.meta.dir; // .../pocketbase
-const bin = path.join(dir, "pocketbase");
+const bin = path.join(dir, binName);
 const repo = path.resolve(dir, "..");
 const DEPLOY_PORT = 9001;
 const SNAPSHOT_KEEP = 5;
@@ -45,19 +65,120 @@ if (existsSync(prodEnvPath)) {
     isProd = true;
 }
 
+/** Shared copy so a fresh worktree works even after the others are gone. */
+function cachePath(): string {
+    const base = process.env.XDG_CACHE_HOME ?? path.join(homedir(), ".cache");
+    return path.join(
+        base,
+        "mimi-base",
+        `pocketbase-${PB_VERSION}${isWindows ? ".exe" : ""}`,
+    );
+}
+
+/**
+ * New worktrees should not need GitHub. Look for the pinned binary in the
+ * repo's registered worktrees, sibling checkouts, then the shared cache.
+ */
+function reusableBinaries(): string[] {
+    const candidates: string[] = [];
+    const parent = path.dirname(repo);
+
+    try {
+        const listing = execSync("git worktree list --porcelain", {
+            cwd: repo,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+        });
+        for (const line of listing.split("\n")) {
+            if (!line.startsWith("worktree ")) continue;
+            const root = line.slice("worktree ".length).trim();
+            candidates.push(path.join(root, "pocketbase", binName));
+        }
+    } catch {
+        // Not a git checkout or git is missing; sibling scan still applies.
+    }
+
+    try {
+        for (const entry of readdirSync(parent, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            candidates.push(
+                path.join(parent, entry.name, "pocketbase", binName),
+            );
+        }
+    } catch {
+        // ignore
+    }
+
+    candidates.push(cachePath());
+
+    return [...new Set(candidates)].filter(
+        (candidate) => path.resolve(candidate) !== bin,
+    );
+}
+
+/** Keep one shared copy so later worktrees don't depend on this checkout. */
+function seedCache(source: string) {
+    const target = cachePath();
+    if (existsSync(target)) return;
+    try {
+        mkdirSync(path.dirname(target), { recursive: true });
+        copyFileSync(source, target);
+        chmodSync(target, 0o755);
+    } catch {
+        // The cache is an optimization only.
+    }
+}
+
+function matchesPinnedVersion(candidate: string): boolean {
+    try {
+        const version = execFileSync(candidate, ["--version"], {
+            encoding: "utf8",
+        }).trim();
+        return version.includes(PB_VERSION);
+    } catch {
+        return false;
+    }
+}
+
 async function ensureBinary() {
-    if (existsSync(bin)) return;
-    const url = `https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip`;
-    console.log(`downloading PocketBase v${PB_VERSION}...`);
+    if (existsSync(bin)) {
+        seedCache(bin);
+        return;
+    }
+
+    for (const candidate of reusableBinaries()) {
+        if (!existsSync(candidate)) continue;
+        try {
+            chmodSync(candidate, 0o755);
+        } catch {
+            // A read-only checkout is fine: we only read it.
+        }
+        if (!matchesPinnedVersion(candidate)) continue;
+        try {
+            copyFileSync(candidate, bin);
+            chmodSync(bin, 0o755);
+            seedCache(bin);
+            console.log(`copied PocketBase v${PB_VERSION} from ${candidate}`);
+            return;
+        } catch (error) {
+            console.warn(`could not reuse ${candidate}:`, error);
+        }
+    }
+
+    const url = `https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_${platformTag}.zip`;
+    console.log(`downloading PocketBase v${PB_VERSION} (${platformTag})...`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`download failed: ${res.status} ${url}`);
     const zip = path.join(dir, "pocketbase.zip");
     await Bun.write(zip, res);
-    execSync("unzip -o pocketbase.zip && rm pocketbase.zip", {
+    // Windows 10+ ships bsdtar, which reads zip archives; Linux uses unzip.
+    execSync(isWindows ? "tar -xf pocketbase.zip" : "unzip -o pocketbase.zip", {
         cwd: dir,
         stdio: "inherit",
     });
+    unlinkSync(zip);
     chmodSync(bin, 0o755);
+    seedCache(bin);
 }
 
 const argv = process.argv.slice(2);
@@ -77,6 +198,39 @@ const httpPort = (() => {
     if (i === -1) return 8090;
     return Number(serveArgs[i + 1]?.split(":").pop()) || 8090;
 })();
+
+// `scripts/dev.ts` reads this to reuse a running instance instead of opening
+// the same pb_data twice. Dev only: prod supervisors can respawn themselves.
+const dataDirArg = serveArgs.indexOf("--dir");
+const dataDir =
+    dataDirArg === -1 ? path.join(dir, "pb_data") : serveArgs[dataDirArg + 1];
+const lockFile = path.join(dataDir, ".dev-server.json");
+
+function writeLock() {
+    if (isProd) return;
+    try {
+        mkdirSync(dataDir, { recursive: true });
+        writeFileSync(
+            lockFile,
+            JSON.stringify({ pid: process.pid, port: httpPort }),
+        );
+    } catch {
+        // advisory only
+    }
+}
+
+function removeLock() {
+    if (isProd) return;
+    try {
+        const current = JSON.parse(readFileSync(lockFile, "utf8")) as {
+            pid?: number;
+        };
+        if (current.pid !== process.pid) return;
+        unlinkSync(lockFile);
+    } catch {
+        // already gone / not ours
+    }
+}
 
 // Dev WSL often exports an HTTP proxy that cannot reach opencode.ai; the AI
 // relay hook uses $http.send and would otherwise fail. Prod keeps the
@@ -102,11 +256,13 @@ let manualRestart = false;
 
 const onSignal = () => {
     stopping = true;
+    removeLock();
     child?.kill("SIGTERM");
     process.exit(0);
 };
 process.on("SIGINT", onSignal);
 process.on("SIGTERM", onSignal);
+process.on("exit", removeLock);
 
 function spawnPB() {
     console.log(`starting: pocketbase ${serveArgs.join(" ")}`);
@@ -253,5 +409,6 @@ function startDeployEndpoint() {
 }
 
 await ensureBinary();
+writeLock();
 spawnPB();
 startDeployEndpoint();

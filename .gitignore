@@ -34,6 +34,9 @@ dist-ssr
 .vinxi
 .output
 
+# Local agent/editor state (machine-specific, never commit)
+.zcode/
+
 # Environment files
 .env
 .env.*

@@ -28,8 +28,12 @@ Chinese; keep that style when adding user-facing text.
   (schema), `pb_hooks/` (JSVM counters). Read `pocketbase/README.md` before
   touching deploys or the server.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
-- `scripts/server-setup.sh` — fresh-server bootstrap. `tmp/` is gitignored
-  scratch (do not commit).
+- `scripts/server-setup.sh` — fresh-server bootstrap. `scripts/dev.ts` backs
+  `bun run dev:all` on Linux, WSL2 and plain Windows. Under WSL it also runs
+  `scripts/lan-proxy.mjs` with the Windows node to forward the Vite port to the
+  VM (no admin or portproxy required). PocketBase stays on loopback; Vite
+  proxies `/api` and dev runs with `VITE_POCKETBASE_URL=same-origin`.
+  `tmp/` is gitignored scratch (do not commit).
 
 ## Commands
 
@@ -38,8 +42,10 @@ bun install
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
 bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
-bun run dev:all           # both, PB health-checked before Vite starts
-                          # PB_PORT=8091 gives this worktree its own database
+bun run dev:all           # both, always LAN-exposed (prints the phone URL)
+                          # skips busy ports (WSL + Windows) and reads
+                          # VITE_PORT/PB_PORT from .env; one instance per
+                          # worktree is safe to run side by side
 bun run build             # vite build + bun check
 bun run test              # bun test app (pure logic, no server needed)
 bun run typecheck         # bun check (TS 7, all cores)
@@ -55,6 +61,39 @@ flat config (`eslint.config.js`), and typechecking is `bun check`. There is no
 `bun lint`; don't reintroduce Prettier or `.eslintrc`. Unit tests use Bun's
 built-in runner and cover pure logic only. Verify UI changes with
 `bun run build` and the dev server.
+
+## Worktrees
+
+Do feature work in its own worktree so `master` stays deployable.
+
+```bash
+cd <repo>
+git worktree add -b feat/<topic> ../mimi-base-<topic> master
+cd ../mimi-base-<topic>
+bun install
+cp .env.example .env
+bun run dev:all
+```
+
+- Convention: directory `../mimi-base-<topic>`, branch `feat/<topic>`.
+- Run git from the environment that owns the checkout (native shell for a
+  native clone, inside WSL for a WSL checkout). Machine-specific paths and
+  quirks belong in `.zcode/local.md` (gitignored), not in this file; copy that
+  file into a new worktree when needed.
+- Each worktree has its own `pocketbase/pb_data/` (own database) and its own
+  `dev:all` stack; they can run side by side.
+- The PocketBase binary is copied automatically from a registered worktree, a
+  sibling checkout, or `~/.cache/mimi-base/` (version checked). GitHub is
+  contacted only when none has the pinned release. Never commit the binary.
+- Ports auto-skip when busy on the host (and on the Windows side under WSL).
+  Pin them per worktree in `.env` (`VITE_PORT`, `PB_PORT`) if you want stable
+  URLs; shell env wins.
+- `dev:all` prints the LAN URL for phone testing. PocketBase stays on loopback;
+  Vite proxies `/api` and dev uses `VITE_POCKETBASE_URL=same-origin`.
+- One PocketBase per checkout is enforced: a second `dev:all` in the same
+  worktree reuses the running one and only picks another Vite port.
+- Stop the servers (Ctrl-C) before `git worktree remove <path>`. `.env` and
+  `pocketbase/pb_data/` are gitignored, so removing the directory is enough.
 
 ## Backend / data rules
 
@@ -120,10 +159,16 @@ built-in runner and cover pure logic only. Verify UI changes with
 - `vite.config.ts` enables `autoCodeSplitting`. Keep heavy feature data behind
   route imports (the study bank is its own chunk); don't import it from the
   app shell.
-- Study-base AI features live in `app/study/ai/`. Settings (base URL / model /
-  key) are stored only in `localStorage` (`mimi-study:ai:v1`) and sent directly
-  to the provider; never send the key to PocketBase. Generated content is cached
-  under `mimi-study:ai-cache:v1:*`. The provider must allow browser CORS
+- AI features live in `app/ai/` and are app-wide: `AiProvider` is mounted in
+  `_main.tsx`, not the study route. `client.ts` supports text, streaming, JSON,
+  and vision (`visionMessage` + `imageToDataUrl` in `image.ts`, which downsizes
+  to 1024px JPEG). Prompts are split by domain (`expense.ts`, `posts.ts`,
+  `home.ts`, `study.ts`, `report.ts`); the study prompt helpers stay in
+  `prompts.ts`. Settings (base URL / model / key) are stored only in
+  `localStorage` (`mimi:ai:v1`, with a legacy `mimi-study:ai:v1` fallback) and
+  sent directly to the provider; never send the key to PocketBase. Generated
+  content is cached under `mimi:ai-cache:v1:*` (legacy reads still work). The
+  provider must allow browser CORS
   (DeepSeek / OpenRouter / SiliconFlow / Moonshot do; OpenAI official and
   OpenCode Go official do not). OpenCode Go also needs `x-opencode-session`;
   the client adds it automatically. `pocketbase/pb_hooks/ai_proxy.pb.js`
@@ -132,6 +177,12 @@ built-in runner and cover pure logic only. Verify UI changes with
   never stored. In dev, `server.ts` adds `opencode.ai` to the PB child's
   `NO_PROXY` because WSL proxy envs often can't reach it; prod keeps the
   server's network config untouched.
+- AI entry points: 记账 (natural-language + receipt parse, monthly review,
+  category backfill), 动态 composer captions, Home (daily line, 去年今天,
+  问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),
+  and the year report at `/report`. Data sent to the provider is only what the
+  feature builds locally; nothing AI-related is written back to PocketBase
+  except the user-confirmed expense rows/categories.
 - Adding a page: create `app/routes/_protected/_main/<name>/index.tsx` with
   `createFileRoute("/_protected/_main/<name>/")`, let the dev server regenerate
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.
@@ -180,6 +231,8 @@ built-in runner and cover pure logic only. Verify UI changes with
 
 ## Read before changing sensitive areas
 
+- `.zcode/local.md` — machine-local notes (gitignored): paths, WSL quirks,
+  forwarder details. Read it when present.
 - `pocketbase/README.md` — server, deploy endpoint, ops, secrets.
 - `scripts/server-setup.sh` — fresh install / recovery.
 - `.github/workflows/deploy-db.yml` — deploy trigger and retry behavior.

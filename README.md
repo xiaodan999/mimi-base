@@ -44,7 +44,8 @@
     ```
 
     第一次启动可能会下载数据库程序，需要等一会儿。看到类似
-    `VITE ... ready` 的字样就说明成功了。
+    `VITE ... ready` 的字样就说明成功了。终端最后会打印一个手机访问地址，
+    同一 Wi-Fi 下打开即可（数据库仍然只监听本机，页面通过 `/api` 代理访问）。
 
 5. 用浏览器打开：
 
@@ -74,14 +75,18 @@
 | http://localhost:3000            | 应用页面                     |
 | http://127.0.0.1:8090/_/         | 数据库管理后台（PocketBase） |
 | http://127.0.0.1:8090/api/health | 检查数据库是否正常           |
+| `dev:all` 打印的手机地址         | 同一 Wi-Fi 下用手机访问      |
 
 数据库管理后台第一次打开时，会让你创建一个管理员账号。这个账号也只
 保存在本地，自己随便设置并记住就好。
 
 ## 五、也可以分开启动
 
-`bun run dev:all` 会同时启动两个部分。如果只想单独启动其中一个，可以
-开两个终端窗口：
+`bun run dev:all` 会同时启动两个部分，并把页面暴露给同一 Wi-Fi 下的
+其他设备（WSL 下会自动加一个 Windows 端口转发，不需要管理员权限）。
+数据库不直接对外，只由 Vite 通过 `/api` 代理访问。
+
+如果只想单独启动其中一个，可以开两个终端窗口：
 
 ```bash
 # 终端 1：数据库
@@ -91,32 +96,28 @@ bun run db
 bun run dev
 ```
 
-如果 3000 端口已经被占用（比如同时在另一个 worktree 里开发），用
-`VITE_PORT` 换一个端口，`dev` 和 `dev:all` 都会读取它：
+同时开多个 worktree 也没问题：每个 worktree 有自己的
+`pocketbase/pb_data/`，`dev:all` 会自动跳过被占用的端口（WSL 和
+Windows 两侧都会检查），并打印各自的手机地址。
 
-```bash
-VITE_PORT=3001 bun run dev:all
+想固定端口，写进这个 worktree 的 `.env`（shell 变量优先）：
+
+```dotenv
+VITE_PORT=3001
+PB_PORT=8091
 ```
 
-也可以把 `VITE_PORT=3001` 写进这个 worktree 的 `.env` 里，之后照常运行
-`bun run dev:all` 即可。
+之后照常 `bun run dev:all`。每个 worktree 的 Vite 只代理到自己的
+PocketBase，互不影响；终端里会打印这一个是哪个地址。
 
-数据库端口同理。如果 8090 也被另一个 worktree 占用，加 `PB_PORT`：
-
-```bash
-VITE_PORT=3001 PB_PORT=8091 bun run dev:all
-```
-
-`dev:all` 会在 8091 启动这个 worktree 的 PocketBase，并把前端指向它；
-数据库文件来自当前 worktree 的 `pocketbase/pb_data/`，两边互不影响。
-如果分开启动，记得把 `.env` 里的 `VITE_POCKETBASE_URL` 也改成
-`http://127.0.0.1:8091`。
+分开启动时，`bun run dev` 默认代理到 8090；数据库换了端口就加
+`PB_PORT=8091 bun run dev`。
 
 ## 六、常用命令
 
 | 命令                   | 作用                               |
 | ---------------------- | ---------------------------------- |
-| `bun run dev:all`      | 同时启动数据库和页面（推荐）       |
+| `bun run dev:all`      | 同时启动数据库和页面，手机可访问   |
 | `bun run db`           | 只启动数据库                       |
 | `bun run dev`          | 只启动页面                         |
 | `bun run build`        | 打包正式版本，并检查代码有没有错误 |

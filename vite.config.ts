@@ -12,6 +12,11 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
     const port = Number(env.VITE_PORT) || 3000;
 
+    // Dev serves the app through the same origin as PocketBase's API, so a
+    // phone on the LAN only needs this one port. `dev:all` sets PB_PORT; plain
+    // `bun run dev` falls back to the default PocketBase port.
+    const pocketBasePort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
+
     // The first auth/profile request goes to a different origin; opening the
     // TCP+TLS connection while the entry chunk downloads saves a full RTT on
     // high-latency (especially cross-border) links.
@@ -44,6 +49,13 @@ export default defineConfig(({ mode }) => {
     return {
         server: {
             port,
+            proxy: {
+                // Pairs with VITE_POCKETBASE_URL=same-origin in dev.
+                "/api": {
+                    target: `http://127.0.0.1:${pocketBasePort}`,
+                    ws: true,
+                },
+            },
         },
         // Vite 8 resolves tsconfig `paths` natively; no vite-tsconfig-paths plugin.
         resolve: {

@@ -27,6 +27,16 @@ bun run db                 # serves on 127.0.0.1:8090, automigrate ON
 bun run dev                # frontend on :3000 (VITE_POCKETBASE_URL in .env)
 ```
 
+When the binary is missing, `server.ts` copies the pinned one from another
+registered worktree, a sibling checkout, or
+`~/.cache/mimi-base/pocketbase-<version>` (in that order) and only downloads
+from GitHub when none of them has the matching version. New worktrees
+therefore start without network access.
+
+The binary is platform-specific: `pocketbase` on Linux/macOS and
+`pocketbase.exe` on Windows; the cache name and release asset follow the
+current platform. On Windows the zip is extracted with the bundled `tar`.
+
 Set `PB_PORT` to run the database on another port (e.g. `PB_PORT=8091`), and
 `VITE_PORT` for the frontend. Each worktree has its own `pb_data/`, so two
 checkouts can run side by side; `dev:all` points the frontend at the PB it
