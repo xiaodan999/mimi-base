@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "../ai/AiContext";
-import AiPanel from "../ai/AiPanel";
-import { CARD_CHIPS, explainCardMessages } from "../ai/prompts";
+import { useAi } from "@/app/ai/AiContext";
+import AiPanel from "@/app/ai/AiPanel";
+import { CARD_CHIPS, explainCardMessages } from "@/app/ai/prompts";
+
 import { bumpDaily, shuffle } from "../engine";
 import { gameForCard } from "../games/registry";
 import { toast } from "../toast";

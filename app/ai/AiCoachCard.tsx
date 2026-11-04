@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { dayKey } from "../engine";
-import { gameForModule } from "../games/registry";
-import { toast } from "../toast";
-import type { Progress, StudySubject } from "../types";
+import { dayKey } from "@/app/study/engine";
+import { gameForModule } from "@/app/study/games/registry";
+import { toast } from "@/app/study/toast";
+import type { Progress, StudySubject } from "@/app/study/types";
+
 import { useAi } from "./AiContext";
 import { readAiCache, writeAiCache } from "./cache";
 import { aiErrorText, chatJSON } from "./client";

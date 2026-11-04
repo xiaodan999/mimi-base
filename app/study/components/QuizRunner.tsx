@@ -2,15 +2,16 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 
-import { useAi } from "../ai/AiContext";
-import AiGradeSheet from "../ai/AiGradeSheet";
-import AiPanel from "../ai/AiPanel";
-import { hashText } from "../ai/cache";
+import { useAi } from "@/app/ai/AiContext";
+import AiGradeSheet from "@/app/ai/AiGradeSheet";
+import AiPanel from "@/app/ai/AiPanel";
+import { hashText } from "@/app/ai/cache";
 import {
     WRONG_CHIPS,
     diagnoseWrongMessages,
     userAnswerText,
-} from "../ai/prompts";
+} from "@/app/ai/prompts";
+
 import { TYPE_NAME, answerText, bumpDaily, isAnswerCorrect } from "../engine";
 import { gameForModule } from "../games/registry";
 import { toast } from "../toast";

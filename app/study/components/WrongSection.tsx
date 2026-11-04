@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "../ai/AiContext";
-import AiPanel from "../ai/AiPanel";
-import AiVariantSheet from "../ai/AiVariantSheet";
-import { WRONG_CHIPS, diagnoseWrongMessages } from "../ai/prompts";
-import { answerText, shuffle } from "../engine";
+import { useAi } from "@/app/ai/AiContext";
+import AiPanel from "@/app/ai/AiPanel";
+import AiVariantSheet from "@/app/ai/AiVariantSheet";
+import { hashText } from "@/app/ai/cache";
+import { WRONG_CHIPS, diagnoseWrongMessages } from "@/app/ai/prompts";
+import { wrongOverviewMessages } from "@/app/ai/study";
+
+import { answerText, daysLeft, shuffle, streakDays } from "../engine";
 import { gameForModule } from "../games/registry";
 import { toast } from "../toast";
 import type { QuizItem } from "../types";
+import AiDrillSheet from "./AiDrillSheet";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
 
@@ -21,6 +25,8 @@ export default function WrongSection() {
     } | null>(null);
     const [analysis, setAnalysis] = useState<QuizItem | null>(null);
     const [variantSource, setVariantSource] = useState<QuizItem | null>(null);
+    const [overviewOpen, setOverviewOpen] = useState(false);
+    const [drillOpen, setDrillOpen] = useState(false);
 
     const items = Object.keys(progress.wrong)
         .map((id) => subject.bank.find((item) => item.id === id))
@@ -48,6 +54,39 @@ export default function WrongSection() {
     const variantModule = variantSource
         ? subject.modules.find((mod) => mod.id === variantSource.m)?.name
         : undefined;
+
+    const overviewMessages = useMemo(
+        () =>
+            wrongOverviewMessages({
+                subjectTitle: subject.title,
+                streak: streakDays(progress),
+                daysLeft: daysLeft(subject.examDate),
+                modules: subject.modules.map((mod) => {
+                    const cards = subject.cards.filter(
+                        (card) => card.m === mod.id,
+                    );
+                    return {
+                        name: mod.name,
+                        known: cards.filter(
+                            (card) => progress.cards[card.id]?.k,
+                        ).length,
+                        total: cards.length,
+                        wrong: items.filter((item) => item.m === mod.id).length,
+                    };
+                }),
+                wrongItems: items.map((item) => ({
+                    moduleName:
+                        subject.modules.find((mod) => mod.id === item.m)
+                            ?.name ?? item.m,
+                    stem: item.stem,
+                    answer: answerText(item),
+                })),
+            }),
+        [items, progress, subject],
+    );
+    const overviewCacheKey = `wrong-overview:v1:${subject.id}:${hashText(
+        items.map((item) => item.id).join(","),
+    )}`;
 
     const openAnalysis = (item: QuizItem) => {
         if (!configured) {
@@ -108,6 +147,35 @@ export default function WrongSection() {
                     }
                 >
                     全部重练
+                </button>
+            </div>
+
+            <div className="st-row" style={{ gap: 8, marginBottom: 10 }}>
+                <button
+                    className="st-btn sm line flex-1"
+                    onClick={() => {
+                        if (!configured) {
+                            openSettings();
+                            toast("先配置一下 AI Key");
+                            return;
+                        }
+                        setOverviewOpen(true);
+                    }}
+                >
+                    🧠 AI 归因
+                </button>
+                <button
+                    className="st-btn sm line flex-1"
+                    onClick={() => {
+                        if (!configured) {
+                            openSettings();
+                            toast("先配置一下 AI Key");
+                            return;
+                        }
+                        setDrillOpen(true);
+                    }}
+                >
+                    🎯 AI 挑题
                 </button>
             </div>
 
@@ -221,6 +289,23 @@ export default function WrongSection() {
                     setVariantSource(null);
                     setSession({ items: next, track: false });
                 }}
+            />
+
+            <AiPanel
+                open={overviewOpen}
+                onClose={() => setOverviewOpen(false)}
+                title="错题归因"
+                subtitle={`${items.length} 道错题 · 找共同误解`}
+                cacheKey={overviewCacheKey}
+                messages={overviewMessages}
+                chips={WRONG_CHIPS}
+                intro="AI 不会逐题重讲，只找这批错题背后的共同问题。"
+            />
+
+            <AiDrillSheet
+                open={drillOpen}
+                onClose={() => setDrillOpen(false)}
+                onStart={(next) => setSession({ items: next, track: false })}
             />
         </div>
     );

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Trash2 } from "lucide-react";
 
+import { toast } from "@/app/study/toast";
 import pb from "@/lib/pb";
 
-import { toast } from "../toast";
 import AiSheet from "./AiSheet";
 import { clearAiCache } from "./cache";
 import { aiErrorText, testAiConnection } from "./client";

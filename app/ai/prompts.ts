@@ -5,8 +5,15 @@ import {
     daysLeft,
     questionStats,
     streakDays,
-} from "../engine";
-import type { Answer, Card, Progress, QuizItem, StudySubject } from "../types";
+} from "@/app/study/engine";
+import type {
+    Answer,
+    Card,
+    Progress,
+    QuizItem,
+    StudySubject,
+} from "@/app/study/types";
+
 import type { AiMessage } from "./client";
 
 const SYSTEM =

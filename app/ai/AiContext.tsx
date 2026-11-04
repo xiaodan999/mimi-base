@@ -7,6 +7,10 @@ import {
     type ReactNode,
 } from "react";
 
+// AI sheets reuse the study design tokens (`st-*` + `.study-root`), and the
+// provider now lives in the app shell, so load those styles once for all pages.
+import "@/app/study/study.css";
+
 import AiSettingsSheet from "./AiSettings";
 import {
     isAiConfigured,

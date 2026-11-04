@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { format, isSameDay, parse, subDays } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
-import { Trash2, Wallet } from "lucide-react";
+import { Sparkles, Tags, Trash2, Wallet } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
 import { ErrorState } from "@/components/ErrorState";
+import { Button } from "@/components/ui/button";
 import {
     ContextMenu,
     ContextMenuContent,
@@ -21,6 +22,9 @@ import { cn } from "@/lib/utils";
 
 import { getExpenseCategory } from "./-categories";
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
+import AiCategoryFix from "./-components/ai-category-fix";
+import AiExpenseReview from "./-components/ai-expense-review";
+import AiExpenseSheet from "./-components/ai-expense-sheet";
 import {
     defaultJiZhangRange,
     jiZhangQueryOptions,
@@ -58,6 +62,9 @@ function Page() {
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         defaultJiZhangRange,
     );
+    const [aiEntryOpen, setAiEntryOpen] = useState(false);
+    const [reviewOpen, setReviewOpen] = useState(false);
+    const [fixOpen, setFixOpen] = useState(false);
     const { data, isPending, isError, error, isRefetching, refetch } =
         useJiZhang(dateRange);
 
@@ -81,7 +88,19 @@ function Page() {
                         记账基地
                     </h1>
                 </div>
-                <AddJiZhangForm />
+                <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label="AI 记账"
+                        className="rounded-full"
+                        onClick={() => setAiEntryOpen(true)}
+                    >
+                        <Sparkles className="size-4" />
+                    </Button>
+                    <AddJiZhangForm />
+                </div>
             </header>
 
             {isPending ? (
@@ -96,6 +115,32 @@ function Page() {
                     onRangeChange={setDateRange}
                     refreshing={isRefetching}
                 />
+            )}
+
+            {!isPending && !isError && (
+                <div className="mt-2 flex gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 rounded-full"
+                        disabled={summary.count === 0}
+                        onClick={() => setReviewOpen(true)}
+                    >
+                        <Sparkles className="size-3.5" />
+                        AI 点评
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1.5 rounded-full"
+                        onClick={() => setFixOpen(true)}
+                    >
+                        <Tags className="size-3.5" />
+                        补全分类
+                    </Button>
+                </div>
             )}
 
             <section className="mt-5" aria-busy={isPending}>
@@ -125,6 +170,18 @@ function Page() {
                     </div>
                 )}
             </section>
+
+            <AiExpenseSheet
+                open={aiEntryOpen}
+                onClose={() => setAiEntryOpen(false)}
+            />
+            <AiExpenseReview
+                open={reviewOpen}
+                onClose={() => setReviewOpen(false)}
+                days={days}
+                range={dateRange}
+            />
+            <AiCategoryFix open={fixOpen} onClose={() => setFixOpen(false)} />
         </div>
     );
 }

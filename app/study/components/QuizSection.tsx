@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "../ai/AiContext";
-import AiVariantSheet from "../ai/AiVariantSheet";
+import { useAi } from "@/app/ai/AiContext";
+import AiVariantSheet from "@/app/ai/AiVariantSheet";
+
 import { TYPE_ICON, TYPE_NAME, shuffle } from "../engine";
 import { toast } from "../toast";
 import type { QuizItem, QuizType } from "../types";

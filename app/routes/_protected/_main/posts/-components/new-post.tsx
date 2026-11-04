@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, ImagePlus, Plus, X } from "lucide-react";
+import { ArrowUp, Check, ImagePlus, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAi } from "@/app/ai/AiContext";
+import AiSheet from "@/app/ai/AiSheet";
+import { aiErrorText, chatJSON } from "@/app/ai/client";
+import { imagesToDataUrls } from "@/app/ai/image";
+import { captionMessages } from "@/app/ai/posts";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,9 +50,16 @@ async function prepareImage(file: File, index: number): Promise<File> {
     return new File([compressed], `${Date.now()}-${index}.${ext}`, { type });
 }
 
+type CaptionOption = { style: string; text: string };
+
 export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const user = useCurrentUser();
     const newPostMutation = useNewPostMutation();
+    const { settings, configured, openSettings } = useAi();
+    const [captionOpen, setCaptionOpen] = useState(false);
+    const [captionLoading, setCaptionLoading] = useState(false);
+    const [captionError, setCaptionError] = useState("");
+    const [captions, setCaptions] = useState<CaptionOption[]>([]);
     const [text, setText] = useState("");
     const [layout, setLayout] = useState<PostLayout>("moments");
     const [images, setImages] = useState<PreviewImage[]>([]);
@@ -200,6 +212,67 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
         }
     };
 
+    const suggestCaptions = async () => {
+        if (!configured) {
+            openSettings();
+            return;
+        }
+
+        setCaptionOpen(true);
+        setCaptionLoading(true);
+        setCaptionError("");
+        setCaptions([]);
+        try {
+            const imageUrls = await imagesToDataUrls(
+                images.map((image) => image.file),
+                { maxSize: 768, limit: 3 },
+            );
+            const result = await chatJSON<{
+                captions?: { style?: unknown; text?: unknown }[];
+            }>(
+                settings,
+                captionMessages({
+                    imageUrls,
+                    hint: text,
+                    layout,
+                    count: images.length,
+                }),
+            );
+
+            const list = (result.captions ?? []).flatMap((item) => {
+                if (typeof item.text !== "string") return [];
+                const value = item.text.trim().slice(0, 80);
+                if (!value) return [];
+                return [
+                    {
+                        style:
+                            typeof item.style === "string"
+                                ? item.style
+                                : "文案",
+                        text: value,
+                    },
+                ];
+            });
+
+            if (list.length === 0) {
+                setCaptionError("AI 没给出文案，再试一次？");
+                return;
+            }
+            setCaptions(list);
+        } catch (err) {
+            setCaptionError(aiErrorText(err));
+        } finally {
+            setCaptionLoading(false);
+        }
+    };
+
+    const applyCaption = (caption: string) => {
+        setText((previous) =>
+            previous.trim() ? `${previous.trim()}\n${caption}` : caption,
+        );
+        setCaptionOpen(false);
+    };
+
     const canPublish =
         (text.trim().length > 0 || images.length > 0) &&
         !publishing &&
@@ -288,6 +361,19 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                                     placeholder="今天发生了什么？"
                                     className="min-h-[132px] resize-none border-0 bg-transparent p-0 text-[17px] leading-7 shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0 focus-visible:ring-offset-0"
                                 />
+                                <div className="mt-1 flex items-center justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 gap-1 rounded-full px-2 text-[11px] text-muted-foreground"
+                                        onClick={suggestCaptions}
+                                        disabled={captionLoading || preparing}
+                                    >
+                                        <Sparkles className="size-3.5" />
+                                        AI 配文
+                                    </Button>
+                                </div>
                             </div>
                         </div>
 
@@ -484,6 +570,70 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                     }}
                 />
             )}
+
+            <AiSheet
+                open={captionOpen}
+                onClose={() => setCaptionOpen(false)}
+                title="AI 配文"
+                subtitle={
+                    images.length > 0
+                        ? `参考了 ${Math.min(images.length, 3)} 张照片`
+                        : "参考你写的半句话"
+                }
+            >
+                <div className="space-y-2 pb-2">
+                    {captionLoading && (
+                        <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-6 text-sm text-muted-foreground">
+                            <LoadingSpinner size={16} />
+                            AI 正在看照片...
+                        </div>
+                    )}
+
+                    {captionError && (
+                        <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-6 text-amber-800">
+                            {captionError}
+                            <button
+                                type="button"
+                                className="ml-1 font-semibold underline"
+                                onClick={suggestCaptions}
+                            >
+                                重试
+                            </button>
+                        </div>
+                    )}
+
+                    {captions.map((caption) => (
+                        <button
+                            key={`${caption.style}-${caption.text}`}
+                            type="button"
+                            onClick={() => applyCaption(caption.text)}
+                            className="w-full rounded-2xl border border-border/60 bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
+                        >
+                            <span className="text-[11px] font-semibold text-primary">
+                                {caption.style}
+                            </span>
+                            <span className="mt-1 block text-sm leading-6">
+                                {caption.text}
+                            </span>
+                        </button>
+                    ))}
+
+                    {!captionLoading && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full"
+                            onClick={suggestCaptions}
+                        >
+                            换一批
+                        </Button>
+                    )}
+
+                    <p className="pt-1 text-center text-[10px] text-muted-foreground">
+                        点一句填进输入框，还能继续改
+                    </p>
+                </div>
+            </AiSheet>
         </>
     );
 }

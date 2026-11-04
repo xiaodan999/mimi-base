@@ -2,10 +2,24 @@ import { getAiSessionId, type AiSettings } from "./config";
 
 export type AiRole = "system" | "user" | "assistant";
 
+/** OpenAI 兼容的多模态内容块，目前只用到文字和图片。 */
+export type AiContentPart =
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } };
+
 export type AiMessage = {
     role: AiRole;
-    content: string;
+    content: string | AiContentPart[];
 };
+
+/** 把一段文字和若干张图拼成一条多模态消息。 */
+export function visionMessage(text: string, imageUrls: string[]): AiMessage {
+    const content: AiContentPart[] = [{ type: "text", text }];
+    for (const url of imageUrls) {
+        content.push({ type: "image_url", image_url: { url } });
+    }
+    return { role: "user", content };
+}
 
 type ChatResponse = {
     choices?: {
@@ -166,6 +180,27 @@ export async function* streamChat(
 
     const tail = emit(buffer);
     if (tail) yield tail;
+}
+
+/** 一次性文本对话：点评、今日小结这类不需要流式的短回答。 */
+export async function chatText(
+    settings: AiSettings,
+    messages: AiMessage[],
+    signal?: AbortSignal,
+): Promise<string> {
+    const url = chatEndpoint(settings.baseUrl);
+    if (!url) throw new AiError("还没填 API 地址");
+
+    const res = await fetch(url, {
+        method: "POST",
+        headers: headers(settings),
+        body: payload(settings, messages, false, 0.8),
+        signal,
+    });
+    if (!res.ok) throw await readError(res);
+
+    const json = (await res.json()) as ChatResponse;
+    return json.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
 function parseJson<T>(content: string): T | undefined {

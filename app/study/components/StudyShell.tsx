@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronLeft, Settings2 } from "lucide-react";
 
-import { useAi } from "../ai/AiContext";
+import { useAi } from "@/app/ai/AiContext";
+
 import type { StudySubject } from "../types";
 import { useStudy } from "./StudyContext";
 

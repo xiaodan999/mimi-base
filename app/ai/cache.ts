@@ -3,12 +3,15 @@
  * 只写 localStorage，不同步到云端；换设备会重新生成。
  */
 
-const PREFIX = "mimi-study:ai-cache:v1:";
+const PREFIX = "mimi:ai-cache:v1:";
+const LEGACY_PREFIX = "mimi-study:ai-cache:v1:";
 
 export function readAiCache<T>(key: string): T | null {
     if (typeof window === "undefined") return null;
     try {
-        const raw = localStorage.getItem(PREFIX + key);
+        const raw =
+            localStorage.getItem(PREFIX + key) ??
+            localStorage.getItem(LEGACY_PREFIX + key);
         if (!raw) return null;
         return JSON.parse(raw) as T;
     } catch {
@@ -25,13 +28,26 @@ export function writeAiCache<T>(key: string, value: T) {
     }
 }
 
+/** 生成结果不满意时，丢掉这一条再重算。 */
+export function removeAiCache(key: string) {
+    if (typeof window === "undefined") return;
+    try {
+        localStorage.removeItem(PREFIX + key);
+        localStorage.removeItem(LEGACY_PREFIX + key);
+    } catch {
+        // ignore
+    }
+}
+
 export function clearAiCache() {
     if (typeof window === "undefined") return;
     try {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key?.startsWith(PREFIX)) keys.push(key);
+            if (key?.startsWith(PREFIX) || key?.startsWith(LEGACY_PREFIX)) {
+                keys.push(key);
+            }
         }
         keys.forEach((key) => localStorage.removeItem(key));
     } catch {

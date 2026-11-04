@@ -2,15 +2,19 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
+    BarChart3,
     Carrot,
+    ChevronRight,
     Flame,
     Ham,
     MessageCircle,
+    Sparkles,
     UtensilsCrossed,
     Wallet,
     type LucideIcon,
 } from "lucide-react";
 
+import { useAi } from "@/app/ai/AiContext";
 import StudyEntry from "@/app/study/components/StudyEntry";
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
@@ -45,6 +49,9 @@ import { qk } from "@/lib/query-keys";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 
+import AskSheet from "./-home/ask-sheet";
+import DailyLine from "./-home/daily-line";
+import MemoryCard from "./-home/memory-card";
 import { useHomeStats } from "./-home-data";
 
 export const Route = createFileRoute("/_protected/_main/home")({
@@ -56,6 +63,8 @@ function Page() {
     const { refresh } = useAuth();
     const { data: stats } = useHomeStats();
     const { data: summaries } = useStudySummaries();
+    const { openSettings } = useAi();
+    const [askOpen, setAskOpen] = useState(false);
     const streak = Math.max(
         0,
         ...Object.values(summaries ?? {}).map((progress) =>
@@ -111,9 +120,7 @@ function Page() {
                     </div>
                     <ThemeToggle className="shrink-0 self-start border-border/60 bg-background/60" />
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">
-                    今天也来记录一点什么吧。
-                </p>
+                <DailyLine greeting={greeting} stats={stats} streak={streak} />
             </section>
 
             <div className="mt-3 grid grid-cols-3 gap-2">
@@ -135,6 +142,51 @@ function Page() {
                 <QuickLink to="/posts" icon={MessageCircle} label="记录动态" />
                 <QuickLink to="/jizhang" icon={Wallet} label="记一笔" />
             </div>
+
+            <MemoryCard />
+
+            <button
+                type="button"
+                onClick={() => setAskOpen(true)}
+                className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4 text-left shadow-soft transition-all duration-150 hover:bg-primary/10 active:scale-[0.99]"
+            >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
+                    <Sparkles className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                        问问我的基地
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        这个月外卖花了多少？
+                    </span>
+                </span>
+                <ChevronRight
+                    className="size-4 shrink-0 text-primary"
+                    aria-hidden="true"
+                />
+            </button>
+
+            <Link
+                to="/report"
+                className="mt-3 flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft transition-colors hover:bg-accent/60"
+            >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground">
+                    <BarChart3 className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                        年度报告
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        这一年被你过成了什么样
+                    </span>
+                </span>
+                <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                />
+            </Link>
 
             <div className="mt-4">
                 <StudyEntry />
@@ -224,6 +276,15 @@ function Page() {
                             <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
                                 修改头像框
                             </div>
+                            <div
+                                className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent"
+                                onClick={() => {
+                                    setVisible(false);
+                                    openSettings();
+                                }}
+                            >
+                                AI 设置
+                            </div>
                         </div>
                         <DrawerClose asChild>
                             <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
@@ -233,6 +294,12 @@ function Page() {
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>
+
+            <AskSheet
+                open={askOpen}
+                onClose={() => setAskOpen(false)}
+                streak={streak}
+            />
         </div>
     );
 }

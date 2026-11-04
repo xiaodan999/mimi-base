@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { toast } from "../toast";
-import type { QuizItem, StudySubject } from "../types";
+import { toast } from "@/app/study/toast";
+import type { QuizItem, StudySubject } from "@/app/study/types";
+
 import { useAi } from "./AiContext";
 import AiSheet from "./AiSheet";
 import { readAiCache, writeAiCache } from "./cache";

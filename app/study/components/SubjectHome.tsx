@@ -1,18 +1,27 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import AiCoachCard from "@/app/ai/AiCoachCard";
+import { useAi } from "@/app/ai/AiContext";
+import AiPanel from "@/app/ai/AiPanel";
+import { WEEKLY_CHIPS, weekKey, weeklyMessages } from "@/app/ai/prompts";
+import { sprintPlanMessages } from "@/app/ai/study";
+
 import { useStudy } from "./StudyContext";
-import AiCoachCard from "../ai/AiCoachCard";
-import { useAi } from "../ai/AiContext";
-import AiPanel from "../ai/AiPanel";
-import { WEEKLY_CHIPS, weekKey, weeklyMessages } from "../ai/prompts";
-import { cardStats, daysLeft, questionStats, streakDays } from "../engine";
+import {
+    cardStats,
+    dayKey,
+    daysLeft,
+    questionStats,
+    streakDays,
+} from "../engine";
 import { toast } from "../toast";
 
 export default function SubjectHome() {
     const { subject, progress } = useStudy();
     const { configured, openSettings } = useAi();
     const [weeklyOpen, setWeeklyOpen] = useState(false);
+    const [sprintOpen, setSprintOpen] = useState(false);
     const cards = cardStats(subject, progress);
     const questions = questionStats(progress);
     const left = daysLeft(subject.examDate);
@@ -23,6 +32,32 @@ export default function SubjectHome() {
         [subject, progress],
     );
     const weeklyCacheKey = `weekly:v1:${subject.id}:${weekKey()}`;
+    const sprintPrompt = useMemo(() => {
+        const wrongByModule = new Map<string, number>();
+        for (const id of Object.keys(progress.wrong)) {
+            const item = subject.bank.find((entry) => entry.id === id);
+            if (!item) continue;
+            wrongByModule.set(item.m, (wrongByModule.get(item.m) ?? 0) + 1);
+        }
+
+        return sprintPlanMessages({
+            subjectTitle: subject.title,
+            daysLeft: left,
+            streak,
+            wrongCount: Object.keys(progress.wrong).length,
+            modules: subject.modules.map((mod) => {
+                const list = subject.cards.filter((card) => card.m === mod.id);
+                return {
+                    name: mod.name,
+                    known: list.filter((card) => progress.cards[card.id]?.k)
+                        .length,
+                    total: list.length,
+                    wrong: wrongByModule.get(mod.id) ?? 0,
+                };
+            }),
+        });
+    }, [left, progress, streak, subject]);
+    const sprintCacheKey = `sprint:v1:${subject.id}:${dayKey()}:${cards.percent}:${Object.keys(progress.wrong).length}`;
 
     return (
         <div>
@@ -173,7 +208,24 @@ export default function SubjectHome() {
             </div>
 
             <div className="st-card mt-4">
-                <div className="text-[13px] font-extrabold">📌 复习建议</div>
+                <div className="st-between">
+                    <div className="text-[13px] font-extrabold">
+                        📌 复习建议
+                    </div>
+                    <button
+                        className="st-btn sm line"
+                        onClick={() => {
+                            if (!configured) {
+                                openSettings();
+                                toast("先配置一下 AI Key");
+                                return;
+                            }
+                            setSprintOpen(true);
+                        }}
+                    >
+                        AI 排冲刺
+                    </button>
+                </div>
                 <div className="st-tiny mt-1">
                     {left !== null && left > 7
                         ? `还剩 ${left} 天：前 6 天过知识卡 + 分题型刷题，中间几天做模拟考，最后 2 天只看口诀和错题。每天 20 分钟比考前突击有效。`
@@ -192,6 +244,27 @@ export default function SubjectHome() {
                 messages={weeklyPrompt}
                 chips={WEEKLY_CHIPS}
                 intro="AI 会引用你的真实进度和错题，不会编数据。"
+            />
+
+            <AiPanel
+                open={sprintOpen}
+                onClose={() => setSprintOpen(false)}
+                title="考前冲刺计划"
+                subtitle={left === null ? "按一周排" : `还剩 ${left} 天`}
+                cacheKey={sprintCacheKey}
+                messages={sprintPrompt}
+                chips={[
+                    { label: "太满了", prompt: "每天压到 15 分钟，再排一次。" },
+                    {
+                        label: "只看弱项",
+                        prompt: "只围绕我最弱的两个模块排。",
+                    },
+                    {
+                        label: "考前一夜",
+                        prompt: "如果只剩考前一晚，我该做什么？",
+                    },
+                ]}
+                intro="计划会按你当前的掌握度和错题分布来排。"
             />
         </div>
     );

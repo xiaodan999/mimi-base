@@ -71,7 +71,11 @@ export const AI_PRESETS: AiPreset[] = [
 
 export const CUSTOM_PRESET_ID = "custom";
 
-const STORAGE_KEY = "mimi-study:ai:v1";
+/** AI 设置现在全站共用，键名从 study 私有迁移到 app 级。 */
+const STORAGE_KEY = "mimi:ai:v1";
+const LEGACY_STORAGE_KEY = "mimi-study:ai:v1";
+const SESSION_KEY = "mimi:ai-session:v1";
+const LEGACY_SESSION_KEY = "mimi-study:ai-session:v1";
 
 export const DEFAULT_SETTINGS: AiSettings = {
     baseUrl: AI_PRESETS[0].baseUrl,
@@ -79,10 +83,25 @@ export const DEFAULT_SETTINGS: AiSettings = {
     model: AI_PRESETS[0].model,
 };
 
+function readValue(primary: string, legacy: string): string | null {
+    const current = localStorage.getItem(primary);
+    if (current) return current;
+    const old = localStorage.getItem(legacy);
+    if (!old) return null;
+    // 读到旧键时顺手搬过来，之后就不用再回退。
+    try {
+        localStorage.setItem(primary, old);
+        localStorage.removeItem(legacy);
+    } catch {
+        // 迁不迁都不影响这次读取
+    }
+    return old;
+}
+
 export function readAiSettings(): AiSettings {
     if (typeof window === "undefined") return { ...DEFAULT_SETTINGS };
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = readValue(STORAGE_KEY, LEGACY_STORAGE_KEY);
         if (!raw) return { ...DEFAULT_SETTINGS };
         const parsed = JSON.parse(raw) as Partial<AiSettings>;
         return {
@@ -105,6 +124,7 @@ export function writeAiSettings(settings: AiSettings) {
     if (typeof window === "undefined") return;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
         // 隐私模式下 localStorage 可能不可写，忽略即可
     }
@@ -141,13 +161,18 @@ export function matchPreset(
 export function getAiSessionId(): string {
     if (typeof window === "undefined") return "mimi-base";
     try {
-        const existing = sessionStorage.getItem("mimi-study:ai-session:v1");
-        if (existing) return existing;
+        const existing =
+            sessionStorage.getItem(SESSION_KEY) ??
+            sessionStorage.getItem(LEGACY_SESSION_KEY);
+        if (existing) {
+            sessionStorage.setItem(SESSION_KEY, existing);
+            return existing;
+        }
         const id =
             typeof crypto !== "undefined" && "randomUUID" in crypto
                 ? crypto.randomUUID()
                 : `mimi-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        sessionStorage.setItem("mimi-study:ai-session:v1", id);
+        sessionStorage.setItem(SESSION_KEY, id);
         return id;
     } catch {
         return "mimi-base";

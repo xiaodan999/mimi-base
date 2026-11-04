@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import { useAi } from "@/app/ai/AiContext";
+import AiGradeSheet from "@/app/ai/AiGradeSheet";
+
 import { useStudy } from "./StudyContext";
-import { useAi } from "../ai/AiContext";
-import AiGradeSheet from "../ai/AiGradeSheet";
 import {
     EXAM_PRESETS,
     TYPE_ICON,

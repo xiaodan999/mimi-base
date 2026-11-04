@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Settings2 } from "lucide-react";
 
-import { useAi } from "../ai/AiContext";
+import { useAi } from "@/app/ai/AiContext";
+
 import { cardStats, daysLeft, questionStats } from "../engine";
 import { useStudySummaries } from "../progress";
 import { KIND_LABEL, SUBJECTS } from "../registry";

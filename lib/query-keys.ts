@@ -22,6 +22,8 @@ export const qk = {
                 from?.toISOString() ?? null,
                 to?.toISOString() ?? null,
             ] as const,
+        uncategorized: (userId: string) =>
+            ["ji-zhang", "uncategorized", userId] as const,
     },
     studyProgress: (userId: string, subjectId: string) =>
         ["study-progress", subjectId, userId] as const,
@@ -31,4 +33,8 @@ export const qk = {
         get: (userId: string, day: string) =>
             ["home-stats", userId, day] as const,
     },
+    memories: (userId: string, day: string) =>
+        ["memories", userId, day] as const,
+    yearReport: (userId: string, year: number) =>
+        ["year-report", userId, year] as const,
 };
