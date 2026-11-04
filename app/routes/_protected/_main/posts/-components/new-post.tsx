@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Check, ImagePlus, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { hashText } from "@/app/ai/cache";
+import { hashText, readAiCache, removeAiCache } from "@/app/ai/cache";
 import {
     AiError,
     aiErrorText,
@@ -64,7 +64,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const user = useCurrentUser();
     const newPostMutation = useNewPostMutation();
     const { settings, configured, openSettings } = useAi();
-    const { runTask, cancel, attend } = useAiTasks();
+    const { runTask, cancel, attend, find, getResult } = useAiTasks();
     const [captionOpen, setCaptionOpen] = useState(false);
     const [captionLoading, setCaptionLoading] = useState(false);
     const [captionError, setCaptionError] = useState("");
@@ -79,6 +79,22 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const previewUrls = useRef<string[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const captionKeyRef = useRef<string | null>(null);
+    /** 当前 captions 属于哪份草稿，避免切换草稿后拿旧结果充数。 */
+    const captionsKeyRef = useRef<string | null>(null);
+    const restoredOpenRef = useRef(false);
+
+    /** 同一份草稿（文字 + 排版 + 照片）对应同一个 AI 配文任务。 */
+    const captionKey = useMemo(() => {
+        const fingerprint = images
+            .map(
+                (image) =>
+                    `${image.file.name}:${image.file.size}:${image.file.lastModified}`,
+            )
+            .join(",");
+        return `captions:${hashText(
+            `${text.trim()}|${layout}|${fingerprint}`,
+        )}`;
+    }, [text, layout, images]);
 
     // 配文面板开着时不用再弹完成通知
     useEffect(() => {
@@ -233,34 +249,79 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
         }
     };
 
-    const suggestCaptions = async () => {
+    const suggestCaptions = async (
+        options: { force?: boolean; restore?: boolean } = {},
+    ) => {
         if (!configured) {
             openSettings();
             return;
         }
 
-        const fingerprint = images
-            .map(
-                (image) =>
-                    `${image.file.name}:${image.file.size}:${image.file.lastModified}`,
-            )
-            .join(",");
-        const key = `captions:${hashText(
-            `${text.trim()}|${layout}|${fingerprint}`,
-        )}`;
+        const force = options.force === true;
+        const restore = options.restore === true;
+        const key = captionKey;
+
         if (captionKeyRef.current && captionKeyRef.current !== key) {
             cancel(captionKeyRef.current);
         }
         captionKeyRef.current = key;
 
+        if (!force) {
+            const task = find(key);
+            const running = task?.status === "running";
+
+            // 面板关掉后任务还在后台跑；重新打开草稿时先接回已有结果。
+            if (!running) {
+                if (captionsKeyRef.current === key && captions.length > 0) {
+                    setCaptionError("");
+                    setCaptionLoading(false);
+                    setCaptionOpen(true);
+                    return;
+                }
+                const stored =
+                    readAiCache<CaptionOption[]>(key) ??
+                    (task?.status === "done"
+                        ? getResult<CaptionOption[]>(key)
+                        : undefined);
+                if (stored && stored.length > 0) {
+                    captionsKeyRef.current = key;
+                    setCaptions(stored);
+                    setCaptionError("");
+                    setCaptionLoading(false);
+                    setCaptionOpen(true);
+                    return;
+                }
+                if (task?.status === "error") {
+                    setCaptionOpen(true);
+                    setCaptionLoading(false);
+                    setCaptionError(task.error ?? "AI 请求失败");
+                    return;
+                }
+                if (task?.status === "canceled") {
+                    setCaptionOpen(true);
+                    setCaptionLoading(false);
+                    setCaptionError("已取消");
+                    return;
+                }
+                if (restore) {
+                    // 没有可恢复的结果，别在打开草稿时偷偷发新请求。
+                    return;
+                }
+            }
+        }
+
         setCaptionOpen(true);
         setCaptionLoading(true);
         setCaptionError("");
         setCaptions([]);
+        captionsKeyRef.current = null;
+        if (force) removeAiCache(key);
         try {
             const list = await runTask<CaptionOption[]>({
                 key,
+                cacheKey: key,
                 group: "captions",
+                force,
                 title: "AI 配文",
                 subtitle: text.trim().slice(0, 30) || `${images.length} 张照片`,
                 kind: "json",
@@ -306,6 +367,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                     return value;
                 },
             });
+            captionsKeyRef.current = key;
             setCaptions(list);
         } catch (err) {
             if (!isAiCanceled(err)) setCaptionError(aiErrorText(err));
@@ -313,6 +375,22 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             setCaptionLoading(false);
         }
     };
+
+    // 生成途中关掉草稿时 AI 面板也会关掉，任务继续在后台跑；
+    // 回来时把已经生成（或还在生成）的配文重新摆出来。
+    useEffect(() => {
+        if (!open) {
+            restoredOpenRef.current = false;
+            return;
+        }
+        if (restoredOpenRef.current) return;
+        restoredOpenRef.current = true;
+        if (!configured) return;
+        if (!find(captionKey)) return;
+        void suggestCaptions({ restore: true });
+        // 只在草稿重新打开时恢复一次，不跟输入内容联动。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, captionKey, configured]);
 
     const applyCaption = (caption: string) => {
         setText((previous) =>
@@ -415,7 +493,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                                         variant="ghost"
                                         size="sm"
                                         className="h-7 gap-1 rounded-full px-2 text-[11px] text-muted-foreground"
-                                        onClick={suggestCaptions}
+                                        onClick={() => void suggestCaptions()}
                                         disabled={captionLoading || preparing}
                                     >
                                         <Sparkles className="size-3.5" />
@@ -643,7 +721,9 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                             <button
                                 type="button"
                                 className="ml-1 font-semibold underline"
-                                onClick={suggestCaptions}
+                                onClick={() =>
+                                    void suggestCaptions({ force: true })
+                                }
                             >
                                 重试
                             </button>
@@ -671,7 +751,9 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                             type="button"
                             variant="outline"
                             className="w-full"
-                            onClick={suggestCaptions}
+                            onClick={() =>
+                                void suggestCaptions({ force: true })
+                            }
                         >
                             换一批
                         </Button>
