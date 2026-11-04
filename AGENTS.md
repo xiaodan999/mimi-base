@@ -113,6 +113,11 @@ bun run dev:all
   short-lived token; `AuthProvider` refreshes it. Never call
   `pb.files.getURL` directly for these files — `<img>` cannot send the auth
   header, so a tokenless URL 404s.
+- Avatar rings have two sources: `users.circle_preset` stores a built-in key
+  from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
+  it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
+  `owner` relation scopes create/update/delete. Render with
+  `getUserRing(user)` so an uploaded ring wins over the preset.
 - `author_id` / `user_id` relations have no DB default — always send them on
   create.
 - `posts.like_count` / `comment_count` are denormalized and maintained by

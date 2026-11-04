@@ -22,6 +22,7 @@ import { Route as ProtectedPostNewPooRouteImport } from './routes/_protected/pos
 import { Route as ProtectedMainJizhangIndexRouteImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainPhotosIndexRouteImport } from './routes/_protected/_main/photos/index'
 import { Route as ProtectedMainPostsIndexRouteImport } from './routes/_protected/_main/posts/index'
+import { Route as ProtectedMainProfileIndexRouteImport } from './routes/_protected/_main/profile/index'
 import { Route as ProtectedMainReportIndexRouteImport } from './routes/_protected/_main/report/index'
 import { Route as ProtectedMainStudyIndexRouteImport } from './routes/_protected/_main/study/index'
 import { Route as ProtectedMainStudySubjectIdRouteImport } from './routes/_protected/_main/study/$subjectId'
@@ -93,6 +94,12 @@ const ProtectedMainPostsIndexRoute = ProtectedMainPostsIndexRouteImport.update({
   path: '/posts/',
   getParentRoute: () => ProtectedMainRoute,
 } as any)
+const ProtectedMainProfileIndexRoute =
+  ProtectedMainProfileIndexRouteImport.update({
+    id: '/profile/',
+    path: '/profile/',
+    getParentRoute: () => ProtectedMainRoute,
+  } as any)
 const ProtectedMainReportIndexRoute =
   ProtectedMainReportIndexRouteImport.update({
     id: '/report/',
@@ -136,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/photos/': typeof ProtectedMainPhotosIndexRoute
   '/posts/': typeof ProtectedMainPostsIndexRoute
+  '/profile/': typeof ProtectedMainProfileIndexRoute
   '/report/': typeof ProtectedMainReportIndexRoute
   '/study/': typeof ProtectedMainStudyIndexRoute
   '/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
@@ -152,6 +160,7 @@ export interface FileRoutesByTo {
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
   '/posts': typeof ProtectedMainPostsIndexRoute
+  '/profile': typeof ProtectedMainProfileIndexRoute
   '/report': typeof ProtectedMainReportIndexRoute
   '/study': typeof ProtectedMainStudyIndexRoute
   '/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
   '/_protected/_main/posts/': typeof ProtectedMainPostsIndexRoute
+  '/_protected/_main/profile/': typeof ProtectedMainProfileIndexRoute
   '/_protected/_main/report/': typeof ProtectedMainReportIndexRoute
   '/_protected/_main/study/': typeof ProtectedMainStudyIndexRoute
   '/_protected/_main/study/$subjectId/$section': typeof ProtectedMainStudySubjectIdSectionRoute
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/jizhang/'
     | '/photos/'
     | '/posts/'
+    | '/profile/'
     | '/report/'
     | '/study/'
     | '/study/$subjectId/$section'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/jizhang'
     | '/photos'
     | '/posts'
+    | '/profile'
     | '/report'
     | '/study'
     | '/study/$subjectId/$section'
@@ -229,6 +241,7 @@ export interface FileRouteTypes {
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/photos/'
     | '/_protected/_main/posts/'
+    | '/_protected/_main/profile/'
     | '/_protected/_main/report/'
     | '/_protected/_main/study/'
     | '/_protected/_main/study/$subjectId/$section'
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainPostsIndexRouteImport
       parentRoute: typeof ProtectedMainRoute
     }
+    '/_protected/_main/profile/': {
+      id: '/_protected/_main/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProtectedMainProfileIndexRouteImport
+      parentRoute: typeof ProtectedMainRoute
+    }
     '/_protected/_main/report/': {
       id: '/_protected/_main/report/'
       path: '/report'
@@ -412,6 +432,7 @@ interface ProtectedMainRouteChildren {
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
   ProtectedMainPostsIndexRoute: typeof ProtectedMainPostsIndexRoute
+  ProtectedMainProfileIndexRoute: typeof ProtectedMainProfileIndexRoute
   ProtectedMainReportIndexRoute: typeof ProtectedMainReportIndexRoute
 }
 
@@ -421,6 +442,7 @@ const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
   ProtectedMainPostsIndexRoute: ProtectedMainPostsIndexRoute,
+  ProtectedMainProfileIndexRoute: ProtectedMainProfileIndexRoute,
   ProtectedMainReportIndexRoute: ProtectedMainReportIndexRoute,
 }
 

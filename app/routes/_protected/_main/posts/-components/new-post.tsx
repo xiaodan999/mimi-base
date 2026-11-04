@@ -19,7 +19,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
-import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
+import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
@@ -346,7 +346,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                         <div className="flex gap-3 pt-4">
                             <TouXiang
                                 className="shrink-0"
-                                circleUrl={getUserCircleUrl(user)}
+                                {...getUserRing(user)}
                                 touXiangUrl={getUserAvatarUrl(user)}
                                 size={40}
                             />

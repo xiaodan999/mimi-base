@@ -3,6 +3,7 @@ import {
     BookOpen,
     House,
     MessageCircle,
+    UserRound,
     Wallet,
     type LucideIcon,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const routes: NavRoute[] = [
     { name: "动态", path: "/posts", icon: MessageCircle },
     { name: "记账", path: "/jizhang", icon: Wallet },
     { name: "学习", path: "/study", icon: BookOpen },
+    { name: "我的", path: "/profile", icon: UserRound },
 ];
 
 export default function NavButtons() {

@@ -177,6 +177,36 @@
 }
 
 /*
+ * Animated avatar-ring presets. The reduced-motion block above stops these,
+ * which is why they are the only ring effects that move.
+ */
+@keyframes avatar-ring-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes avatar-ring-pulse {
+    0%,
+    100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.avatar-ring-spin {
+    animation: avatar-ring-spin 18s linear infinite;
+    transform-box: view-box;
+    transform-origin: center;
+}
+
+.avatar-ring-pulse {
+    animation: avatar-ring-pulse 2.8s ease-in-out infinite;
+}
+
+/*
  * Keyboard-aware fixed layout helpers. `--app-*` are published by
  * useVisualViewport (visualViewport API), which is the only reliable way to
  * know how much of the screen the software keyboard is covering.
