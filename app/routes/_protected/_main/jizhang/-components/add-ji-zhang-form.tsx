@@ -37,8 +37,8 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import { EXPENSE_CATEGORIES } from "../-categories";
-import { useAddJiZhang } from "../-data";
+import { useAddJiZhang, useExpenseCategories } from "../-data";
+import CategoryChips from "./category-chips";
 
 export default function AddJiZhangForm() {
     const [open, setOpen] = React.useState(false);
@@ -108,6 +108,7 @@ function AddForm({
     onSuccess: () => void;
 }) {
     const mutation = useAddJiZhang();
+    const { categories } = useExpenseCategories();
 
     // The form holds the raw string|number price; the resolver parses it to a
     // number for `onSubmit`.
@@ -185,40 +186,16 @@ function AddForm({
 
                 <div className="grid gap-2">
                     <FormLabel>分类</FormLabel>
-                    <div className="flex flex-wrap gap-2">
-                        {EXPENSE_CATEGORIES.map(
-                            ({ value, label, icon: Icon }) => {
-                                const active = category === value;
-                                return (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        aria-pressed={active}
-                                        disabled={form.formState.isSubmitting}
-                                        onClick={() =>
-                                            form.setValue(
-                                                "category",
-                                                active ? "" : value,
-                                                { shouldDirty: true },
-                                            )
-                                        }
-                                        className={cn(
-                                            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                                            active
-                                                ? "border-primary/40 bg-primary/10 text-primary"
-                                                : "border-border/70 bg-card text-muted-foreground hover:bg-accent",
-                                        )}
-                                    >
-                                        <Icon
-                                            className="size-3.5"
-                                            aria-hidden="true"
-                                        />
-                                        {label}
-                                    </button>
-                                );
-                            },
-                        )}
-                    </div>
+                    <CategoryChips
+                        categories={categories}
+                        value={category}
+                        disabled={form.formState.isSubmitting}
+                        onChange={(value) =>
+                            form.setValue("category", value, {
+                                shouldDirty: true,
+                            })
+                        }
+                    />
                 </div>
 
                 <LoadingButton

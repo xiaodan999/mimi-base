@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Camera, Sparkles, Trash2, Wand2 } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 
-import { EXPENSE_CATEGORIES, getExpenseCategory } from "../-categories";
-import { useAddJiZhang } from "../-data";
+import { normalizeCategoryValue, type ExpenseCategory } from "../-categories";
+import { useAddJiZhang, useExpenseCategories } from "../-data";
 
 type DraftRow = {
     key: number;
@@ -32,13 +32,7 @@ type RawParsed = {
     }[];
 };
 
-const CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(({ value, label }) => ({
-    value,
-    label,
-}));
-const ALLOWED = new Set<string>(CATEGORY_OPTIONS.map((item) => item.value));
-
-function toDrafts(raw: RawParsed): DraftRow[] {
+function toDrafts(raw: RawParsed, categories: ExpenseCategory[]): DraftRow[] {
     const items = Array.isArray(raw.items) ? raw.items : [];
     return items.flatMap((item, index) => {
         const name =
@@ -46,8 +40,8 @@ function toDrafts(raw: RawParsed): DraftRow[] {
         const price = Number(item.price);
         if (!name || !Number.isFinite(price) || price <= 0) return [];
         const category =
-            typeof item.category === "string" && ALLOWED.has(item.category)
-                ? item.category
+            typeof item.category === "string"
+                ? normalizeCategoryValue(item.category, categories) || "other"
                 : "other";
         return [{ key: index, name, price: String(price), category }];
     });
@@ -62,6 +56,11 @@ export default function AiExpenseSheet({
 }) {
     const { settings, configured, openSettings } = useAi();
     const mutation = useAddJiZhang();
+    const { categories, getCategory } = useExpenseCategories();
+    const categoryOptions = useMemo(
+        () => categories.map(({ value, label }) => ({ value, label })),
+        [categories],
+    );
     const [text, setText] = useState("");
     const [receipt, setReceipt] = useState<{
         file: File;
@@ -122,21 +121,24 @@ export default function AiExpenseSheet({
                 const imageUrl = await imageToDataUrl(receipt.file);
                 messages = expenseReceiptMessages(
                     [imageUrl],
-                    CATEGORY_OPTIONS,
+                    categoryOptions,
                     text,
                 );
             } else {
-                messages = expenseTextMessages(text, CATEGORY_OPTIONS);
+                messages = expenseTextMessages(text, categoryOptions);
             }
 
             const parsed = await chatJSON<RawParsed>(settings, messages);
-            const drafts = toDrafts({
-                items: parsed.items?.map((item) => ({
-                    name: item.name,
-                    price: item.price,
-                    category: item.category,
-                })),
-            });
+            const drafts = toDrafts(
+                {
+                    items: parsed.items?.map((item) => ({
+                        name: item.name,
+                        price: item.price,
+                        category: item.category,
+                    })),
+                },
+                categories,
+            );
             if (drafts.length === 0) {
                 setError("没读懂这笔账，换个说法再试试？");
                 return;
@@ -282,9 +284,7 @@ export default function AiExpenseSheet({
                     <>
                         <ul className="space-y-2">
                             {rows.map((row) => {
-                                const category = getExpenseCategory(
-                                    row.category,
-                                );
+                                const category = getCategory(row.category);
                                 const CategoryIcon = category.icon;
                                 return (
                                     <li
@@ -353,7 +353,7 @@ export default function AiExpenseSheet({
                                             }
                                             className="mt-2 h-8 w-full rounded-lg border border-border/70 bg-background px-2 text-xs"
                                         >
-                                            {CATEGORY_OPTIONS.map((option) => (
+                                            {categoryOptions.map((option) => (
                                                 <option
                                                     key={option.value}
                                                     value={option.value}

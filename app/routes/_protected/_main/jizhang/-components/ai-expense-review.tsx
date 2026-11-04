@@ -8,6 +8,7 @@ import { expenseReviewMessages } from "@/app/ai/expense";
 import { useCurrentUser } from "@/lib/auth";
 
 import { getExpenseCategory } from "../-categories";
+import { useExpenseCategories } from "../-data";
 import { summarizeDays, type ExpenseDay } from "../-summary";
 
 export default function AiExpenseReview({
@@ -22,6 +23,7 @@ export default function AiExpenseReview({
     range: DateRange | undefined;
 }) {
     const user = useCurrentUser();
+    const { categories } = useExpenseCategories();
     const from = range?.from;
     const to = range?.to;
 
@@ -34,7 +36,7 @@ export default function AiExpenseReview({
         const items = days.flatMap((day) => day.items);
 
         for (const item of items) {
-            const category = getExpenseCategory(item.category);
+            const category = getExpenseCategory(item.category, categories);
             const current = categoryMap.get(category.value) ?? {
                 label: category.label,
                 total: 0,
@@ -63,7 +65,7 @@ export default function AiExpenseReview({
                 .slice(0, 5)
                 .map((item) => ({ name: item.itemName, price: item.price })),
         };
-    }, [days, from, to]);
+    }, [days, from, to, categories]);
 
     const messages = useMemo(() => expenseReviewMessages(input), [input]);
     const cacheKey = `expense-review:${user.id}:${hashText(

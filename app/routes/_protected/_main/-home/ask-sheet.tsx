@@ -7,10 +7,15 @@ import AiMarkdown from "@/app/ai/AiMarkdown";
 import AiSheet from "@/app/ai/AiSheet";
 import { aiErrorText, streamChat } from "@/app/ai/client";
 import { askMessages } from "@/app/ai/home";
-import { getExpenseCategory } from "@/app/routes/_protected/_main/jizhang/-categories";
+import {
+    categoryFromRecord,
+    getExpenseCategory,
+    type ExpenseCategoryRecord,
+} from "@/app/routes/_protected/_main/jizhang/-categories";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/lib/auth";
 import pb, { pbDate } from "@/lib/pb";
 
 const CHIPS = [
@@ -31,9 +36,9 @@ type ExpenseRecord = {
  * 只抓最近的一小段数据作为上下文，问题本身决定去向；
  * 数据都在浏览器里，除了模型请求不会额外落库。
  */
-async function buildContext(streak: number): Promise<string> {
+async function buildContext(streak: number, userId: string): Promise<string> {
     const month = startOfMonth(new Date());
-    const [posts, expenses] = await Promise.all([
+    const [posts, expenses, categories] = await Promise.all([
         pb.collection("posts").getList<PostRecord>(1, 20, {
             sort: "-created",
             fields: "id,text,created",
@@ -43,7 +48,13 @@ async function buildContext(streak: number): Promise<string> {
             filter: pb.filter("created >= {:from}", { from: pbDate(month) }),
             fields: "id,item_name,price,created,category",
         }),
+        pb.collection("ji_zhang_category").getFullList<ExpenseCategoryRecord>({
+            filter: pb.filter("user_id = {:userId}", { userId }),
+            sort: "created",
+        }),
     ]);
+
+    const customCategories = categories.map(categoryFromRecord);
 
     const postLines = posts.items
         .map((post) => {
@@ -57,7 +68,10 @@ async function buildContext(streak: number): Promise<string> {
     const expenseLines = expenses
         .slice(0, 80)
         .map((item) => {
-            const category = getExpenseCategory(item.category);
+            const category = getExpenseCategory(
+                item.category,
+                customCategories,
+            );
             return `- ${item.created.slice(0, 10)} ${item.item_name} ¥${item.price}（${category.label}）`;
         })
         .join("\n");
@@ -65,7 +79,7 @@ async function buildContext(streak: number): Promise<string> {
     const categoryTotals = new Map<string, number>();
     let total = 0;
     for (const item of expenses) {
-        const label = getExpenseCategory(item.category).label;
+        const label = getExpenseCategory(item.category, customCategories).label;
         categoryTotals.set(
             label,
             (categoryTotals.get(label) ?? 0) + item.price,
@@ -103,6 +117,7 @@ export default function AskSheet({
     streak: number;
 }) {
     const { settings, configured, openSettings } = useAi();
+    const user = useCurrentUser();
     const [question, setQuestion] = useState("");
     const [answer, setAnswer] = useState("");
     const [loading, setLoading] = useState(false);
@@ -137,7 +152,7 @@ export default function AskSheet({
         setLoading(true);
 
         try {
-            const context = await buildContext(streak);
+            const context = await buildContext(streak, user.id);
             if (controller.signal.aborted) return;
 
             let text = "";

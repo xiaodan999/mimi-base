@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getExpenseCategory } from "@/app/routes/_protected/_main/jizhang/-categories";
+import {
+    categoryFromRecord,
+    getExpenseCategory,
+    type ExpenseCategoryRecord,
+} from "@/app/routes/_protected/_main/jizhang/-categories";
 import { streakDays } from "@/app/study/engine";
 import { SUBJECTS } from "@/app/study/registry";
 import { useCurrentUser } from "@/lib/auth";
@@ -68,7 +72,7 @@ export function useYearReport(year: number) {
             const from = new Date(year, 0, 1);
             const to = new Date(year + 1, 0, 1);
 
-            const [posts, expenses] = await Promise.all([
+            const [posts, expenses, categories] = await Promise.all([
                 pb.collection("posts").getFullList<PostRecord>({
                     filter: pb.filter("created >= {:from} && created < {:to}", {
                         from: pbDate(from),
@@ -83,7 +87,17 @@ export function useYearReport(year: number) {
                     }),
                     sort: "-created",
                 }),
+                pb
+                    .collection("ji_zhang_category")
+                    .getFullList<ExpenseCategoryRecord>({
+                        filter: pb.filter("user_id = {:userId}", {
+                            userId: user.id,
+                        }),
+                        sort: "created",
+                    }),
             ]);
+
+            const customCategories = categories.map(categoryFromRecord);
 
             const postMonthly = Array.from({ length: 12 }, () => 0);
             let photos = 0;
@@ -104,7 +118,10 @@ export function useYearReport(year: number) {
                 expenseMonthly[month] += item.price;
                 expenseTotal += item.price;
 
-                const category = getExpenseCategory(item.category);
+                const category = getExpenseCategory(
+                    item.category,
+                    customCategories,
+                );
                 const current = categoryMap.get(category.value) ?? {
                     label: category.label,
                     total: 0,

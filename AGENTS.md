@@ -100,8 +100,8 @@ bun run dev:all
 - Use the singleton `pb` from `lib/pb.ts`; don't create another client.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
   `post_likes`, `comment_likes` (schema only, unused by the UI),
-  `ji_zhang_biao`, `study_progress`; `tu_pian_xin_xi` is legacy (its rows were
-  migrated into `posts`).
+  `ji_zhang_biao`, `ji_zhang_category`, `study_progress`; `tu_pian_xin_xi` is
+  legacy (its rows were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. File fields are `protected`, so unauthenticated requests to
   `/api/files/...` return 404.
@@ -131,11 +131,16 @@ bun run dev:all
   the same request that creates the post. `posts.layout` is `moments`
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
   `/photos` now redirects to `/posts`.
-- `ji_zhang_biao.category` is an optional select. Its allowed values live in
-  `app/routes/_protected/_main/jizhang/-categories.ts` (`food`, `transport`,
-  `shopping`, `home`, `fun`, `health`, `other`); keep the migration's
-  `values` in sync. Rows created before the field existed stay empty and
-  render as 其他.
+- `ji_zhang_biao.category` is free text. It stores either a built-in key
+  (`food`, `transport`, `shopping`, `home`, `fun`, `health`, `other`, defined in
+  `app/routes/_protected/_main/jizhang/-categories.ts`) or the id of a
+  `ji_zhang_category` row (the user's own categories). Resolve it through
+  `useExpenseCategories().getCategory` / `getExpenseCategory(value, custom)` —
+  unknown or deleted values render as 其他, and rows created before the field
+  existed stay empty. Renaming a custom category is safe because rows point at
+  its id; deleting one first clears those rows to `""` so 补全分类 can pick them
+  up again. Never hardcode a new category in a migration's `values`: the field
+  is no longer a select.
 - `pb.authStore.record` has no `expand`; fetch the profile with
   `expand: "circle"` (see `lib/auth.tsx`).
 - Schema changes go in a new committed migration under

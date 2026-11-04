@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { format, isSameDay, parse, subDays } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
-import { Sparkles, Tags, Trash2, Wallet } from "lucide-react";
+import { Sparkles, Settings2, Tags, Trash2, Wallet } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
 import { ErrorState } from "@/components/ErrorState";
@@ -20,16 +20,20 @@ import { formatMoney } from "@/lib/money";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import { getExpenseCategory } from "./-categories";
+import type { ExpenseCategory } from "./-categories";
 import AddJiZhangForm from "./-components/add-ji-zhang-form";
 import AiCategoryFix from "./-components/ai-category-fix";
 import AiExpenseReview from "./-components/ai-expense-review";
 import AiExpenseSheet from "./-components/ai-expense-sheet";
+import EditExpenseSheet from "./-components/edit-expense-sheet";
+import ManageCategoriesSheet from "./-components/manage-categories-sheet";
 import {
     defaultJiZhangRange,
     jiZhangQueryOptions,
     useDeleteJiZhang,
+    useExpenseCategories,
     useJiZhang,
+    type JiZhangItemData,
 } from "./-data";
 import {
     buildTrend,
@@ -65,8 +69,11 @@ function Page() {
     const [aiEntryOpen, setAiEntryOpen] = useState(false);
     const [reviewOpen, setReviewOpen] = useState(false);
     const [fixOpen, setFixOpen] = useState(false);
+    const [manageOpen, setManageOpen] = useState(false);
+    const [editing, setEditing] = useState<JiZhangItemData | null>(null);
     const { data, isPending, isError, error, isRefetching, refetch } =
         useJiZhang(dateRange);
+    const { getCategory } = useExpenseCategories();
 
     const days = useMemo(() => data ?? [], [data]);
     const from = dateRange?.from;
@@ -140,6 +147,16 @@ function Page() {
                         <Tags className="size-3.5" />
                         补全分类
                     </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 shrink-0 rounded-full"
+                        aria-label="分类管理"
+                        onClick={() => setManageOpen(true)}
+                    >
+                        <Settings2 className="size-4" />
+                    </Button>
                 </div>
             )}
 
@@ -165,7 +182,12 @@ function Page() {
                 ) : (
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {days.map((day) => (
-                            <DayCard key={day.date} day={day} />
+                            <DayCard
+                                key={day.date}
+                                day={day}
+                                getCategory={getCategory}
+                                onEdit={setEditing}
+                            />
                         ))}
                     </div>
                 )}
@@ -182,6 +204,16 @@ function Page() {
                 range={dateRange}
             />
             <AiCategoryFix open={fixOpen} onClose={() => setFixOpen(false)} />
+            <ManageCategoriesSheet
+                open={manageOpen}
+                onClose={() => setManageOpen(false)}
+            />
+            {editing && (
+                <EditExpenseSheet
+                    item={editing}
+                    onClose={() => setEditing(null)}
+                />
+            )}
         </div>
     );
 }
@@ -344,7 +376,15 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     );
 }
 
-function DayCard({ day }: { day: ExpenseDay }) {
+function DayCard({
+    day,
+    getCategory,
+    onEdit,
+}: {
+    day: ExpenseDay;
+    getCategory: (value: string | null | undefined) => ExpenseCategory;
+    onEdit: (item: JiZhangItemData) => void;
+}) {
     const deleteMutation = useDeleteJiZhang();
     const date = parse(day.date, "yyyy-MM-dd", new Date());
     const now = new Date();
@@ -379,60 +419,75 @@ function DayCard({ day }: { day: ExpenseDay }) {
 
             <ul role="list" className="divide-y divide-border/50">
                 {day.items.map((item) => {
-                    const category = getExpenseCategory(item.category);
+                    const category = getCategory(item.category);
                     const CategoryIcon = category.icon;
 
                     return (
-                        <ContextMenu key={item.id}>
-                            <ContextMenuTrigger asChild>
-                                <li className="flex items-center gap-3 px-4 py-3 transition-colors hover:cursor-pointer hover:bg-accent/60">
-                                    <span
-                                        className={cn(
-                                            "grid size-9 shrink-0 place-items-center rounded-full",
-                                            category.tone,
-                                        )}
+                        <li key={item.id}>
+                            <ContextMenu>
+                                <ContextMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        onClick={() => onEdit(item)}
+                                        className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/60"
                                     >
-                                        <CategoryIcon
-                                            className="size-4"
-                                            aria-hidden="true"
-                                        />
-                                    </span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium">
-                                            {item.itemName}
-                                        </p>
-                                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                                            {category.label} ·{" "}
-                                            {format(
-                                                new Date(item.createdAt),
-                                                "HH:mm",
+                                        <span
+                                            className={cn(
+                                                "grid size-9 shrink-0 place-items-center rounded-full",
+                                                category.tone,
                                             )}
-                                        </p>
-                                    </div>
-                                    <span className="shrink-0 text-sm font-semibold tabular-nums">
-                                        -{formatMoney(item.price)}
-                                    </span>
-                                </li>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent>
-                                <ContextMenuItem
-                                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
-                                    onClick={() => {
-                                        toastPromise(
-                                            deleteMutation.mutateAsync(item),
-                                            {
-                                                loading: "删除中...",
-                                                success: "成功删除此项",
-                                                error: "删除失败",
-                                            },
-                                        );
-                                    }}
-                                >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    <span>删除</span>
-                                </ContextMenuItem>
-                            </ContextMenuContent>
-                        </ContextMenu>
+                                        >
+                                            <CategoryIcon
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-medium">
+                                                {item.itemName}
+                                            </p>
+                                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                                {category.label} ·{" "}
+                                                {format(
+                                                    new Date(item.createdAt),
+                                                    "HH:mm",
+                                                )}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                            -{formatMoney(item.price)}
+                                        </span>
+                                    </button>
+                                </ContextMenuTrigger>
+                                <ContextMenuContent>
+                                    <ContextMenuItem
+                                        className="hover:cursor-pointer"
+                                        onClick={() => onEdit(item)}
+                                    >
+                                        <Tags className="mr-2 h-4 w-4" />
+                                        <span>改分类</span>
+                                    </ContextMenuItem>
+                                    <ContextMenuItem
+                                        className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
+                                        onClick={() => {
+                                            toastPromise(
+                                                deleteMutation.mutateAsync(
+                                                    item,
+                                                ),
+                                                {
+                                                    loading: "删除中...",
+                                                    success: "成功删除此项",
+                                                    error: "删除失败",
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        <span>删除</span>
+                                    </ContextMenuItem>
+                                </ContextMenuContent>
+                            </ContextMenu>
+                        </li>
                     );
                 })}
             </ul>

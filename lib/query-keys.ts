@@ -29,6 +29,10 @@ export const qk = {
             ] as const,
         uncategorized: (userId: string) =>
             ["ji-zhang", "uncategorized", userId] as const,
+        categories: {
+            all: ["ji-zhang", "categories"] as const,
+            of: (userId: string) => ["ji-zhang", "categories", userId] as const,
+        },
     },
     studyProgress: (userId: string, subjectId: string) =>
         ["study-progress", subjectId, userId] as const,

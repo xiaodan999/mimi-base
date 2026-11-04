@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Tags } from "lucide-react";
 
@@ -14,7 +14,8 @@ import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
-import { EXPENSE_CATEGORIES, getExpenseCategory } from "../-categories";
+import { normalizeCategoryValue } from "../-categories";
+import { useExpenseCategories } from "../-data";
 
 type LegacyRow = { id: string; itemName: string };
 
@@ -33,12 +34,6 @@ function pbErrorText(error: unknown): string {
     if (error instanceof Error && error.message) return error.message;
     return "请稍后重试";
 }
-
-const CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(({ value, label }) => ({
-    value,
-    label,
-}));
-const ALLOWED = new Set<string>(CATEGORY_OPTIONS.map((item) => item.value));
 
 function useUncategorizedRows(enabled: boolean) {
     const user = useCurrentUser();
@@ -74,6 +69,11 @@ export default function AiCategoryFix({
 }) {
     const { settings, configured, openSettings } = useAi();
     const queryClient = useQueryClient();
+    const { categories, getCategory } = useExpenseCategories();
+    const categoryOptions = useMemo(
+        () => categories.map(({ value, label }) => ({ value, label })),
+        [categories],
+    );
     const { data, isPending, isError, error, refetch } =
         useUncategorizedRows(open);
     const [guesses, setGuesses] = useState<Record<string, string>>({});
@@ -102,16 +102,16 @@ export default function AiCategoryFix({
             const names = [...new Set(rows.map((row) => row.itemName))];
             const result = await chatJSON<GuessResponse>(
                 settings,
-                categoryGuessMessages(names, CATEGORY_OPTIONS),
+                categoryGuessMessages(names, categoryOptions),
             );
             const byName = new Map<string, string>();
             for (const item of result.items ?? []) {
-                if (
-                    typeof item.name === "string" &&
-                    typeof item.category === "string" &&
-                    ALLOWED.has(item.category)
-                ) {
-                    byName.set(item.name.trim(), item.category);
+                const category =
+                    typeof item.category === "string"
+                        ? normalizeCategoryValue(item.category, categories)
+                        : "";
+                if (typeof item.name === "string" && category) {
+                    byName.set(item.name.trim(), category);
                 }
             }
 
@@ -239,7 +239,7 @@ export default function AiCategoryFix({
                         <ul className="max-h-72 space-y-1.5 overflow-y-auto overscroll-contain">
                             {rows.map((row) => {
                                 const value = guesses[row.id] ?? "";
-                                const category = getExpenseCategory(value);
+                                const category = getCategory(value);
                                 return (
                                     <li
                                         key={row.id}
@@ -269,7 +269,7 @@ export default function AiCategoryFix({
                                             className="h-8 shrink-0 rounded-lg border border-border/70 bg-background px-2 text-xs"
                                         >
                                             <option value="">未分类</option>
-                                            {CATEGORY_OPTIONS.map((option) => (
+                                            {categoryOptions.map((option) => (
                                                 <option
                                                     key={option.value}
                                                     value={option.value}
