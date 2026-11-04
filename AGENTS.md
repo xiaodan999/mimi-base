@@ -274,7 +274,11 @@ before your first commit.
   `AbortController`; never abort on unmount/close. Successful results are
   written to `cacheKey` and appear in the task center (bottom-left pill +
   sonner toast); `attend(group)` marks a task as watched while its page/panel
-  is open so it does not double-notify. System notifications are opt-in via
+  is open so it does not double-notify. Panels that can close mid-flight must
+  restore the task when they reopen: use `decideAiRestore` from
+  `app/ai/restore.ts` (running task first, then local state → store result →
+  cache) instead of hand-rolling the checks, so a finished result never
+  becomes unreachable. System notifications are opt-in via
   `AiSettings.notify` and only fire while the page is hidden. This is
   client-side background: reloading or fully closing the app still stops
   in-flight requests, because the key only lives in `localStorage`.

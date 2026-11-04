@@ -68,7 +68,7 @@ function normalizePlan(
 
 export default function AiCoachCard({ subject, progress }: Props) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, cancel, tasks, find, attend } = useAiTasks();
+    const { runTask, cancel, tasks, find, getResult, attend } = useAiTasks();
     const [minutes, setMinutes] = useState(20);
     const [plan, setPlan] = useState<AiPlan | null>(null);
     const [loading, setLoading] = useState(false);
@@ -80,11 +80,11 @@ export default function AiCoachCard({ subject, progress }: Props) {
     const cacheKey = `${group}:${minutes}`;
 
     useEffect(() => {
-        setPlan(readAiCache<AiPlan>(cacheKey));
+        setPlan(getResult<AiPlan>(cacheKey) ?? readAiCache<AiPlan>(cacheKey));
         setError("");
         const task = find(cacheKey);
         setLoading(task?.status === "running");
-    }, [cacheKey, find]);
+    }, [cacheKey, find, getResult]);
 
     // 卡片在页面上时，用户看得到计划，不用再弹完成通知
     useEffect(() => {
@@ -100,9 +100,10 @@ export default function AiCoachCard({ subject, progress }: Props) {
             return;
         }
         if (activeTask.status === "done") {
-            const cached = readAiCache<AiPlan>(cacheKey);
-            if (cached) {
-                setPlan(cached);
+            const done =
+                getResult<AiPlan>(cacheKey) ?? readAiCache<AiPlan>(cacheKey);
+            if (done) {
+                setPlan(done);
                 setError("");
             }
             setLoading(false);
@@ -116,7 +117,7 @@ export default function AiCoachCard({ subject, progress }: Props) {
         if (activeTask.status === "canceled") {
             setLoading(false);
         }
-    }, [activeTask, cacheKey]);
+    }, [activeTask, cacheKey, getResult]);
 
     const generate = useCallback(
         async (nextMinutes: number, force = false) => {

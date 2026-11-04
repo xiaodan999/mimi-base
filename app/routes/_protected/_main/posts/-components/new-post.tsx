@@ -14,6 +14,7 @@ import {
 } from "@/app/ai/client";
 import { imagesToDataUrls } from "@/app/ai/image";
 import { captionMessages } from "@/app/ai/posts";
+import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
@@ -267,47 +268,39 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
         captionKeyRef.current = key;
 
         if (!force) {
-            const task = find(key);
-            const running = task?.status === "running";
-
             // 面板关掉后任务还在后台跑；重新打开草稿时先接回已有结果。
-            if (!running) {
-                if (captionsKeyRef.current === key && captions.length > 0) {
-                    setCaptionError("");
-                    setCaptionLoading(false);
-                    setCaptionOpen(true);
-                    return;
-                }
-                const stored =
-                    readAiCache<CaptionOption[]>(key) ??
-                    (task?.status === "done"
-                        ? getResult<CaptionOption[]>(key)
-                        : undefined);
-                if (stored && stored.length > 0) {
-                    captionsKeyRef.current = key;
-                    setCaptions(stored);
-                    setCaptionError("");
-                    setCaptionLoading(false);
-                    setCaptionOpen(true);
-                    return;
-                }
-                if (task?.status === "error") {
-                    setCaptionOpen(true);
-                    setCaptionLoading(false);
-                    setCaptionError(task.error ?? "AI 请求失败");
-                    return;
-                }
-                if (task?.status === "canceled") {
-                    setCaptionOpen(true);
-                    setCaptionLoading(false);
-                    setCaptionError("已取消");
-                    return;
-                }
-                if (restore) {
-                    // 没有可恢复的结果，别在打开草稿时偷偷发新请求。
-                    return;
-                }
+            const decision = decideAiRestore<CaptionOption[]>({
+                task: find(key),
+                local: captionsKeyRef.current === key ? captions : null,
+                result: getResult<CaptionOption[]>(key),
+                cached: readAiCache<CaptionOption[]>(key),
+                hasValue: (list) => list.length > 0,
+            });
+            if (decision.kind === "ready") {
+                captionsKeyRef.current = key;
+                setCaptions(decision.value);
+                setCaptionError("");
+                setCaptionLoading(false);
+                setCaptionOpen(true);
+                return;
             }
+            if (decision.kind === "error") {
+                setCaptionOpen(true);
+                setCaptionLoading(false);
+                setCaptionError(decision.message);
+                return;
+            }
+            if (decision.kind === "canceled") {
+                setCaptionOpen(true);
+                setCaptionLoading(false);
+                setCaptionError("已取消");
+                return;
+            }
+            if (decision.kind === "none" && restore) {
+                // 没有可恢复的结果，别在打开草稿时偷偷发新请求。
+                return;
+            }
+            // "running" 落到下面：接上同一个任务，显示加载态。
         }
 
         setCaptionOpen(true);

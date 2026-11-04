@@ -59,7 +59,7 @@ export default function AiDrillSheet({
 }) {
     const { subject, progress } = useStudy();
     const { settings, configured, openSettings } = useAi();
-    const { runTask, find, attend } = useAiTasks();
+    const { runTask, find, getResult, attend } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [reason, setReason] = useState("");
     const [loading, setLoading] = useState(false);
@@ -212,16 +212,26 @@ export default function AiDrillSheet({
             return;
         }
 
-        const cached = readAiCache<DrillResult>(cacheKey);
-        if (cached) {
+        const task = find(cacheKey);
+        // 后台任务在跑时先接回去，别让上一组缓存把它盖住。
+        if (task?.status === "running") {
+            setLoading(true);
+            void pick();
+            return;
+        }
+
+        const stored =
+            getResult<DrillResult>(cacheKey) ??
+            readAiCache<DrillResult>(cacheKey);
+        if (stored) {
             const byId = new Map(subject.bank.map((item) => [item.id, item]));
-            const picked = cached.ids.flatMap((id) => {
+            const picked = stored.ids.flatMap((id) => {
                 const item = byId.get(id);
                 return item ? [item] : [];
             });
             if (picked.length) {
                 setItems(picked.slice(0, PICK_COUNT));
-                setReason(cached.reason);
+                setReason(stored.reason);
                 setError("");
                 setFallbackIds([]);
                 setLoading(false);
@@ -229,13 +239,11 @@ export default function AiDrillSheet({
             }
         }
 
-        const task = find(cacheKey);
         if (task?.status === "canceled") {
             setLoading(false);
             setError("已取消");
             return;
         }
-        if (task?.status === "running") setLoading(true);
         void pick();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);

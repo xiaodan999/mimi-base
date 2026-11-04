@@ -8,6 +8,7 @@ import AiSheet from "./AiSheet";
 import { readAiCache } from "./cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { variantMessages, type AiVariantPayload } from "./prompts";
+import { decideAiRestore } from "./restore";
 import { useAiTasks } from "./tasks";
 
 type Props = {
@@ -99,7 +100,7 @@ export default function AiVariantSheet({
     onStart,
 }: Props) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, attend, find } = useAiTasks();
+    const { runTask, attend, find, getResult } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -116,13 +117,19 @@ export default function AiVariantSheet({
                 return;
             }
             if (!force) {
-                const cached = readAiCache<AiVariantPayload>(cacheKey);
-                const cachedItems = cached ? toQuizItems(cached, source) : [];
-                if (cachedItems.length) {
-                    setItems(cachedItems);
-                    setError("");
-                    setLoading(false);
-                    return;
+                // 后台还有一个任务在跑时，别让旧缓存把它盖住。
+                const running = find(cacheKey)?.status === "running";
+                if (!running) {
+                    const cached = readAiCache<AiVariantPayload>(cacheKey);
+                    const cachedItems = cached
+                        ? toQuizItems(cached, source)
+                        : [];
+                    if (cachedItems.length) {
+                        setItems(cachedItems);
+                        setError("");
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
@@ -162,6 +169,7 @@ export default function AiVariantSheet({
         [
             cacheKey,
             configured,
+            find,
             moduleName,
             openSettings,
             runTask,
@@ -179,27 +187,31 @@ export default function AiVariantSheet({
         if (startedRef.current === cacheKey) return;
         startedRef.current = cacheKey;
 
-        const cached = readAiCache<AiVariantPayload>(cacheKey);
-        const cachedItems = cached ? toQuizItems(cached, source) : [];
-        if (cachedItems.length) {
-            setItems(cachedItems);
+        const decision = decideAiRestore<AiVariantPayload>({
+            task: find(cacheKey),
+            result: getResult<AiVariantPayload>(cacheKey),
+            cached: readAiCache<AiVariantPayload>(cacheKey),
+            hasValue: (value) => toQuizItems(value, source).length > 0,
+        });
+        if (decision.kind === "ready") {
+            setItems(toQuizItems(decision.value, source));
             setError("");
             setLoading(false);
             return;
         }
-        const task = find(cacheKey);
-        if (task?.status === "error") {
+        if (decision.kind === "error") {
             setItems([]);
-            setError(task.error ?? "AI 请求失败");
+            setError(decision.message);
             setLoading(false);
             return;
         }
-        if (task?.status === "canceled") {
+        if (decision.kind === "canceled") {
             setItems([]);
             setError("已取消");
             setLoading(false);
             return;
         }
+        // running：run() 会接上同一个任务；none：开一个新的。
         setItems([]);
         void run();
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -89,17 +89,16 @@ export default function AiExpenseSheet({
     const [picking, setPicking] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
-    const loadingRef = useRef(false);
+    // Set synchronously in parse(), not from a `loading` effect: the user can
+    // dismiss the sheet before that effect runs, and then the in-flight draft
+    // would be reset on the next open.
+    const parsingRef = useRef(false);
     const backgroundRef = useRef(false);
-
-    useEffect(() => {
-        loadingRef.current = loading;
-    }, [loading]);
 
     useEffect(() => {
         if (!open) {
             // 关着的时候还在解析，就保留这一笔，重新打开还能直接保存。
-            if (loadingRef.current) backgroundRef.current = true;
+            if (parsingRef.current) backgroundRef.current = true;
             return;
         }
         if (backgroundRef.current) {
@@ -154,6 +153,7 @@ export default function AiExpenseSheet({
             : "";
         const key = `expense-parse:${hashText(`${text.trim()}|${receiptKey}`)}`;
 
+        parsingRef.current = true;
         setLoading(true);
         setError("");
         try {
@@ -204,6 +204,7 @@ export default function AiExpenseSheet({
         } catch (err) {
             if (!isAiCanceled(err)) setError(aiErrorText(err));
         } finally {
+            parsingRef.current = false;
             setLoading(false);
         }
     };

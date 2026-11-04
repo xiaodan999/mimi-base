@@ -10,6 +10,7 @@ import AiSheet from "./AiSheet";
 import { hashText, readAiCache } from "./cache";
 import { aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { gradeMessages, userAnswerText, type AiGrade } from "./prompts";
+import { decideAiRestore } from "./restore";
 import { useAiTasks } from "./tasks";
 
 type Props = {
@@ -53,7 +54,7 @@ export default function AiGradeSheet({
     onAdopt,
 }: Props) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, attend, find } = useAiTasks();
+    const { runTask, attend, find, getResult } = useAiTasks();
     const [grade, setGrade] = useState<AiGrade | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -123,26 +124,30 @@ export default function AiGradeSheet({
         if (startedRef.current === cacheKey) return;
         startedRef.current = cacheKey;
 
-        const cached = readAiCache<AiGrade>(cacheKey);
-        if (cached) {
-            setGrade(cached);
+        const decision = decideAiRestore<AiGrade>({
+            task: find(cacheKey),
+            result: getResult<AiGrade>(cacheKey),
+            cached: readAiCache<AiGrade>(cacheKey),
+        });
+        if (decision.kind === "ready") {
+            setGrade(decision.value);
             setError("");
             setLoading(false);
             return;
         }
-        const task = find(cacheKey);
-        if (task?.status === "error") {
+        if (decision.kind === "error") {
             setGrade(null);
-            setError(task.error ?? "AI 请求失败");
+            setError(decision.message);
             setLoading(false);
             return;
         }
-        if (task?.status === "canceled") {
+        if (decision.kind === "canceled") {
             setGrade(null);
             setError("已取消");
             setLoading(false);
             return;
         }
+        // running：run() 会接上同一个任务；none：开一个新的。
         setGrade(null);
         void run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
