@@ -121,6 +121,7 @@ export type CategoryGuess = { name: string; category: string };
 export function categoryGuessMessages(
     names: string[],
     categories: CategoryOption[],
+    options?: { preferSpecific?: boolean },
 ): AiMessage[] {
     return [
         { role: "system", content: SYSTEM },
@@ -131,6 +132,11 @@ export function categoryGuessMessages(
                 '{"items":[{"name":"原样返回的项目名","category":"food"}]}',
                 `category 必须是：${categoryLine(categories)}。`,
                 "必须保留每一条的原始项目名，不要合并，不要新增。",
+                ...(options?.preferSpecific
+                    ? [
+                          "其中一些以前被归到了「其他」，请尽量给具体分类，实在判断不了再用 other。",
+                      ]
+                    : []),
                 "",
                 names.map((name, index) => `${index + 1}. ${name}`).join("\n"),
             ].join("\n"),
