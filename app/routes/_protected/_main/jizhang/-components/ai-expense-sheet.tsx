@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Sparkles, Trash2, Wand2 } from "lucide-react";
+import {
+    Camera,
+    ChevronRight,
+    RefreshCw,
+    Sparkles,
+    Trash2,
+    Wand2,
+} from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
@@ -207,11 +214,11 @@ export default function AiExpenseSheet({
         >
             <div className="space-y-3 pb-2">
                 {!configured && (
-                    <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-6 text-amber-800">
+                    <div className="rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[12.5px] leading-6 text-foreground">
                         还没配置 AI。
                         <button
                             type="button"
-                            className="ml-1 font-semibold underline"
+                            className="ml-1 font-semibold text-warning underline"
                             onClick={openSettings}
                         >
                             去设置
@@ -237,34 +244,57 @@ export default function AiExpenseSheet({
                                     alt="待识别的小票"
                                     className="max-h-56 w-full bg-muted/40 object-contain"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setReceipt(null)}
-                                    aria-label="移除小票"
-                                    className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/55 text-white"
-                                >
-                                    <Trash2 className="size-4" />
-                                </button>
+                                <div className="absolute inset-x-2 top-2 flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={pickReceipt}
+                                        disabled={picking || loading}
+                                        className="flex h-8 items-center gap-1.5 rounded-full bg-black/55 px-3 text-[12px] font-medium text-white backdrop-blur-sm"
+                                    >
+                                        <RefreshCw className="size-3.5" />
+                                        重拍
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReceipt(null)}
+                                        aria-label="移除小票"
+                                        className="grid size-8 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </button>
+                                </div>
                             </div>
                         ) : (
-                            <Button
+                            <button
                                 type="button"
-                                variant="outline"
-                                className="w-full justify-start gap-2"
                                 onClick={pickReceipt}
                                 disabled={picking || loading}
+                                className="flex w-full items-center gap-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-3 py-3 text-left transition-colors hover:bg-primary/10 active:bg-primary/15 disabled:opacity-60"
                             >
-                                {picking ? (
-                                    <LoadingSpinner size={16} />
-                                ) : (
-                                    <Camera className="size-4" />
-                                )}
-                                拍张小票，让 AI 自己填
-                            </Button>
+                                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                                    {picking ? (
+                                        <LoadingSpinner size={18} />
+                                    ) : (
+                                        <Camera className="size-5" />
+                                    )}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-semibold text-foreground">
+                                        拍张小票
+                                    </span>
+                                    <span className="block text-[11.5px] leading-5 text-muted-foreground">
+                                        AI 自动读出金额和分类，不用手打
+                                    </span>
+                                </span>
+                                <ChevronRight
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                    aria-hidden="true"
+                                />
+                            </button>
                         )}
 
                         {error && (
-                            <p className="rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-6 text-amber-800">
+                            <p className="rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[12.5px] leading-6 text-foreground">
                                 {error}
                             </p>
                         )}
@@ -272,12 +302,12 @@ export default function AiExpenseSheet({
                         <LoadingButton
                             type="button"
                             loading={loading}
-                            className="w-full"
+                            className="h-12 w-full gap-1.5 rounded-xl text-[15px] font-semibold"
                             onClick={parse}
                             disabled={picking}
                         >
-                            <Sparkles className="mr-1 size-4" />
-                            {receipt ? "识别小票" : "让 AI 记一下"}
+                            <Sparkles className="size-4" />
+                            {receipt ? "识别这张小票" : "让 AI 记一下"}
                         </LoadingButton>
                     </>
                 ) : (

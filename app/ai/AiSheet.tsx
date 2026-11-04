@@ -41,7 +41,12 @@ export default function AiSheet({
 
     return (
         <div
-            className="study-root kb-screen fixed inset-0 flex items-end justify-center"
+            // `pointer-events-auto` because a sheet can be opened while a
+            // Radix modal (vaul drawer, dialog) is open. Those set
+            // `pointer-events: none` on <body> and re-enable it only on their
+            // own content; without this the sheet renders on top but every
+            // tap falls through to the surface underneath.
+            className="kb-screen pointer-events-auto fixed inset-0 flex items-end justify-center"
             style={{ zIndex }}
             role="dialog"
             aria-modal="true"
