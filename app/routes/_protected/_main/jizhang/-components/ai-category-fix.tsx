@@ -22,6 +22,18 @@ type GuessResponse = {
     items?: { name?: unknown; category?: unknown }[];
 };
 
+type CategoryUpdate = { id: string; itemName: string; category: string };
+
+type ApplySummary = { done: number; failures: string[] };
+
+// 一次 PATCH 几百笔会把失败面放大：一批挂了，前面补好的行也白等。
+const APPLY_BATCH_SIZE = 5;
+
+function pbErrorText(error: unknown): string {
+    if (error instanceof Error && error.message) return error.message;
+    return "请稍后重试";
+}
+
 const CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map(({ value, label }) => ({
     value,
     label,
@@ -37,7 +49,12 @@ function useUncategorizedRows(enabled: boolean) {
             const records = await pb
                 .collection("ji_zhang_biao")
                 .getFullList<{ id: string; item_name: string }>({
-                    filter: pb.filter("category = {:empty}", { empty: "" }),
+                    // updateRule is owner-scoped, so only list my own rows —
+                    // other users' legacy rows would always fail to update.
+                    filter: pb.filter(
+                        "category = {:empty} && user_id = {:userId}",
+                        { empty: "", userId: user.id },
+                    ),
                     sort: "created",
                 });
             return records.map((record) => ({
@@ -111,30 +128,64 @@ export default function AiCategoryFix({
         }
     };
 
+    const runUpdates = async (
+        updates: CategoryUpdate[],
+    ): Promise<ApplySummary> => {
+        let done = 0;
+        const failures: string[] = [];
+        for (let start = 0; start < updates.length; start += APPLY_BATCH_SIZE) {
+            const slice = updates.slice(start, start + APPLY_BATCH_SIZE);
+            const results = await Promise.allSettled(
+                slice.map((item) =>
+                    pb.collection("ji_zhang_biao").update(item.id, {
+                        category: item.category,
+                    }),
+                ),
+            );
+            results.forEach((result, index) => {
+                if (result.status === "fulfilled") {
+                    done += 1;
+                } else {
+                    failures.push(
+                        `${slice[index].itemName}：${pbErrorText(result.reason)}`,
+                    );
+                }
+            });
+            // 权限或网络的问题不会因为多试几批就好了，停下来别一直刷。
+            if (failures.length > 0) break;
+        }
+        return { done, failures };
+    };
+
     const apply = async () => {
-        const updates = rows.filter((row) => guesses[row.id]);
+        const updates: CategoryUpdate[] = rows
+            .filter((row) => guesses[row.id])
+            .map((row) => ({
+                id: row.id,
+                itemName: row.itemName,
+                category: guesses[row.id],
+            }));
         if (updates.length === 0 || applying) return;
 
         setApplying(true);
+        setMessage("");
         try {
-            await toastPromise(
-                Promise.all(
-                    updates.map((row) =>
-                        pb.collection("ji_zhang_biao").update(row.id, {
-                            category: guesses[row.id],
-                        }),
-                    ),
-                ),
-                {
-                    loading: `补 ${updates.length} 笔分类中...`,
-                    success: `补好了 ${updates.length} 笔`,
-                    error: "补分类失败",
-                },
-            );
+            const summary = await toastPromise(runUpdates(updates), {
+                loading: `补 ${updates.length} 笔分类中...`,
+                success: ({ done, failures }) =>
+                    failures.length === 0
+                        ? `补好了 ${done} 笔`
+                        : `补好了 ${done} 笔，${failures.length} 笔失败`,
+                error: (err) => `补分类失败：${pbErrorText(err)}`,
+            });
             await queryClient.invalidateQueries({
                 queryKey: qk.jiZhang.all,
             });
-            onClose();
+            if (summary.failures.length === 0) {
+                onClose();
+            } else {
+                setMessage(summary.failures.slice(0, 3).join("\n"));
+            }
         } catch {
             // toastPromise 已经提示过
         } finally {
