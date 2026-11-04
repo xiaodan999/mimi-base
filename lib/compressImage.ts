@@ -7,7 +7,7 @@ let webpEncodeSupported: boolean | undefined;
  * WebP (older iOS Safari), which can make a "compressed" photo bigger than
  * the original. Detect support once and fall back to JPEG instead.
  */
-function canEncodeWebp() {
+export function canEncodeWebp() {
     if (webpEncodeSupported !== undefined) return webpEncodeSupported;
 
     try {

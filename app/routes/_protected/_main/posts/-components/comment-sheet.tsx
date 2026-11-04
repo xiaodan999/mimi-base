@@ -13,7 +13,7 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
-import { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
+import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 
 import {
@@ -137,9 +137,7 @@ export default function CommentSheet({
                                             touXiangUrl={getUserAvatarUrl(
                                                 root.author,
                                             )}
-                                            circleUrl={getUserCircleUrl(
-                                                root.author,
-                                            )}
+                                            {...getUserRing(root.author)}
                                         />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-baseline justify-between gap-2">

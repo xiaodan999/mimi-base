@@ -129,4 +129,16 @@ export function getUserCircleUrl(
     return getFileUrl(circle as FileRecord, circle.image, thumb);
 }
 
+/**
+ * Props for `<TouXiang>`: an uploaded ring wins over a built-in preset, and
+ * "" falls back to the bundled default ring.
+ */
+export function getUserRing(
+    user: (WithExpandedCircle & { circle_preset?: string }) | null | undefined,
+): { circleUrl: string; preset: string } {
+    const circleUrl = getUserCircleUrl(user);
+    if (circleUrl) return { circleUrl, preset: "" };
+    return { circleUrl: "", preset: user?.circle_preset ?? "" };
+}
+
 export default pb;

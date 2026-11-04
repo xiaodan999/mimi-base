@@ -10,7 +10,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/lib/auth";
-import { getFileUrl, getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
+import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 
 import { PostData, useDeletePostMutation, usePostLikeMutation } from "../-data";
@@ -62,7 +62,7 @@ export default function Post({
     const avatar = (
         <TouXiang
             className="shrink-0"
-            circleUrl={getUserCircleUrl(author)}
+            {...getUserRing(author)}
             size={40}
             touXiangUrl={getUserAvatarUrl(author)}
         />

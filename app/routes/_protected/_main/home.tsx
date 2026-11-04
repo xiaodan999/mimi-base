@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
+    Camera,
     Carrot,
     Flame,
     Ham,
@@ -26,23 +27,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerDescription,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-} from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import useLongPress from "@/hooks/useLongPress";
-import { useAuth, useCurrentUser } from "@/lib/auth";
-import compressImage from "@/lib/compressImage";
+import { useCurrentUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
-import pb, { getUserAvatarUrl, getUserCircleUrl } from "@/lib/pb";
+import pb, { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
-import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 
 import { useHomeStats } from "./-home-data";
@@ -53,7 +42,6 @@ export const Route = createFileRoute("/_protected/_main/home")({
 
 function Page() {
     const user = useCurrentUser();
-    const { refresh } = useAuth();
     const { data: stats } = useHomeStats();
     const { data: summaries } = useStudySummaries();
     const streak = Math.max(
@@ -62,10 +50,6 @@ function Page() {
             streakDays(progress),
         ),
     );
-    const [visible, setVisible] = useState(false);
-    const bind = useLongPress(() => {
-        setVisible(true);
-    }, 500);
 
     const now = new Date();
     const hour = now.getHours();
@@ -89,24 +73,31 @@ function Page() {
         <div className="px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
             <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
                 <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        {...bind}
-                        className="shrink-0 rounded-full"
-                        aria-label="更换头像"
+                    <Link
+                        to="/profile"
+                        aria-label="查看个人资料"
+                        className="relative shrink-0 rounded-full"
                     >
                         <TouXiang
                             size={56}
                             touXiangUrl={getUserAvatarUrl(user)}
-                            circleUrl={getUserCircleUrl(user)}
+                            {...getUserRing(user)}
                         />
-                    </button>
+                        <span
+                            aria-hidden="true"
+                            className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-soft"
+                        >
+                            <Camera className="size-3" />
+                        </span>
+                    </Link>
                     <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-muted-foreground">
                             {greeting} · {dateLabel} {weekday}
                         </p>
                         <h1 className="truncate text-2xl font-semibold tracking-tight">
-                            {user.user_name || "朋友"}
+                            <Link to="/profile" className="hover:underline">
+                                {user.user_name || "朋友"}
+                            </Link>
                         </h1>
                     </div>
                     <ThemeToggle className="shrink-0 self-start border-border/60 bg-background/60" />
@@ -156,83 +147,6 @@ function Page() {
             <p className="mt-6 text-center text-[10px] font-medium text-muted-foreground">
                 秘密基地 · V{APP_VERSION}
             </p>
-
-            <Drawer open={visible} onOpenChange={setVisible}>
-                <DrawerContent>
-                    <DrawerHeader>
-                        <DrawerTitle>请选择你要进行的操作</DrawerTitle>
-                    </DrawerHeader>
-                    <DrawerDescription>点击以下的选项</DrawerDescription>
-                    <DrawerFooter className="text-lg">
-                        <div className="divide-y divide-border text-center">
-                            <div
-                                className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent"
-                                onClick={async () => {
-                                    setVisible(false);
-                                    // 1. 让用户选择图片
-                                    const originalFile = await toastPromise(
-                                        showFilePicker("image/*"),
-                                        {
-                                            loading: "获取图片中...",
-                                            success: "成功获取图片",
-                                            error: "获取图片失败",
-                                        },
-                                    );
-
-                                    const file = await toastPromise(
-                                        compressImage(originalFile, {
-                                            quality: 0.7,
-                                        }),
-                                        {
-                                            loading: "压缩图片中...",
-                                            success: "压缩图片完成",
-                                            error: "压缩图片失败",
-                                        },
-                                    );
-                                    // 2. 一次调用同时上传头像文件并更新`users`记录
-                                    const type = file.type || "image/webp";
-                                    const ext = type.split("/")[1] || "webp";
-                                    const formData = new FormData();
-                                    formData.append(
-                                        "tou_xiang",
-                                        new File(
-                                            [file],
-                                            `${Date.now()}.${ext}`,
-                                            {
-                                                type,
-                                            },
-                                        ),
-                                    );
-
-                                    await toastPromise(
-                                        pb
-                                            .collection("users")
-                                            .update(user.id, formData),
-                                        {
-                                            loading: "修改头像中...",
-                                            success: () => {
-                                                refresh();
-                                                return "修改头像成功";
-                                            },
-                                            error: "修改头像失败",
-                                        },
-                                    );
-                                }}
-                            >
-                                修改头像
-                            </div>
-                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
-                                修改头像框
-                            </div>
-                        </div>
-                        <DrawerClose asChild>
-                            <div className="flex h-14 items-center justify-center hover:cursor-pointer hover:bg-accent">
-                                取消
-                            </div>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
         </div>
     );
 }

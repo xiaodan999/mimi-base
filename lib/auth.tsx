@@ -16,6 +16,8 @@ export type Circle = {
     description: string;
     // file filename ("" when unset)
     image: string;
+    // relation id of the uploader ("" for admin-seeded rings)
+    owner?: string;
 };
 
 export type User = {
@@ -25,6 +27,8 @@ export type User = {
     tou_xiang: string;
     // relation id ("" when unset); the record comes from `expand.circle`
     circle: string;
+    // built-in ring key; "" is the default ring, "none" hides it
+    circle_preset?: string;
     expand?: {
         circle?: Circle;
     };

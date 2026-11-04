@@ -11,7 +11,12 @@ export const qk = {
         list: (userId: string) => ["posts", userId] as const,
     },
     comments: {
+        root: ["comments"] as const,
         all: (postId: string) => ["comments", postId] as const,
+    },
+    circles: {
+        all: ["tou-xiang-circle"] as const,
+        mine: (userId: string) => ["tou-xiang-circle", userId] as const,
     },
     jiZhang: {
         all: ["ji-zhang"] as const,
