@@ -4,9 +4,17 @@ import { toast } from "sonner";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, chatJSON } from "@/app/ai/client";
+import { hashText } from "@/app/ai/cache";
+import {
+    AiError,
+    aiErrorText,
+    chatJSON,
+    isAiCanceled,
+    throwIfAborted,
+} from "@/app/ai/client";
 import { imagesToDataUrls } from "@/app/ai/image";
 import { captionMessages } from "@/app/ai/posts";
+import { useAiTasks } from "@/app/ai/tasks";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +64,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const user = useCurrentUser();
     const newPostMutation = useNewPostMutation();
     const { settings, configured, openSettings } = useAi();
+    const { runTask, cancel, attend } = useAiTasks();
     const [captionOpen, setCaptionOpen] = useState(false);
     const [captionLoading, setCaptionLoading] = useState(false);
     const [captionError, setCaptionError] = useState("");
@@ -69,6 +78,13 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const [previewIndex, setPreviewIndex] = useState<number | null>(null);
     const previewUrls = useRef<string[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const captionKeyRef = useRef<string | null>(null);
+
+    // 配文面板开着时不用再弹完成通知
+    useEffect(() => {
+        if (!captionOpen) return;
+        return attend("captions");
+    }, [captionOpen, attend]);
 
     // Release the local object URLs when the composer unmounts.
     useEffect(() => {
@@ -223,49 +239,76 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             return;
         }
 
+        const fingerprint = images
+            .map(
+                (image) =>
+                    `${image.file.name}:${image.file.size}:${image.file.lastModified}`,
+            )
+            .join(",");
+        const key = `captions:${hashText(
+            `${text.trim()}|${layout}|${fingerprint}`,
+        )}`;
+        if (captionKeyRef.current && captionKeyRef.current !== key) {
+            cancel(captionKeyRef.current);
+        }
+        captionKeyRef.current = key;
+
         setCaptionOpen(true);
         setCaptionLoading(true);
         setCaptionError("");
         setCaptions([]);
         try {
-            const imageUrls = await imagesToDataUrls(
-                images.map((image) => image.file),
-                { maxSize: 768, limit: 3 },
-            );
-            const result = await chatJSON<{
-                captions?: { style?: unknown; text?: unknown }[];
-            }>(
-                settings,
-                captionMessages({
-                    imageUrls,
-                    hint: text,
-                    layout,
-                    count: images.length,
-                }),
-            );
+            const list = await runTask<CaptionOption[]>({
+                key,
+                group: "captions",
+                title: "AI 配文",
+                subtitle: text.trim().slice(0, 30) || `${images.length} 张照片`,
+                kind: "json",
+                summarize: (value) => `生成了 ${value.length} 条文案`,
+                run: async ({ signal }) => {
+                    const imageUrls = await imagesToDataUrls(
+                        images.map((image) => image.file),
+                        { maxSize: 768, limit: 3 },
+                    );
+                    throwIfAborted(signal);
 
-            const list = (result.captions ?? []).flatMap((item) => {
-                if (typeof item.text !== "string") return [];
-                const value = item.text.trim().slice(0, 80);
-                if (!value) return [];
-                return [
-                    {
-                        style:
-                            typeof item.style === "string"
-                                ? item.style
-                                : "文案",
-                        text: value,
-                    },
-                ];
+                    const result = await chatJSON<{
+                        captions?: { style?: unknown; text?: unknown }[];
+                    }>(
+                        settings,
+                        captionMessages({
+                            imageUrls,
+                            hint: text,
+                            layout,
+                            count: images.length,
+                        }),
+                        signal,
+                    );
+
+                    const value = (result.captions ?? []).flatMap((item) => {
+                        if (typeof item.text !== "string") return [];
+                        const textValue = item.text.trim().slice(0, 80);
+                        if (!textValue) return [];
+                        return [
+                            {
+                                style:
+                                    typeof item.style === "string"
+                                        ? item.style
+                                        : "文案",
+                                text: textValue,
+                            },
+                        ];
+                    });
+
+                    if (value.length === 0) {
+                        throw new AiError("AI 没给出文案，再试一次？");
+                    }
+                    return value;
+                },
             });
-
-            if (list.length === 0) {
-                setCaptionError("AI 没给出文案，再试一次？");
-                return;
-            }
             setCaptions(list);
         } catch (err) {
-            setCaptionError(aiErrorText(err));
+            if (!isAiCanceled(err)) setCaptionError(aiErrorText(err));
         } finally {
             setCaptionLoading(false);
         }

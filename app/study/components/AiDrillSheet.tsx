@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, chatJSON } from "@/app/ai/client";
+import { readAiCache } from "@/app/ai/cache";
+import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { drillPickMessages, type DrillCandidate } from "@/app/ai/study";
+import { useAiTasks } from "@/app/ai/tasks";
 
-import { shuffle } from "../engine";
+import { dayKey, shuffle } from "../engine";
 import type { Progress, QuizItem, StudySubject } from "../types";
 import { useStudy } from "./StudyContext";
 
@@ -15,6 +17,11 @@ const CANDIDATE_LIMIT = 40;
 type DrillResponse = {
     ids?: unknown;
     reason?: unknown;
+};
+
+type DrillResult = {
+    ids: string[];
+    reason: string;
 };
 
 function moduleName(subject: StudySubject, id: string): string {
@@ -52,11 +59,14 @@ export default function AiDrillSheet({
 }) {
     const { subject, progress } = useStudy();
     const { settings, configured, openSettings } = useAi();
+    const { runTask, find, attend } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [reason, setReason] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [fallbackIds, setFallbackIds] = useState<string[]>([]);
+
+    const cacheKey = `drill:v1:${subject.id}:${dayKey()}`;
 
     const buildCandidates = useCallback((): {
         candidates: QuizItem[];
@@ -87,88 +97,153 @@ export default function AiDrillSheet({
         setError("AI 这次没挑出来，先用随机的一组。");
     }, []);
 
-    const pick = useCallback(async () => {
+    const pick = useCallback(
+        async (force = false) => {
+            if (!configured) {
+                openSettings();
+                return;
+            }
+
+            const { candidates, weakModules } = buildCandidates();
+            if (candidates.length === 0) {
+                setError("题库里还没有可练的题。");
+                return;
+            }
+
+            setLoading(true);
+            setError("");
+            if (force) {
+                setItems([]);
+                setReason("");
+                setFallbackIds([]);
+            }
+            try {
+                const result = await runTask<DrillResult>({
+                    key: cacheKey,
+                    group: cacheKey,
+                    cacheKey,
+                    title: "定向刷题",
+                    subtitle: "按错题分布挑一组",
+                    kind: "json",
+                    force,
+                    summarize: (value) => `已挑 ${value.ids.length} 道题`,
+                    run: async ({ signal }) => {
+                        const response = await chatJSON<DrillResponse>(
+                            settings,
+                            drillPickMessages({
+                                subjectTitle: subject.title,
+                                weakModules:
+                                    weakModules.length > 0
+                                        ? weakModules
+                                        : ["全部模块"],
+                                candidates: candidates.map(
+                                    (item): DrillCandidate => ({
+                                        id: item.id,
+                                        moduleName: moduleName(subject, item.m),
+                                        stem: item.stem,
+                                    }),
+                                ),
+                            }),
+                            signal,
+                        );
+
+                        const allowed = new Set(
+                            candidates.map((item) => item.id),
+                        );
+                        const ids = Array.isArray(response.ids)
+                            ? response.ids.filter(
+                                  (id): id is string =>
+                                      typeof id === "string" && allowed.has(id),
+                              )
+                            : [];
+                        if (ids.length === 0) {
+                            throw new AiError(
+                                "AI 这次没挑出来，先用随机的一组。",
+                            );
+                        }
+
+                        return {
+                            ids,
+                            reason:
+                                typeof response.reason === "string"
+                                    ? response.reason.trim()
+                                    : "",
+                        };
+                    },
+                });
+
+                const byId = new Map(candidates.map((item) => [item.id, item]));
+                const picked = result.ids.flatMap((id) => {
+                    const item = byId.get(id);
+                    return item ? [item] : [];
+                });
+                if (picked.length === 0) {
+                    fallback(candidates);
+                    return;
+                }
+                setItems(picked.slice(0, PICK_COUNT));
+                setReason(result.reason);
+                setFallbackIds([]);
+            } catch (err) {
+                if (isAiCanceled(err)) return;
+                setError(aiErrorText(err));
+                fallback(candidates);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [
+            buildCandidates,
+            cacheKey,
+            configured,
+            fallback,
+            openSettings,
+            runTask,
+            settings,
+            subject,
+        ],
+    );
+
+    // 打开时优先用当天已经挑好的那一组；后台跑完的结果也能直接看到。
+    useEffect(() => {
+        if (!open) return;
         if (!configured) {
             openSettings();
             return;
         }
 
-        const { candidates, weakModules } = buildCandidates();
-        if (candidates.length === 0) {
-            setError("题库里还没有可练的题。");
-            return;
-        }
-
-        setLoading(true);
-        setError("");
-        setItems([]);
-        setReason("");
-        setFallbackIds([]);
-        try {
-            const result = await chatJSON<DrillResponse>(
-                settings,
-                drillPickMessages({
-                    subjectTitle: subject.title,
-                    weakModules:
-                        weakModules.length > 0 ? weakModules : ["全部模块"],
-                    candidates: candidates.map((item): DrillCandidate => ({
-                        id: item.id,
-                        moduleName: moduleName(subject, item.m),
-                        stem: item.stem,
-                    })),
-                }),
-            );
-
-            const ids = Array.isArray(result.ids)
-                ? result.ids.filter(
-                      (id): id is string => typeof id === "string",
-                  )
-                : [];
-            const byId = new Map(candidates.map((item) => [item.id, item]));
-            const picked = ids.flatMap((id) => {
+        const cached = readAiCache<DrillResult>(cacheKey);
+        if (cached) {
+            const byId = new Map(subject.bank.map((item) => [item.id, item]));
+            const picked = cached.ids.flatMap((id) => {
                 const item = byId.get(id);
                 return item ? [item] : [];
             });
-
-            if (picked.length === 0) {
-                fallback(candidates);
+            if (picked.length) {
+                setItems(picked.slice(0, PICK_COUNT));
+                setReason(cached.reason);
+                setError("");
+                setFallbackIds([]);
+                setLoading(false);
                 return;
             }
-            setItems(picked.slice(0, PICK_COUNT));
-            setReason(
-                typeof result.reason === "string" ? result.reason.trim() : "",
-            );
-        } catch (err) {
-            setError(aiErrorText(err));
-            fallback(candidates);
-        } finally {
-            setLoading(false);
         }
-    }, [
-        buildCandidates,
-        configured,
-        fallback,
-        openSettings,
-        settings,
-        subject,
-    ]);
 
-    // 打开时自动挑一组；关掉就清空，避免下次看到旧结果。
-    useEffect(() => {
-        if (!open) {
-            setItems([]);
-            setReason("");
-            setError("");
-            setFallbackIds([]);
+        const task = find(cacheKey);
+        if (task?.status === "canceled") {
+            setLoading(false);
+            setError("已取消");
             return;
         }
-        if (!configured) {
-            openSettings();
-            return;
-        }
+        if (task?.status === "running") setLoading(true);
         void pick();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        return attend(cacheKey);
+    }, [open, cacheKey, attend]);
 
     return (
         <AiSheet
@@ -213,7 +288,7 @@ export default function AiDrillSheet({
                         <div className="flex gap-2">
                             <button
                                 className="st-btn line sm flex-1"
-                                onClick={() => void pick()}
+                                onClick={() => void pick(true)}
                                 disabled={loading}
                             >
                                 换一组
@@ -234,7 +309,7 @@ export default function AiDrillSheet({
                 {!loading && items.length === 0 && (
                     <button
                         className="st-btn sm block w-full"
-                        onClick={() => void pick()}
+                        onClick={() => void pick(true)}
                     >
                         再挑一次
                     </button>

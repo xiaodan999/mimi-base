@@ -264,6 +264,16 @@ before your first commit.
   never stored. In dev, `server.ts` adds `opencode.ai` to the PB child's
   `NO_PROXY` because WSL proxy envs often can't reach it; prod keeps the
   server's network config untouched.
+- Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
+  `AiContext`): closing a sheet or changing pages no longer aborts them. Use
+  `runTask({ key, group, cacheKey, title, run })` and let the store own the
+  `AbortController`; never abort on unmount/close. Successful results are
+  written to `cacheKey` and appear in the task center (bottom-left pill +
+  sonner toast); `attend(group)` marks a task as watched while its page/panel
+  is open so it does not double-notify. System notifications are opt-in via
+  `AiSettings.notify` and only fire while the page is hidden. This is
+  client-side background: reloading or fully closing the app still stops
+  in-flight requests, because the key only lives in `localStorage`.
 - AI entry points: 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天,
   问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),

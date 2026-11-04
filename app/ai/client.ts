@@ -77,9 +77,27 @@ async function readError(res: Response): Promise<AiError> {
     );
 }
 
+/**
+ * fetch 被 abort 时，不同浏览器抛出的对象不完全一样，
+ * 统一用这个名字判断，别把「已取消」当成失败提示。
+ */
+export function isAiCanceled(error: unknown): boolean {
+    return (
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError")
+    );
+}
+
+/** 图片转码、查库这类预处理结束后，任务可能已经被取消 */
+export function throwIfAborted(signal?: AbortSignal) {
+    if (signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+    }
+}
+
 export function aiErrorText(error: unknown): string {
     if (error instanceof AiError) return error.message;
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (isAiCanceled(error)) {
         return "已取消";
     }
     if (error instanceof TypeError) {

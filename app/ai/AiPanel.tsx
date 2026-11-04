@@ -5,8 +5,14 @@ import { toast } from "@/app/study/toast";
 import { useAi } from "./AiContext";
 import AiMarkdown from "./AiMarkdown";
 import AiSheet from "./AiSheet";
-import { readAiCache, writeAiCache } from "./cache";
-import { aiErrorText, streamChat, type AiMessage } from "./client";
+import { hashText, readAiCache } from "./cache";
+import {
+    aiErrorText,
+    isAiCanceled,
+    streamChat,
+    type AiMessage,
+} from "./client";
+import { useAiTasks } from "./tasks";
 
 export type AiTurn = { role: "user" | "assistant"; content: string };
 
@@ -23,9 +29,12 @@ type Props = {
     intro?: string;
 };
 
+type RunOptions = { key?: string; force?: boolean };
+
 /**
  * 通用流式对话面板：
  * - 首次打开自动请求并缓存到本机
+ * - 关掉面板不会中止请求，任务在 App 层继续跑
  * - 支持追问 chip、重新生成、复制
  */
 export default function AiPanel({
@@ -39,75 +48,105 @@ export default function AiPanel({
     intro,
 }: Props) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, cancel, attend, tasks, find, getResult } = useAiTasks();
     const [turns, setTurns] = useState<AiTurn[]>([]);
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState("");
-    const abortRef = useRef<AbortController | null>(null);
     const startedRef = useRef<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const turnsRef = useRef<AiTurn[]>([]);
-
-    const stop = useCallback(() => {
-        abortRef.current?.abort();
-        abortRef.current = null;
-    }, []);
+    const activeKeyRef = useRef<string | null>(null);
+    const localRunRef = useRef<string | null>(null);
+    const runTicketRef = useRef(0);
 
     const run = useCallback(
-        async (base: AiMessage[], history: AiTurn[]) => {
-            stop();
-            const controller = new AbortController();
-            abortRef.current = controller;
+        async (base: AiMessage[], history: AiTurn[], options?: RunOptions) => {
+            const key = options?.key ?? cacheKey;
+            if (activeKeyRef.current && activeKeyRef.current !== key) {
+                cancel(activeKeyRef.current);
+            }
+            activeKeyRef.current = key;
+            localRunRef.current = key;
+            const ticket = ++runTicketRef.current;
+
             setError("");
             setStreaming(true);
             setTurns([...history, { role: "assistant", content: "" }]);
 
+            const requestMessages: AiMessage[] = [
+                ...base,
+                ...history.map((turn) => ({
+                    role: turn.role,
+                    content: turn.content,
+                })),
+            ];
             let text = "";
+
             try {
-                const requestMessages: AiMessage[] = [
-                    ...base,
-                    ...history.map((turn) => ({
-                        role: turn.role,
-                        content: turn.content,
-                    })),
-                ];
-                for await (const delta of streamChat(
-                    settings,
-                    requestMessages,
-                    controller.signal,
-                )) {
-                    text += delta;
-                    setTurns((prev) => {
-                        const next = prev.slice();
-                        next[next.length - 1] = {
-                            role: "assistant",
-                            content: text,
-                        };
-                        return next;
-                    });
-                }
-                const finalTurns: AiTurn[] = [
-                    ...history,
-                    { role: "assistant", content: text },
-                ];
+                const finalTurns = await runTask<AiTurn[]>({
+                    key,
+                    group: cacheKey,
+                    cacheKey,
+                    title,
+                    subtitle,
+                    kind: "stream",
+                    force: options?.force,
+                    summarize: () => "AI 回复已生成",
+                    run: async ({ signal, report }) => {
+                        for await (const delta of streamChat(
+                            settings,
+                            requestMessages,
+                            signal,
+                        )) {
+                            text += delta;
+                            report(text);
+                            if (runTicketRef.current !== ticket) break;
+                            setTurns((previous) => {
+                                const next = previous.slice();
+                                next[next.length - 1] = {
+                                    role: "assistant",
+                                    content: text,
+                                };
+                                return next;
+                            });
+                        }
+                        return [
+                            ...history,
+                            { role: "assistant", content: text },
+                        ];
+                    },
+                });
+
+                if (runTicketRef.current !== ticket) return;
                 turnsRef.current = finalTurns;
                 setTurns(finalTurns);
-                writeAiCache(cacheKey, finalTurns);
             } catch (err) {
-                if (controller.signal.aborted) return;
+                if (runTicketRef.current !== ticket) return;
+                if (isAiCanceled(err)) {
+                    // 保留已经流出来的部分，不把「取消」当成报错
+                    if (!text) {
+                        turnsRef.current = history;
+                        setTurns(history);
+                    }
+                    return;
+                }
                 setError(aiErrorText(err));
                 turnsRef.current = history;
                 setTurns(history);
             } finally {
-                if (abortRef.current === controller) abortRef.current = null;
-                setStreaming(false);
+                if (runTicketRef.current === ticket) {
+                    if (localRunRef.current === key) {
+                        localRunRef.current = null;
+                    }
+                    setStreaming(false);
+                }
             }
         },
-        [cacheKey, settings, stop],
+        [cacheKey, cancel, runTask, settings, subtitle, title],
     );
 
     useEffect(() => {
         if (!open) {
-            stop();
             startedRef.current = null;
             return;
         }
@@ -128,9 +167,83 @@ export default function AiPanel({
             setStreaming(false);
             return;
         }
+
+        // 回到面板时，任务可能还在后台跑，或者刚刚跑完
+        const task = find(cacheKey);
+        if (task) {
+            if (task.status === "running") {
+                setTurns([{ role: "assistant", content: task.text ?? "" }]);
+                setError("");
+                setStreaming(true);
+                return;
+            }
+            if (task.status === "done") {
+                const result = getResult<AiTurn[]>(cacheKey);
+                if (result?.length) {
+                    turnsRef.current = result;
+                    setTurns(result);
+                    setError("");
+                    setStreaming(false);
+                    return;
+                }
+            }
+            if (task.status === "error") {
+                setError(task.error ?? "AI 请求失败");
+                setStreaming(false);
+                return;
+            }
+            if (task.status === "canceled") {
+                setError("已取消");
+                setStreaming(false);
+                return;
+            }
+        }
+
         void run(messages, []);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey, configured]);
+
+    // 后台任务（包括追问）还在跑时，重新打开面板也能看到进度
+    const activeTask = tasks.find((task) => task.cacheKey === cacheKey);
+    useEffect(() => {
+        if (!open || !activeTask) return;
+        if (localRunRef.current === activeTask.key) return;
+
+        if (activeTask.status === "running") {
+            const base = readAiCache<AiTurn[]>(cacheKey) ?? [];
+            setTurns([
+                ...base,
+                { role: "assistant", content: activeTask.text ?? "" },
+            ]);
+            setError("");
+            setStreaming(true);
+            return;
+        }
+        if (activeTask.status === "done") {
+            const cached = readAiCache<AiTurn[]>(cacheKey);
+            if (cached?.length) {
+                turnsRef.current = cached;
+                setTurns(cached);
+            }
+            setStreaming(false);
+            return;
+        }
+        if (activeTask.status === "error") {
+            setStreaming(false);
+            setError(activeTask.error ?? "AI 请求失败");
+            return;
+        }
+        if (activeTask.status === "canceled") {
+            setStreaming(false);
+            if (!activeTask.text) setError("已取消");
+        }
+    }, [open, cacheKey, activeTask]);
+
+    // 面板开着时任务完成不用再弹通知
+    useEffect(() => {
+        if (!open) return;
+        return attend(cacheKey);
+    }, [open, cacheKey, attend]);
 
     useEffect(() => {
         turnsRef.current = turns;
@@ -141,14 +254,12 @@ export default function AiPanel({
         if (el) el.scrollTop = el.scrollHeight;
     }, [turns, streaming]);
 
-    useEffect(() => () => stop(), [stop]);
-
     const regenerate = useCallback(() => {
         if (!configured) {
             openSettings();
             return;
         }
-        void run(messages, []);
+        void run(messages, [], { force: true });
     }, [configured, messages, openSettings, run]);
 
     const askChip = (chip: AiChip) => {
@@ -158,10 +269,15 @@ export default function AiPanel({
             return;
         }
         const history = turnsRef.current;
-        void run(messages, [
-            ...history,
-            { role: "user", content: chip.prompt },
-        ]);
+        void run(
+            messages,
+            [...history, { role: "user", content: chip.prompt }],
+            {
+                key: `${cacheKey}:ask:${hashText(
+                    chip.prompt + history.length,
+                )}`,
+            },
+        );
     };
 
     const copy = () => {
@@ -208,7 +324,19 @@ export default function AiPanel({
                     ),
                 )}
 
-                {streaming && <div className="st-tiny">AI 正在想…</div>}
+                {streaming && (
+                    <div className="flex items-center justify-between gap-2 text-[11.5px] text-muted-foreground">
+                        <span>AI 正在想… 可以关掉，后台会继续跑</span>
+                        {activeTask?.status === "running" && (
+                            <button
+                                className="st-btn sm ghost"
+                                onClick={() => cancel(activeTask.id)}
+                            >
+                                取消
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {error && (
                     <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-6 text-amber-800">

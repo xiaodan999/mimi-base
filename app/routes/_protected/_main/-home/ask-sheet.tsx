@@ -5,8 +5,15 @@ import { Send, Sparkles } from "lucide-react";
 import { useAi } from "@/app/ai/AiContext";
 import AiMarkdown from "@/app/ai/AiMarkdown";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, streamChat } from "@/app/ai/client";
+import { hashText } from "@/app/ai/cache";
+import {
+    aiErrorText,
+    isAiCanceled,
+    streamChat,
+    throwIfAborted,
+} from "@/app/ai/client";
 import { askMessages } from "@/app/ai/home";
+import { useAiTasks } from "@/app/ai/tasks";
 import {
     categoryFromRecord,
     getExpenseCategory,
@@ -117,23 +124,21 @@ export default function AskSheet({
     streak: number;
 }) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, cancel, attend } = useAiTasks();
     const user = useCurrentUser();
     const [question, setQuestion] = useState("");
     const [answer, setAnswer] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const abortRef = useRef<AbortController | null>(null);
+    const activeKeyRef = useRef<string | null>(null);
+    const requestRef = useRef(0);
+    const group = `ask:${user.id}`;
 
+    // 面板开着时任务完成不用再弹通知
     useEffect(() => {
-        if (open) return;
-        abortRef.current?.abort();
-        setQuestion("");
-        setAnswer("");
-        setError("");
-        setLoading(false);
-    }, [open]);
-
-    useEffect(() => () => abortRef.current?.abort(), []);
+        if (!open) return;
+        return attend(group);
+    }, [open, group, attend]);
 
     const ask = async (preset?: string) => {
         const value = (preset ?? question).trim();
@@ -143,32 +148,50 @@ export default function AskSheet({
             return;
         }
 
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
+        const key = `${group}:${hashText(value)}`;
+        if (activeKeyRef.current && activeKeyRef.current !== key) {
+            cancel(activeKeyRef.current);
+        }
+        activeKeyRef.current = key;
+        const ticket = ++requestRef.current;
+
         setQuestion(value);
         setAnswer("");
         setError("");
         setLoading(true);
 
         try {
-            const context = await buildContext(streak, user.id);
-            if (controller.signal.aborted) return;
+            const text = await runTask<string>({
+                key,
+                group,
+                title: "问问我的基地",
+                subtitle: value,
+                kind: "stream",
+                summarize: () => "回答已生成",
+                run: async ({ signal, report }) => {
+                    const context = await buildContext(streak, user.id);
+                    throwIfAborted(signal);
 
-            let text = "";
-            for await (const delta of streamChat(
-                settings,
-                askMessages({ question: value, context }),
-                controller.signal,
-            )) {
-                text += delta;
-                setAnswer(text);
-            }
+                    let text = "";
+                    for await (const delta of streamChat(
+                        settings,
+                        askMessages({ question: value, context }),
+                        signal,
+                    )) {
+                        text += delta;
+                        report(text);
+                        if (requestRef.current !== ticket) break;
+                        setAnswer(text);
+                    }
+                    return text;
+                },
+            });
+            if (requestRef.current === ticket) setAnswer(text);
         } catch (err) {
-            if (!controller.signal.aborted) setError(aiErrorText(err));
+            if (requestRef.current !== ticket) return;
+            if (!isAiCanceled(err)) setError(aiErrorText(err));
         } finally {
-            if (abortRef.current === controller) abortRef.current = null;
-            setLoading(false);
+            if (requestRef.current === ticket) setLoading(false);
         }
     };
 

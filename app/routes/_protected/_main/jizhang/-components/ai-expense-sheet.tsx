@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Camera,
     ChevronRight,
@@ -10,9 +10,18 @@ import {
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, chatJSON, type AiMessage } from "@/app/ai/client";
+import { hashText } from "@/app/ai/cache";
+import {
+    AiError,
+    aiErrorText,
+    chatJSON,
+    isAiCanceled,
+    throwIfAborted,
+    type AiMessage,
+} from "@/app/ai/client";
 import { expenseReceiptMessages, expenseTextMessages } from "@/app/ai/expense";
 import { imageToDataUrl } from "@/app/ai/image";
+import { useAiTasks } from "@/app/ai/tasks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -62,6 +71,7 @@ export default function AiExpenseSheet({
     onClose: () => void;
 }) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend } = useAiTasks();
     const mutation = useAddJiZhang();
     const { categories, getCategory } = useExpenseCategories();
     const categoryOptions = useMemo(
@@ -79,16 +89,35 @@ export default function AiExpenseSheet({
     const [picking, setPicking] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const loadingRef = useRef(false);
+    const backgroundRef = useRef(false);
 
     useEffect(() => {
-        if (!open) return;
-        // 每次打开都是新的一笔，不复用上次的草稿。
+        loadingRef.current = loading;
+    }, [loading]);
+
+    useEffect(() => {
+        if (!open) {
+            // 关着的时候还在解析，就保留这一笔，重新打开还能直接保存。
+            if (loadingRef.current) backgroundRef.current = true;
+            return;
+        }
+        if (backgroundRef.current) {
+            backgroundRef.current = false;
+            return;
+        }
+        // 平时每次打开都是新的一笔，不复用上次的草稿。
         setStage("input");
         setRows([]);
         setError("");
         setText("");
         setReceipt(null);
     }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        return attend("expense-parse");
+    }, [open, attend]);
 
     useEffect(() => {
         if (!receipt) return;
@@ -120,40 +149,60 @@ export default function AiExpenseSheet({
             return;
         }
 
+        const receiptKey = receipt
+            ? `${receipt.file.name}:${receipt.file.size}:${receipt.file.lastModified}`
+            : "";
+        const key = `expense-parse:${hashText(`${text.trim()}|${receiptKey}`)}`;
+
         setLoading(true);
         setError("");
         try {
-            let messages: AiMessage[];
-            if (receipt) {
-                const imageUrl = await imageToDataUrl(receipt.file);
-                messages = expenseReceiptMessages(
-                    [imageUrl],
-                    categoryOptions,
-                    text,
-                );
-            } else {
-                messages = expenseTextMessages(text, categoryOptions);
-            }
+            const drafts = await runTask<DraftRow[]>({
+                key,
+                group: "expense-parse",
+                title: "AI 记账",
+                subtitle: text.trim().slice(0, 30) || receipt?.file.name,
+                kind: "json",
+                summarize: (value) => `识别到 ${value.length} 笔`,
+                run: async ({ signal }) => {
+                    let messages: AiMessage[];
+                    if (receipt) {
+                        const imageUrl = await imageToDataUrl(receipt.file);
+                        throwIfAborted(signal);
+                        messages = expenseReceiptMessages(
+                            [imageUrl],
+                            categoryOptions,
+                            text,
+                        );
+                    } else {
+                        messages = expenseTextMessages(text, categoryOptions);
+                    }
 
-            const parsed = await chatJSON<RawParsed>(settings, messages);
-            const drafts = toDrafts(
-                {
-                    items: parsed.items?.map((item) => ({
-                        name: item.name,
-                        price: item.price,
-                        category: item.category,
-                    })),
+                    const parsed = await chatJSON<RawParsed>(
+                        settings,
+                        messages,
+                        signal,
+                    );
+                    const next = toDrafts(
+                        {
+                            items: parsed.items?.map((item) => ({
+                                name: item.name,
+                                price: item.price,
+                                category: item.category,
+                            })),
+                        },
+                        categories,
+                    );
+                    if (next.length === 0) {
+                        throw new AiError("没读懂这笔账，换个说法再试试？");
+                    }
+                    return next;
                 },
-                categories,
-            );
-            if (drafts.length === 0) {
-                setError("没读懂这笔账，换个说法再试试？");
-                return;
-            }
+            });
             setRows(drafts);
             setStage("review");
         } catch (err) {
-            setError(aiErrorText(err));
+            if (!isAiCanceled(err)) setError(aiErrorText(err));
         } finally {
             setLoading(false);
         }

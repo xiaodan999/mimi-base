@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, chatJSON } from "@/app/ai/client";
+import { hashText, readAiCache } from "@/app/ai/cache";
+import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { categoryGuessMessages } from "@/app/ai/expense";
+import { useAiTasks } from "@/app/ai/tasks";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -23,6 +25,11 @@ type GuessResponse = {
     items?: { name?: unknown; category?: unknown }[];
 };
 
+type GuessResult = {
+    category: string;
+    hint: string;
+};
+
 /** Fix the category of a single existing expense row. */
 export default function EditExpenseSheet({
     item,
@@ -32,6 +39,7 @@ export default function EditExpenseSheet({
     onClose: () => void;
 }) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend, tasks } = useAiTasks();
     const { categories, getCategory } = useExpenseCategories();
     const update = useUpdateJiZhang();
     const [value, setValue] = useState(item.category ?? "");
@@ -44,6 +52,49 @@ export default function EditExpenseSheet({
         label,
     }));
     const dirty = value !== (item.category ?? "");
+    const cacheKey = `category-guess:${item.id}:${hashText(item.itemName)}`;
+
+    // 后台猜过的结果，重新打开这一行时直接显示
+    useEffect(() => {
+        const cached = readAiCache<GuessResult>(cacheKey);
+        if (!cached) return;
+        if (cached.category) setValue(cached.category);
+        setHint(cached.hint);
+    }, [cacheKey]);
+
+    // 猜分类还在后台跑时，重新打开这一行也能接上
+    const activeTask = tasks.find((task) => task.key === cacheKey);
+    const appliedRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!activeTask) return;
+        if (activeTask.status === "running") {
+            setGuessing(true);
+            return;
+        }
+        if (activeTask.status === "done") {
+            // 同一个结果只应用一次，别覆盖用户自己改过的分类
+            if (appliedRef.current !== activeTask.id) {
+                appliedRef.current = activeTask.id;
+                const cached = readAiCache<GuessResult>(cacheKey);
+                if (cached) {
+                    if (cached.category) setValue(cached.category);
+                    setHint(cached.hint);
+                }
+            }
+            setGuessing(false);
+            return;
+        }
+        if (activeTask.status === "error") {
+            setHint(activeTask.error ?? "AI 请求失败");
+            setGuessing(false);
+            return;
+        }
+        setGuessing(false);
+    }, [activeTask, cacheKey]);
+
+    useEffect(() => {
+        return attend("category-guess");
+    }, [attend]);
 
     const guess = async () => {
         if (!configured) {
@@ -54,28 +105,46 @@ export default function EditExpenseSheet({
         setGuessing(true);
         setHint("");
         try {
-            const result = await chatJSON<GuessResponse>(
-                settings,
-                categoryGuessMessages([item.itemName], options),
-            );
-            const raw = result.items?.find(
-                (entry) => typeof entry.category === "string",
-            )?.category;
-            const next =
-                typeof raw === "string"
-                    ? normalizeCategoryValue(raw, categories)
-                    : "";
+            const result = await runTask<GuessResult>({
+                key: cacheKey,
+                group: "category-guess",
+                cacheKey,
+                title: "AI 猜分类",
+                subtitle: item.itemName,
+                kind: "json",
+                summarize: (value) =>
+                    value.category
+                        ? `猜成「${getCategory(value.category).label}」`
+                        : "没猜出来",
+                run: async ({ signal }) => {
+                    const response = await chatJSON<GuessResponse>(
+                        settings,
+                        categoryGuessMessages([item.itemName], options),
+                        signal,
+                    );
+                    const raw = response.items?.find(
+                        (entry) => typeof entry.category === "string",
+                    )?.category;
+                    const category =
+                        typeof raw === "string"
+                            ? normalizeCategoryValue(raw, categories)
+                            : "";
 
-            if (next) {
-                setValue(next);
-                setHint(
-                    `AI 觉得是「${getCategory(next).label}」，不对就自己换一个。`,
-                );
-            } else {
-                setHint("AI 也拿不准，你直接选一个吧。");
-            }
+                    return {
+                        category,
+                        hint: category
+                            ? `AI 觉得是「${
+                                  getCategory(category).label
+                              }」，不对就自己换一个。`
+                            : "AI 也拿不准，你直接选一个吧。",
+                    };
+                },
+            });
+
+            if (result.category) setValue(result.category);
+            setHint(result.hint);
         } catch (err) {
-            setHint(aiErrorText(err));
+            if (!isAiCanceled(err)) setHint(aiErrorText(err));
         } finally {
             setGuessing(false);
         }

@@ -7,6 +7,8 @@ export type AiSettings = {
     baseUrl: string;
     apiKey: string;
     model: string;
+    /** 任务完成时，如果 App 在后台就发系统通知 */
+    notify: boolean;
 };
 
 export type AiPreset = {
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: AiSettings = {
     baseUrl: AI_PRESETS[0].baseUrl,
     apiKey: "",
     model: AI_PRESETS[0].model,
+    notify: false,
 };
 
 function readValue(primary: string, legacy: string): string | null {
@@ -114,6 +117,7 @@ export function readAiSettings(): AiSettings {
                 typeof parsed.model === "string"
                     ? parsed.model
                     : DEFAULT_SETTINGS.model,
+            notify: parsed.notify === true,
         };
     } catch {
         return { ...DEFAULT_SETTINGS };

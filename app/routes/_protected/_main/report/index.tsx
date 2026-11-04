@@ -3,9 +3,10 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, Sparkles } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
-import { hashText, readAiCache, writeAiCache } from "@/app/ai/cache";
-import { aiErrorText, chatText } from "@/app/ai/client";
+import { hashText, readAiCache } from "@/app/ai/cache";
+import { AiError, aiErrorText, chatText, isAiCanceled } from "@/app/ai/client";
 import { reportLetterMessages } from "@/app/ai/report";
+import { useAiTasks } from "@/app/ai/tasks";
 import { useStudySummaries } from "@/app/study/progress";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -317,6 +318,7 @@ function ReportLetter({
 }) {
     const user = useCurrentUser();
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend, find, getResult } = useAiTasks();
     const [letter, setLetter] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -360,32 +362,81 @@ function ReportLetter({
             const cached = readAiCache<string>(key);
             if (cached) {
                 setLetter(cached);
+                setLoading(false);
                 return;
             }
         }
 
-        const controller = new AbortController();
+        const task = find(key);
+        if (task?.status === "error") {
+            setError(task.error ?? "AI 请求失败");
+            setLoading(false);
+            return;
+        }
+        if (task?.status === "canceled") {
+            setError("已取消");
+            setLoading(false);
+            return;
+        }
+        if (task?.status === "done") {
+            const result = getResult<string>(key);
+            if (result) {
+                setLetter(result);
+                setLoading(false);
+                return;
+            }
+        }
+
+        let active = true;
         setLoading(true);
         setError("");
         setLetter("");
-        chatText(settings, reportLetterMessages(input), controller.signal)
-            .then((text) => {
+        runTask<string>({
+            key,
+            group: key,
+            cacheKey: key,
+            title: "年度小结",
+            subtitle: `${year} 年的这一页`,
+            href: "/report",
+            kind: "text",
+            force: nonce > 0,
+            summarize: () => "写好了",
+            run: async ({ signal }) => {
+                const text = await chatText(
+                    settings,
+                    reportLetterMessages(input),
+                    signal,
+                );
                 const value = text.trim();
-                if (!value || controller.signal.aborted) return;
-                writeAiCache(key, value);
-                setLetter(value);
+                if (!value) {
+                    throw new AiError("AI 没写出内容，再试一次");
+                }
+                return value;
+            },
+        })
+            .then((value) => {
+                if (active) setLetter(value);
             })
             .catch((err) => {
-                if (controller.signal.aborted) return;
-                setError(aiErrorText(err));
+                if (active && !isAiCanceled(err)) {
+                    setError(aiErrorText(err));
+                }
             })
             .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
+                if (active) setLoading(false);
             });
 
-        return () => controller.abort();
+        return () => {
+            active = false;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, nonce, configured, empty]);
+
+    // 在报告页上看着呢，完成时就不用再弹通知了
+    useEffect(() => {
+        if (empty || !configured) return;
+        return attend(key);
+    }, [empty, configured, key, attend]);
 
     return (
         <section className="mt-3 rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 shadow-soft">

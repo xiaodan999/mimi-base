@@ -14,6 +14,7 @@ import {
     type AiPreset,
     type AiSettings,
 } from "./config";
+import { notificationsSupported, requestSystemNotifications } from "./notify";
 
 type Props = {
     open: boolean;
@@ -56,6 +57,23 @@ export default function AiSettingsSheet({
     const patchDraft = (patch: Partial<AiSettings>) => {
         setDraft((prev) => ({ ...prev, ...patch }));
         setTestResult(null);
+    };
+
+    const toggleNotify = async (checked: boolean) => {
+        if (!checked) {
+            patchDraft({ notify: false });
+            return;
+        }
+        if (!notificationsSupported()) {
+            toast("这个浏览器不支持系统通知");
+            return;
+        }
+        const granted = await requestSystemNotifications();
+        if (!granted) {
+            toast("浏览器没有授权通知，可以去系统设置里打开");
+            return;
+        }
+        patchDraft({ notify: true });
     };
 
     const pickPreset = (id: string) => {
@@ -112,6 +130,7 @@ export default function AiSettingsSheet({
             baseUrl: draft.baseUrl.trim(),
             model: draft.model.trim(),
             apiKey: draft.apiKey.trim(),
+            notify: draft.notify,
         });
         toast("AI 设置已保存（只在这台设备）");
     };
@@ -215,6 +234,25 @@ export default function AiSettingsSheet({
                             )}
                         </button>
                     </div>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-xl border border-black/5 bg-muted/40 px-3 py-2.5">
+                    <input
+                        type="checkbox"
+                        className="mt-0.5 size-4 shrink-0 accent-primary"
+                        checked={draft.notify}
+                        onChange={(event) =>
+                            void toggleNotify(event.target.checked)
+                        }
+                    />
+                    <span className="min-w-0">
+                        <span className="st-tiny block font-bold">
+                            任务完成后发送系统通知
+                        </span>
+                        <span className="st-tiny block">
+                            App 切到后台时也能收到提醒；需要浏览器授权。
+                        </span>
+                    </span>
                 </label>
 
                 <div className="flex flex-wrap gap-2">

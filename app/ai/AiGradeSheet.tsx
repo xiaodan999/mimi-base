@@ -7,9 +7,10 @@ import type { Answer, QuizItem, StudySubject } from "@/app/study/types";
 import { useAi } from "./AiContext";
 import AiMarkdown from "./AiMarkdown";
 import AiSheet from "./AiSheet";
-import { hashText, readAiCache, writeAiCache } from "./cache";
-import { aiErrorText, chatJSON } from "./client";
+import { hashText, readAiCache } from "./cache";
+import { aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { gradeMessages, userAnswerText, type AiGrade } from "./prompts";
+import { useAiTasks } from "./tasks";
 
 type Props = {
     open: boolean;
@@ -52,61 +53,71 @@ export default function AiGradeSheet({
     onAdopt,
 }: Props) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend, find } = useAiTasks();
     const [grade, setGrade] = useState<AiGrade | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const abortRef = useRef<AbortController | null>(null);
     const startedRef = useRef<string | null>(null);
 
     const cacheKey = item
         ? `grade:${item.id}:${hashText(userAnswerText(item, answer))}`
         : "";
 
-    const run = useCallback(async () => {
-        if (!item) return;
-        if (!configured) {
-            setError("先配置 AI Key");
-            openSettings();
-            return;
-        }
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
-        setLoading(true);
-        setError("");
-        setGrade(null);
-        try {
-            const raw = await chatJSON<AiGrade>(
-                settings,
-                gradeMessages(subject, item, answer, moduleName),
-                controller.signal,
-            );
-            if (controller.signal.aborted) return;
-            const next = normalize(raw);
-            setGrade(next);
-            writeAiCache(cacheKey, next);
-        } catch (err) {
-            if (controller.signal.aborted) return;
-            setError(aiErrorText(err));
-        } finally {
-            if (abortRef.current === controller) abortRef.current = null;
-            setLoading(false);
-        }
-    }, [
-        answer,
-        cacheKey,
-        configured,
-        item,
-        moduleName,
-        openSettings,
-        settings,
-        subject,
-    ]);
+    const run = useCallback(
+        async (force = false) => {
+            if (!item) return;
+            if (!configured) {
+                setError("先配置 AI Key");
+                openSettings();
+                return;
+            }
+            setLoading(true);
+            setError("");
+            if (force) setGrade(null);
+            try {
+                const next = await runTask<AiGrade>({
+                    key: cacheKey,
+                    group: cacheKey,
+                    cacheKey,
+                    title: "AI 批改",
+                    subtitle: `${TYPE_NAME[item.type]} · ${
+                        moduleName ?? item.m
+                    }`,
+                    kind: "json",
+                    force,
+                    summarize: (value) => `得分 ${value.score}`,
+                    run: async ({ signal }) => {
+                        const raw = await chatJSON<AiGrade>(
+                            settings,
+                            gradeMessages(subject, item, answer, moduleName),
+                            signal,
+                        );
+                        return normalize(raw);
+                    },
+                });
+                setGrade(next);
+            } catch (err) {
+                if (!isAiCanceled(err)) setError(aiErrorText(err));
+            } finally {
+                setLoading(false);
+            }
+        },
+        [
+            answer,
+            cacheKey,
+            configured,
+            item,
+            moduleName,
+            openSettings,
+            runTask,
+            settings,
+            subject,
+        ],
+    );
 
     useEffect(() => {
         if (!open || !item) {
             startedRef.current = null;
-            abortRef.current?.abort();
             return;
         }
         if (startedRef.current === cacheKey) return;
@@ -119,12 +130,29 @@ export default function AiGradeSheet({
             setLoading(false);
             return;
         }
+        const task = find(cacheKey);
+        if (task?.status === "error") {
+            setGrade(null);
+            setError(task.error ?? "AI 请求失败");
+            setLoading(false);
+            return;
+        }
+        if (task?.status === "canceled") {
+            setGrade(null);
+            setError("已取消");
+            setLoading(false);
+            return;
+        }
         setGrade(null);
         void run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey]);
 
-    useEffect(() => () => abortRef.current?.abort(), []);
+    // 批改面板开着时，完成通知是多余的
+    useEffect(() => {
+        if (!open || !cacheKey) return;
+        return attend(cacheKey);
+    }, [open, cacheKey, attend]);
 
     const adopt = () => {
         if (!grade || !onAdopt) return;
@@ -166,7 +194,10 @@ export default function AiGradeSheet({
                 <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12.5px] leading-6 text-amber-800">
                     {error}
                     <div className="mt-2 flex flex-wrap gap-2">
-                        <button className="st-btn sm line" onClick={run}>
+                        <button
+                            className="st-btn sm line"
+                            onClick={() => void run()}
+                        >
                             重试
                         </button>
                         <button
@@ -245,7 +276,10 @@ export default function AiGradeSheet({
                     )}
 
                     <div className="st-row mt-3 flex-wrap" style={{ gap: 8 }}>
-                        <button className="st-btn sm ghost" onClick={run}>
+                        <button
+                            className="st-btn sm ghost"
+                            onClick={() => void run(true)}
+                        >
                             重新批改
                         </button>
                         {onAdopt && (

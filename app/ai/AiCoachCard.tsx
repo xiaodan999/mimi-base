@@ -7,9 +7,10 @@ import { toast } from "@/app/study/toast";
 import type { Progress, StudySubject } from "@/app/study/types";
 
 import { useAi } from "./AiContext";
-import { readAiCache, writeAiCache } from "./cache";
-import { aiErrorText, chatJSON } from "./client";
+import { readAiCache } from "./cache";
+import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { planMessages, type AiPlan } from "./prompts";
+import { useAiTasks } from "./tasks";
 
 type Props = {
     subject: StudySubject;
@@ -67,21 +68,55 @@ function normalizePlan(
 
 export default function AiCoachCard({ subject, progress }: Props) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, cancel, tasks, find, attend } = useAiTasks();
     const [minutes, setMinutes] = useState(20);
     const [plan, setPlan] = useState<AiPlan | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const requestRef = useRef(0);
-    const abortRef = useRef<AbortController | null>(null);
+    const activeKeyRef = useRef<string | null>(null);
 
-    const cacheKey = `plan:v1:${subject.id}:${dayKey()}:${minutes}`;
+    const group = `plan:${subject.id}:${dayKey()}`;
+    const cacheKey = `${group}:${minutes}`;
 
     useEffect(() => {
         setPlan(readAiCache<AiPlan>(cacheKey));
         setError("");
-    }, [cacheKey]);
+        const task = find(cacheKey);
+        setLoading(task?.status === "running");
+    }, [cacheKey, find]);
 
-    useEffect(() => () => abortRef.current?.abort(), []);
+    // 卡片在页面上时，用户看得到计划，不用再弹完成通知
+    useEffect(() => {
+        return attend(group);
+    }, [group, attend]);
+
+    // 从后台回来时，接上还在跑的计划
+    const activeTask = tasks.find((task) => task.key === cacheKey);
+    useEffect(() => {
+        if (!activeTask) return;
+        if (activeTask.status === "running") {
+            setLoading(true);
+            return;
+        }
+        if (activeTask.status === "done") {
+            const cached = readAiCache<AiPlan>(cacheKey);
+            if (cached) {
+                setPlan(cached);
+                setError("");
+            }
+            setLoading(false);
+            return;
+        }
+        if (activeTask.status === "error") {
+            setError(activeTask.error ?? "AI 请求失败");
+            setLoading(false);
+            return;
+        }
+        if (activeTask.status === "canceled") {
+            setLoading(false);
+        }
+    }, [activeTask, cacheKey]);
 
     const generate = useCallback(
         async (nextMinutes: number, force = false) => {
@@ -90,7 +125,7 @@ export default function AiCoachCard({ subject, progress }: Props) {
                 toast("先配置一下 AI");
                 return;
             }
-            const key = `plan:v1:${subject.id}:${dayKey()}:${nextMinutes}`;
+            const key = `${group}:${nextMinutes}`;
             if (!force) {
                 const cached = readAiCache<AiPlan>(key);
                 if (cached) {
@@ -101,40 +136,60 @@ export default function AiCoachCard({ subject, progress }: Props) {
                 }
             }
 
-            abortRef.current?.abort();
-            const controller = new AbortController();
-            abortRef.current = controller;
+            if (activeKeyRef.current && activeKeyRef.current !== key) {
+                cancel(activeKeyRef.current);
+            }
+            activeKeyRef.current = key;
             const ticket = ++requestRef.current;
             setLoading(true);
             setError("");
             try {
-                const raw = await chatJSON<AiPlan>(
-                    settings,
-                    planMessages(subject, progress, nextMinutes),
-                    controller.signal,
-                );
-                if (
-                    ticket !== requestRef.current ||
-                    controller.signal.aborted
-                ) {
-                    return;
-                }
-                const next = normalizePlan(raw, subject, nextMinutes);
-                if (!next.tasks.length) {
-                    setError("AI 没排出有效任务，再试一次");
-                    return;
-                }
-                writeAiCache(key, next);
+                const next = await runTask<AiPlan>({
+                    key,
+                    group,
+                    cacheKey: key,
+                    title: "AI 学习计划",
+                    subtitle: `${subject.title} · ${nextMinutes} 分钟`,
+                    kind: "json",
+                    force,
+                    summarize: (value) => `${value.tasks.length} 个任务`,
+                    run: async ({ signal }) => {
+                        const raw = await chatJSON<AiPlan>(
+                            settings,
+                            planMessages(subject, progress, nextMinutes),
+                            signal,
+                        );
+                        const planNext = normalizePlan(
+                            raw,
+                            subject,
+                            nextMinutes,
+                        );
+                        if (!planNext.tasks.length) {
+                            throw new AiError("AI 没排出有效任务，再试一次");
+                        }
+                        return planNext;
+                    },
+                });
+                if (ticket !== requestRef.current) return;
                 setPlan(next);
                 setMinutes(nextMinutes);
             } catch (err) {
-                if (controller.signal.aborted) return;
-                setError(aiErrorText(err));
+                if (ticket !== requestRef.current) return;
+                if (!isAiCanceled(err)) setError(aiErrorText(err));
             } finally {
                 if (ticket === requestRef.current) setLoading(false);
             }
         },
-        [configured, openSettings, progress, settings, subject],
+        [
+            cancel,
+            configured,
+            group,
+            openSettings,
+            progress,
+            runTask,
+            settings,
+            subject,
+        ],
     );
 
     return (

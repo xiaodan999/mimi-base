@@ -20,6 +20,7 @@ import {
     writeAiSettings,
     type AiSettings,
 } from "./config";
+import { AiTasksProvider } from "./tasks";
 
 type AiContextValue = {
     settings: AiSettings;
@@ -60,16 +61,18 @@ export function AiProvider({ children }: { children: ReactNode }) {
 
     return (
         <AiContext.Provider value={value}>
-            {children}
-            <AiSettingsSheet
-                open={settingsOpen}
-                settings={settings}
-                onClose={closeSettings}
-                onSave={(next) => {
-                    saveSettings(next);
-                    closeSettings();
-                }}
-            />
+            <AiTasksProvider notifyEnabled={settings.notify}>
+                {children}
+                <AiSettingsSheet
+                    open={settingsOpen}
+                    settings={settings}
+                    onClose={closeSettings}
+                    onSave={(next) => {
+                        saveSettings(next);
+                        closeSettings();
+                    }}
+                />
+            </AiTasksProvider>
         </AiContext.Provider>
     );
 }

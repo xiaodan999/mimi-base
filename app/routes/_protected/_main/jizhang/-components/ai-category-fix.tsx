@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Tags } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { aiErrorText, chatJSON } from "@/app/ai/client";
+import { hashText, readAiCache } from "@/app/ai/cache";
+import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { categoryGuessMessages } from "@/app/ai/expense";
+import { useAiTasks } from "@/app/ai/tasks";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -82,6 +84,8 @@ export default function AiCategoryFix({
     onClose: () => void;
 }) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend, find, tasks } = useAiTasks();
+    const user = useCurrentUser();
     const queryClient = useQueryClient();
     const { categories, getCategory } = useExpenseCategories();
     const categoryOptions = useMemo(
@@ -98,16 +102,55 @@ export default function AiCategoryFix({
     const [applying, setApplying] = useState(false);
     const [message, setMessage] = useState("");
 
+    const rows = data ?? [];
+    const cacheKey = `category-fix:${user.id}:${hashText(
+        `${rows.map((row) => row.id).join(",")}|${includeOther}`,
+    )}`;
+
     useEffect(() => {
         if (!open) {
             setIncludeOther(false);
             return;
         }
-        setGuesses({});
+        setGuesses(readAiCache<Record<string, string>>(cacheKey) ?? {});
         setMessage("");
-    }, [open, includeOther]);
+        const task = find(cacheKey);
+        setGuessing(task?.status === "running");
+        if (task?.status === "error") {
+            setMessage(task.error ?? "AI 请求失败");
+        }
+    }, [open, includeOther, cacheKey, find]);
 
-    const rows = data ?? [];
+    // 后台猜完或从别的页面回来时，接上任务状态
+    const activeTask = tasks.find((task) => task.key === cacheKey);
+    const appliedRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!open || !activeTask) return;
+        if (activeTask.status === "running") {
+            setGuessing(true);
+            return;
+        }
+        if (activeTask.status === "done") {
+            // 同一个结果只应用一次，别覆盖用户手动改过的分类
+            if (appliedRef.current !== activeTask.id) {
+                appliedRef.current = activeTask.id;
+                setGuesses(readAiCache<Record<string, string>>(cacheKey) ?? {});
+            }
+            setGuessing(false);
+            return;
+        }
+        if (activeTask.status === "error") {
+            setMessage(activeTask.error ?? "AI 请求失败");
+            setGuessing(false);
+            return;
+        }
+        setGuessing(false);
+    }, [open, cacheKey, activeTask]);
+
+    useEffect(() => {
+        if (!open) return;
+        return attend("category-fix");
+    }, [open, attend]);
 
     /** The category this row would be saved as right now. */
     const valueFor = (row: FixRow) => guesses[row.id] ?? row.category;
@@ -128,31 +171,48 @@ export default function AiCategoryFix({
         setMessage("");
         try {
             const names = [...new Set(rows.map((row) => row.itemName))];
-            const result = await chatJSON<GuessResponse>(
-                settings,
-                categoryGuessMessages(names, categoryOptions, {
-                    preferSpecific: includeOther,
-                }),
-            );
-            const byName = new Map<string, string>();
-            for (const item of result.items ?? []) {
-                const category =
-                    typeof item.category === "string"
-                        ? normalizeCategoryValue(item.category, categories)
-                        : "";
-                if (typeof item.name === "string" && category) {
-                    byName.set(item.name.trim(), category);
-                }
-            }
+            const next = await runTask<Record<string, string>>({
+                key: cacheKey,
+                group: "category-fix",
+                cacheKey,
+                title: "AI 补全分类",
+                subtitle: `${rows.length} 笔账`,
+                kind: "json",
+                summarize: (value) => `猜好了 ${Object.keys(value).length} 条`,
+                run: async ({ signal }) => {
+                    const result = await chatJSON<GuessResponse>(
+                        settings,
+                        categoryGuessMessages(names, categoryOptions, {
+                            preferSpecific: includeOther,
+                        }),
+                        signal,
+                    );
+                    const byName = new Map<string, string>();
+                    for (const item of result.items ?? []) {
+                        const category =
+                            typeof item.category === "string"
+                                ? normalizeCategoryValue(
+                                      item.category,
+                                      categories,
+                                  )
+                                : "";
+                        if (typeof item.name === "string" && category) {
+                            byName.set(item.name.trim(), category);
+                        }
+                    }
 
-            const next: Record<string, string> = {};
-            for (const row of rows) {
-                // 没猜到的保持原分类（未分类仍留空），等用户自己选。
-                next[row.id] = byName.get(row.itemName.trim()) ?? row.category;
-            }
+                    const value: Record<string, string> = {};
+                    for (const row of rows) {
+                        // 没猜到的保持原分类（未分类仍留空），等用户自己选。
+                        value[row.id] =
+                            byName.get(row.itemName.trim()) ?? row.category;
+                    }
+                    return value;
+                },
+            });
             setGuesses(next);
         } catch (err) {
-            setMessage(aiErrorText(err));
+            if (!isAiCanceled(err)) setMessage(aiErrorText(err));
         } finally {
             setGuessing(false);
         }

@@ -5,9 +5,10 @@ import type { QuizItem, StudySubject } from "@/app/study/types";
 
 import { useAi } from "./AiContext";
 import AiSheet from "./AiSheet";
-import { readAiCache, writeAiCache } from "./cache";
-import { aiErrorText, chatJSON } from "./client";
+import { readAiCache } from "./cache";
+import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { variantMessages, type AiVariantPayload } from "./prompts";
+import { useAiTasks } from "./tasks";
 
 type Props = {
     open: boolean;
@@ -98,11 +99,13 @@ export default function AiVariantSheet({
     onStart,
 }: Props) {
     const { settings, configured, openSettings } = useAi();
+    const { runTask, attend, find } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const abortRef = useRef<AbortController | null>(null);
     const startedRef = useRef<string | null>(null);
+
+    const cacheKey = source ? `variant:v1:${source.id}` : "";
 
     const run = useCallback(
         async (force = false) => {
@@ -112,9 +115,8 @@ export default function AiVariantSheet({
                 openSettings();
                 return;
             }
-            const key = `variant:v1:${source.id}`;
             if (!force) {
-                const cached = readAiCache<AiVariantPayload>(key);
+                const cached = readAiCache<AiVariantPayload>(cacheKey);
                 const cachedItems = cached ? toQuizItems(cached, source) : [];
                 if (cachedItems.length) {
                     setItems(cachedItems);
@@ -124,48 +126,60 @@ export default function AiVariantSheet({
                 }
             }
 
-            abortRef.current?.abort();
-            const controller = new AbortController();
-            abortRef.current = controller;
             setLoading(true);
             setError("");
             setItems([]);
             try {
-                const payload = await chatJSON<AiVariantPayload>(
-                    settings,
-                    variantMessages(subject, source, moduleName),
-                    controller.signal,
-                );
-                if (controller.signal.aborted) return;
-                const next = toQuizItems(payload, source);
-                if (!next.length) {
-                    setError("AI 出的题格式不对，换一批试试");
-                    return;
-                }
-                writeAiCache(key, payload);
-                setItems(next);
+                const payload = await runTask<AiVariantPayload>({
+                    key: cacheKey,
+                    group: cacheKey,
+                    cacheKey,
+                    title: "AI 变式题",
+                    subtitle: `基于：${source.stem.slice(0, 34)}`,
+                    kind: "json",
+                    force,
+                    summarize: (value) =>
+                        `生成了 ${toQuizItems(value, source).length} 道变式题`,
+                    run: async ({ signal }) => {
+                        const result = await chatJSON<AiVariantPayload>(
+                            settings,
+                            variantMessages(subject, source, moduleName),
+                            signal,
+                        );
+                        if (!toQuizItems(result, source).length) {
+                            throw new AiError("AI 出的题格式不对，换一批试试");
+                        }
+                        return result;
+                    },
+                });
+                setItems(toQuizItems(payload, source));
             } catch (err) {
-                if (controller.signal.aborted) return;
-                setError(aiErrorText(err));
+                if (!isAiCanceled(err)) setError(aiErrorText(err));
             } finally {
-                if (abortRef.current === controller) abortRef.current = null;
                 setLoading(false);
             }
         },
-        [configured, moduleName, openSettings, settings, source, subject],
+        [
+            cacheKey,
+            configured,
+            moduleName,
+            openSettings,
+            runTask,
+            settings,
+            source,
+            subject,
+        ],
     );
 
     useEffect(() => {
         if (!open || !source) {
             startedRef.current = null;
-            abortRef.current?.abort();
             return;
         }
-        const key = `variant:v1:${source.id}`;
-        if (startedRef.current === key) return;
-        startedRef.current = key;
+        if (startedRef.current === cacheKey) return;
+        startedRef.current = cacheKey;
 
-        const cached = readAiCache<AiVariantPayload>(key);
+        const cached = readAiCache<AiVariantPayload>(cacheKey);
         const cachedItems = cached ? toQuizItems(cached, source) : [];
         if (cachedItems.length) {
             setItems(cachedItems);
@@ -173,12 +187,28 @@ export default function AiVariantSheet({
             setLoading(false);
             return;
         }
+        const task = find(cacheKey);
+        if (task?.status === "error") {
+            setItems([]);
+            setError(task.error ?? "AI 请求失败");
+            setLoading(false);
+            return;
+        }
+        if (task?.status === "canceled") {
+            setItems([]);
+            setError("已取消");
+            setLoading(false);
+            return;
+        }
         setItems([]);
         void run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, source]);
+    }, [open, source, cacheKey]);
 
-    useEffect(() => () => abortRef.current?.abort(), []);
+    useEffect(() => {
+        if (!open || !cacheKey) return;
+        return attend(cacheKey);
+    }, [open, cacheKey, attend]);
 
     return (
         <AiSheet
