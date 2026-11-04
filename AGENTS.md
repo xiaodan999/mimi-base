@@ -262,7 +262,10 @@ before your first commit.
   the client adds it automatically. `pocketbase/pb_hooks/ai_proxy.pb.js`
   exposes a stateless OpenCode Go relay at
   `/api/ai/opencode/v1/chat/completions`; the key is forwarded per request and
-  never stored. In dev, `server.ts` adds `opencode.ai` to the PB child's
+  never stored. OpenCode Go always uses that relay (there is no direct preset
+  because the official endpoint blocks browser CORS), and `AiProvider`
+  migrates settings saved with the old direct URL on load. In dev, `server.ts`
+  adds `opencode.ai` to the PB child's
   `NO_PROXY` because WSL proxy envs often can't reach it; prod keeps the
   server's network config untouched.
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by

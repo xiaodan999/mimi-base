@@ -37,7 +37,7 @@ routerAdd("POST", "/api/ai/opencode/v1/chat/completions", (c) => {
     let res;
     try {
         res = $http.send({
-            url: "https://opencode.ai/inference/go/openai/v1/chat/completions",
+            url: "https://opencode.ai/zen/go/v1/chat/completions",
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

@@ -29,17 +29,12 @@ export const AI_PRESETS: AiPreset[] = [
     },
     {
         id: "opencode-go-pb",
+        // OpenCode Go 的官方地址不返回 CORS 头，浏览器直连一定失败，
+        // 所以只保留经 PocketBase 中转的这一条。
         name: "OpenCode Go（PocketBase 中转）",
         baseUrl: "",
         model: "deepseek-v4.1-flash",
-        note: "通过你的 PocketBase 转发；Key 只在请求时经过，不落库",
-    },
-    {
-        id: "opencode-go",
-        name: "OpenCode Go（官方直连）",
-        baseUrl: "https://opencode.ai/inference/go/openai/v1",
-        model: "deepseek-v4.1-flash",
-        note: "官方接口不返回 CORS 头，浏览器直连会被拦；有支持跨域的中转地址再选这个",
+        note: "官方地址不支持浏览器直连，这里自动经 PocketBase 转发；Key 只在请求时经过，不落库",
     },
     {
         id: "openrouter",
@@ -140,6 +135,58 @@ export function isAiConfigured(settings: AiSettings): boolean {
         settings.apiKey.trim() &&
         settings.model.trim(),
     );
+}
+
+/** OpenCode Go 的中转路由挂在 PocketBase 的 `/api` 下。 */
+export const OPENCODE_RELAY_PATH = "/api/ai/opencode/v1";
+
+/**
+ * 中转地址必须跟着当前的 PocketBase 地址走，不能把保存时的 origin
+ * 写死：同一份设置在 localhost 和局域网 IP 之间切换时也要能用。
+ */
+export function openCodeRelayBaseUrl(pbBaseUrl: string): string {
+    return `${pbBaseUrl.replace(/\/+$/, "")}${OPENCODE_RELAY_PATH}`;
+}
+
+/** 官方 OpenCode 地址；浏览器直连会被 CORS 拦掉。 */
+export function isDirectOpenCodeBaseUrl(baseUrl: string): boolean {
+    try {
+        const url = new URL(baseUrl.trim());
+        return (
+            url.hostname === "opencode.ai" &&
+            /^\/(inference\/go\/openai|zen\/go)(\/|$)/.test(url.pathname)
+        );
+    } catch {
+        return false;
+    }
+}
+
+/** 之前保存的、指向本应用中转路由的地址（origin 可能已经变了）。 */
+export function isOpenCodeRelayBaseUrl(baseUrl: string): boolean {
+    try {
+        return new URL(baseUrl.trim()).pathname.startsWith(OPENCODE_RELAY_PATH);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * 把历史上保存的 OpenCode Go 直连地址改写成 PocketBase 中转地址。
+ * 直连在浏览器里必定失败，旧设置留着会让整个 AI 功能看起来坏掉。
+ */
+export function migrateAiSettings(
+    settings: AiSettings,
+    relayBaseUrl: string,
+): { settings: AiSettings; changed: boolean } {
+    const baseUrl = settings.baseUrl
+        .trim()
+        .replace(/\/chat\/completions\/?$/i, "");
+    if (!isDirectOpenCodeBaseUrl(baseUrl) && !isOpenCodeRelayBaseUrl(baseUrl)) {
+        return { settings, changed: false };
+    }
+    const next = relayBaseUrl.replace(/\/+$/, "");
+    if (next === settings.baseUrl) return { settings, changed: false };
+    return { settings: { ...settings, baseUrl: next }, changed: true };
 }
 
 export function matchPreset(

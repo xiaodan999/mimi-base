@@ -11,6 +11,7 @@ import {
     AI_PRESETS,
     CUSTOM_PRESET_ID,
     matchPreset,
+    openCodeRelayBaseUrl,
     type AiPreset,
     type AiSettings,
 } from "./config";
@@ -26,7 +27,7 @@ type Props = {
 /** PocketBase 中转的地址依赖当前部署，选中预设时再填进去 */
 function presetBaseUrl(preset: AiPreset): string {
     if (preset.id !== "opencode-go-pb") return preset.baseUrl;
-    return `${pb.baseUrl.replace(/\/+$/, "")}/api/ai/opencode/v1`;
+    return openCodeRelayBaseUrl(pb.baseUrl);
 }
 
 export default function AiSettingsSheet({
@@ -293,7 +294,7 @@ export default function AiSettingsSheet({
                 <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] leading-6 text-amber-800">
                     浏览器直连需要服务商允许跨域。DeepSeek、OpenRouter、硅基流动、Moonshot
                     可以直连；OpenAI 官方和 OpenCode Go 官方地址不返回 CORS
-                    头。OpenCode Go 建议选「PocketBase 中转」预设，Key
+                    头。OpenCode Go 固定走「PocketBase 中转」，Key
                     只在请求时经过你的服务器，不落库。
                 </div>
 

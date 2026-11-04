@@ -13,9 +13,13 @@ import {
 // the background/border of the shadcn buttons these sheets use.
 import "@/app/study/study.css";
 
+import pb from "@/lib/pb";
+
 import AiSettingsSheet from "./AiSettings";
 import {
     isAiConfigured,
+    migrateAiSettings,
+    openCodeRelayBaseUrl,
     readAiSettings,
     writeAiSettings,
     type AiSettings,
@@ -34,9 +38,16 @@ type AiContextValue = {
 const AiContext = createContext<AiContextValue | null>(null);
 
 export function AiProvider({ children }: { children: ReactNode }) {
-    const [settings, setSettings] = useState<AiSettings>(() =>
-        readAiSettings(),
-    );
+    const [settings, setSettings] = useState<AiSettings>(() => {
+        // 旧版本保存的 OpenCode Go 直连地址在浏览器里一定失败，加载时顺手
+        // 换成当前 PocketBase 的中转地址，用户不用重新配置。
+        const { settings: next, changed } = migrateAiSettings(
+            readAiSettings(),
+            openCodeRelayBaseUrl(pb.baseUrl),
+        );
+        if (changed) writeAiSettings(next);
+        return next;
+    });
     const [settingsOpen, setSettingsOpen] = useState(false);
 
     const saveSettings = useCallback((next: AiSettings) => {

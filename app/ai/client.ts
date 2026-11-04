@@ -108,7 +108,7 @@ export function aiErrorText(error: unknown): string {
 
 function isOpenCodeGo(baseUrl: string): boolean {
     return (
-        /opencode\.ai\/inference\/go\//i.test(baseUrl) ||
+        /opencode\.ai\/(?:inference\/go\/openai|zen\/go)\//i.test(baseUrl) ||
         /\/api\/ai\/opencode(\/|$)/i.test(baseUrl)
     );
 }
