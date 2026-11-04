@@ -1,12 +1,16 @@
 import {
     useInfiniteQuery,
     useMutation,
+    useQuery,
     useQueryClient,
+    type InfiniteData,
 } from "@tanstack/react-query";
 
 import { useCurrentUser, type User } from "@/lib/auth";
-import pb from "@/lib/pb";
+import pb, { pbDate } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
+
+import { groupPostMonths } from "./-utils";
 
 export type PostLayout = "moments" | "instagram";
 
@@ -49,7 +53,47 @@ type PostRecord = {
 type PostsPage = {
     posts: PostData[];
     nextPage: number | null;
+    total: number;
 };
+
+export type PostFilter = {
+    /** "YYYY-MM" — show only that month. */
+    month?: string;
+    /** Case-insensitive text search over the post body. */
+    q?: string;
+};
+
+/** Stable cache-key suffix for a feed filter. */
+export function postFilterKey(filter: PostFilter = {}) {
+    if (filter.month) return `month:${filter.month}`;
+    if (filter.q) return `q:${filter.q}`;
+    return "latest";
+}
+
+function buildFilter({ month, q }: PostFilter) {
+    const clauses: string[] = [];
+    const params: Record<string, string> = {};
+
+    if (month) {
+        const [year, monthIndex] = month.split("-").map(Number);
+        if (year && monthIndex) {
+            // Half-open range in local time: [first of month, first of next).
+            const from = new Date(year, monthIndex - 1, 1);
+            const to = new Date(year, monthIndex, 1);
+            clauses.push("created >= {:from} && created < {:to}");
+            params.from = pbDate(from);
+            params.to = pbDate(to);
+        }
+    }
+
+    if (q) {
+        // `~` is PocketBase's case-insensitive LIKE.
+        clauses.push("text ~ {:q}");
+        params.q = q;
+    }
+
+    return clauses.length ? pb.filter(clauses.join(" && "), params) : "";
+}
 
 const POST_EXPAND = "author_id,author_id.circle";
 
@@ -105,13 +149,18 @@ async function fetchLikedPostIds(
     return new Set(likes.map((like) => like.post_id));
 }
 
-export function usePostsInfinite(pageSize = 10) {
+export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
     const user = useCurrentUser();
 
     return useInfiniteQuery({
-        queryKey: qk.posts.list(user.id),
+        queryKey: qk.posts.list(user.id, postFilterKey(filter)),
+        // A deep-scrolled feed has to stay in memory while the user visits
+        // another tab; otherwise remounting it starts from a skeleton and the
+        // restored scroll position has no content to land on.
+        gcTime: 30 * 60_000,
         queryFn: async ({ pageParam = 1 }): Promise<PostsPage> => {
             const page = pageParam as number;
+            const filterExpr = buildFilter(filter);
             // Posts carry denormalized like_count / comment_count, the author
             // comes from the expand.
             const result = await pb
@@ -119,6 +168,7 @@ export function usePostsInfinite(pageSize = 10) {
                 .getList<PostRecord>(page, pageSize, {
                     sort: "-created",
                     expand: POST_EXPAND,
+                    ...(filterExpr ? { filter: filterExpr } : {}),
                 });
 
             const likedPostIds = await fetchLikedPostIds(
@@ -132,6 +182,7 @@ export function usePostsInfinite(pageSize = 10) {
                 ),
                 nextPage:
                     result.page < result.totalPages ? result.page + 1 : null,
+                total: result.totalItems,
             };
         },
         initialPageParam: 1,
@@ -139,10 +190,31 @@ export function usePostsInfinite(pageSize = 10) {
     });
 }
 
+/**
+ * Months that contain at least one post, newest first. Only timestamps are
+ * fetched, so this stays cheap even after years of posting.
+ */
+export function usePostMonths(enabled = true) {
+    const user = useCurrentUser();
+
+    return useQuery({
+        queryKey: qk.posts.months(user.id),
+        enabled,
+        staleTime: 5 * 60_000,
+        queryFn: async () => {
+            const rows = await pb
+                .collection("posts")
+                .getFullList<{ created: string }>({ fields: "created" });
+            return groupPostMonths(rows.map((row) => row.created));
+        },
+    });
+}
+
 export function usePostLikeMutation() {
     const user = useCurrentUser();
     const queryClient = useQueryClient();
-    const userPostsKey = qk.posts.list(user.id);
+    // Every cached feed variant (latest / month / search) can show this post.
+    const feedKey = qk.posts.lists(user.id);
 
     return useMutation({
         mutationKey: ["mutate_post_like"],
@@ -175,48 +247,47 @@ export function usePostLikeMutation() {
         onMutate: async ({ postId, like }) => {
             // Cancel any outgoing refetches
             // (so they don't overwrite our optimistic update)
-            await queryClient.cancelQueries({ queryKey: userPostsKey });
+            await queryClient.cancelQueries({ queryKey: feedKey });
 
-            const previousPosts = queryClient.getQueryData<{
-                pages: PostsPage[];
-                pageParams: unknown[];
-            }>(userPostsKey);
+            const previousFeeds = queryClient.getQueriesData<
+                InfiniteData<PostsPage>
+            >({ queryKey: feedKey });
 
-            // The cache holds an infinite query: { pages: PostsPage[] }.
-            queryClient.setQueryData<{
-                pages: PostsPage[];
-                pageParams: unknown[];
-            }>(userPostsKey, (old) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    pages: old.pages.map((page) => ({
-                        ...page,
-                        posts: page.posts.map((post) =>
-                            post.id === postId
-                                ? {
-                                      ...post,
-                                      liked: like,
-                                      metrics: {
-                                          ...post.metrics,
-                                          likeCount:
-                                              post.metrics.likeCount +
-                                              (like ? 1 : -1),
-                                      },
-                                  }
-                                : post,
-                        ),
-                    })),
-                };
-            });
+            // The cache holds infinite queries: { pages: PostsPage[] }.
+            queryClient.setQueriesData<InfiniteData<PostsPage>>(
+                { queryKey: feedKey },
+                (old) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        pages: old.pages.map((page) => ({
+                            ...page,
+                            posts: page.posts.map((post) =>
+                                post.id === postId
+                                    ? {
+                                          ...post,
+                                          liked: like,
+                                          metrics: {
+                                              ...post.metrics,
+                                              likeCount:
+                                                  post.metrics.likeCount +
+                                                  (like ? 1 : -1),
+                                          },
+                                      }
+                                    : post,
+                            ),
+                        })),
+                    };
+                },
+            );
 
-            return { previousPosts };
+            return { previousFeeds };
         },
         onError: (err, updatedPost, context) => {
             // Roll back only the optimistic like; the post itself is fine.
-            if (context?.previousPosts) {
-                queryClient.setQueryData(userPostsKey, context.previousPosts);
-            }
+            context?.previousFeeds.forEach(([key, data]) =>
+                queryClient.setQueryData(key, data),
+            );
         },
         // No settle-time invalidation: the optimistic row is the source of
         // truth until the next natural refetch, so liking doesn't refetch the

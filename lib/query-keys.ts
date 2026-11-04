@@ -8,7 +8,11 @@
 export const qk = {
     posts: {
         all: ["posts"] as const,
-        list: (userId: string) => ["posts", userId] as const,
+        /** Prefix shared by every feed variant (latest / month / search). */
+        lists: (userId: string) => ["posts", userId] as const,
+        list: (userId: string, filter = "latest") =>
+            ["posts", userId, filter] as const,
+        months: (userId: string) => ["posts", "months", userId] as const,
     },
     comments: {
         root: ["comments"] as const,
