@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Check, ImagePlus, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,23 +28,30 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 import compressImage from "@/lib/compressImage";
-import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import { useNewPostMutation, type PostLayout } from "../-data";
+import {
+    useNewPostMutation,
+    useUpdatePostMutation,
+    type PostData,
+    type PostLayout,
+} from "../-data";
+import { buildPostImagesField } from "../-utils";
 import ImageViewer from "./image-viewer";
 
-type NewPostProps = {
+type PostComposerProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** When set, the composer edits this post instead of creating one. */
+    editing?: PostData | null;
 };
 
-type PreviewImage = {
-    file: File;
-    url: string;
-};
+type PreviewImage =
+    | { kind: "file"; file: File; url: string }
+    | { kind: "existing"; name: string; url: string };
 
 const MAX_IMAGES = 9;
 
@@ -59,17 +66,31 @@ async function prepareImage(file: File, index: number): Promise<File> {
     return new File([compressed], `${Date.now()}-${index}.${ext}`, { type });
 }
 
+/** Read a preview as a blob; uploaded images live behind protected URLs. */
+async function previewImageBlob(image: PreviewImage): Promise<Blob> {
+    if (image.kind === "file") return image.file;
+    const response = await fetch(image.url);
+    if (!response.ok) throw new Error("照片读取失败");
+    return response.blob();
+}
+
 type CaptionOption = { style: string; text: string };
 
-export default function NewPost({ open, onOpenChange }: NewPostProps) {
+export default function PostComposer({
+    open,
+    onOpenChange,
+    editing = null,
+}: PostComposerProps) {
     const user = useCurrentUser();
     const newPostMutation = useNewPostMutation();
+    const updatePostMutation = useUpdatePostMutation();
     const { settings, configured, openSettings } = useAi();
     const { runTask, cancel, attend, find, getResult } = useAiTasks();
     const [captionOpen, setCaptionOpen] = useState(false);
     const [captionLoading, setCaptionLoading] = useState(false);
     const [captionError, setCaptionError] = useState("");
     const [captions, setCaptions] = useState<CaptionOption[]>([]);
+    const [mode, setMode] = useState<"new" | "edit">("new");
     const [text, setText] = useState("");
     const [layout, setLayout] = useState<PostLayout>("moments");
     const [images, setImages] = useState<PreviewImage[]>([]);
@@ -77,6 +98,8 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const [publishing, setPublishing] = useState(false);
     const [preparing, setPreparing] = useState(false);
     const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+    /** Which draft (or which post) the current form state was seeded from. */
+    const [seededKey, setSeededKey] = useState<string | null>(null);
     const previewUrls = useRef<string[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const captionKeyRef = useRef<string | null>(null);
@@ -87,9 +110,10 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     /** 同一份草稿（文字 + 排版 + 照片）对应同一个 AI 配文任务。 */
     const captionKey = useMemo(() => {
         const fingerprint = images
-            .map(
-                (image) =>
-                    `${image.file.name}:${image.file.size}:${image.file.lastModified}`,
+            .map((image) =>
+                image.kind === "file"
+                    ? `file:${image.file.name}:${image.file.size}:${image.file.lastModified}`
+                    : `existing:${image.name}`,
             )
             .join(",");
         return `captions:${hashText(
@@ -111,6 +135,41 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             urls.current = [];
         };
     }, []);
+
+    // Seed a new draft, or the post being edited, before the sheet paints.
+    // That way reopening for a different post never flashes the old draft.
+    useLayoutEffect(() => {
+        if (!open) return;
+        const key = editing ? `edit:${editing.id}` : "new";
+        if (seededKey === key) return;
+
+        previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+        previewUrls.current = [];
+        setPreviewIndex(null);
+        setPendingCount(0);
+        setMode(editing ? "edit" : "new");
+
+        if (editing) {
+            const fileRecord = {
+                id: editing.id,
+                collectionId: editing.collectionId,
+            };
+            setText(editing.text);
+            setLayout(editing.layout);
+            setImages(
+                editing.images.map((image) => ({
+                    kind: "existing" as const,
+                    name: image.name,
+                    url: getFileUrl(fileRecord, image.name),
+                })),
+            );
+        } else {
+            setText("");
+            setLayout("moments");
+            setImages([]);
+        }
+        setSeededKey(key);
+    }, [open, editing, seededKey]);
 
     // Grow the textarea with its content, up to a comfortable ceiling.
     useEffect(() => {
@@ -146,6 +205,9 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             // The caption sheet lives outside the drawer's portal; leaving it
             // open would strand a dead sheet over the feed.
             setCaptionOpen(false);
+            // An edit re-seeds from the saved post next time it opens, so a
+            // copied draft can never drift away from the record.
+            if (editing) setSeededKey(null);
         }
         onOpenChange(next);
     };
@@ -199,7 +261,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             const next = prepared.map((file) => {
                 const url = URL.createObjectURL(file);
                 previewUrls.current.push(url);
-                return { file, url };
+                return { kind: "file" as const, file, url };
             });
             setImages((previous) => [...previous, ...next]);
         } catch {
@@ -213,7 +275,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
     const removeImage = (index: number) => {
         setImages((previous) => {
             const target = previous[index];
-            if (target) {
+            if (target?.kind === "file") {
                 URL.revokeObjectURL(target.url);
                 previewUrls.current = previewUrls.current.filter(
                     (url) => url !== target.url,
@@ -227,21 +289,43 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
         const value = text.trim();
         if ((!value && images.length === 0) || publishing || preparing) return;
 
+        const { keep, files } = buildPostImagesField(images);
         setPublishing(true);
         try {
-            await toastPromise(
-                newPostMutation.mutateAsync({
-                    text: value,
-                    layout,
-                    images: images.map((image) => image.file),
-                }),
-                {
-                    loading: "发布中...",
-                    success: "发布成功",
-                    error: "发布失败",
-                },
-            );
-            resetDraft();
+            if (editing) {
+                await toastPromise(
+                    updatePostMutation.mutateAsync({
+                        id: editing.id,
+                        text: value,
+                        layout,
+                        keepImages: keep,
+                        files,
+                    }),
+                    {
+                        loading: "保存中...",
+                        success: "已保存",
+                        error: "保存失败",
+                    },
+                );
+                // Keep the content on screen while the sheet slides away; the
+                // next open re-seeds from the saved record.
+                setSeededKey(null);
+            } else {
+                await toastPromise(
+                    newPostMutation.mutateAsync({
+                        text: value,
+                        layout,
+                        images: files,
+                    }),
+                    {
+                        loading: "发布中...",
+                        success: "发布成功",
+                        error: "发布失败",
+                    },
+                );
+                resetDraft();
+                setSeededKey(null);
+            }
             onOpenChange(false);
         } catch {
             // toastPromise already surfaced the error.
@@ -320,10 +404,21 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                 kind: "json",
                 summarize: (value) => `生成了 ${value.length} 条文案`,
                 run: async ({ signal }) => {
-                    const imageUrls = await imagesToDataUrls(
-                        images.map((image) => image.file),
-                        { maxSize: 768, limit: 3 },
+                    // Existing photos are protected URLs; fetch them so the
+                    // vision model sees the photos already on the post too.
+                    const settled = await Promise.allSettled(
+                        images
+                            .slice(0, 3)
+                            .map((image) => previewImageBlob(image)),
                     );
+                    const sources = settled.flatMap((result) =>
+                        result.status === "fulfilled" ? [result.value] : [],
+                    );
+                    throwIfAborted(signal);
+
+                    const imageUrls = await imagesToDataUrls(sources, {
+                        maxSize: 768,
+                    });
                     throwIfAborted(signal);
 
                     const result = await chatJSON<{
@@ -377,13 +472,16 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
             return;
         }
         if (restoredOpenRef.current) return;
+        // Wait for the draft to be seeded; on the first pass after opening,
+        // captionKey still describes the previous draft.
+        if (seededKey === null) return;
         restoredOpenRef.current = true;
         if (!configured) return;
         if (!find(captionKey)) return;
         void suggestCaptions({ restore: true });
         // 只在草稿重新打开时恢复一次，不跟输入内容联动。
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, captionKey, configured]);
+    }, [open, captionKey, configured, seededKey]);
 
     const applyCaption = (caption: string) => {
         setText((previous) =>
@@ -397,6 +495,7 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
         !publishing &&
         !preparing;
     const showImages = images.length > 0 || preparing;
+    const isEditing = mode === "edit";
 
     return (
         <>
@@ -436,10 +535,12 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                                         aria-hidden="true"
                                         className="size-2 shrink-0 rounded-full bg-primary"
                                     />
-                                    新动态
+                                    {isEditing ? "编辑动态" : "新动态"}
                                 </DrawerTitle>
                                 <DrawerDescription className="mt-0.5 truncate text-xs text-muted-foreground">
-                                    把这一刻留在秘密基地
+                                    {isEditing
+                                        ? "改完记得保存"
+                                        : "把这一刻留在秘密基地"}
                                 </DrawerDescription>
                             </div>
 
@@ -453,10 +554,12 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                             >
                                 {publishing ? (
                                     <LoadingSpinner size={14} />
+                                ) : isEditing ? (
+                                    <Check className="size-4" />
                                 ) : (
                                     <ArrowUp className="size-4" />
                                 )}
-                                <span>发布</span>
+                                <span>{isEditing ? "保存" : "发布"}</span>
                             </Button>
                         </div>
                     </header>
@@ -670,7 +773,9 @@ export default function NewPost({ open, onOpenChange }: NewPostProps) {
                         )}
 
                         <p className="mt-6 text-center text-[11px] text-muted-foreground/80">
-                            关闭后会保留草稿
+                            {isEditing
+                                ? "关闭后不会保存本次修改"
+                                : "关闭后会保留草稿"}
                         </p>
                     </div>
                 </DrawerContent>

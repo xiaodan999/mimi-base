@@ -1,5 +1,5 @@
 import { HeartFill } from "antd-mobile-icons";
-import { Ellipsis, Heart, MessageCircle, Trash2 } from "lucide-react";
+import { Ellipsis, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
 
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { InstagramCarousel, MomentsImageGrid } from "./post-images";
 type PostProps = PostData & {
     onOpenComments: () => void;
     onOpenImage: (images: ViewerImage[], index: number) => void;
+    onEdit: () => void;
 };
 
 export default function Post({
@@ -35,6 +36,7 @@ export default function Post({
     images,
     onOpenComments,
     onOpenImage,
+    onEdit,
 }: PostProps) {
     const user = useCurrentUser();
     const likeMutation = usePostLikeMutation();
@@ -99,7 +101,7 @@ export default function Post({
         </div>
     );
 
-    // Only the author may delete a post, so only they see the menu.
+    // Only the author may edit or delete a post, so only they see the menu.
     const menu = isMine ? (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -113,6 +115,13 @@ export default function Post({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                    className="hover:cursor-pointer"
+                    onClick={onEdit}
+                >
+                    <Pencil className="mr-2 size-4" />
+                    <span>编辑</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                     className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
                     onClick={async () => {

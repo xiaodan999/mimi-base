@@ -24,10 +24,13 @@ import { cn } from "@/lib/utils";
 import CommentSheet from "./-components/comment-sheet";
 import FindSheet from "./-components/find-sheet";
 import ImageViewer, { type ViewerImage } from "./-components/image-viewer";
-import NewPost from "./-components/new-post";
 import Post from "./-components/post";
-import { usePostsInfinite } from "./-data";
+import PostComposer from "./-components/post-composer";
+import { usePostsInfinite, type PostData } from "./-data";
 import { formatDayDivider, formatMonthLabel, isSameDay } from "./-utils";
+
+/** The composer is either starting a post or editing one from the feed. */
+type ComposerState = { mode: "new" } | { mode: "edit"; post: PostData } | null;
 
 type PostsSearch = {
     /** "YYYY-MM" — the feed only shows that month. */
@@ -64,7 +67,7 @@ function Posts() {
         isFetchingNextPage,
         refetch,
     } = usePostsInfinite(8, filter);
-    const [showNewPostDrawer, setShowNewPostDrawer] = useState(false);
+    const [composer, setComposer] = useState<ComposerState>(null);
     const [findOpen, setFindOpen] = useState(false);
     const [commentPostId, setCommentPostId] = useState<string | null>(null);
     const [commentOpen, setCommentOpen] = useState(false);
@@ -172,6 +175,12 @@ function Posts() {
                                 )}
                                 <Post
                                     {...post}
+                                    onEdit={() =>
+                                        setComposer({
+                                            mode: "edit",
+                                            post,
+                                        })
+                                    }
                                     onOpenComments={() => {
                                         setCommentPostId(post.id);
                                         setCommentOpen(true);
@@ -314,7 +323,7 @@ function Posts() {
                 )}
                 <Button
                     className="size-14 rounded-full p-0"
-                    onClick={() => setShowNewPostDrawer(true)}
+                    onClick={() => setComposer({ mode: "new" })}
                     aria-label="发布动态"
                 >
                     <Pencil className="size-[50%]" />
@@ -331,9 +340,12 @@ function Posts() {
                 onClear={() => void clearFilter(true)}
             />
 
-            <NewPost
-                open={showNewPostDrawer}
-                onOpenChange={setShowNewPostDrawer}
+            <PostComposer
+                open={composer !== null}
+                onOpenChange={(open) => {
+                    if (!open) setComposer(null);
+                }}
+                editing={composer?.mode === "edit" ? composer.post : null}
             />
 
             <CommentSheet

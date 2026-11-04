@@ -327,6 +327,47 @@ export function useNewPostMutation() {
     });
 }
 
+export function useUpdatePostMutation() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: ["update_post"],
+        mutationFn: async ({
+            id,
+            text,
+            layout,
+            keepImages,
+            files,
+        }: {
+            id: string;
+            text: string;
+            layout: PostLayout;
+            /** Existing filenames kept by the edit form, in visual order. */
+            keepImages: string[];
+            /** Newly added files. */
+            files: File[];
+        }) => {
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("layout", layout);
+            keepImages.forEach((name) => formData.append("images", name));
+            files.forEach((file) => formData.append("images", file));
+
+            // Omitting `images` from an update leaves the current files
+            // untouched; an empty value is what clears them.
+            if (keepImages.length === 0 && files.length === 0) {
+                formData.append("images", "");
+            }
+
+            await pb.collection("posts").update(id, formData);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: qk.posts.all });
+            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
+        },
+    });
+}
+
 export function useDeletePostMutation() {
     const queryClient = useQueryClient();
 

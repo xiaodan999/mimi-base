@@ -1,5 +1,35 @@
 const MINUTE = 60 * 1000;
 
+export type ComposerImageRef =
+    { kind: "file"; file: File } | { kind: "existing"; name: string };
+
+export type PostImagesField = {
+    /** Existing filenames to keep, in the order they appear in the composer. */
+    keep: string[];
+    /** Newly picked files to upload. */
+    files: File[];
+};
+
+/**
+ * Splits the composer's previews into what PocketBase expects on update:
+ * already-uploaded filenames to keep and new files to upload. An empty result
+ * means the caller must clear the field explicitly, otherwise PocketBase
+ * leaves the existing images untouched.
+ */
+export function buildPostImagesField(
+    images: ComposerImageRef[],
+): PostImagesField {
+    const keep: string[] = [];
+    const files: File[] = [];
+
+    for (const image of images) {
+        if (image.kind === "existing") keep.push(image.name);
+        else files.push(image.file);
+    }
+
+    return { keep, files };
+}
+
 function startOfDay(date: Date) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

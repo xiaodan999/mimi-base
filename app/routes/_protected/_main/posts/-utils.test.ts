@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatMonthLabel, groupPostMonths, monthKeyOf } from "./-utils";
+import {
+    buildPostImagesField,
+    formatMonthLabel,
+    groupPostMonths,
+    monthKeyOf,
+} from "./-utils";
 
 /** Local-time timestamp so the test never depends on the runner's zone. */
 function at(year: number, month: number, day = 15, hour = 12) {
@@ -48,5 +53,26 @@ describe("groupPostMonths", () => {
 
     test("skips invalid timestamps", () => {
         expect(groupPostMonths(["", "nope"])).toEqual([]);
+    });
+});
+
+describe("buildPostImagesField", () => {
+    test("keeps existing names and new files in visual order", () => {
+        const newFile = new File(["new"], "new.jpg", { type: "image/jpeg" });
+
+        expect(
+            buildPostImagesField([
+                { kind: "existing", name: "kept-1.jpg" },
+                { kind: "file", file: newFile },
+                { kind: "existing", name: "kept-2.jpg" },
+            ]),
+        ).toEqual({
+            keep: ["kept-1.jpg", "kept-2.jpg"],
+            files: [newFile],
+        });
+    });
+
+    test("returns an empty payload when every image was removed", () => {
+        expect(buildPostImagesField([])).toEqual({ keep: [], files: [] });
     });
 });
