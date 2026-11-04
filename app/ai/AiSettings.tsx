@@ -129,7 +129,9 @@ export default function AiSettingsSheet({
             subtitle="Key 只保存在本机浏览器，不会上传到服务器"
             zIndex={90}
         >
-            <div className="space-y-4">
+            {/* 这里用学习页的 st-* 控件，作用域放在内容上，别套到整个抽屉上：
+                 `.study-root :where(button)` 会把 shadcn 按钮的背景和边框清掉。 */}
+            <div className="study-root space-y-4">
                 <div>
                     <div className="st-tiny mb-1 font-bold">服务商</div>
                     <select
