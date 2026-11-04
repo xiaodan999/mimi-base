@@ -209,7 +209,8 @@ before your first commit.
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
   `/photos` now redirects to `/posts`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
-  (`food`, `transport`, `shopping`, `home`, `fun`, `health`, `other`, defined in
+  (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,
+  `other`, defined in
   `app/routes/_protected/_main/jizhang/-categories.ts`) or the id of a
   `ji_zhang_category` row (the user's own categories). Resolve it through
   `useExpenseCategories().getCategory` / `getExpenseCategory(value, custom)` —

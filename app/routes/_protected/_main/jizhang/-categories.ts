@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+    Bike,
     BookOpen,
     Bus,
     Car,
@@ -31,6 +32,7 @@ export type ExpenseCategory = {
 
 export type CategoryIconKey =
     | "utensils"
+    | "takeout"
     | "bus"
     | "shopping"
     | "home"
@@ -49,6 +51,7 @@ export type CategoryIconKey =
 
 const ICONS: Record<CategoryIconKey, LucideIcon> = {
     utensils: Utensils,
+    takeout: Bike,
     bus: Bus,
     shopping: ShoppingBag,
     home: House,
@@ -68,6 +71,7 @@ const ICONS: Record<CategoryIconKey, LucideIcon> = {
 
 const TONES: Record<CategoryIconKey, string> = {
     utensils: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    takeout: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
     bus: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
     shopping: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
     home: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -93,6 +97,7 @@ type BuiltinDefinition = {
 
 const BUILTIN_DEFINITIONS: BuiltinDefinition[] = [
     { value: "food", label: "吃饭", icon: "utensils" },
+    { value: "takeout", label: "外卖", icon: "takeout" },
     { value: "transport", label: "交通", icon: "bus" },
     { value: "shopping", label: "购物", icon: "shopping" },
     { value: "home", label: "居家", icon: "home" },
@@ -178,6 +183,7 @@ export function normalizeCategoryValue(
 const ICON_HINTS: [RegExp, CategoryIconKey][] = [
     [/猫|狗|宠物/, "paw"],
     [/咖啡|奶茶|饮料|茶/, "coffee"],
+    [/外卖|美团|饿了么|外送/, "takeout"],
     [/旅行|旅游|机票|酒店|度假|景点/, "plane"],
     [/礼物|送礼|红包|份子/, "gift"],
     [/健身|运动|球|跑步|瑜伽|游泳/, "dumbbell"],

@@ -13,8 +13,9 @@ const pet = categoryFromRecord({ id: "recPet", name: "宠物", icon: "paw" });
 
 describe("getExpenseCategory", () => {
     test("keeps the built-in categories", () => {
-        expect(BUILTIN_EXPENSE_CATEGORIES).toHaveLength(7);
+        expect(BUILTIN_EXPENSE_CATEGORIES).toHaveLength(8);
         expect(getExpenseCategory("food").label).toBe("吃饭");
+        expect(getExpenseCategory("takeout").label).toBe("外卖");
     });
 
     test("resolves custom categories by record id", () => {
@@ -77,6 +78,7 @@ describe("guessCategoryIcon", () => {
         expect(guessCategoryIcon("奶茶")).toBe("coffee");
         expect(guessCategoryIcon("健身卡")).toBe("dumbbell");
         expect(guessCategoryIcon("打车")).toBe("car");
+        expect(guessCategoryIcon("美团外卖")).toBe("takeout");
     });
 
     test("falls back to tag", () => {
