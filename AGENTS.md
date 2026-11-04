@@ -94,6 +94,12 @@ bun run dev:all
   worktree reuses the running one and only picks another Vite port.
 - Stop the servers (Ctrl-C) before `git worktree remove <path>`. `.env` and
   `pocketbase/pb_data/` are gitignored, so removing the directory is enough.
+- **Remove a worktree as soon as its branch is merged into `master` and
+  pushed** — do not wait for the user to ask. Stop its dev server, confirm the
+  tree is clean and the branch is merged (`git branch --merged master`), then
+  run `git worktree remove ../mimi-base-<topic>` and
+  `git branch -d feat/<topic>`. Leave anything unmerged or dirty alone, and
+  mention the cleanup in one line of your summary.
 
 ## Parallel sessions
 
@@ -125,7 +131,7 @@ before your first commit.
 - One topic, one worktree, one branch. If the directory or branch already
   exists, pick a variant — never reuse it.
 - Worktrees isolate files, not history. Merge into `master` deliberately, one
-  session at a time.
+  session at a time, then remove the merged worktree.
 
 ## Backend / data rules
 
