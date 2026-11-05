@@ -42,6 +42,11 @@ export default function AvatarPreview({
                     "shrink-0 rounded-full transition-transform active:scale-95",
                     className,
                 )}
+                // The button needs its own size: as a stretched flex item it
+                // grows to the row height, and buttons center their content
+                // vertically, so the avatar drifted to the middle of a tall
+                // post/comment instead of sitting next to the name.
+                style={{ width: size, height: size }}
                 onClick={() => setOpen(true)}
             >
                 <TouXiang size={size} touXiangUrl={avatarUrl} {...ring} />
