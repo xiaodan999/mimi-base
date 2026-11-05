@@ -84,9 +84,10 @@ export default function Post({
                         liked && "fill-current text-red-500",
                     )}
                 />
-                <span className="min-w-[2ch] text-left tabular-nums">
-                    {metrics.likeCount}
-                </span>
+                {/* Tabular digits keep 0 -> 1 the same width without
+                    reserving a second digit, which left a visible gap before
+                    the comment button. */}
+                <span className="tabular-nums">{metrics.likeCount}</span>
             </Button>
             <Button
                 type="button"
