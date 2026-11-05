@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-    buildPostImagesField,
+    buildPostImagesFields,
     formatMonthLabel,
     groupPostMonths,
     monthKeyOf,
@@ -56,12 +56,15 @@ describe("groupPostMonths", () => {
     });
 });
 
-describe("buildPostImagesField", () => {
-    test("keeps existing names and new files in visual order", () => {
-        const newFile = new File(["new"], "new.jpg", { type: "image/jpeg" });
+describe("buildPostImagesFields", () => {
+    const newFile = new File(["new"], "a1_main.webp", { type: "image/webp" });
+    const newThumb = new File(["thumb"], "a1_thumbnail.webp", {
+        type: "image/webp",
+    });
 
+    test("keeps existing names and new files in visual order", () => {
         expect(
-            buildPostImagesField([
+            buildPostImagesFields([
                 { kind: "existing", name: "kept-1.jpg" },
                 { kind: "file", file: newFile },
                 { kind: "existing", name: "kept-2.jpg" },
@@ -69,10 +72,37 @@ describe("buildPostImagesField", () => {
         ).toEqual({
             keep: ["kept-1.jpg", "kept-2.jpg"],
             files: [newFile],
+            keepThumbs: [],
+            thumbs: [],
+        });
+    });
+
+    test("collects existing and new thumbnails separately", () => {
+        expect(
+            buildPostImagesFields([
+                {
+                    kind: "existing",
+                    name: "b2_main_x.webp",
+                    thumb: "b2_thumbnail_y.webp",
+                },
+                { kind: "file", file: newFile, thumb: newThumb },
+                // A photo whose thumbnail failed to encode is still uploaded.
+                { kind: "file", file: newFile, thumb: null },
+            ]),
+        ).toEqual({
+            keep: ["b2_main_x.webp"],
+            files: [newFile, newFile],
+            keepThumbs: ["b2_thumbnail_y.webp"],
+            thumbs: [newThumb],
         });
     });
 
     test("returns an empty payload when every image was removed", () => {
-        expect(buildPostImagesField([])).toEqual({ keep: [], files: [] });
+        expect(buildPostImagesFields([])).toEqual({
+            keep: [],
+            files: [],
+            keepThumbs: [],
+            thumbs: [],
+        });
     });
 });

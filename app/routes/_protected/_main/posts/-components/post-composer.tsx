@@ -28,7 +28,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
-import prepareImage from "@/lib/prepareImage";
+import { preparePhoto } from "@/lib/prepareImage";
 import { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ import {
     type PostData,
     type PostLayout,
 } from "../-data";
-import { buildPostImagesField } from "../-utils";
+import { buildPostImagesFields } from "../-utils";
 import ImageViewer from "./image-viewer";
 
 type PostComposerProps = {
@@ -50,8 +50,8 @@ type PostComposerProps = {
 };
 
 type PreviewImage =
-    | { kind: "file"; file: File; url: string }
-    | { kind: "existing"; name: string; url: string };
+    | { kind: "file"; file: File; thumb: File | null; url: string }
+    | { kind: "existing"; name: string; url: string; thumb?: string };
 
 const MAX_IMAGES = 9;
 
@@ -149,6 +149,7 @@ export default function PostComposer({
                 editing.images.map((image) => ({
                     kind: "existing" as const,
                     name: image.name,
+                    thumb: image.thumb,
                     url: getFileUrl(fileRecord, image.name),
                 })),
             );
@@ -227,7 +228,7 @@ export default function PostComposer({
         setPendingCount(selected.length);
         try {
             const results = await toastPromise(
-                Promise.allSettled(selected.map(prepareImage)),
+                Promise.allSettled(selected.map((file) => preparePhoto(file))),
                 {
                     loading: "压缩图片中...",
                     success: (settled) =>
@@ -247,10 +248,10 @@ export default function PostComposer({
                 );
             }
 
-            const next = prepared.map((file) => {
-                const url = URL.createObjectURL(file);
+            const next = prepared.map(({ main, thumb }) => {
+                const url = URL.createObjectURL(main);
                 previewUrls.current.push(url);
-                return { kind: "file" as const, file, url };
+                return { kind: "file" as const, file: main, thumb, url };
             });
             setImages((previous) => [...previous, ...next]);
         } catch {
@@ -278,7 +279,8 @@ export default function PostComposer({
         const value = text.trim();
         if ((!value && images.length === 0) || publishing || preparing) return;
 
-        const { keep, files } = buildPostImagesField(images);
+        const { keep, files, keepThumbs, thumbs } =
+            buildPostImagesFields(images);
         setPublishing(true);
         try {
             if (editing) {
@@ -288,7 +290,9 @@ export default function PostComposer({
                         text: value,
                         layout,
                         keepImages: keep,
+                        keepThumbs,
                         files,
+                        thumbs,
                     }),
                     {
                         loading: "保存中...",
@@ -305,6 +309,7 @@ export default function PostComposer({
                         text: value,
                         layout,
                         images: files,
+                        thumbs,
                     }),
                     {
                         loading: "发布中...",

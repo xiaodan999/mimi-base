@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 
 export type PostImageView = {
     name: string;
+    /** The full-size original, which is already a compressed WebP upload. */
+    url: string;
+    /** 600px grid thumbnail, or the original when the post has no thumb. */
     thumbUrl: string;
-    mediumUrl: string;
 };
 
 type ImageListProps = {
@@ -101,7 +103,7 @@ export function InstagramCarousel({ images, onOpen }: ImageListProps) {
                         className="w-full shrink-0 snap-center"
                     >
                         <img
-                            src={image.mediumUrl}
+                            src={image.url}
                             alt=""
                             loading="lazy"
                             className="aspect-square w-full object-cover"

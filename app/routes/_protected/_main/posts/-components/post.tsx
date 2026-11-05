@@ -48,8 +48,11 @@ export default function Post({
     const fileRecord = { id, collectionId };
     const gridImages = images.map((image) => ({
         name: image.name,
-        thumbUrl: getFileUrl(fileRecord, image.name, "600x600"),
-        mediumUrl: getFileUrl(fileRecord, image.name, "1200x1200"),
+        url: getFileUrl(fileRecord, image.name),
+        // PocketBase can only write PNG thumbnails, which come out larger than
+        // the original WebP. The 600px WebP preview is uploaded by the
+        // composer; posts from before that simply reuse the full image.
+        thumbUrl: getFileUrl(fileRecord, image.thumb ?? image.name),
     }));
     const openImage = (index: number) => {
         onOpenImage(

@@ -8,6 +8,7 @@ import {
 
 import { useCurrentUser, type User } from "@/lib/auth";
 import pb, { pbDate } from "@/lib/pb";
+import { pairThumbs } from "@/lib/photoFiles";
 import { qk } from "@/lib/query-keys";
 
 import { groupPostMonths } from "./-utils";
@@ -16,6 +17,8 @@ export type PostLayout = "moments" | "instagram";
 
 export type PostImage = {
     name: string;
+    /** 600px grid thumbnail; absent on posts uploaded before thumbnails. */
+    thumb?: string;
 };
 
 export type PostData = {
@@ -41,6 +44,12 @@ type PostRecord = {
     like_count: number;
     comment_count: number;
     images?: string[];
+    /**
+     * 600px thumbnails, paired to `images` by the token in their file name
+     * (see lib/photoFiles.ts). Uploaded by the client because PocketBase would
+     * re-encode them as PNG.
+     */
+    thumbs?: string[];
     layout?: string;
     // Files are served relative to the record's collection/record id.
     collectionId: string;
@@ -113,7 +122,7 @@ function toPostData(post: PostRecord, likedPostIds: Set<string>): PostData {
         liked: likedPostIds.has(post.id),
         layout: post.layout === "instagram" ? "instagram" : "moments",
         collectionId: post.collectionId,
-        images: (post.images ?? []).map((name) => ({ name })),
+        images: pairThumbs(post.images ?? [], post.thumbs ?? []),
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,
@@ -305,18 +314,22 @@ export function useNewPostMutation() {
             text,
             layout,
             images,
+            thumbs,
         }: {
             text: string;
             layout: PostLayout;
             images: File[];
+            thumbs: File[];
         }) => {
             // PocketBase has no column default for author_id, send it. Files
-            // upload in the same request as the record.
+            // upload in the same request as the record, thumbnails included so
+            // a post is never saved with images and no grid previews.
             const formData = new FormData();
             formData.append("text", text);
             formData.append("layout", layout);
             formData.append("author_id", user.id);
             images.forEach((image) => formData.append("images", image));
+            thumbs.forEach((thumb) => formData.append("thumbs", thumb));
 
             await pb.collection("posts").create(formData);
         },
@@ -337,26 +350,37 @@ export function useUpdatePostMutation() {
             text,
             layout,
             keepImages,
+            keepThumbs,
             files,
+            thumbs,
         }: {
             id: string;
             text: string;
             layout: PostLayout;
             /** Existing filenames kept by the edit form, in visual order. */
             keepImages: string[];
+            /** Existing thumbnail filenames kept by the edit form. */
+            keepThumbs: string[];
             /** Newly added files. */
             files: File[];
+            /** Newly generated thumbnails. */
+            thumbs: File[];
         }) => {
             const formData = new FormData();
             formData.append("text", text);
             formData.append("layout", layout);
             keepImages.forEach((name) => formData.append("images", name));
             files.forEach((file) => formData.append("images", file));
+            keepThumbs.forEach((name) => formData.append("thumbs", name));
+            thumbs.forEach((file) => formData.append("thumbs", file));
 
-            // Omitting `images` from an update leaves the current files
+            // Omitting a field from an update leaves its current files
             // untouched; an empty value is what clears them.
             if (keepImages.length === 0 && files.length === 0) {
                 formData.append("images", "");
+            }
+            if (keepThumbs.length === 0 && thumbs.length === 0) {
+                formData.append("thumbs", "");
             }
 
             await pb.collection("posts").update(id, formData);

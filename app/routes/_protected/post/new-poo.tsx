@@ -23,6 +23,7 @@ function Page() {
                     text: "💩",
                     layout: "moments",
                     images: [],
+                    thumbs: [],
                 }),
                 {
                     loading: "记录💩中...",

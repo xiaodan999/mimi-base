@@ -1,33 +1,49 @@
 const MINUTE = 60 * 1000;
 
 export type ComposerImageRef =
-    { kind: "file"; file: File } | { kind: "existing"; name: string };
+    | { kind: "file"; file: File; thumb?: File | null }
+    | { kind: "existing"; name: string; thumb?: string };
 
-export type PostImagesField = {
+export type PostImagesFields = {
     /** Existing filenames to keep, in the order they appear in the composer. */
     keep: string[];
     /** Newly picked files to upload. */
     files: File[];
+    /** Existing thumbnail filenames to keep. */
+    keepThumbs: string[];
+    /** Newly generated thumbnails to upload. */
+    thumbs: File[];
 };
 
 /**
  * Splits the composer's previews into what PocketBase expects on update:
  * already-uploaded filenames to keep and new files to upload. An empty result
  * means the caller must clear the field explicitly, otherwise PocketBase
- * leaves the existing images untouched.
+ * leaves the existing files untouched.
+ *
+ * Thumbnails are collected in the same pass but stay in their own lists: a
+ * photo whose thumbnail failed to encode is still uploaded, and the file name
+ * token (not the position) is what links a thumb back to its image.
  */
-export function buildPostImagesField(
+export function buildPostImagesFields(
     images: ComposerImageRef[],
-): PostImagesField {
+): PostImagesFields {
     const keep: string[] = [];
     const files: File[] = [];
+    const keepThumbs: string[] = [];
+    const thumbs: File[] = [];
 
     for (const image of images) {
-        if (image.kind === "existing") keep.push(image.name);
-        else files.push(image.file);
+        if (image.kind === "existing") {
+            keep.push(image.name);
+            if (image.thumb) keepThumbs.push(image.thumb);
+        } else {
+            files.push(image.file);
+            if (image.thumb) thumbs.push(image.thumb);
+        }
     }
 
-    return { keep, files };
+    return { keep, files, keepThumbs, thumbs };
 }
 
 function startOfDay(date: Date) {
