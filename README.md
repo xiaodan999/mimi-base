@@ -200,3 +200,25 @@ https://bun.sh 按提示安装。
 - 不要提交 `.env`、`.env.prod` 和 `pocketbase/pb_data/`。
 - 修改账号密码等正式环境的事情，请先看 `pocketbase/README.md`。
 - 更详细的开发约定（英文）在 `AGENTS.md` 里。
+
+## 十一、线上自托管前端（可选）
+
+线上的页面可以同时存在两份——同一份代码、同一个数据库，互不影响：
+
+- **Vercel**：推送后由 Vercel 自己打包部署，页面用绝对地址访问数据库。
+- **PocketBase**：GitHub Actions 里的 `deploy-spa` 工作流打包
+  （`VITE_POCKETBASE_URL=same-origin`），把产物传到服务器的
+  `/spa/publish`，存进仓库目录下的 `build/`，由 PocketBase 直接对外提供。
+
+第一次部署：在 GitHub 的 Actions 页面运行一次 `deploy-spa`（或点
+Run workflow）。之后推送到 `master` 的前端改动会自动发布。
+
+- 发布失败不会影响正在用的旧版本：服务器先解压到 `build.next`，
+  确认里面有 `index.html` 才替换 `build/`，旧的留在 `build.old`。
+- 想退回上一版：带上 `x-deploy-token` 请求 `POST /spa/rollback`；再调
+  一次就换回来。
+- 换前端不需要重启数据库：PocketBase 每次请求都直接读 `build/`。
+- 反向代理要把 `/spa/*` 转发到 `:9001`，给 `/assets/*` 设长缓存，给
+  `/`、`/index.html`、`/sw.js` 设不缓存（PocketBase 自己不发缓存头）。
+
+细节（英文）见 `pocketbase/README.md` 的 Frontend 一节。

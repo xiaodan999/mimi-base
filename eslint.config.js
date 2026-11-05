@@ -11,6 +11,8 @@ export default tseslint.config(
             "app/routeTree.gen.ts",
             "components/ui/**",
             "build/**",
+            "build.next/**",
+            "build.old/**",
             "tmp/**",
             "pb_data_snapshots/**",
             // Service worker and PocketBase JSVM scripts run outside the app.

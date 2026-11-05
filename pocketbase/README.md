@@ -65,8 +65,9 @@ first for that — then also update the GitHub `DEPLOY_TOKEN` secret and
 restart PB).
 
 Exposing the API to the internet (reverse proxy + TLS) is a separate
-concern; the only requirement is that `/api/*` and `/db/sync` are
-reachable by your apps and the deploy pipeline.
+concern; the only requirement is that `/api/*`, `/db/sync` (and `/spa/*`
+when self-hosting the frontend) are reachable by your apps and the deploy
+pipeline.
 
 ## Deploys
 
@@ -81,6 +82,34 @@ transient route failures; a red run means the deploy did NOT happen
 Schema changes ride the same path: committed migrations are applied when
 PB restarts, even with `automigrate` off. The frontend finds the server
 via `VITE_POCKETBASE_URL` (Vercel env var).
+
+## Frontend (self-hosted, next to Vercel)
+
+Both frontends run at the same time against the same PocketBase: Vercel
+keeps building its copy with an absolute `VITE_POCKETBASE_URL`, while
+`.github/workflows/deploy-spa.yml` builds a `same-origin` copy that
+PocketBase serves itself from `<repo>/build` (`--publicDir`, prod only).
+Nothing has to be switched off.
+
+- **Trigger**: push to `master` touching frontend paths, or Actions →
+  `deploy-spa` → Run workflow (first publish, or a manual republish).
+- **Build**: `VITE_POCKETBASE_URL=same-origin bun run build` in CI (the
+  typecheck inside `build` gates the publish), then `tar -czf -C build .`
+  (~3 MB) and `POST /spa/publish` on :9001 with the same `DEPLOY_TOKEN`.
+- **Publish**: the server unpacks into `build.next`, requires
+  `index.html` at its root, then swaps `build` → `build.old` and
+  `build.next` → `build`. A failed upload or tarball leaves the live
+  bundle untouched.
+- **No restart**: PocketBase reads `publicDir` on every request, so a
+  frontend deploy never bounces the API. `POST /spa/rollback` swaps back
+  to `build.old`; calling it again swaps forward.
+- **Reverse proxy**: route `/spa/*` to :9001 next to `/db/sync`, give
+  `/assets/*` a long immutable cache and `/`, `/index.html`, `/sw.js`,
+  `/manifest.json` `no-cache` (PB sends no `Cache-Control` of its own).
+- `build/`, `build.next/` and `build.old/` are gitignored; they are not
+  part of `pb_data` snapshots.
+- `PB_PUBLIC_DIR` overrides the served directory; `DEPLOY_BIND` pins the
+  deploy server to one address (e.g. the Docker gateway).
 
 ## Operations
 

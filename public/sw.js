@@ -1,4 +1,4 @@
-const VERSION = "v9.0.1";
+const VERSION = "v9.0.2";
 const CACHE_NAME = `mimi-base-${VERSION}`;
 
 console.log(VERSION);
@@ -131,6 +131,13 @@ self.addEventListener("fetch", (event) => {
     const url = new URL(request.url);
     // let cross-origin requests (PocketBase API, CDN assets, ...) go straight to the network
     if (url.origin !== self.location.origin) return;
+
+    // PocketBase is same-origin when it serves this app itself, so the API
+    // must stay untouched here: auth headers, the realtime stream and
+    // protected /api/files URLs must never be cached or replayed. The
+    // dashboard and its assets get the same treatment.
+    if (url.pathname.startsWith("/api") || url.pathname.startsWith("/_"))
+        return;
 
     if (request.mode === "navigate") {
         event.respondWith(networkFirst(event, request, "/"));

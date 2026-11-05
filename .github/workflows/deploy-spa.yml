@@ -1,0 +1,105 @@
+name: deploy-spa
+
+# Builds the frontend in CI and publishes it to PocketBase, which serves it
+# from ../build (`--publicDir`). Independent of deploy-db.yml: a frontend
+# deploy never restarts PB, and the Vercel deployment of the same commit is
+# unaffected. Requires the DEPLOY_TOKEN secret (same one as deploy-db) in the
+# "Production" environment.
+
+on:
+    push:
+        branches: [master]
+        paths:
+            - "app/**"
+            - "components/**"
+            - "hooks/**"
+            - "lib/**"
+            - "public/**"
+            - "index.html"
+            - "vite.config.ts"
+            - "tsconfig.json"
+            - "tailwind.config.js"
+            - "postcss.config.js"
+            - "globals.css"
+            - "package.json"
+            - "bun.lock"
+            - ".github/workflows/deploy-spa.yml"
+    # first publish on a fresh box, and manual republish after a rollback
+    workflow_dispatch:
+
+concurrency:
+    group: deploy-spa
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.4.4
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Build (same-origin API)
+              # PocketBase serves this bundle, so the API is whatever host
+              # loaded the page. `bun check` inside `build` gates the publish.
+              run: VITE_POCKETBASE_URL=same-origin bun run build
+
+            - name: Package
+              run: tar -czf spa.tar.gz -C build .
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: spa
+                  path: spa.tar.gz
+                  retention-days: 1
+                  if-no-files-found: error
+
+    publish:
+        needs: build
+        runs-on: ubuntu-latest
+        environment: Production
+        env:
+            DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: spa
+
+            - name: Publish to PocketBase
+              if: ${{ env.DEPLOY_TOKEN != '' }}
+              timeout-minutes: 10
+              # A server.ts change makes the supervisor respawn itself right
+              # after deploy-db, so :9001 can be briefly down — retry instead
+              # of failing the run.
+              run: |
+                  for i in 1 2 3 4 5 6; do
+                    if curl --fail-with-body --max-time 120 -sS -X POST \
+                      https://dan-pb.zxvcn.com/spa/publish \
+                      -H "x-deploy-token: $DEPLOY_TOKEN" \
+                      -H "x-spa-sha: ${{ github.sha }}" \
+                      --data-binary @spa.tar.gz; then
+                      echo "published on attempt $i"
+                      exit 0
+                    fi
+                    echo "attempt $i failed; retrying in 20s"
+                    sleep 20
+                  done
+                  echo "publish failed — the previous bundle is still live"
+                  exit 1
+
+            - name: Health check
+              if: ${{ env.DEPLOY_TOKEN != '' }}
+              run: |
+                  curl --fail --max-time 30 -sS --retry 3 --retry-delay 5 --retry-all-errors \
+                    https://dan-pb.zxvcn.com/api/health
+                  curl --fail --max-time 30 -sS --retry 3 --retry-delay 5 --retry-all-errors \
+                    https://dan-pb.zxvcn.com/ -o /dev/null
+
+            - name: Skip (DEPLOY_TOKEN secret not set)
+              if: ${{ env.DEPLOY_TOKEN == '' }}
+              run: echo "DEPLOY_TOKEN is not configured — skipping publish"

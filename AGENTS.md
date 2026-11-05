@@ -337,7 +337,8 @@ before your first commit.
 - PocketBase records use `created` / `updated`; app types map them (e.g.
   `createdAt`).
 - Build output is `build/` (not `dist`). `vercel.json` rewrites all paths to
-  `/` for SPA routing.
+  `/` for SPA routing. The same build is also published to PocketBase, which
+  serves it from `build/` via `--publicDir` in prod (both hosts run at once).
 - PWA: `public/sw.js` is hand-written with a `VERSION` constant; bump it when
   caching behavior changes. It is registered only in production builds by
   `lib/service-worker.ts`. New workers wait for `SKIP_WAITING`; the app shows a
@@ -348,6 +349,10 @@ before your first commit.
 - Default branch is `master`. Pushing `pocketbase/**` to `master` triggers
   `.github/workflows/deploy-db.yml` → `/db/sync` (git pull, snapshot
   `pb_data`, restart; migrations apply on restart even with automigrate off).
+  Frontend paths trigger `.github/workflows/deploy-spa.yml`, which builds with
+  `VITE_POCKETBASE_URL=same-origin` and POSTs the tarball to `/spa/publish`;
+  PB serves it from `build/` with no restart (`build.old` keeps one
+  generation, `/spa/rollback` swaps back).
 - `pocketbase/server.ts` must stay inside `pocketbase/`: the binary resolves
   `pb_migrations` and `pb_hooks` relative to the data dir.
 - Never commit `.env`, `.env.prod`, `pocketbase/pb_data/`, or `tmp/`.
@@ -359,4 +364,6 @@ before your first commit.
 - `pocketbase/README.md` — server, deploy endpoint, ops, secrets.
 - `scripts/server-setup.sh` — fresh install / recovery.
 - `.github/workflows/deploy-db.yml` — deploy trigger and retry behavior.
+- `.github/workflows/deploy-spa.yml` and the `/spa/*` routes in
+  `pocketbase/server.ts` — self-hosted frontend build and publish.
 - `app/routes/_protected.tsx` and `lib/auth.tsx` — auth flow and redirects.

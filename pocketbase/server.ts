@@ -7,9 +7,18 @@
  *                 #       automigrate off, /db/sync armed by DEPLOY_TOKEN
  *
  * Downloads the pinned binary on first run, keeps `./pocketbase serve`
- * running, and serves POST /db/sync on :9001 for GitHub Actions deploys:
- * auth token (x-deploy-token, timing-safe compare) -> git pull --ff-only ->
- * pb_data snapshot -> restart -> respond only after /api/health passes.
+ * running, and serves the token-protected deploy endpoints on :9001:
+ *
+ *   POST /db/sync       git pull --ff-only -> pb_data snapshot -> restart ->
+ *                       respond only after /api/health passes
+ *   POST /spa/publish   unpack a CI-built SPA tarball into build.next,
+ *                       validate it, then swap it in as ../build (the served
+ *                       publicDir) keeping the previous one as build.old
+ *   POST /spa/rollback  swap ../build back to build.old
+ *
+ * In prod the same PB process serves the frontend from ../build
+ * (`--publicDir`), so a SPA publish takes effect without a restart: PB reads
+ * the directory on every request.
  *
  * Must stay inside pocketbase/: the binary resolves pb_migrations and
  * pb_hooks relative to the data dir (pocketbase/pb_data/../).
@@ -27,6 +36,8 @@ import {
     openSync,
     readFileSync,
     readdirSync,
+    renameSync,
+    rmSync,
     unlinkSync,
     writeFileSync,
 } from "node:fs";
@@ -50,6 +61,8 @@ const bin = path.join(dir, binName);
 const repo = path.resolve(dir, "..");
 const DEPLOY_PORT = 9001;
 const SNAPSHOT_KEEP = 5;
+/** Cap for a SPA tarball upload (the real build is ~3 MB). */
+const SPA_MAX_BYTES = 50 * 1024 * 1024;
 
 // Prod config: when .env.prod (gitignored) exists at the repo root, load it
 // (DEPLOY_TOKEN arms /db/sync, PB_HTTP sets the bind address) and switch to
@@ -63,6 +76,20 @@ if (existsSync(prodEnvPath)) {
             process.env[m[1]] = m[2];
     }
     isProd = true;
+}
+
+// Prod serves the CI-built SPA from ../build; the deploy-spa workflow
+// publishes it (POST /spa/publish). Dev keeps Vite in charge of the UI.
+// Both the flag and the path are absolute: PocketBase resolves a relative
+// publicDir against its working directory (pocketbase/).
+const publicDir = path.resolve(dir, process.env.PB_PUBLIC_DIR ?? "../build");
+/** Staging/previous generations live next to the live bundle. */
+const buildNext = `${publicDir}.next`;
+const buildPrev = `${publicDir}.old`;
+if (isProd && !existsSync(path.join(publicDir, "index.html"))) {
+    console.log(
+        `SPA not published yet — run the deploy-spa workflow to fill ${publicDir}`,
+    );
 }
 
 /** Shared copy so a fresh worktree works even after the others are gone. */
@@ -191,6 +218,9 @@ const serveArgs = [
         : ["--http", bindHttp, ...argv]),
     ...(isProd && !argv.some((a) => a.startsWith("--automigrate"))
         ? ["--automigrate=false"]
+        : []),
+    ...(isProd && !argv.some((a) => a.startsWith("--publicDir"))
+        ? ["--publicDir", publicDir]
         : []),
 ];
 const httpPort = (() => {
@@ -325,17 +355,79 @@ const safeEqual = (a: string | null, b: string) => {
     );
 };
 
+// ---------- /spa publish endpoints ----------
+
+/**
+ * Unpack the uploaded tarball into build.next, verify it, then swap it in as
+ * build/, keeping the previous generation as build.old. Any failure leaves the
+ * live build/ untouched; PocketBase reads publicDir per request, so no restart
+ * is involved.
+ */
+async function publishSpa(req: Request, sha: string): Promise<Response> {
+    const declared = Number(req.headers.get("content-length") ?? 0);
+    if (declared > SPA_MAX_BYTES)
+        return new Response("payload too large", { status: 413 });
+
+    const body = new Uint8Array(await req.arrayBuffer());
+    if (body.byteLength > SPA_MAX_BYTES)
+        return new Response("payload too large", { status: 413 });
+    if (body.byteLength === 0)
+        return new Response("empty body", { status: 400 });
+
+    const upload = path.join(repo, "tmp", "spa-upload.tar.gz");
+    mkdirSync(path.dirname(upload), { recursive: true });
+    rmSync(buildNext, { recursive: true, force: true });
+    mkdirSync(buildNext, { recursive: true });
+    try {
+        writeFileSync(upload, body);
+        execFileSync("tar", ["-xzf", upload, "-C", buildNext], {
+            stdio: "inherit",
+        });
+        if (!existsSync(path.join(buildNext, "index.html")))
+            throw new Error("tarball has no index.html at its root");
+        rmSync(buildPrev, { recursive: true, force: true });
+        if (existsSync(publicDir)) renameSync(publicDir, buildPrev);
+        renameSync(buildNext, publicDir);
+        console.log(`spa published: ${sha} (${body.byteLength} bytes)`);
+        return new Response(`ok ${sha} ${body.byteLength}\n`);
+    } catch (err) {
+        rmSync(buildNext, { recursive: true, force: true });
+        console.error("spa publish failed:", err);
+        return new Response(`spa publish failed: ${err}`, { status: 500 });
+    } finally {
+        rmSync(upload, { force: true });
+    }
+}
+
+/** Swap the live bundle back to the previous one; calling it twice toggles. */
+function rollbackSpa(): Response {
+    if (!existsSync(path.join(buildPrev, "index.html")))
+        return new Response("no previous build", { status: 409 });
+    rmSync(buildNext, { recursive: true, force: true });
+    if (existsSync(publicDir)) renameSync(publicDir, buildNext);
+    renameSync(buildPrev, publicDir);
+    if (existsSync(buildNext)) renameSync(buildNext, buildPrev);
+    console.log("spa rolled back");
+    return new Response("rolled back\n");
+}
+
 function startDeployEndpoint() {
     if (!process.env.DEPLOY_TOKEN) {
-        console.log("DEPLOY_TOKEN not set — /db/sync endpoint disabled");
+        console.log("DEPLOY_TOKEN not set — /db/sync and /spa/* disabled");
         return;
     }
     let deploying = false;
+    let publishing = false;
+    const deployBind = process.env.DEPLOY_BIND;
     Bun.serve({
         port: DEPLOY_PORT,
+        ...(deployBind ? { hostname: deployBind } : {}),
         async fetch(req) {
             const url = new URL(req.url);
-            if (url.pathname !== "/db/sync")
+            const isSpa =
+                url.pathname === "/spa/publish" ||
+                url.pathname === "/spa/rollback";
+            if (url.pathname !== "/db/sync" && !isSpa)
                 return new Response("not found", { status: 404 });
             if (req.method !== "POST")
                 return new Response("method not allowed", { status: 405 });
@@ -346,6 +438,23 @@ function startDeployEndpoint() {
                 )
             ) {
                 return new Response("unauthorized", { status: 401 });
+            }
+            if (isSpa) {
+                if (publishing)
+                    return new Response("publish already in progress", {
+                        status: 409,
+                    });
+                publishing = true;
+                try {
+                    return url.pathname === "/spa/publish"
+                        ? await publishSpa(
+                              req,
+                              req.headers.get("x-spa-sha") ?? "unknown",
+                          )
+                        : rollbackSpa();
+                } finally {
+                    publishing = false;
+                }
             }
             if (deploying)
                 return new Response("deploy already in progress", {
@@ -405,7 +514,9 @@ function startDeployEndpoint() {
             }
         },
     });
-    console.log(`deploy endpoint listening on :${DEPLOY_PORT}`);
+    console.log(
+        `deploy endpoint listening on ${deployBind ?? "0.0.0.0"}:${DEPLOY_PORT}`,
+    );
 }
 
 await ensureBinary();
