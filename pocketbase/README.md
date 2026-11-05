@@ -73,11 +73,16 @@ pipeline.
 
 Push to `master` touching `pocketbase/**` → GitHub Actions calls the
 token-protected `/db/sync` endpoint (`DEPLOY_TOKEN` secret in the
-"Production" environment) → the server does `git pull --ff-only`,
-snapshots `pb_data`, restarts PB and returns 200 only after `/api/health`
-passes. The trigger step retries 8 times over ~8 minutes to ride out
-transient route failures; a red run means the deploy did NOT happen
-(re-run the job from the Actions tab).
+"Production" environment) → the server does `git pull --ff-only`, stops
+PB, snapshots `pb_data` while it is down, starts PB and returns 200 only
+after `/api/health` passes. The snapshot has to happen with PB stopped:
+tarring a live SQLite database intermittently fails with `file changed as
+we read it` and stores an inconsistent copy. Archives are written as
+`.partial` and renamed on success, so `SNAPSHOT_KEEP` never counts a
+half-written file; if a snapshot still fails, PB is restarted anyway and
+the deploy answers 500. The trigger step retries 8 times over ~8 minutes
+to ride out transient route failures; a red run means the deploy did NOT
+happen (re-run the job from the Actions tab).
 
 Schema changes ride the same path: committed migrations are applied when
 PB restarts, even with `automigrate` off. The frontend finds the server

@@ -9,8 +9,8 @@
  * Downloads the pinned binary on first run, keeps `./pocketbase serve`
  * running, and serves the token-protected deploy endpoints on :9001:
  *
- *   POST /db/sync       git pull --ff-only -> pb_data snapshot -> restart ->
- *                       respond only after /api/health passes
+ *   POST /db/sync       git pull --ff-only -> stop PB -> pb_data snapshot ->
+ *                       start PB -> respond only after /api/health passes
  *   POST /spa/publish   unpack a CI-built SPA tarball into build.next,
  *                       validate it, then swap it in as ../build (the served
  *                       publicDir) keeping the previous one as build.old
@@ -310,19 +310,29 @@ function spawnPB() {
     });
 }
 
-/** Kill the current PB and spawn a fresh one from disk; resolves when the new child is up. */
-function restartPB(): Promise<void> {
+/**
+ * Kill the current PB and spawn a fresh one from disk; resolves when the new
+ * child is up. `whileStopped` runs after PB has exited and before the new
+ * process starts, so callers can touch pb_data without racing SQLite.
+ */
+function restartPB(whileStopped?: () => void): Promise<void> {
     return new Promise((resolve) => {
-        if (!child) {
+        const start = () => {
+            try {
+                whileStopped?.();
+            } catch (err) {
+                // The deploy must still bring PocketBase back up.
+                console.error("pre-restart step failed:", err);
+            }
             spawnPB();
-            return resolve();
-        }
+            resolve();
+        };
+        if (!child) return start();
         const dying = child;
         manualRestart = true;
         dying.on("exit", () => {
             manualRestart = false;
-            spawnPB();
-            resolve();
+            start();
         });
         dying.kill("SIGTERM");
     });
@@ -338,6 +348,63 @@ async function waitForHealth(timeoutMs: number): Promise<boolean> {
         await new Promise((r) => setTimeout(r, 500));
     }
     return false;
+}
+
+// ---------- pb_data snapshots ----------
+
+const SNAPSHOT_DIR = path.join(repo, "pb_data_snapshots");
+const SNAPSHOT_RE = /^\d{8}-\d{6}\.tar\.gz$/;
+
+function snapshotName(date = new Date()): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+        `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+        `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+    );
+}
+
+/**
+ * Archive pb_data into pb_data_snapshots/. Only safe while PocketBase is
+ * stopped (see restartPB's `whileStopped`): tarring a live dataset fails with
+ * "file changed as we read it" and stores an inconsistent copy. The archive is
+ * written as .partial and renamed on success, so pruning never keeps a
+ * half-written file.
+ */
+function snapshotData(): string {
+    mkdirSync(SNAPSHOT_DIR, { recursive: true });
+    const target = path.join(SNAPSHOT_DIR, `${snapshotName()}.tar.gz`);
+    const partial = `${target}.partial`;
+    try {
+        execFileSync(
+            "tar",
+            [
+                "-czf",
+                partial,
+                "--exclude",
+                "pb_data/backups",
+                "-C",
+                path.join(repo, "pocketbase"),
+                "pb_data",
+            ],
+            { stdio: "inherit" },
+        );
+        renameSync(partial, target);
+    } finally {
+        rmSync(partial, { force: true });
+    }
+    pruneSnapshots();
+    return target;
+}
+
+/** Keep the newest SNAPSHOT_KEEP archives, ignoring .partial leftovers. */
+function pruneSnapshots() {
+    const files = readdirSync(SNAPSHOT_DIR)
+        .filter((name) => SNAPSHOT_RE.test(name))
+        .sort()
+        .reverse();
+    for (const name of files.slice(SNAPSHOT_KEEP)) {
+        rmSync(path.join(SNAPSHOT_DIR, name), { force: true });
+    }
 }
 
 // ---------- /db/sync deploy endpoint ----------
@@ -466,15 +533,28 @@ function startDeployEndpoint() {
                     path.join(dir, "server.ts"),
                 );
                 execSync("git pull --ff-only", { cwd: repo, stdio: "inherit" });
-                execSync(
-                    `mkdir -p pb_data_snapshots && tar -czf pb_data_snapshots/$(date +%Y%m%d-%H%M%S).tar.gz --exclude pb_data/backups -C pocketbase pb_data && ls -1t pb_data_snapshots/*.tar.gz | tail -n +${SNAPSHOT_KEEP + 1} | xargs -r rm`,
-                    { cwd: repo, stdio: "inherit" },
-                );
-                await restartPB();
+                // Snapshot while PB is down: a live tar can hit "file changed
+                // as we read it" (SQLite WAL), which used to fail the deploy.
+                let snapshotError: unknown = null;
+                await restartPB(() => {
+                    try {
+                        const file = snapshotData();
+                        console.log(`pb_data snapshot: ${path.basename(file)}`);
+                    } catch (err) {
+                        snapshotError = err;
+                        console.error("pb_data snapshot failed:", err);
+                    }
+                });
                 const healthy = await waitForHealth(30_000);
                 if (!healthy) {
                     return new Response(
                         "pocketbase did not become healthy after deploy",
+                        { status: 500 },
+                    );
+                }
+                if (snapshotError) {
+                    return new Response(
+                        `deploy ok, but the pb_data snapshot failed: ${snapshotError}`,
                         { status: 500 },
                     );
                 }
