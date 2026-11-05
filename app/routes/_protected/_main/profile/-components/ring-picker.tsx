@@ -342,6 +342,21 @@ export default function RingPicker({
                         <Plus className="mr-2 size-4" aria-hidden="true" />
                         上传自定义头像框
                     </Button>
+
+                    <div className="mt-3 rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+                        <p className="font-medium text-foreground">上传要求</p>
+                        <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                            <li>
+                                正方形图片，建议 1024×1024
+                                像素，上传后会自动压缩到 1024 以内
+                            </li>
+                            <li>
+                                支持 PNG / WebP / JPG，推荐保留透明的 PNG / WebP
+                            </li>
+                            <li>背景透明，中间留空，只在边缘绘制头像框</li>
+                            <li>单个文件不超过 10 MB</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <DrawerFooter className="flex-row gap-2">
