@@ -9,7 +9,8 @@ const DEFAULT_CIRCLE = "/images/blue-circle.png";
 
 type TouXiangProps = {
     className?: string;
-    size: number;
+    /** Pixels, or any CSS length (e.g. `min(72vw, 20rem)` for a preview). */
+    size: number | string;
     touXiangUrl: string;
     circleUrl?: string;
     /** Built-in ring key; "" is the default ring, "none" hides it. */
@@ -80,8 +81,8 @@ export default function TouXiang({
         <div
             className={cn("relative shrink-0", className)}
             style={{
-                width: `${size}px`,
-                height: `${size}px`,
+                width: typeof size === "number" ? `${size}px` : size,
+                height: typeof size === "number" ? `${size}px` : size,
                 ...style,
             }}
         >

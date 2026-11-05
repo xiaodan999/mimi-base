@@ -1,7 +1,5 @@
-import { HeartFill } from "antd-mobile-icons";
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
 
-import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -10,11 +8,13 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/lib/auth";
-import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import { getFileUrl } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 import { PostData, useDeletePostMutation, usePostLikeMutation } from "../-data";
 import { formatRelativeTime } from "../-utils";
+import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
 import { InstagramCarousel, MomentsImageGrid } from "./post-images";
 
@@ -61,14 +61,7 @@ export default function Post({
         );
     };
 
-    const avatar = (
-        <TouXiang
-            className="shrink-0"
-            {...getUserRing(author)}
-            size={40}
-            touXiangUrl={getUserAvatarUrl(author)}
-        />
-    );
+    const avatar = <AvatarPreview size={40} user={author} />;
 
     const actions = (
         <div className="flex items-center gap-3">
@@ -81,12 +74,19 @@ export default function Post({
                     likeMutation.mutate({ postId: id, like: !liked })
                 }
             >
-                {liked ? (
-                    <HeartFill className="size-4 text-red-500" />
-                ) : (
-                    <Heart className="size-4" />
-                )}
-                <span>{metrics.likeCount}</span>
+                {/* One icon set for both states: swapping the antd filled
+                    heart for the lucide outline changed the glyph size and
+                    baseline, so the button visibly jumped when liking. */}
+                <Heart
+                    aria-hidden="true"
+                    className={cn(
+                        "size-4",
+                        liked && "fill-current text-red-500",
+                    )}
+                />
+                <span className="min-w-[2ch] text-left tabular-nums">
+                    {metrics.likeCount}
+                </span>
             </Button>
             <Button
                 type="button"
