@@ -27,8 +27,8 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
-import compressImage from "@/lib/compressImage";
 import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import prepareImage from "@/lib/prepareImage";
 import { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
@@ -54,17 +54,6 @@ type PreviewImage =
     | { kind: "existing"; name: string; url: string };
 
 const MAX_IMAGES = 9;
-
-/**
- * Shrink a camera photo before it enters the composer, so the preview, the
- * in-memory copy and the upload are all the compressed version.
- */
-async function prepareImage(file: File, index: number): Promise<File> {
-    const compressed = await compressImage(file);
-    const type = compressed.type || "image/jpeg";
-    const ext = type.split("/")[1] || "jpg";
-    return new File([compressed], `${Date.now()}-${index}.${ext}`, { type });
-}
 
 /** Read a preview as a blob; uploaded images live behind protected URLs. */
 async function previewImageBlob(image: PreviewImage): Promise<Blob> {
