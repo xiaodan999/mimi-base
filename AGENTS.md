@@ -224,10 +224,15 @@ before your first commit.
 - Schema changes go in a new committed migration under
   `pocketbase/pb_migrations/`. Never edit an applied migration. Runtime data
   (`pb_data/`) is gitignored.
-- Local dev auto-creates a test user (`test@mimi.local` / `mimi123456`) via
-  `pocketbase/pb_hooks/dev_seed.pb.js`. It only runs when `server.ts` sets
-  `MIMI_DEV=1` (dev, i.e. no `.env.prod`); prod deletes that var, so the
-  account is never created there. Documented in the root `README.md`.
+- Local dev auto-creates two accounts via
+  `pocketbase/pb_hooks/dev_seed.pb.js`: the app test user
+  (`test@mimi.local` / `mimi123456`) and the PocketBase dashboard superuser
+  (`dev@mimi.local` / `mimi123456`) for `/_/`. Both are only created when
+  missing, so a changed password is never overwritten; reset it with
+  `./pocketbase superuser upsert <email> <password>` run from `pocketbase/`.
+  The hook only runs when `server.ts` sets `MIMI_DEV=1` (dev, i.e. no
+  `.env.prod`); prod deletes that var, so neither account is created there.
+  Documented in the root `README.md`.
 
 ## Frontend conventions
 
