@@ -11,6 +11,10 @@ export type CommentData = {
     createdAt: string;
     // "" for a top-level comment.
     parentId: string;
+    /** Uploaded filenames; text or at least one image is present. */
+    images: string[];
+    /** Needed to build protected file URLs for the images. */
+    collectionId: string;
 };
 
 export type CommentThread = {
@@ -25,6 +29,8 @@ type CommentRecord = {
     text: string;
     created: string;
     parent_id?: string;
+    images?: string[];
+    collectionId: string;
     expand?: {
         author_id?: User;
     };
@@ -56,6 +62,8 @@ export function useComments(postId: string, enabled = true) {
                 author: record.expand?.author_id ?? EMPTY_AUTHOR,
                 createdAt: record.created,
                 parentId: record.parent_id ?? "",
+                images: record.images ?? [],
+                collectionId: record.collectionId,
             }));
         },
     });
@@ -108,17 +116,21 @@ export function useNewCommentMutation(postId: string) {
         mutationFn: async ({
             text,
             parentId,
+            images = [],
         }: {
             text: string;
             parentId?: string;
+            images?: File[];
         }) => {
             // comment_count on the post is bumped by post_counters.pb.js.
-            await pb.collection("comments").create({
-                text,
-                post_id: postId,
-                author_id: user.id,
-                parent_id: parentId ?? "",
-            });
+            // Images upload as FormData in the same request as the record.
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("post_id", postId);
+            formData.append("author_id", user.id);
+            formData.append("parent_id", parentId ?? "");
+            images.forEach((image) => formData.append("images", image));
+            await pb.collection("comments").create(formData);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({

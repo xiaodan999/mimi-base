@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SendHorizontal } from "lucide-react";
+import { ImagePlus, SendHorizontal, X } from "lucide-react";
+import { toast } from "sonner";
 
-import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
 import {
     Drawer,
@@ -13,8 +13,11 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
-import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import { getFileUrl } from "@/lib/pb";
+import prepareImage from "@/lib/prepareImage";
+import { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 import {
     buildCommentThreads,
@@ -24,12 +27,68 @@ import {
     type CommentData,
 } from "../-comments";
 import { formatRelativeTime } from "../-utils";
+import AvatarPreview from "./avatar-preview";
+import ImageViewer, { type ViewerImage } from "./image-viewer";
 
 type CommentSheetProps = {
     postId: string | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
+
+type CommentImageDraft = { file: File; url: string };
+
+const MAX_COMMENT_IMAGES = 4;
+
+/** A comment's images, thumbnailed behind the short-lived file token. */
+function CommentImages({
+    comment,
+    compact = false,
+    onOpen,
+}: {
+    comment: CommentData;
+    compact?: boolean;
+    onOpen: (images: ViewerImage[], index: number) => void;
+}) {
+    if (comment.images.length === 0) return null;
+
+    const record = { id: comment.id, collectionId: comment.collectionId };
+    const fullSize = comment.images.map((name) => ({
+        name,
+        url: getFileUrl(record, name),
+    }));
+
+    return (
+        <div
+            className={cn(
+                "mt-1.5 grid gap-1",
+                comment.images.length === 1
+                    ? "max-w-[13rem] grid-cols-1"
+                    : compact
+                      ? "max-w-[10rem] grid-cols-3"
+                      : "grid-cols-3",
+            )}
+        >
+            {comment.images.map((name, index) => (
+                <button
+                    key={name}
+                    type="button"
+                    aria-label={`查看图片 ${index + 1}`}
+                    className="overflow-hidden rounded-lg border border-border/60 bg-muted transition-opacity active:opacity-80"
+                    onClick={() => onOpen(fullSize, index)}
+                >
+                    <img
+                        alt=""
+                        className="aspect-square w-full object-cover"
+                        draggable={false}
+                        loading="lazy"
+                        src={getFileUrl(record, name, "400x400")}
+                    />
+                </button>
+            ))}
+        </div>
+    );
+}
 
 export default function CommentSheet({
     postId,
@@ -45,7 +104,15 @@ export default function CommentSheet({
     const deleteComment = useDeleteCommentMutation(postId ?? "");
     const [text, setText] = useState("");
     const [replyingTo, setReplyingTo] = useState<CommentData | null>(null);
+    const [images, setImages] = useState<CommentImageDraft[]>([]);
+    const [preparing, setPreparing] = useState(false);
+    const [viewer, setViewer] = useState<{
+        images: ViewerImage[];
+        index: number;
+    } | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    // Object URLs for the drafts, revoked when the draft is sent or dropped.
+    const previewUrls = useRef<string[]>([]);
 
     const threads = useMemo(() => buildCommentThreads(comments), [comments]);
     const commentsById = useMemo(
@@ -58,15 +125,102 @@ export default function CommentSheet({
         // keyboard) keeps the draft so it isn't lost by accident.
         setText("");
         setReplyingTo(null);
+        setImages([]);
+        previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+        previewUrls.current = [];
     }, [postId]);
+
+    useEffect(
+        () => () => {
+            previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+        },
+        [],
+    );
 
     useEffect(() => {
         if (open && replyingTo) inputRef.current?.focus();
     }, [open, replyingTo]);
 
+    const removeImage = (index: number) => {
+        const target = images[index];
+        if (target) {
+            URL.revokeObjectURL(target.url);
+            previewUrls.current = previewUrls.current.filter(
+                (url) => url !== target.url,
+            );
+        }
+        setImages((previous) => previous.filter((_, i) => i !== index));
+    };
+
+    const pickImages = async () => {
+        if (preparing) return;
+
+        const remaining = MAX_COMMENT_IMAGES - images.length;
+        if (remaining <= 0) {
+            toast.info(`最多只能添加 ${MAX_COMMENT_IMAGES} 张图片`);
+            return;
+        }
+
+        let picked: File[];
+        try {
+            picked = await showFilesPicker("image/*");
+        } catch {
+            // The user cancelled the file picker.
+            return;
+        }
+
+        const selected = picked.slice(0, remaining);
+        if (picked.length > remaining) {
+            toast.info(`最多只能添加 ${MAX_COMMENT_IMAGES} 张图片`);
+        }
+
+        setPreparing(true);
+        try {
+            const results = await toastPromise(
+                Promise.allSettled(
+                    selected.map((file, index) => prepareImage(file, index)),
+                ),
+                {
+                    loading: "压缩图片中...",
+                    success: (settled) =>
+                        settled.some((result) => result.status === "fulfilled")
+                            ? "图片已添加"
+                            : "没有可用的图片",
+                    error: "图片压缩失败",
+                },
+            );
+
+            const prepared = results.flatMap((result) =>
+                result.status === "fulfilled" ? [result.value] : [],
+            );
+            if (prepared.length > 0 && prepared.length < selected.length) {
+                toast.error(
+                    `${selected.length - prepared.length} 张图片无法处理，已跳过`,
+                );
+            }
+
+            const next = prepared.map((file) => {
+                const url = URL.createObjectURL(file);
+                previewUrls.current.push(url);
+                return { file, url };
+            });
+            setImages((previous) => [...previous, ...next]);
+        } catch {
+            // toastPromise already surfaced the failure.
+        } finally {
+            setPreparing(false);
+        }
+    };
+
     const submit = async () => {
         const value = text.trim();
-        if (!value || newComment.isPending) return;
+        if (
+            (!value && images.length === 0) ||
+            newComment.isPending ||
+            preparing
+        ) {
+            return;
+        }
 
         // The target may have been deleted (or cascade-deleted) meanwhile.
         const replyTo =
@@ -77,6 +231,7 @@ export default function CommentSheet({
                 newComment.mutateAsync({
                     text: value,
                     parentId: replyTo?.id,
+                    images: images.map((image) => image.file),
                 }),
                 {
                     loading: replyTo ? "回复中..." : "发布评论中...",
@@ -86,6 +241,9 @@ export default function CommentSheet({
             );
             setText("");
             setReplyingTo(null);
+            previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+            previewUrls.current = [];
+            setImages([]);
         } catch {
             // toastPromise already surfaced the error.
         }
@@ -104,145 +262,104 @@ export default function CommentSheet({
         }
     };
 
+    const openViewer = (images: ViewerImage[], index: number) =>
+        setViewer({ images, index });
+
     return (
-        <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="kb-max-h h-[80dvh]">
-                <DrawerHeader className="border-b pb-3 text-center">
-                    <DrawerTitle className="text-base">
-                        评论
-                        {comments.length > 0 ? ` (${comments.length})` : ""}
-                    </DrawerTitle>
-                    <DrawerDescription className="sr-only">
-                        查看和发布评论
-                    </DrawerDescription>
-                </DrawerHeader>
+        <>
+            <Drawer open={open} onOpenChange={onOpenChange}>
+                <DrawerContent
+                    className="kb-max-h h-[80dvh]"
+                    // vaul turns off text selection on fine pointers so that
+                    // dragging the sheet never selects text. That also broke
+                    // selecting comment text on a PC; this sheet is read-heavy,
+                    // so opt back in (touch devices keep vaul's default).
+                    style={{ userSelect: "text" }}
+                >
+                    <DrawerHeader className="border-b pb-3 text-center">
+                        <DrawerTitle className="text-base">
+                            评论
+                            {comments.length > 0 ? ` (${comments.length})` : ""}
+                        </DrawerTitle>
+                        <DrawerDescription className="sr-only">
+                            查看和发布评论
+                        </DrawerDescription>
+                    </DrawerHeader>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4">
-                    {isPending ? (
-                        <div className="flex justify-center py-10">
-                            <LoadingSpinner />
-                        </div>
-                    ) : threads.length === 0 ? (
-                        <p className="py-10 text-center text-sm text-muted-foreground">
-                            还没有评论，来说点什么吧
-                        </p>
-                    ) : (
-                        <ul className="divide-y">
-                            {threads.map(({ root, replies }) => (
-                                <li key={root.id} className="py-3">
-                                    <div className="flex gap-2">
-                                        <TouXiang
-                                            className="shrink-0"
-                                            size={32}
-                                            touXiangUrl={getUserAvatarUrl(
-                                                root.author,
-                                            )}
-                                            {...getUserRing(root.author)}
-                                        />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-baseline justify-between gap-2">
-                                                <span className="truncate text-sm font-semibold">
-                                                    {root.author.user_name ||
-                                                        "朋友"}
-                                                </span>
-                                                <time
-                                                    className="shrink-0 text-xs text-muted-foreground"
-                                                    dateTime={root.createdAt}
-                                                >
-                                                    {formatRelativeTime(
-                                                        root.createdAt,
-                                                    )}
-                                                </time>
-                                            </div>
-                                            <p className="whitespace-pre-wrap break-words text-sm">
-                                                {root.text}
-                                            </p>
-                                            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                                                <button
-                                                    type="button"
-                                                    className="hover:text-foreground"
-                                                    aria-label={`回复 ${root.text}`}
-                                                    onClick={() =>
-                                                        setReplyingTo(root)
-                                                    }
-                                                >
-                                                    回复
-                                                </button>
-                                                {root.author.id === user.id && (
-                                                    <button
-                                                        type="button"
-                                                        className="hover:text-red-500"
-                                                        aria-label={`删除 ${root.text}`}
-                                                        onClick={() =>
-                                                            removeComment(root)
-                                                        }
-                                                    >
-                                                        删除
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto px-4">
+                        {isPending ? (
+                            <div className="flex justify-center py-10">
+                                <LoadingSpinner />
+                            </div>
+                        ) : threads.length === 0 ? (
+                            <p className="py-10 text-center text-sm text-muted-foreground">
+                                还没有评论，来说点什么吧
+                            </p>
+                        ) : (
+                            <ul className="divide-y">
+                                {threads.map(({ root, replies }) => {
+                                    const rootLabel =
+                                        root.text ||
+                                        (root.images.length > 0
+                                            ? "图片评论"
+                                            : "评论");
 
-                                    {replies.length > 0 && (
-                                        <ul className="mt-2 space-y-1.5 rounded-md bg-black/5 px-3 py-2">
-                                            {replies.map((reply) => (
-                                                <li
-                                                    key={reply.id}
-                                                    className="text-sm leading-5"
-                                                >
-                                                    <p className="whitespace-pre-wrap break-words">
-                                                        <span className="font-semibold">
-                                                            {reply.author
+                                    return (
+                                        <li key={root.id} className="py-3">
+                                            <div className="flex gap-2">
+                                                <AvatarPreview
+                                                    size={32}
+                                                    user={root.author}
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-baseline justify-between gap-2">
+                                                        <span className="truncate text-sm font-semibold">
+                                                            {root.author
                                                                 .user_name ||
                                                                 "朋友"}
                                                         </span>
-                                                        <span className="text-muted-foreground">
-                                                            {" "}
-                                                            回复{" "}
-                                                        </span>
-                                                        <span className="font-semibold">
-                                                            {commentsById.get(
-                                                                reply.parentId,
-                                                            )?.author
-                                                                .user_name ||
-                                                                "该评论"}
-                                                        </span>
-                                                        <span>
-                                                            ：{reply.text}
-                                                        </span>
-                                                    </p>
-                                                    <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
                                                         <time
+                                                            className="shrink-0 text-xs text-muted-foreground"
                                                             dateTime={
-                                                                reply.createdAt
+                                                                root.createdAt
                                                             }
                                                         >
                                                             {formatRelativeTime(
-                                                                reply.createdAt,
+                                                                root.createdAt,
                                                             )}
                                                         </time>
+                                                    </div>
+                                                    {root.text && (
+                                                        <p className="whitespace-pre-wrap break-words text-sm">
+                                                            {root.text}
+                                                        </p>
+                                                    )}
+                                                    <CommentImages
+                                                        comment={root}
+                                                        onOpen={openViewer}
+                                                    />
+                                                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                                                         <button
                                                             type="button"
                                                             className="hover:text-foreground"
-                                                            aria-label={`回复 ${reply.text}`}
+                                                            aria-label={`回复 ${rootLabel}`}
                                                             onClick={() =>
                                                                 setReplyingTo(
-                                                                    reply,
+                                                                    root,
                                                                 )
                                                             }
                                                         >
                                                             回复
                                                         </button>
-                                                        {reply.author.id ===
+                                                        {root.author.id ===
                                                             user.id && (
                                                             <button
                                                                 type="button"
                                                                 className="hover:text-red-500"
-                                                                aria-label={`删除 ${reply.text}`}
+                                                                aria-label={`删除 ${rootLabel}`}
                                                                 onClick={() =>
                                                                     removeComment(
-                                                                        reply,
+                                                                        root,
                                                                     )
                                                                 }
                                                             >
@@ -250,65 +367,238 @@ export default function CommentSheet({
                                                             </button>
                                                         )}
                                                     </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
+                                                </div>
+                                            </div>
 
-                <div className="border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-                    {replyingTo && (
-                        <div className="mb-2 flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5 text-xs">
-                            <span className="truncate">
-                                回复{" "}
-                                <span className="font-semibold">
-                                    @{replyingTo.author.user_name || "朋友"}
-                                </span>
-                            </span>
-                            <button
-                                type="button"
-                                className="shrink-0 text-muted-foreground hover:text-foreground"
-                                onClick={() => setReplyingTo(null)}
-                            >
-                                取消
-                            </button>
-                        </div>
-                    )}
-                    <div className="flex items-end gap-2">
-                        <Textarea
-                            ref={inputRef}
-                            value={text}
-                            onChange={(event) => setText(event.target.value)}
-                            onKeyDown={(event) => {
-                                if (event.key === "Enter" && !event.shiftKey) {
-                                    event.preventDefault();
-                                    submit();
-                                }
-                            }}
-                            placeholder={
-                                replyingTo
-                                    ? `回复 ${replyingTo.author.user_name || "朋友"}...`
-                                    : "说点什么..."
-                            }
-                            rows={1}
-                            className="max-h-24 min-h-10 resize-none"
-                        />
-                        <Button
-                            type="button"
-                            size="icon"
-                            onClick={submit}
-                            disabled={!text.trim() || newComment.isPending}
-                            aria-label="发送评论"
-                        >
-                            <SendHorizontal className="size-4" />
-                        </Button>
+                                            {replies.length > 0 && (
+                                                <ul className="mt-2 space-y-1.5 rounded-md bg-black/5 px-3 py-2">
+                                                    {replies.map((reply) => {
+                                                        const replyLabel =
+                                                            reply.text ||
+                                                            (reply.images
+                                                                .length > 0
+                                                                ? "图片回复"
+                                                                : "回复");
+
+                                                        return (
+                                                            <li
+                                                                key={reply.id}
+                                                                className="text-sm leading-5"
+                                                            >
+                                                                <p className="whitespace-pre-wrap break-words">
+                                                                    <span className="font-semibold">
+                                                                        {reply
+                                                                            .author
+                                                                            .user_name ||
+                                                                            "朋友"}
+                                                                    </span>
+                                                                    <span className="text-muted-foreground">
+                                                                        {" "}
+                                                                        回复{" "}
+                                                                    </span>
+                                                                    <span className="font-semibold">
+                                                                        {commentsById.get(
+                                                                            reply.parentId,
+                                                                        )
+                                                                            ?.author
+                                                                            .user_name ||
+                                                                            "该评论"}
+                                                                    </span>
+                                                                    {reply.text && (
+                                                                        <span>
+                                                                            ：
+                                                                            {
+                                                                                reply.text
+                                                                            }
+                                                                        </span>
+                                                                    )}
+                                                                </p>
+                                                                <CommentImages
+                                                                    comment={
+                                                                        reply
+                                                                    }
+                                                                    compact
+                                                                    onOpen={
+                                                                        openViewer
+                                                                    }
+                                                                />
+                                                                <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                                                                    <time
+                                                                        dateTime={
+                                                                            reply.createdAt
+                                                                        }
+                                                                    >
+                                                                        {formatRelativeTime(
+                                                                            reply.createdAt,
+                                                                        )}
+                                                                    </time>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="hover:text-foreground"
+                                                                        aria-label={`回复 ${replyLabel}`}
+                                                                        onClick={() =>
+                                                                            setReplyingTo(
+                                                                                reply,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        回复
+                                                                    </button>
+                                                                    {reply
+                                                                        .author
+                                                                        .id ===
+                                                                        user.id && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="hover:text-red-500"
+                                                                            aria-label={`删除 ${replyLabel}`}
+                                                                            onClick={() =>
+                                                                                removeComment(
+                                                                                    reply,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            删除
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
                     </div>
-                </div>
-            </DrawerContent>
-        </Drawer>
+
+                    <div className="border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                        {replyingTo && (
+                            <div className="mb-2 flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5 text-xs">
+                                <span className="truncate">
+                                    回复{" "}
+                                    <span className="font-semibold">
+                                        @{replyingTo.author.user_name || "朋友"}
+                                    </span>
+                                </span>
+                                <button
+                                    type="button"
+                                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                                    onClick={() => setReplyingTo(null)}
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        )}
+                        {images.length > 0 && (
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                                {images.map((image, index) => (
+                                    <span
+                                        key={image.url}
+                                        className="relative block"
+                                    >
+                                        <img
+                                            alt=""
+                                            className="size-14 rounded-lg border border-border/60 object-cover"
+                                            src={image.url}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
+                                            aria-label={`移除图片 ${index + 1}`}
+                                            onClick={() => removeImage(index)}
+                                        >
+                                            <X
+                                                className="size-3"
+                                                aria-hidden="true"
+                                            />
+                                        </button>
+                                    </span>
+                                ))}
+                                <span className="text-xs text-muted-foreground">
+                                    {images.length}/{MAX_COMMENT_IMAGES}
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex items-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0"
+                                aria-label="添加图片"
+                                disabled={
+                                    preparing ||
+                                    images.length >= MAX_COMMENT_IMAGES
+                                }
+                                onClick={() => {
+                                    void pickImages();
+                                }}
+                            >
+                                <ImagePlus
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                            <Textarea
+                                ref={inputRef}
+                                value={text}
+                                onChange={(event) =>
+                                    setText(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (
+                                        event.key === "Enter" &&
+                                        !event.shiftKey
+                                    ) {
+                                        event.preventDefault();
+                                        void submit();
+                                    }
+                                }}
+                                placeholder={
+                                    replyingTo
+                                        ? `回复 ${replyingTo.author.user_name || "朋友"}...`
+                                        : "说点什么..."
+                                }
+                                rows={1}
+                                className="max-h-24 min-h-10 resize-none"
+                            />
+                            <Button
+                                type="button"
+                                size="icon"
+                                className="shrink-0"
+                                onClick={() => {
+                                    void submit();
+                                }}
+                                disabled={
+                                    (!text.trim() && images.length === 0) ||
+                                    newComment.isPending ||
+                                    preparing
+                                }
+                                aria-label="发送评论"
+                            >
+                                <SendHorizontal
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            </Button>
+                        </div>
+                    </div>
+                </DrawerContent>
+            </Drawer>
+
+            {viewer && (
+                <ImageViewer
+                    images={viewer.images}
+                    index={viewer.index}
+                    open={viewer !== null}
+                    onOpenChange={(next) => {
+                        if (!next) setViewer(null);
+                    }}
+                />
+            )}
+        </>
     );
 }
