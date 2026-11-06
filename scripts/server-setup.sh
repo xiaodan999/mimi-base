@@ -5,9 +5,9 @@
 #
 # Everything lives inside the repo clone: the supervisor (pocketbase/server.ts,
 # started as plain `bun run db`), the secrets file (.env.prod, gitignored)
-# and the log (mimi-db.log). For production boot-start + restart-on-crash use
-# the systemd unit in deploy/mimi-base.service (see deploy/README.md); this
-# script only starts the process immediately when nothing is running yet.
+# and the log (mimi-db.log). This script only starts the process immediately
+# when nothing is running yet; nothing restarts it after a crash or a reboot,
+# so restart it by hand if the box goes down (the final echo prints the command).
 #
 # Usage:
 #   git clone https://github.com/xiaodan999/mimi-base && cd mimi-base
@@ -57,7 +57,7 @@ if [ ! -f .env.prod ]; then
     } > .env.prod
     chmod 600 .env.prod
 fi
-# The deploy secret is the single DEPLOY_TOKEN (see deploy/README.md); set the
+# The deploy secret is the single DEPLOY_TOKEN (see pocketbase/README.md); set the
 # same value as the GitHub "Production" environment secret.
 . .env.prod
 
@@ -87,19 +87,16 @@ printf '%s' "$SUPERUSER_PASSWORD" > "$PW_FILE"
 shred -u "$PW_FILE" 2>/dev/null || rm -f "$PW_FILE"
 cd "$REPO"
 
-# 6. info for the reverse-proxy + GitHub steps (NO secrets echoed)
-GW=$(docker inspect "$(docker ps -aqf name=caddy 2>/dev/null)" \
-        --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' 2>/dev/null \
-     | awk '{print $1}' || true)
+# 6. info for the GitHub + proxy steps (NO secrets echoed)
 echo
 echo "================= SETUP DONE ================="
 echo "repo:    $REPO"
 echo "log:     $REPO/mimi-db.log"
 echo "secrets: $REPO/.env.prod (chmod 600) — read DEPLOY_TOKEN / SUPERUSER_PASSWORD there,"
 echo "         add DEPLOY_TOKEN as the GitHub 'Production' secret; never paste it to stdout/log"
-echo "caddy gateway: ${GW:-none — see deploy/compose.yaml host.docker.internal}"
 echo "health check: curl http://127.0.0.1:8090/api/health"
-echo "systemd:     see deploy/mimi-base.service + deploy/README.md for Restart=always"
+echo "restart:     cd $REPO && setsid nohup bun pocketbase/server.ts >> mimi-db.log 2>&1 < /dev/null &"
+echo "systemd:     none — the supervisor is started detached and is not restarted automatically"
 echo "frontend:    run the deploy-spa workflow once (Actions -> Run workflow);"
 echo "             PB serves $REPO/build, / returns 404 until it is published"
 echo "=============================================="

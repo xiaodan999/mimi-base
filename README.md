@@ -216,7 +216,7 @@ https://bun.sh 按提示安装。
 把 `VITE_POCKETBASE_URL` 写成绝对地址：
 
 ```
-VITE_POCKETBASE_URL=https://dan-pb.zxvcn.com
+VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
 不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载时会直接
@@ -230,7 +230,7 @@ VITE_POCKETBASE_URL=https://dan-pb.zxvcn.com
   `mimi-theme`（深浅色）、AI 结果缓存 `mimi:ai-cache:v1:*` 都是各自独立的；
 - 两边都要各自填一次 AI key，看到的缓存结果也可能不同；
 - 手机上看哪个域名、就用哪一套本地数据。想省事就固定只用一个入口
-  （推荐把 Vercel 当作备用，日常用 `dan-pb.zxvcn.com`）。
+  （推荐把 Vercel 当作备用，日常用自托管的那个域名）。
 
 第一次部署：在 GitHub 的 Actions 页面运行一次 `deploy-spa`（或点
 Run workflow）。之后推送到 `master` 的前端改动会自动发布。
@@ -249,5 +249,5 @@ Run workflow）。之后推送到 `master` 的前端改动会自动发布。
   给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase 自己
   不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
 
-部署、systemd、反向代理、快照恢复等运维细节见 `deploy/README.md`；
+部署、systemd、反向代理、快照恢复等运维细节刻意不放进仓库，只在服务器上维护；
 后端英文说明见 `pocketbase/README.md` 的 Frontend 一节。

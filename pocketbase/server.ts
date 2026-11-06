@@ -37,8 +37,8 @@
  *
  * NOTE: /db/sync restarts PocketBase only. If the pull changed server.ts
  * itself, the supervisor respawns ITSELF detached, but only AFTER verifying the
- * new supervisor (and its PB) are healthy; systemd Restart=always is the
- * backstop for crashes/reboots (see deploy/mimi-base.service).
+ * new supervisor (and its PB) are healthy. The supervisor is started detached
+ * by scripts/server-setup.sh; nothing restarts it on its own.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import {
@@ -430,7 +430,7 @@ function spawnPB() {
  * If `whileStopped` throws (e.g. the snapshot failed), the Promise REJECTS and
  * PB is NOT restarted: starting PB is exactly when pulled migrations apply, so
  * running them without a verified backup would be unsafe (#13). The deploy
- * returns 500 and an operator restores the last snapshot (deploy/README.md).
+ * returns 500 and an operator restores the last snapshot before retrying.
  */
 function restartPB(whileStopped?: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -957,7 +957,7 @@ async function dbSync(): Promise<Response> {
     } catch (err) {
         console.error("deploy failed:", err);
         return new Response(
-            `deploy failed: ${err}. PocketBase was NOT restarted; restore the last verified pb_data snapshot before retrying (see deploy/README.md).`,
+            `deploy failed: ${err}. PocketBase was NOT restarted; restore the last verified pb_data snapshot before retrying.`,
             { status: 500 },
         );
     }
