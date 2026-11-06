@@ -10,7 +10,7 @@
 - 新增 `chat_conversations` / `chat_messages` / `chat_personas` 三个集合及迁移：消息以 assistant-ui 的 content parts 存 JSON，`seq` 保证顺序；自定义人格存 PB，对话创建时快照人格名称与设定。
 - 聊天使用 assistant-ui 的外部存储运行时（`useExternalStoreRuntime`），接入自己的流式请求和持久化；正文、思考过程、工具调用都以增量渲染。
 - 新增 `POST /ai/chat/completions` 与 `GET /ai/models`：模型来自服务端白名单（`pocketbase/chat-models.ts` + `OPENCODE_CHAT_MODELS`），未知 id 返回 400；纯文本模型会移除工具，非视觉模型拒收图片。旧的 `/ai/opencode/v1/chat/completions` 行为不变，仍由服务端强制单一模型。
-- 新增隔离沙箱：每次工具调用在独立 Web Worker 里执行（无 DOM / 存储，网络 API 被替换，15 秒硬超时），提供 `sandbox_run` / `sandbox_read` / `sandbox_write` / `sandbox_list`，文件快照随对话保存。
+- 新增 `sandbox_run` / `sandbox_read` / `sandbox_write` / `sandbox_list` 代码工具，文件快照随对话保存（初版在浏览器 Worker 中执行，同日改为服务器 Docker 沙箱，见下）。
 - 聊天交互：流式回复、思考过程折叠、停止、重新生成、复制、Markdown/GFM 表格/代码块（带复制按钮）；模型支持视觉时才能附加图片，图片只随当前消息发送。
 - 语音输入使用手机键盘自带的听写，不引入应用内录音。
 - 补充 `bun test` 覆盖：SSE 与工具调用增量解析、标题生成、prompt 组装、沙箱协议与路径校验、模型白名单与中转拒绝逻辑。
@@ -18,17 +18,22 @@
 - 新增 `chat_conversations.thinking`（迁移 `1795200000_add_chat_thinking.js`）与会话内的「思考强度」选择；`POST /ai/chat/completions` 校验并透传 `reasoning_effort`，模型不支持的强度返回 400。
 - 新增内置「英语老师」人格，prompt 强制只输出英文。
 - 聊天输入框显示上下文占用百分比：取最近一次助手回复的 `prompt_tokens` 除以模型的 `contextWindow`，`/ai/models` 因此新增 `contextWindow`；达到 80% / 95% 时变色提醒。
+- 沙箱改为在服务器的 Docker 容器里运行 Python：`pocketbase/sandbox/` 提供 runner、Dockerfile 和网络脚本；`POST /ai/sandbox` 通过 PB 令牌鉴权，限制每用户 1 个并发、每天 200 次。
+- 沙箱容器只读根文件系统、非 root 用户、丢弃全部 capabilities、`no-new-privileges`、256MB / 0.5 CPU / 64 PID / 20 秒上限；代码从 stdin 传入，不落在命令行。
+- 独立的 `mimi-sandbox` bridge 只允许公网 DNS/HTTP(S)，在 `DOCKER-USER`/`FORWARD` 和 `INPUT` 两处拦截 loopback、内网、宿主地址和非 Web 端口；沙箱因此能查实时信息但碰不到 PocketBase、Caddy 或 SSH。
 
 ### 修复
 
 - 更正 `deepseek-v4.1-flash` 的视觉能力：它支持图片输入，`chat-models.ts` 现在标记为 `vision: true`；GLM-5.3 Flash 与 MiMo 2.6 Flash 同样标记为多模态。
 - 修复手机端回复结束瞬间的闪动：live 草稿改到持久化消息就绪后再移除，`createMessage` 不再等待 refetch（避免同一回复短暂渲染两份），Markdown 关闭 smooth / defer，消息操作栏预留固定高度。
 - 隐藏聊天输入框超过 6 行时的原生滚动条（提交按钮左侧的竖灰条），文本仍然可以滚动。
+- 修复 AI 代码工具无法查询实时信息的问题：不再使用浏览器 Worker，改到服务器容器里执行并允许受限公网访问。
 
 ### 变更
 
 - `.env.example` 与 `pocketbase/README.md` 补充聊天模型白名单、思考强度与 `/ai` 新端点的说明。
 - `GET /ai/models` 增加 `thinkingLevels`，模型选择器同时展示三个模型和当前思考强度。
+- 代码工具语言从 JavaScript 改为 Python（仅标准库），工具描述与系统提示同步更新；`SANDBOX_BASE_IMAGE` 可指定国内可用的基础镜像源。
 
 ## 2026-11-06
 

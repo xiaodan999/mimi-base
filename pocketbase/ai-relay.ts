@@ -13,6 +13,7 @@
 
 import { createHash } from "node:crypto";
 
+import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
     findChatModel,
     hasImagePart,
@@ -28,11 +29,15 @@ export const AI_CHAT_PATH = "/ai/opencode/v1/chat/completions";
 /** General chat entry point: honours the server allowlist instead of forcing one model. */
 export const AI_CHAT_COMPLETIONS_PATH = "/ai/chat/completions";
 export const AI_MODELS_PATH = "/ai/models";
+export const AI_SANDBOX_PATH = "/ai/sandbox";
 export const AI_HEALTH_PATH = "/ai/health";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_OUTPUT_TOKENS = 4096;
+const MAX_SANDBOX_BODY_BYTES = 1024 * 1024;
+const SANDBOX_DAILY_LIMIT = 200;
+const SANDBOX_MAX_IN_FLIGHT = 4;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;
 const AUTH_CACHE_MS = 60_000;
@@ -45,6 +50,11 @@ const CORS_HEADERS: Record<string, string> = {
     "Access-Control-Allow-Headers":
         "Authorization, Content-Type, x-opencode-session, x-client",
     "Access-Control-Max-Age": "600",
+};
+
+export type SandboxService = {
+    run: (request: SandboxRequest) => Promise<SandboxResponse>;
+    available: () => boolean;
 };
 
 export type AiRelayDeps = {
@@ -63,6 +73,8 @@ export type AiRelayDeps = {
     defaultChatModel?: string;
     /** Per-user daily request cap for the shared key; 0 = unlimited. */
     dailyLimit: number;
+    /** Server-side code sandbox; omitted in focused tests. */
+    sandbox?: SandboxService;
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
@@ -91,6 +103,9 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
     const minuteBuckets = new Map<string, MinuteBucket>();
     const dayBuckets = new Map<string, DayBucket>();
+    const sandboxDayBuckets = new Map<string, DayBucket>();
+    const sandboxUserInFlight = new Map<string, number>();
+    let sandboxInFlight = 0;
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
         const header = req.headers.get("authorization")?.trim() ?? "";
@@ -177,6 +192,91 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         }
         bucket.count += 1;
         return null;
+    }
+
+    function checkSandboxQuota(uid: string): Response | null {
+        const day = new Date(now()).toISOString().slice(0, 10);
+        const bucket = sandboxDayBuckets.get(uid);
+        if (!bucket || bucket.day !== day) {
+            sandboxDayBuckets.set(uid, { day, count: 1 });
+            return null;
+        }
+        if (bucket.count >= SANDBOX_DAILY_LIMIT) {
+            return json(429, {
+                error: { message: "今天的沙箱次数用完了，明天再试" },
+            });
+        }
+        bucket.count += 1;
+        return null;
+    }
+
+    async function sandbox(req: Request): Promise<Response> {
+        const auth = await authenticate(req);
+        if (!auth.ok) return auth.response;
+
+        const limited = checkRate(auth.uid);
+        if (limited) return limited;
+
+        if (!deps.sandbox || !deps.sandbox.available()) {
+            return json(503, {
+                error: { message: "沙箱正在准备，稍后再试" },
+            });
+        }
+
+        const declared = Number(req.headers.get("content-length") ?? 0);
+        if (Number.isFinite(declared) && declared > MAX_SANDBOX_BODY_BYTES) {
+            return json(413, { error: { message: "请求体过大" } });
+        }
+
+        let body: Record<string, unknown>;
+        try {
+            const parsed = (await req.json()) as unknown;
+            if (
+                typeof parsed !== "object" ||
+                parsed === null ||
+                Array.isArray(parsed)
+            ) {
+                return json(400, { error: { message: "请求体格式不正确" } });
+            }
+            body = parsed as Record<string, unknown>;
+        } catch {
+            return json(400, { error: { message: "请求体不是合法的 JSON" } });
+        }
+
+        if (
+            body.op !== "run" &&
+            body.op !== "read" &&
+            body.op !== "write" &&
+            body.op !== "list"
+        ) {
+            return json(400, { error: { message: "未知的沙箱操作" } });
+        }
+
+        const quota = checkSandboxQuota(auth.uid);
+        if (quota) return quota;
+
+        const userActive = sandboxUserInFlight.get(auth.uid) ?? 0;
+        if (sandboxInFlight >= SANDBOX_MAX_IN_FLIGHT || userActive >= 1) {
+            return json(429, {
+                error: { message: "沙箱正忙，稍后再试" },
+            });
+        }
+        sandboxInFlight += 1;
+        sandboxUserInFlight.set(auth.uid, userActive + 1);
+
+        try {
+            const result = await deps.sandbox.run(body as SandboxRequest);
+            // `ok: false` is a user-code error and travels in the tool result.
+            return json(200, result);
+        } catch (error) {
+            console.error("[ai-relay] sandbox failed", error);
+            return json(502, { error: { message: "沙箱执行失败，稍后再试" } });
+        } finally {
+            sandboxInFlight -= 1;
+            const remaining = (sandboxUserInFlight.get(auth.uid) ?? 1) - 1;
+            if (remaining <= 0) sandboxUserInFlight.delete(auth.uid);
+            else sandboxUserInFlight.set(auth.uid, remaining);
+        }
     }
 
     async function chat(
@@ -412,6 +512,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 defaultModel: defaultChatModel,
                 keyConfigured: Boolean(deps.apiKey.trim()),
             });
+        }
+
+        if (url.pathname === AI_SANDBOX_PATH && req.method === "POST") {
+            return sandbox(req);
         }
 
         if (

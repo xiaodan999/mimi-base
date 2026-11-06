@@ -128,6 +128,32 @@ The general chat (`/chat`) uses two more routes:
 The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/ai/...`, so the
 PB host's reverse proxy must expose `/ai/*` as well.
 
+## Code sandbox
+
+The chat's `sandbox_*` tools run Python on the server, never in the browser.
+Production uses Docker:
+
+- The image is built from `pocketbase/sandbox/` on supervisor startup and
+  tagged by a content hash of `runner.py`, the Dockerfile and the base image.
+  `SANDBOX_BASE_IMAGE` overrides the base (`python:3.12-slim` by default;
+  use a reachable mirror on networks where Docker Hub is blocked).
+- `pocketbase/sandbox/docker-network.sh` creates the dedicated `mimi-sandbox`
+  bridge. Its egress firewall allows only public DNS and HTTP(S); loopback,
+  RFC1918/CGNAT/link-local ranges, the host's own addresses and non-web
+  ports are dropped in `DOCKER-USER`/`FORWARD`, and container-to-host traffic
+  is dropped in `INPUT`.
+- Each run is a fresh container: read-only root, tmpfs `/tmp`, user 65534,
+  `cap-drop ALL`, `no-new-privileges`, 256 MB / 0.5 CPU / 64 PIDs, and a
+  20 s wall clock. The request arrives as JSON on stdin, so user code never
+  appears in a command line and no host path is mounted.
+- `POST /ai/sandbox` is the only entry point (PocketBase token auth). It
+  allows one concurrent run per user and 200 runs/day. The tools are defined
+  in `app/chat/tools.ts`; the protocol lives in `lib/sandbox-protocol.ts`.
+
+Development has no Docker inside WSL, so the supervisor falls back to a
+plain `python3` subprocess with a temporary directory. That fallback is for
+tests only and is **not** a security boundary; production never uses it.
+
 ## Deploys
 
 Push to `master` touching `pocketbase/**` → GitHub Actions calls the

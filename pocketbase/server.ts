@@ -70,6 +70,7 @@ import path from "node:path";
 
 import { createAiRelay } from "./ai-relay";
 import { resolveChatModels } from "./chat-models";
+import { createSandboxExecutor } from "./sandbox-exec";
 
 const PB_VERSION = "0.40.6";
 const isWindows = process.platform === "win32";
@@ -631,7 +632,15 @@ const fileHash = async (p: string) =>
         .digest("hex");
 
 /** Supervisor modules whose changes require a respawn after /db/sync. */
-const SUPERVISOR_MODULES = ["server.ts", "ai-relay.ts", "chat-models.ts"];
+const SUPERVISOR_MODULES = [
+    "server.ts",
+    "ai-relay.ts",
+    "chat-models.ts",
+    "sandbox-exec.ts",
+    "sandbox/runner.py",
+    "sandbox/Dockerfile",
+    "sandbox/docker-network.sh",
+];
 
 async function supervisorModulesHash(): Promise<string> {
     const hashes = await Promise.all(
@@ -951,6 +960,7 @@ function scheduleRespawn(): void {
             "OPENCODE_CHAT_MODELS",
             "OPENCODE_CHAT_MODEL_DEFAULT",
             "AI_DAILY_REQUESTS_PER_USER",
+            "SANDBOX_BASE_IMAGE",
         ]) {
             if (process.env[key] !== undefined) {
                 respawnEnv[key] = process.env[key];
@@ -1055,6 +1065,13 @@ function startHttpServer() {
     // in chat-models.ts is exposed.
     const chatModels = resolveChatModels(process.env.OPENCODE_CHAT_MODELS);
 
+    const sandbox = createSandboxExecutor({ prod: isProd, dir });
+    // The image build can take a minute on a fresh box; keep serving and let
+    // the sandbox endpoint answer 503 until it is ready.
+    void sandbox.ensure().catch((error) => {
+        console.error("[sandbox] setup failed", error);
+    });
+
     const aiRelay = createAiRelay({
         pbBaseUrl: `http://127.0.0.1:${httpPort}`,
         apiKey: process.env.OPENCODE_API_KEY ?? "",
@@ -1063,6 +1080,7 @@ function startHttpServer() {
         defaultChatModel:
             process.env.OPENCODE_CHAT_MODEL_DEFAULT?.trim() || undefined,
         dailyLimit,
+        sandbox,
     });
 
     const serve = () => {

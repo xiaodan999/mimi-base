@@ -29,8 +29,8 @@ Chinese; keep that style when adding user-facing text.
 - `components/` — app components (`NavButtons`, `TouXiang`, `LoadingPage`).
 - `app/chat/` — general-chat domain logic: `api.ts` (relay URLs and allowlist
   fetch), `stream.ts` and `sse.ts` (streaming/tool-call parsing), `prompt.ts`,
-  `personas.ts`, `title.ts`, `records.ts`, the isolated sandbox worker, and
-  `tools.ts`.
+  `personas.ts`, `title.ts`, `records.ts`, and `tools.ts` (the server-side
+  sandbox itself lives in `pocketbase/sandbox/`).
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
@@ -346,11 +346,16 @@ before your first commit.
 - General chat (`app/chat/`, `/chat`): assistant-ui primitives +
   `useExternalStoreRuntime`; messages persist in `chat_messages` as content
   parts. A run loops up to 6 model rounds while it calls `sandbox_*` tools.
-  The sandbox is a fresh Web Worker per call (no DOM/storage, network stubs,
-  15s `terminate()` timeout) with a per-conversation file snapshot; this is
-  isolation from the app, not a security boundary against the machine.
-  Don't move sandbox execution server-side without re-evaluating prompt
-  injection against the AI key and `pb_data`.
+  The sandbox runs Python **on the server** in a Docker container:
+  read-only root, non-root user, all capabilities dropped, PID/memory/CPU
+  limits, 20s wall clock, JSON on stdin (no code in argv), and the dedicated
+  `mimi-sandbox` network whose egress firewall allows only public
+  DNS/HTTP(S). It has no mounts, no host networking and no `pb_data` / env
+  secrets. `pocketbase/sandbox/` owns the runner, Dockerfile and firewall.
+  Dev (no Docker in WSL) uses a direct `python3` subprocess; that fallback is
+  not isolated and must never be used in production. Don't add host mounts,
+  `--network host`, a Docker socket, or secrets to the container without
+  re-evaluating prompt injection against the AI key and `pb_data`.
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天,
   问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),

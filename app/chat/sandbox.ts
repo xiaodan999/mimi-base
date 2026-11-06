@@ -2,83 +2,66 @@ import {
     sanitizeFiles,
     type SandboxRequest,
     type SandboxResponse,
-} from "./sandbox-protocol";
+} from "@/lib/sandbox-protocol";
 
-export const SANDBOX_TIMEOUT_MS = 15_000;
-
-let nextRequestId = 1;
-
-type SandboxInput = Omit<SandboxRequest, "id">;
+import { aiUrl, chatHeaders, readChatError } from "./api";
 
 /**
- * Run one sandbox operation in a fresh worker.
- *
- * A new worker per call means no state leaks between calls except the file
- * snapshot we pass in explicitly, and `terminate()` is a reliable timeout for
- * synchronous infinite loops.
+ * Runs the code in the server-side Docker sandbox (`/ai/sandbox`). The
+ * browser only sends the operation and the conversation's file snapshot;
+ * execution and network filtering happen on the server.
  */
-export function runSandbox(
-    input: SandboxInput,
-    timeoutMs = SANDBOX_TIMEOUT_MS,
+export async function runSandbox(
+    input: SandboxRequest,
 ): Promise<SandboxResponse> {
-    const id = nextRequestId++;
     const files = sanitizeFiles(input.files);
-
-    if (typeof Worker === "undefined") {
-        return Promise.resolve({
-            id,
-            ok: false,
-            error: "当前浏览器不支持沙箱",
-            logs: [],
-            files,
-            durationMs: 0,
+    try {
+        const res = await fetch(aiUrl("/sandbox"), {
+            method: "POST",
+            headers: chatHeaders(),
+            body: JSON.stringify({ ...input, files }),
         });
-    }
-
-    return new Promise((resolve) => {
-        let settled = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const worker = new Worker(
-            new URL("./sandbox.worker.ts", import.meta.url),
-            {
-                type: "module",
-                name: "mimi-chat-sandbox",
-            },
-        );
-
-        const finish = (response: SandboxResponse) => {
-            if (settled) return;
-            settled = true;
-            if (timer !== null) clearTimeout(timer);
-            worker.terminate();
-            resolve(response);
-        };
-
-        timer = setTimeout(() => {
-            finish({
-                id,
+        if (!res.ok) {
+            const error = await readChatError(res);
+            return {
                 ok: false,
-                error: `沙箱执行超时（${Math.round(timeoutMs / 1000)} 秒）`,
-                logs: [],
-                files,
-                durationMs: timeoutMs,
-            });
-        }, timeoutMs);
-
-        worker.onmessage = (event: MessageEvent<SandboxResponse>) => {
-            if (event.data?.id === id) finish(event.data);
-        };
-        worker.onerror = (event) => {
-            finish({
-                id,
-                ok: false,
-                error: event.message || "沙箱运行出错",
+                error: error.message,
                 logs: [],
                 files,
                 durationMs: 0,
-            });
+            };
+        }
+        const data = (await res.json()) as Partial<SandboxResponse>;
+        return {
+            ok: data.ok === true,
+            result: data.result,
+            logs: Array.isArray(data.logs)
+                ? data.logs.filter(
+                      (line): line is string => typeof line === "string",
+                  )
+                : [],
+            files: sanitizeFiles(data.files),
+            ...(typeof data.error === "string" && data.error !== ""
+                ? { error: data.error }
+                : {}),
+            durationMs:
+                typeof data.durationMs === "number" &&
+                Number.isFinite(data.durationMs)
+                    ? data.durationMs
+                    : 0,
         };
-
-        worker.postMessage({ ...input, files, id });
-    });
+    } catch (error) {
+        return {
+            ok: false,
+            error:
+                error instanceof TypeError
+                    ? "沙箱请求没发出去，检查网络后再试"
+                    : error instanceof Error
+                      ? error.message
+                      : "沙箱请求失败",
+            logs: [],
+            files,
+            durationMs: 0,
+        };
+    }
 }

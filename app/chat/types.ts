@@ -66,7 +66,9 @@ export type ChatMessage = {
     createdAt: string;
 };
 
-export type SandboxFiles = Record<string, string>;
+import type { SandboxFiles } from "@/lib/sandbox-protocol";
+
+export type { SandboxFiles };
 
 export type ChatConversation = {
     id: string;

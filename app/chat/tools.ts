@@ -3,8 +3,9 @@ import type { ChatToolDefinition } from "./stream";
 import type { SandboxFiles } from "./types";
 
 /**
- * Tools the chat model may call. All of them run inside the isolated sandbox
- * worker; the conversation's file snapshot is the only shared state.
+ * Tools the chat model may call. All of them run inside the server-side
+ * Docker sandbox; the conversation's file snapshot is the only shared state.
+ * Network access is limited to public HTTP(S) by the container network.
  */
 export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
     {
@@ -12,14 +13,14 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_run",
             description:
-                "在隔离沙箱里运行一段 JavaScript（不支持网络）。可以用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；支持 async/await，返回值会作为结果返回。适合计算、处理文本/JSON、验证代码。",
+                "在服务器的隔离沙箱里运行一段 Python 3 代码（只有标准库，没有 pip/第三方包）。可以访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口；print 输出和最后赋给 result 的值会返回。适合查实时信息、计算、处理文本/JSON、验证代码。",
             parameters: {
                 type: "object",
                 properties: {
                     code: {
                         type: "string",
                         description:
-                            "要执行的 JavaScript 源码。用 console.log 输出中间结果，最后 return 结果。",
+                            "要执行的 Python 3 源码。用 print 输出中间结果，把最终结果赋给 result。",
                     },
                 },
                 required: ["code"],
@@ -31,7 +32,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         type: "function",
         function: {
             name: "sandbox_read",
-            description: "读取本次对话沙箱里的一个文本文件。",
+            description: "读取本次对话沙箱里的一个文本文件（Python 沙箱）。",
             parameters: {
                 type: "object",
                 properties: {

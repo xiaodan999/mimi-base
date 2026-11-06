@@ -230,8 +230,10 @@ VITE_POCKETBASE_URL=https://pb.example.com
 **聊天**：底部的「聊天」标签是通用 AI 对话。可选模型由服务端白名单决定
 （`OPENCODE_CHAT_MODELS`，见 `pocketbase/README.md`），客户端传其它模型 id
 会被拒绝；聊天记录保存在 PocketBase 的 `chat_*` 集合里，只有本人能读写。
-AI 的 `sandbox_*` 工具在浏览器里的隔离 Worker 中执行，不会在服务器上运行
-代码。
+AI 的 `sandbox_*` 工具在服务器的隔离 Docker 容器里运行 Python，可以访问
+公网查天气、网页和公开接口，但不能访问本站内网、PocketBase 或读取本站
+文件/密钥。没有 Docker 的开发环境会退回直接运行 `python3`，仅用于本地
+调试，不是安全边界。
 
 **两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
 是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`
