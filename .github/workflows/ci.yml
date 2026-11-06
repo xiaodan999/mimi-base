@@ -9,8 +9,15 @@ on:
     workflow_call:
 
 concurrency:
-    group: ci-${{ github.ref }}
-    cancel-in-progress: true
+    # A called workflow inherits the caller's context, so `github.workflow` is
+    # "ci" for a direct push run but "deploy-db" / "deploy-spa" for the gate
+    # copy they call. Keeping the caller in the group lets the deploy gate and
+    # the standalone push run coexist instead of cancelling each other, which
+    # otherwise leaves a cancelled "ci / checks" check on the commit.
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    # Only drop superseded runs for PRs. Cancelling a push run on `master`
+    # shows up as a failed check on the commit, which is not what we want.
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
     checks:
