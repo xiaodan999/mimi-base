@@ -417,6 +417,9 @@ if (!isProd) {
 let child: ChildProcess | null = null;
 let stopping = false;
 let manualRestart = false;
+/** The supervisor's HTTP server, so a respawn can release :9001. */
+let supervisorServer: ReturnType<typeof Bun.serve> | null = null;
+let rebindSupervisor: (() => void) | null = null;
 
 const onSignal = () => {
     stopping = true;
@@ -955,6 +958,19 @@ function scheduleRespawn(): void {
         });
         next.unref();
 
+        // The child cannot bind :9001 while this process still owns it, and
+        // its retry budget is shorter than our health wait. Release the port
+        // up front; if the child never becomes healthy, rebind the old one.
+        console.log(
+            `releasing ${deployBind}:${supervisorPort} for the new supervisor`,
+        );
+        try {
+            supervisorServer?.stop(true);
+        } catch {
+            // already stopped
+        }
+        supervisorServer = null;
+
         const healthy = await waitForNewSupervisor(next, 30_000);
         if (!healthy) {
             console.error(
@@ -972,6 +988,7 @@ function scheduleRespawn(): void {
             stopping = false;
             manualRestart = false;
             child = null;
+            rebindSupervisor?.();
             spawnPB();
             return;
         }
@@ -1040,8 +1057,8 @@ function startHttpServer() {
         dailyLimit,
     });
 
-    const serve = () =>
-        Bun.serve({
+    const serve = () => {
+        supervisorServer = Bun.serve({
             port: supervisorPort,
             hostname: deployBind,
             // Bun defaults to 10s. SSE can pause longer between chunks, and
@@ -1114,11 +1131,13 @@ function startHttpServer() {
                 }
             },
         });
+    };
 
     // Retry binding briefly: during a health-verified respawn the old process
     // still owns the port for a moment until it exits.
     let tries = 0;
     const bind = () => {
+        rebindSupervisor = bind;
         try {
             serve();
             console.log(
