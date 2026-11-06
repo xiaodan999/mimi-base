@@ -57,9 +57,8 @@ if [ ! -f .env.prod ]; then
     } > .env.prod
     chmod 600 .env.prod
 fi
-# Optional per-endpoint secrets (backwards compatible: DEPLOY_TOKEN still works
-# on its own). Add any you set here as GitHub "Production" secrets too:
-#   DEPLOY_TOKEN_DB / DEPLOY_TOKEN_SPA / DEPLOY_TOKEN_ROLLBACK / DEPLOY_TOKEN_REPO
+# The deploy secret is the single DEPLOY_TOKEN (see deploy/README.md); set the
+# same value as the GitHub "Production" environment secret.
 . .env.prod
 
 # 4. clean up any legacy mimi-db cron entries from older installs

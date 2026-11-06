@@ -23,10 +23,10 @@
  *                       `build` symlink in a single rename.
  *   POST /spa/rollback  flip the `build` symlink back to the previous gen.
  *
- * Auth: scoped secrets (DEPLOY_TOKEN_DB / _SPA / _ROLLBACK / _REPO) with the
- * legacy DEPLOY_TOKEN as a fallback, plus an optional timestamped HMAC
- * (x-deploy-ts + x-deploy-signature). /spa/publish additionally verifies the
- * tarball sha256 (x-spa-sha256) before writing or extracting it.
+ * Auth: a single shared DEPLOY_TOKEN, sent as x-deploy-token and/or used as the
+ * key for an optional timestamped HMAC (x-deploy-ts + x-deploy-signature).
+ * /spa/publish additionally verifies the tarball sha256 (x-spa-sha256) before
+ * writing or extracting it.
  *
  * `build` is a symlink to one of the generations in `build.next/gen-*`, so a
  * publish is a single atomic rename and PocketBase (which reopens publicDir
@@ -611,47 +611,21 @@ const safeEqualHex = (a: string | null, b: string): boolean => {
 };
 
 /**
- * Per-endpoint secrets with backwards compat: if only the legacy DEPLOY_TOKEN
- * is set it authorizes every endpoint; a scoped secret (preferred) is specific
- * to one endpoint. /repo/sync shares the SPA secret by default.
+ * The deploy secret, shared by every endpoint. An empty value disables the
+ * deploy server entirely. Dependents send it as x-deploy-token and use it as
+ * the HMAC key for x-deploy-signature.
  */
-function deploySecrets(pathname: string): string[] {
-    const legacy = process.env.DEPLOY_TOKEN;
-    const scoped: Record<string, string | undefined> = {
-        "/db/sync": process.env.DEPLOY_TOKEN_DB,
-        "/spa/publish": process.env.DEPLOY_TOKEN_SPA,
-        "/spa/rollback": process.env.DEPLOY_TOKEN_ROLLBACK,
-        "/repo/sync":
-            process.env.DEPLOY_TOKEN_REPO ?? process.env.DEPLOY_TOKEN_SPA,
-    };
-    return [
-        ...new Set(
-            [scoped[pathname], legacy].filter(
-                (v): v is string => typeof v === "string" && v.length > 0,
-            ),
-        ),
-    ];
-}
-
-function anyDeploySecretConfigured(): boolean {
-    return [
-        "DEPLOY_TOKEN",
-        "DEPLOY_TOKEN_DB",
-        "DEPLOY_TOKEN_SPA",
-        "DEPLOY_TOKEN_ROLLBACK",
-        "DEPLOY_TOKEN_REPO",
-    ].some((key) => (process.env[key] ?? "").length > 0);
+function deployToken(): string {
+    return process.env.DEPLOY_TOKEN ?? "";
 }
 
 /**
  * Accept either a fresh timestamped HMAC (x-deploy-signature over
- * "<pathname>.<ts>") or the legacy static bearer (x-deploy-token). The static
- * token stays as a fallback so existing CI keeps working during rollout;
- * operators may drop x-deploy-token once HMAC is verified in production.
+ * "<pathname>.<ts>") or the static bearer (x-deploy-token).
  */
 function authorize(req: Request, pathname: string): boolean {
-    const secrets = deploySecrets(pathname);
-    if (secrets.length === 0) return false;
+    const secret = deployToken();
+    if (!secret) return false;
     const bearer = req.headers.get("x-deploy-token");
     const ts = req.headers.get("x-deploy-ts");
     const sig = req.headers.get("x-deploy-signature");
@@ -664,16 +638,14 @@ function authorize(req: Request, pathname: string): boolean {
         const message = `${pathname}.${ts}`;
         if (
             fresh &&
-            secrets.some((secret) =>
-                safeEqualHex(
-                    sig,
-                    createHmac("sha256", secret).update(message).digest("hex"),
-                ),
+            safeEqualHex(
+                sig,
+                createHmac("sha256", secret).update(message).digest("hex"),
             )
         )
             return true;
     }
-    return !!bearer && secrets.some((secret) => safeEqualHex(bearer, secret));
+    return !!bearer && safeEqualHex(bearer, secret);
 }
 
 // ---------- SPA generations + atomic swap ----------
@@ -994,8 +966,8 @@ async function dbSync(): Promise<Response> {
 // ---------- deploy HTTP server ----------
 
 function startDeployEndpoint() {
-    if (!anyDeploySecretConfigured()) {
-        console.log("no deploy secret set — deploy endpoints disabled");
+    if (!deployToken()) {
+        console.log("no DEPLOY_TOKEN set — deploy endpoints disabled");
         return;
     }
     let deploying = false;

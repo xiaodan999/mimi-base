@@ -1,4 +1,4 @@
-# mimi-base / dan-pb.zxvcn.com
+# mimi-base / example host
 #
 # Version-controlled reverse-proxy config (replaces the hand-edited
 # /root/main/Caddyfile). `host.docker.internal` is mapped by compose.yaml's
@@ -6,12 +6,16 @@
 # working even if the docker bridge network is recreated — unlike the old
 # hardcoded 172.19.0.1 gateway.
 #
+# `mimi.example.com` is a placeholder: `deploy/setup.sh` installs this file
+# verbatim, so replace the site address below with your real host name before
+# installing on a server that terminates TLS for it.
+#
 # Deploy endpoints (:9001) bind to loopback by default; when Caddy runs in
 # Docker it reaches them via host.docker.internal, which requires the explicit
 # DEPLOY_BIND=0.0.0.0 + DEPLOY_BIND_ALLOW_PUBLIC=1 opt-in in .env.prod (the
 # cloud security group blocks external probes to :9001). See deploy/README.md.
 
-dan-pb.zxvcn.com {
+mimi.example.com {
     # Cache policy mirrors vercel.json: never cache the app shell, service
     # worker or manifest, so the "有新版本可用" prompt and SW update fire.
     # /version.json is fetched by the post-deploy bundle check.

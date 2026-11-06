@@ -48,22 +48,13 @@ response `HEAD` is asserted to equal `github.sha` (#12). Changes under
 `pocketbase/**` are handled by `deploy-db`'s `/db/sync` (pull + backup +
 restart), which is where migrations apply.
 
-### Token scoping (backwards compatible)
+### Token
 
-`server.ts` resolves a secret per endpoint, preferring a scoped secret and
-falling back to the legacy `DEPLOY_TOKEN`:
-
-| Endpoint        | Secret (scoped)         | Fallbacks                          |
-| --------------- | ----------------------- | ---------------------------------- |
-| `/db/sync`      | `DEPLOY_TOKEN_DB`       | `DEPLOY_TOKEN`                     |
-| `/spa/publish`  | `DEPLOY_TOKEN_SPA`      | `DEPLOY_TOKEN`                     |
-| `/spa/rollback` | `DEPLOY_TOKEN_ROLLBACK` | `DEPLOY_TOKEN`                     |
-| `/repo/sync`    | `DEPLOY_TOKEN_REPO`     | `DEPLOY_TOKEN_SPA`, `DEPLOY_TOKEN` |
-
-If **only** the legacy `DEPLOY_TOKEN` is set, it authorizes every endpoint
-(unchanged behavior); add the scoped secrets to `.env.prod` and to the GitHub
-`Production` environment to tighten them. Secrets are read from `.env.prod`
-(gitignored, `chmod 600`), never echoed by `scripts/server-setup.sh`.
+CI authenticates with a single shared secret, `DEPLOY_TOKEN`, set in the GitHub
+`Production` environment and as `DEPLOY_TOKEN=<value>` in the host's
+`.env.prod` (gitignored, `chmod 600`). It authorizes every deploy endpoint.
+`scripts/server-setup.sh` never echoes it. If it is unset the deploy server does
+not start at all, and the workflows skip cleanly.
 
 ### Timestamped HMAC
 
