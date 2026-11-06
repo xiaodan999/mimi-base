@@ -26,3 +26,10 @@ ignorePatterns = [
     "pocketbase/CHANGELOG.md",
     "pocketbase/LICENSE.md",
 ]
+
+# Resolve new packages from the canonical npm registry. The checked-in
+# lockfile used to hard-code a China mirror for every tarball, which made CI
+# downloads slow; override locally with BUN_CONFIG_REGISTRY or
+# npm_config_registry when a faster mirror is available.
+[install]
+registry = "https://registry.npmjs.org"

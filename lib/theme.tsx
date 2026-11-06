@@ -42,10 +42,23 @@ function readMode(): ThemeMode {
     return "system";
 }
 
+const THEME_COLORS: Record<ResolvedTheme, string> = {
+    light: "#c5f4d2",
+    dark: "#0e1512",
+};
+
 function applyTheme(theme: ResolvedTheme) {
     const root = document.documentElement;
     root.classList.toggle("dark", theme === "dark");
     root.style.colorScheme = theme;
+    // The two <meta name="theme-color"> tags are keyed to the OS
+    // prefers-color-scheme, not the app's .dark class. Overwrite both with the
+    // resolved theme so a manual toggle also updates the status bar (the
+    // pre-paint script in index.html does the same on first load).
+    const color = THEME_COLORS[theme];
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+        meta.setAttribute("content", color);
+    });
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

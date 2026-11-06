@@ -9,7 +9,10 @@ fi
 run_checks() {
     bun fmt --staged
     bun check
+    bun run typecheck:tsc
     bun run test
+    bun run lint
+    bun run format:check
 }
 
 if command -v bun >/dev/null 2>&1; then
@@ -22,7 +25,7 @@ if command -v wsl.exe >/dev/null 2>&1; then
     repo_top=$(git -c safe.directory="*" rev-parse --show-toplevel)
     repo_wsl=$(wsl.exe wslpath -a "$repo_top" | tr -d '\r')
     if [ -n "$repo_wsl" ]; then
-        wsl.exe -- bash -lc 'export PATH="$HOME/.bun/bin:$PATH"; export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="*"; cd "$1" && bun fmt --staged && bun check && bun run test' mimi-precommit "$repo_wsl"
+        wsl.exe -- bash -lc 'export PATH="$HOME/.bun/bin:$PATH"; export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="*"; cd "$1" && bun fmt --staged && bun check && bun run typecheck:tsc && bun run test && bun run lint && bun run format:check' mimi-precommit "$repo_wsl"
         exit 0
     fi
 fi

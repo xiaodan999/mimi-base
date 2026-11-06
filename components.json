@@ -1,0 +1,25 @@
+{
+    "$schema": "https://ui.shadcn.com/schema.json",
+    "style": "default",
+    "rsc": false,
+    "tsx": true,
+    "tailwind": {
+        "config": "tailwind.config.js",
+        "css": "globals.css",
+        "baseColor": "neutral",
+        "cssVariables": true,
+        "prefix": ""
+    },
+    "aliases": {
+        "components": "@/components",
+        "utils": "@/lib/utils",
+        "ui": "@/components/ui",
+        "lib": "@/lib",
+        "hooks": "@/hooks"
+    },
+    "iconLibrary": "lucide",
+    "x-mimi-fork": {
+        "note": "components/ui/ 下的原语是手工改造过的 fork，禁止用 shadcn add / init 覆盖；重新生成前必须重新套用改造，详见 AGENTS.md。",
+        "forked": ["dialog.tsx", "sheet.tsx", "drawer.tsx", "sonner.tsx"]
+    }
+}

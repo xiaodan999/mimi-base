@@ -44,7 +44,7 @@ export default function NavButtons() {
                         to={path}
                         aria-label={name}
                         aria-current={active ? "page" : undefined}
-                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 focus-visible:bg-accent/60"
+                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 focus-visible:bg-accent/60 active:bg-accent/60"
                     >
                         <span
                             className={cn(

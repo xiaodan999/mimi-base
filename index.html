@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta
             name="viewport"
-            content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"
+            content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover"
         />
         <title>小蛋🏡的秘密基地</title>
         <meta name="description" content="一个记录秘密的秘密基地。" />
@@ -32,6 +32,16 @@
                     document.documentElement.style.colorScheme = dark
                         ? "dark"
                         : "light";
+                    // The two OS-prefers-color-scheme metas cannot follow a
+                    // manual theme toggle on their own; point both at the
+                    // resolved theme so the status bar never keeps the wrong
+                    // colour (applyTheme in lib/theme.tsx keeps them in sync).
+                    const themeColor = dark ? "#0e1512" : "#c5f4d2";
+                    document
+                        .querySelectorAll('meta[name="theme-color"]')
+                        .forEach((meta) =>
+                            meta.setAttribute("content", themeColor),
+                        );
                 } catch {
                     // Storage can be unavailable in private mode.
                 }

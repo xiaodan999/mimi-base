@@ -25,7 +25,12 @@ function PostSkeleton() {
 /** Feed placeholder that keeps the page shape while the first page loads. */
 export function FeedSkeleton() {
     return (
-        <div className="pb-24" aria-busy="true" aria-label="动态加载中">
+        <div
+            className="pb-24"
+            role="status"
+            aria-busy="true"
+            aria-label="动态加载中"
+        >
             <div className="flex items-center justify-center bg-black/5 px-4 py-2">
                 <Skeleton className="h-3 w-12" />
             </div>

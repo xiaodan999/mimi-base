@@ -31,7 +31,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
     return (
         <div className="grid min-h-[60vh] place-items-center p-6 text-center">
             <div className="max-w-sm">
-                <AlertTriangle className="mx-auto size-10 text-amber-500" />
+                <AlertTriangle className="mx-auto size-10 text-warning" />
                 <h1 className="mt-3 text-lg font-semibold">{title}</h1>
                 <p className="mt-1 break-words text-sm text-muted-foreground">
                     {message}

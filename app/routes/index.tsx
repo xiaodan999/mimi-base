@@ -15,8 +15,8 @@ function Home() {
             <img
                 className="mx-auto flex size-80"
                 src={Logo}
-                title="logo"
-                alt="logo"
+                title="秘密基地"
+                alt="秘密基地的图标"
             />
             <p className="text-center">
                 这是一个任何人都可以访问的页面, 无需登入就可以访问哦

@@ -16,6 +16,8 @@ type TouXiangProps = {
     /** Built-in ring key; "" is the default ring, "none" hides it. */
     preset?: string;
     style?: CSSProperties;
+    /** 头像对应用户名；提供时生成「<name>的头像」，否则按装饰图处理（姓名在旁边）。 */
+    name?: string;
 };
 
 type CircleRingProps = {
@@ -76,6 +78,7 @@ export default function TouXiang({
     circleUrl = "",
     preset = "",
     style = {},
+    name,
 }: TouXiangProps) {
     return (
         <div
@@ -89,7 +92,7 @@ export default function TouXiang({
             <div className="absolute inset-0 overflow-hidden rounded-full bg-muted">
                 {touXiangUrl ? (
                     <img
-                        alt="头像"
+                        alt={name ? `${name}的头像` : ""}
                         className="h-full w-full object-cover"
                         draggable={false}
                         onContextMenu={(event) => event.preventDefault()}

@@ -9,7 +9,6 @@ export default tseslint.config(
     {
         ignores: [
             "app/routeTree.gen.ts",
-            "components/ui/**",
             "build/**",
             "build.next/**",
             "build.old/**",
@@ -79,6 +78,19 @@ export default tseslint.config(
                     alphabetize: { order: "asc" },
                 },
             ],
+        },
+    },
+
+    // Forked shadcn primitives (see AGENTS.md). They used to be fully ignored;
+    // ESLint now checks them too. Relax only the upstream-generator rules the
+    // fork intentionally diverges from (import grouping / marker interfaces),
+    // while keeping the correctness rules active.
+    {
+        files: ["components/ui/**"],
+        rules: {
+            "import/order": "off",
+            "import/no-duplicates": "off",
+            "@typescript-eslint/no-empty-object-type": "off",
         },
     },
 );
