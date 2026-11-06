@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { imagesToDataUrls } from "@/app/ai/image";
 import { latestPromptTokens } from "@/app/chat/context";
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
+import { usePendingUserInput } from "@/app/chat/user-input";
 import { Button } from "@/components/ui/button";
 
 import type { LiveReply } from "../-use-chat-session";
@@ -25,6 +26,7 @@ import {
     ReasoningPart,
     ToolCallPart,
 } from "./-message-parts";
+import { UserInputPanel } from "./-user-input-panel";
 
 const MAX_IMAGES = 4;
 
@@ -245,6 +247,7 @@ export function ChatThread({
         [messages.length, live],
     );
     const contextUsed = useMemo(() => latestPromptTokens(messages), [messages]);
+    const pendingInput = usePendingUserInput();
 
     // Our own scroll-down affordance: assistant-ui's built-in button reports
     // "not at bottom" before the first scroll event and floats over the
@@ -262,6 +265,23 @@ export function ChatThread({
     useEffect(() => {
         updateScroll();
     }, [updateScroll, messages.length, live]);
+
+    // Closing the ask_user panel changes the viewport height; keep the
+    // conversation anchored to the bottom so the follow-up answer is visible.
+    const wasPending = useRef(false);
+    useEffect(() => {
+        if (wasPending.current && pendingInput === null) {
+            requestAnimationFrame(() => {
+                const element = viewportRef.current;
+                if (!element) return;
+                element.scrollTo({
+                    top: element.scrollHeight,
+                    behavior: "smooth",
+                });
+            });
+        }
+        wasPending.current = pendingInput !== null;
+    }, [pendingInput]);
 
     return (
         <AssistantRuntimeProvider runtime={runtime}>
@@ -302,11 +322,14 @@ export function ChatThread({
                     )}
                 </ThreadPrimitive.Root>
 
+                <UserInputPanel />
+
                 <ChatComposer
                     images={images}
                     addingImages={addingImages}
                     visionEnabled={visionEnabled}
                     disabled={disabled}
+                    inputPending={pendingInput !== null}
                     running={running}
                     contextUsage={{
                         used: contextUsed,

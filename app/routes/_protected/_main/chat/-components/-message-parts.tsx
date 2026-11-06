@@ -12,6 +12,7 @@ import {
     Copy,
     FileText,
     FolderOpen,
+    HelpCircle,
     Loader2,
     SquarePen,
     Terminal,
@@ -228,6 +229,7 @@ export function ReasoningPart({ text, status }: ReasoningMessagePartProps) {
 /* ------------------------------ tool calls ------------------------------ */
 
 const TOOL_TITLES: Record<string, string> = {
+    ask_user: "向你提问",
     sandbox_run: "运行代码",
     sandbox_read: "读取文件",
     sandbox_write: "写入文件",
@@ -235,6 +237,7 @@ const TOOL_TITLES: Record<string, string> = {
 };
 
 const TOOL_ICONS: Record<string, typeof Terminal> = {
+    ask_user: HelpCircle,
     sandbox_run: Terminal,
     sandbox_read: FileText,
     sandbox_write: SquarePen,

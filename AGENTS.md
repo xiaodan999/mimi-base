@@ -353,10 +353,15 @@ before your first commit.
   `mimi-sandbox` network whose egress firewall allows only public
   DNS/HTTP(S). It has no mounts, no host networking and no `pb_data` / env
   secrets. `pocketbase/sandbox/` owns the runner, Dockerfile and firewall.
-  Dev (no Docker in WSL) uses a direct `python3` subprocess; that fallback is
-  not isolated and must never be used in production. Don't add host mounts,
-  `--network host`, a Docker socket, or secrets to the container without
-  re-evaluating prompt injection against the AI key and `pb_data`.
+  Dev (no Docker in WSL) uses a direct `python3`/`node` subprocess; that
+  fallback is not isolated and must never be used in production. Don't add
+  host mounts, `--network host`, a Docker socket, or secrets to the container
+  without re-evaluating prompt injection against the AI key and `pb_data`.
+  `ask_user` is client-side: it pauses the tool loop, shows the inline panel
+  (text/choice/confirm/location), and resolves the tool result so the same
+  run continues. Location only ever comes from `navigator.geolocation`, so
+  the browser permission prompt is the consent boundary; never infer it from
+  IP or the server.
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天,
   问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),

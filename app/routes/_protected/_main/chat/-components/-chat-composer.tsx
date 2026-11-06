@@ -12,6 +12,8 @@ export type ChatComposerProps = {
     /** Vision gate: text-only models disable the attach button. */
     visionEnabled: boolean;
     disabled: boolean;
+    /** An ask_user request is waiting; don't send another message. */
+    inputPending: boolean;
     running: boolean;
     /** Latest prompt_tokens / the model's context window. */
     contextUsage?: { used: number; total: number };
@@ -30,6 +32,7 @@ export function ChatComposer({
     addingImages,
     visionEnabled,
     disabled,
+    inputPending,
     running,
     contextUsage,
     onAddImages,
@@ -96,7 +99,9 @@ export function ChatComposer({
                             : "当前模型不支持图片，换一个支持视觉的模型"
                     }
                     title={visionEnabled ? "添加图片" : "当前模型不支持图片"}
-                    disabled={!visionEnabled || disabled || running}
+                    disabled={
+                        !visionEnabled || disabled || running || inputPending
+                    }
                     onClick={() => fileRef.current?.click()}
                     className="size-9 shrink-0 rounded-xl text-muted-foreground"
                 >
@@ -109,11 +114,15 @@ export function ChatComposer({
 
                 <ComposerPrimitive.Input
                     placeholder={
-                        disabled ? "站点没有可用的聊天模型" : "发消息…"
+                        inputPending
+                            ? "请先回答 AI 的问题"
+                            : disabled
+                              ? "站点没有可用的聊天模型"
+                              : "发消息…"
                     }
                     minRows={1}
                     maxRows={6}
-                    disabled={disabled}
+                    disabled={disabled || inputPending}
                     className="min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-none [scrollbar-width:none] placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden"
                 />
 
@@ -135,7 +144,9 @@ export function ChatComposer({
                             size="icon"
                             aria-label="发送"
                             title="发送"
-                            disabled={disabled ? true : undefined}
+                            disabled={
+                                disabled || inputPending ? true : undefined
+                            }
                             className="size-9 shrink-0 rounded-xl disabled:opacity-40"
                         >
                             <ArrowUp className="size-4" />

@@ -13,6 +13,7 @@ import type {
     ChatToolCallPart,
     SandboxFiles,
 } from "@/app/chat/types";
+import { cancelUserInput } from "@/app/chat/user-input";
 
 import { useChatActions } from "./-data";
 
@@ -112,12 +113,18 @@ export function useChatSession({
         }
     }, [storedMessages, optimistic]);
 
+    // A pending ask_user request cannot survive leaving the page.
+    useEffect(() => {
+        return () => cancelUserInput("用户离开了当前页面");
+    }, []);
+
     // Different conversation: reset local state and the sandbox snapshot.
     useEffect(() => {
         setOptimistic([]);
         setLive(null);
         setRunning(false);
         runningRef.current = false;
+        cancelUserInput("对话已切换");
         abortRef.current?.abort();
         abortRef.current = null;
         filesRef.current = conversation.sandboxFiles;
@@ -366,6 +373,7 @@ export function useChatSession({
                     controller,
                 );
             } finally {
+                cancelUserInput("生成已结束");
                 runningRef.current = false;
                 setRunning(false);
                 setLive(null);
@@ -409,6 +417,7 @@ export function useChatSession({
             try {
                 await runAssistant(history, model, parent.seq + 1, controller);
             } finally {
+                cancelUserInput("生成已结束");
                 runningRef.current = false;
                 setRunning(false);
                 setLive(null);
@@ -419,6 +428,7 @@ export function useChatSession({
     );
 
     const stop = useCallback(() => {
+        cancelUserInput("用户停止了生成");
         abortRef.current?.abort();
     }, []);
 

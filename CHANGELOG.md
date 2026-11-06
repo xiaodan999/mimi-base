@@ -21,6 +21,8 @@
 - 沙箱改为在服务器的 Docker 容器里运行：`pocketbase/sandbox/` 提供 Python / Node 两个 runner、Dockerfile 和网络脚本；`sandbox_run.language` 选 `python` 或 `javascript`；`POST /ai/sandbox` 通过 PB 令牌鉴权，限制每用户 1 个并发、每天 200 次。
 - 沙箱容器只读根文件系统、非 root 用户、丢弃全部 capabilities、`no-new-privileges`、256MB / 0.5 CPU / 64 PID / 20 秒上限；代码从 stdin 传入，不落在命令行。
 - 独立的 `mimi-sandbox` bridge 只允许公网 DNS/HTTP(S)，在 `DOCKER-USER`/`FORWARD` 和 `INPUT` 两处拦截 loopback、内网、宿主地址和非 Web 端口；沙箱因此能查实时信息但碰不到 PocketBase、Caddy 或 SSH。Python 与 JavaScript 共用同一套容器加固和网络策略。
+- 新增 `ask_user` 工具：模型可以动态请求文字、选项、确认或浏览器定位，客户端内联面板收集答案后再把结果交回模型，同一段回复继续；等待期间输入框禁用，停止/切换对话会取消请求。
+- 定位使用浏览器 `navigator.geolocation`（会弹系统授权），通过 BigDataCloud 反查城市名；反查失败时仍返回经纬度。工具结果保存在该对话里（owner 隔离）。
 
 ### 修复
 
@@ -34,6 +36,7 @@
 - `.env.example` 与 `pocketbase/README.md` 补充聊天模型白名单、思考强度与 `/ai` 新端点的说明。
 - `GET /ai/models` 增加 `thinkingLevels`，模型选择器同时展示三个模型和当前思考强度。
 - 代码工具支持 Python（标准库）和 JavaScript（Node），工具描述与系统提示同步更新；`SANDBOX_BASE_IMAGE` / `SANDBOX_BASE_IMAGE_NODE` 可指定国内可用的基础镜像源。
+- `ask_user` 加入聊天工具列表，系统提示要求缺少城市/位置/偏好/确认时先问用户，用户拒绝定位后改用文字问城市；回答面板关闭后自动滚到底部。
 
 ## 2026-11-06
 
