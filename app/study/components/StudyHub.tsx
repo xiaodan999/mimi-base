@@ -1,7 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Settings2 } from "lucide-react";
-
-import { useAi } from "@/app/ai/AiContext";
+import { BookOpen } from "lucide-react";
 
 // 这份完整样式跟着 /study 路由的 lazy 组件一起加载，不进首屏 CSS。
 import "@/app/study/study.css";
@@ -13,30 +11,20 @@ import ProgressRing from "./ProgressRing";
 
 export default function StudyHub() {
     const { data: summaries } = useStudySummaries();
-    const { openSettings } = useAi();
 
     return (
         <div className="study-root">
-            <div className="flex items-start justify-between gap-3 px-4 pt-4">
-                <div>
-                    <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-                        <BookOpen
-                            className="size-6 text-primary"
-                            aria-hidden="true"
-                        />
-                        学习基地
-                    </h1>
-                    <p className="mt-1 text-[12.5px] text-muted-foreground">
-                        所有科目都在这里，进度会跟着账号走。
-                    </p>
-                </div>
-                <button
-                    onClick={openSettings}
-                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
-                    aria-label="AI 设置"
-                >
-                    <Settings2 className="size-4" />
-                </button>
+            <div className="px-4 pt-4">
+                <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
+                    <BookOpen
+                        className="size-6 text-primary"
+                        aria-hidden="true"
+                    />
+                    学习基地
+                </h1>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">
+                    所有科目都在这里，进度会跟着账号走。
+                </p>
             </div>
 
             <div className="study-body">
