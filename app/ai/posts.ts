@@ -1,7 +1,10 @@
 import { visionMessage, type AiMessage } from "./client";
+import { fenceUntrusted, systemPrompt } from "./prompt-base";
 
-const SYSTEM =
-    "你在「秘密基地」里帮朋友配朋友圈文案。中文，口语化，像本人随手发的，不要广告腔，不要自称 AI，不要堆 emoji。";
+const SYSTEM = systemPrompt(
+    "帮朋友配朋友圈文案的搭档",
+    "像本人随手发的，不要广告腔，别解释画面里已经很明显的东西。",
+);
 
 export type CaptionInput = {
     imageUrls: string[];
@@ -22,7 +25,10 @@ const RULES = [
 export function captionMessages(input: CaptionInput): AiMessage[] {
     const context = [
         `这次要发 ${input.count} 张照片，排版是${input.layout === "moments" ? "九宫格" : "大图轮播"}。`,
-        input.hint?.trim() ? `用户已经写了半句：「${input.hint.trim()}」` : "",
+        // 用户写的半句 / 图片内容都当数据，别让它变成新的指令
+        input.hint?.trim()
+            ? fenceUntrusted("用户写的半句", input.hint.trim())
+            : "",
         "根据照片内容写文案；如果照片信息不足，就像朋友一样泛泛地写这一天的感觉。",
     ]
         .filter(Boolean)

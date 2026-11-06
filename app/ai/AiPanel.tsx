@@ -12,6 +12,8 @@ import {
     streamChat,
     type AiMessage,
 } from "./client";
+import { decideAiRestore } from "./restore";
+import type { AiTaskHref } from "./task-store";
 import { useAiTasks } from "./tasks";
 
 export type AiTurn = { role: "user" | "assistant"; content: string };
@@ -27,6 +29,8 @@ type Props = {
     messages: AiMessage[];
     chips?: AiChip[];
     intro?: string;
+    /** 完成后「去查看」要回到哪个页面；默认学习页，账单点评会传 /jizhang */
+    href?: AiTaskHref;
 };
 
 type RunOptions = { key?: string; force?: boolean };
@@ -46,6 +50,7 @@ export default function AiPanel({
     messages,
     chips,
     intro,
+    href = "/study",
 }: Props) {
     const { settings, configured, openSettings } = useAi();
     const { runTask, cancel, attend, tasks, find, getResult } = useAiTasks();
@@ -89,6 +94,7 @@ export default function AiPanel({
                     cacheKey,
                     title,
                     subtitle,
+                    href,
                     kind: "stream",
                     force: options?.force,
                     summarize: () => "AI 回复已生成",
@@ -142,7 +148,7 @@ export default function AiPanel({
                 }
             }
         },
-        [cacheKey, cancel, runTask, settings, subtitle, title],
+        [cacheKey, cancel, href, runTask, settings, subtitle, title],
     );
 
     useEffect(() => {
@@ -159,47 +165,37 @@ export default function AiPanel({
         if (startedRef.current === cacheKey) return;
         startedRef.current = cacheKey;
 
-        const cached = readAiCache<AiTurn[]>(cacheKey);
-        if (cached?.length) {
-            turnsRef.current = cached;
-            setTurns(cached);
-            setError("");
-            setStreaming(false);
-            return;
-        }
-
-        // 回到面板时，任务可能还在后台跑，或者刚刚跑完
-        const task = find(cacheKey);
-        if (task) {
-            if (task.status === "running") {
-                setTurns([{ role: "assistant", content: task.text ?? "" }]);
+        // 统一决策：running 优先，再 local → store result → cache；失败时好缓存
+        // 仍然优先于 error（restore.test.ts 保护的就是这种情况）。
+        const decision = decideAiRestore<AiTurn[]>({
+            task: find(cacheKey),
+            local: turnsRef.current,
+            result: getResult<AiTurn[]>(cacheKey),
+            cached: readAiCache<AiTurn[]>(cacheKey),
+            hasValue: (value) => value.length > 0,
+        });
+        switch (decision.kind) {
+            case "ready":
+                turnsRef.current = decision.value;
+                setTurns(decision.value);
                 setError("");
-                setStreaming(true);
-                return;
-            }
-            if (task.status === "done") {
-                const result = getResult<AiTurn[]>(cacheKey);
-                if (result?.length) {
-                    turnsRef.current = result;
-                    setTurns(result);
-                    setError("");
-                    setStreaming(false);
-                    return;
-                }
-            }
-            if (task.status === "error") {
-                setError(task.error ?? "AI 请求失败");
                 setStreaming(false);
                 return;
-            }
-            if (task.status === "canceled") {
+            case "error":
+                setError(decision.message);
+                setStreaming(false);
+                return;
+            case "canceled":
                 setError("已取消");
                 setStreaming(false);
                 return;
-            }
+            case "running":
+            case "none":
+                // running：run() 会接上同一个任务；none：开一个新的
+                setTurns([]);
+                void run(messages, []);
+                return;
         }
-
-        void run(messages, []);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey, configured]);
 
@@ -210,6 +206,7 @@ export default function AiPanel({
         if (localRunRef.current === activeTask.key) return;
 
         if (activeTask.status === "running") {
+            // 运行中的任务：把已流出的文本接上（实时进度，不是恢复决策）
             const base = readAiCache<AiTurn[]>(cacheKey) ?? [];
             setTurns([
                 ...base,
@@ -219,25 +216,30 @@ export default function AiPanel({
             setStreaming(true);
             return;
         }
-        if (activeTask.status === "done") {
-            const cached = readAiCache<AiTurn[]>(cacheKey);
-            if (cached?.length) {
-                turnsRef.current = cached;
-                setTurns(cached);
-            }
+
+        const decision = decideAiRestore<AiTurn[]>({
+            task: activeTask,
+            result: getResult<AiTurn[]>(cacheKey),
+            cached: readAiCache<AiTurn[]>(cacheKey),
+            hasValue: (value) => value.length > 0,
+        });
+        if (decision.kind === "ready") {
+            turnsRef.current = decision.value;
+            setTurns(decision.value);
+            setError("");
             setStreaming(false);
             return;
         }
-        if (activeTask.status === "error") {
+        if (decision.kind === "error") {
+            setError(decision.message);
             setStreaming(false);
-            setError(activeTask.error ?? "AI 请求失败");
             return;
         }
-        if (activeTask.status === "canceled") {
-            setStreaming(false);
-            if (!activeTask.text) setError("已取消");
+        setStreaming(false);
+        if (decision.kind === "canceled" && !activeTask.text) {
+            setError("已取消");
         }
-    }, [open, cacheKey, activeTask]);
+    }, [open, cacheKey, activeTask, getResult]);
 
     // 面板开着时任务完成不用再弹通知
     useEffect(() => {

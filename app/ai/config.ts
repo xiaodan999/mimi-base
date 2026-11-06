@@ -3,12 +3,20 @@
  * 换设备需要重新粘贴 Key。
  */
 
+import { clearAiCache } from "./cache";
+import {
+    AI_SETTINGS_KEY as STORAGE_KEY,
+    LEGACY_SETTINGS_KEY as LEGACY_STORAGE_KEY,
+} from "./constants";
+
 export type AiSettings = {
     baseUrl: string;
     apiKey: string;
     model: string;
     /** 任务完成时，如果 App 在后台就发系统通知 */
     notify: boolean;
+    /** 每天最多花多少美元（估算）；<= 0 表示不限制 */
+    dailyBudgetUsd: number;
 };
 
 export type AiPreset = {
@@ -68,9 +76,6 @@ export const AI_PRESETS: AiPreset[] = [
 
 export const CUSTOM_PRESET_ID = "custom";
 
-/** AI 设置现在全站共用，键名从 study 私有迁移到 app 级。 */
-const STORAGE_KEY = "mimi:ai:v1";
-const LEGACY_STORAGE_KEY = "mimi-study:ai:v1";
 const SESSION_KEY = "mimi:ai-session:v1";
 const LEGACY_SESSION_KEY = "mimi-study:ai-session:v1";
 
@@ -79,6 +84,7 @@ export const DEFAULT_SETTINGS: AiSettings = {
     apiKey: "",
     model: AI_PRESETS[0].model,
     notify: false,
+    dailyBudgetUsd: 0,
 };
 
 function readValue(primary: string, legacy: string): string | null {
@@ -113,6 +119,11 @@ export function readAiSettings(): AiSettings {
                     ? parsed.model
                     : DEFAULT_SETTINGS.model,
             notify: parsed.notify === true,
+            dailyBudgetUsd:
+                typeof parsed.dailyBudgetUsd === "number" &&
+                Number.isFinite(parsed.dailyBudgetUsd)
+                    ? parsed.dailyBudgetUsd
+                    : 0,
         };
     } catch {
         return { ...DEFAULT_SETTINGS };
@@ -122,7 +133,12 @@ export function readAiSettings(): AiSettings {
 export function writeAiSettings(settings: AiSettings) {
     if (typeof window === "undefined") return;
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+        const next = JSON.stringify(settings);
+        const previous = localStorage.getItem(STORAGE_KEY);
+        // 只要设置真的变了就作废旧的 AI 缓存：换模型 / 换地址后，旧结果不该
+        // 继续显示。启动时 OpenCode 直连地址的迁移也走这里，只会清一次。
+        if (previous !== next) clearAiCache();
+        localStorage.setItem(STORAGE_KEY, next);
         localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
         // 隐私模式下 localStorage 可能不可写，忽略即可
@@ -203,6 +219,56 @@ export function matchPreset(
         );
     });
     return found?.id ?? CUSTOM_PRESET_ID;
+}
+
+/**
+ * GET {baseUrl}/models 拉取可用模型 id。失败（CORS / 不支持 / 网络）时返回
+ * 空数组，设置页和兜底路由据此降级，不把整个 AI 功能弄坏。
+ */
+export async function discoverModels(
+    settings: AiSettings,
+    signal?: AbortSignal,
+): Promise<string[]> {
+    const base = settings.baseUrl
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\/chat\/completions$/i, "");
+    if (!base) return [];
+    try {
+        const res = await fetch(`${base}/models`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${settings.apiKey.trim()}`,
+                "Content-Type": "application/json",
+            },
+            signal,
+        });
+        if (!res.ok) return [];
+        const json = (await res.json()) as { data?: { id?: string }[] };
+        return (json.data ?? [])
+            .map((item) => item.id)
+            .filter(
+                (id): id is string => typeof id === "string" && id.length > 0,
+            );
+    } catch {
+        return [];
+    }
+}
+
+/** 从可用模型里挑一个兜底：优先聊天/指令类模型，避开 embedding 之类。 */
+export function pickFallbackModel(
+    current: string,
+    available: string[],
+): string | undefined {
+    const usable = available.filter((id) => id && id !== current);
+    if (usable.length === 0) return undefined;
+    return (
+        usable.find((id) =>
+            /chat|instruct|turbo|flash|mini|gpt|qwen|deepseek|moonshot/i.test(
+                id,
+            ),
+        ) ?? usable[0]
+    );
 }
 
 /**

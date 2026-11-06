@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    discoverModels,
     isDirectOpenCodeBaseUrl,
     migrateAiSettings,
     openCodeRelayBaseUrl,
+    pickFallbackModel,
     type AiSettings,
 } from "./config";
 
@@ -13,6 +15,7 @@ const settings = (patch: Partial<AiSettings> = {}): AiSettings => ({
     apiKey: "oc_test",
     notify: true,
     ...patch,
+    dailyBudgetUsd: patch.dailyBudgetUsd ?? 0,
 });
 
 describe("OpenCode Go relay", () => {
@@ -83,5 +86,47 @@ describe("OpenCode Go relay", () => {
         expect(
             migrateAiSettings(settings({ baseUrl: relay }), relay).changed,
         ).toBe(false);
+    });
+});
+
+describe("模型发现与兜底路由", () => {
+    test("pickFallbackModel 跳过当前模型、优先聊天类模型", () => {
+        expect(
+            pickFallbackModel("deepseek-chat", ["deepseek-chat"]),
+        ).toBeUndefined();
+        expect(
+            pickFallbackModel("deepseek-chat", [
+                "text-embedding-3",
+                "deepseek-chat",
+                "qwen-plus",
+            ]),
+        ).toBe("qwen-plus");
+        expect(pickFallbackModel("x", ["embedding-2"])).toBe("embedding-2");
+        expect(pickFallbackModel("x", [])).toBeUndefined();
+    });
+
+    test("discoverModels 解析 /models 并容错失败", async () => {
+        const realFetch = globalThis.fetch;
+        try {
+            globalThis.fetch = (async () =>
+                new Response(
+                    JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }, {}] }),
+                    { status: 200 },
+                )) as unknown as typeof fetch;
+            expect(await discoverModels(settings())).toEqual(["m1", "m2"]);
+
+            globalThis.fetch = (async () =>
+                new Response("nope", {
+                    status: 500,
+                })) as unknown as typeof fetch;
+            expect(await discoverModels(settings())).toEqual([]);
+
+            globalThis.fetch = (async () => {
+                throw new TypeError("CORS");
+            }) as unknown as typeof fetch;
+            expect(await discoverModels(settings())).toEqual([]);
+        } finally {
+            globalThis.fetch = realFetch;
+        }
     });
 });

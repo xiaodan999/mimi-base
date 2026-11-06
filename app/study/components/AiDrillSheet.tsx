@@ -4,6 +4,7 @@ import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
 import { readAiCache } from "@/app/ai/cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
+import { decideAiRestore } from "@/app/ai/restore";
 import { drillPickMessages, type DrillCandidate } from "@/app/ai/study";
 import { useAiTasks } from "@/app/ai/tasks";
 
@@ -124,6 +125,7 @@ export default function AiDrillSheet({
                     cacheKey,
                     title: "定向刷题",
                     subtitle: "按错题分布挑一组",
+                    href: "/study",
                     kind: "json",
                     force,
                     summarize: (value) => `已挑 ${value.ids.length} 道题`,
@@ -204,7 +206,7 @@ export default function AiDrillSheet({
         ],
     );
 
-    // 打开时优先用当天已经挑好的那一组；后台跑完的结果也能直接看到。
+    // 打开时用统一决策接上后台任务 / 缓存结果（running 优先，再结果→缓存）。
     useEffect(() => {
         if (!open) return;
         if (!configured) {
@@ -212,38 +214,38 @@ export default function AiDrillSheet({
             return;
         }
 
-        const task = find(cacheKey);
-        // 后台任务在跑时先接回去，别让上一组缓存把它盖住。
-        if (task?.status === "running") {
-            setLoading(true);
-            void pick();
-            return;
-        }
-
-        const stored =
-            getResult<DrillResult>(cacheKey) ??
-            readAiCache<DrillResult>(cacheKey);
-        if (stored) {
-            const byId = new Map(subject.bank.map((item) => [item.id, item]));
-            const picked = stored.ids.flatMap((id) => {
+        const byId = new Map(subject.bank.map((item) => [item.id, item]));
+        const toItems = (result: DrillResult) =>
+            result.ids.flatMap((id) => {
                 const item = byId.get(id);
                 return item ? [item] : [];
             });
-            if (picked.length) {
-                setItems(picked.slice(0, PICK_COUNT));
-                setReason(stored.reason);
-                setError("");
-                setFallbackIds([]);
-                setLoading(false);
-                return;
-            }
-        }
 
-        if (task?.status === "canceled") {
+        const decision = decideAiRestore<DrillResult>({
+            task: find(cacheKey),
+            result: getResult<DrillResult>(cacheKey),
+            cached: readAiCache<DrillResult>(cacheKey),
+            hasValue: (value) => toItems(value).length > 0,
+        });
+        if (decision.kind === "ready") {
+            setItems(toItems(decision.value).slice(0, PICK_COUNT));
+            setReason(decision.value.reason);
+            setError("");
+            setFallbackIds([]);
+            setLoading(false);
+            return;
+        }
+        if (decision.kind === "canceled") {
             setLoading(false);
             setError("已取消");
             return;
         }
+        if (decision.kind === "error") {
+            setLoading(false);
+            setError(decision.message);
+            return;
+        }
+        // running：pick() 会接上同一个任务；none：开一个新的
         void pick();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);

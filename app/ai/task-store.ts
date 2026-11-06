@@ -6,7 +6,7 @@ export type AiTaskKind = "stream" | "text" | "json";
 
 /** 任务完成后可以回去查看结果的页面 */
 export type AiTaskHref =
-    "/home" | "/posts" | "/jizhang" | "/profile" | "/report";
+    "/home" | "/posts" | "/jizhang" | "/profile" | "/report" | "/study";
 
 /**
  * 一个 AI 任务的公开状态。`text` 是流式输出（或文本结果），
@@ -67,6 +67,8 @@ type InternalTask = AiTask & {
     promise: Promise<unknown>;
     result?: unknown;
     settled: boolean;
+    /** 保存启动参数，供任务中心的「重试」原样再跑一次 */
+    options: StartAiTaskOptions<unknown>;
 };
 
 const MAX_FINISHED = 20;
@@ -188,7 +190,8 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             cacheKey: options.cacheKey,
             title: options.title,
             subtitle: options.subtitle,
-            href: options.href,
+            // 每个任务都带一个可回去的页面，完成的结果才不会「看得到却打不开」。
+            href: options.href ?? "/home",
             kind: options.kind ?? "json",
             status: "running",
             createdAt: now(),
@@ -197,6 +200,7 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             controller,
             promise: Promise.resolve(),
             settled: false,
+            options: options as unknown as StartAiTaskOptions<unknown>,
         };
         tasks.set(id, task);
         runningByKey.set(options.key, id);
@@ -275,6 +279,16 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             if (!task || task.status === "running") return;
             tasks.delete(id);
             emit();
+        },
+        /** 用原来的参数强制重跑一个失败/取消的任务（任务中心的「重试」）。 */
+        retry(idOrKey: string) {
+            const task =
+                tasks.get(idOrKey) ??
+                tasks.get(runningByKey.get(idOrKey) ?? "");
+            if (!task || task.status === "running") return;
+            const options = task.options;
+            tasks.delete(task.id);
+            return start({ ...options, force: true });
         },
         clearFinished() {
             let changed = false;

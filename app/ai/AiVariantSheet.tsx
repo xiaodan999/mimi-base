@@ -143,6 +143,7 @@ export default function AiVariantSheet({
                     cacheKey,
                     title: "AI 变式题",
                     subtitle: `基于：${source.stem.slice(0, 34)}`,
+                    href: "/study",
                     kind: "json",
                     force,
                     summarize: (value) =>

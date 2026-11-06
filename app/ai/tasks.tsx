@@ -23,6 +23,7 @@ type AiTasksValue = {
     tasks: AiTask[];
     runTask: <T>(options: StartAiTaskOptions<T>) => Promise<T>;
     cancel: (idOrKey: string) => void;
+    retry: (idOrKey: string) => void;
     dismiss: (id: string) => void;
     clearFinished: () => void;
     getResult: <T>(key: string) => T | undefined;
@@ -74,10 +75,6 @@ export function AiTasksProvider({
         );
         if (fresh.length === 0) return;
 
-        const hidden =
-            typeof document !== "undefined" &&
-            document.visibilityState !== "visible";
-
         for (const task of fresh) {
             notifiedRef.current.add(task.id);
             const open = () => setSheetOpen(true);
@@ -88,7 +85,8 @@ export function AiTasksProvider({
                     duration: 8000,
                     action: { label: "查看", onClick: open },
                 });
-                if (notifyEnabled && hidden) {
+                // 是否「后台才通知」由 notify.ts 统一判断
+                if (notifyEnabled) {
                     showSystemNotification(
                         `「${task.title}」完成了`,
                         task.summary || "点开秘密基地看看结果",
@@ -101,7 +99,8 @@ export function AiTasksProvider({
                     duration: 8000,
                     action: { label: "查看", onClick: open },
                 });
-                if (notifyEnabled && hidden) {
+                // 是否「后台才通知」由 notify.ts 统一判断
+                if (notifyEnabled) {
                     showSystemNotification(
                         `「${task.title}」失败了`,
                         task.error || "点开秘密基地看看",
@@ -120,6 +119,7 @@ export function AiTasksProvider({
             tasks,
             runTask: store.start,
             cancel: store.cancel,
+            retry: store.retry,
             dismiss: store.dismiss,
             clearFinished: store.clearFinished,
             getResult: store.getResult,
@@ -145,6 +145,7 @@ export function AiTasksProvider({
                 open={sheetOpen}
                 onClose={() => setSheetOpen(false)}
                 onCancel={store.cancel}
+                onRetry={store.retry}
                 onDismiss={store.dismiss}
                 onClearFinished={store.clearFinished}
             />

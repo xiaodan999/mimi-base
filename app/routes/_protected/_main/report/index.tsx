@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, Sparkles } from "lucide-react";
 
@@ -6,6 +6,7 @@ import { useAi } from "@/app/ai/AiContext";
 import { hashText, readAiCache } from "@/app/ai/cache";
 import { AiError, aiErrorText, chatText, isAiCanceled } from "@/app/ai/client";
 import { reportLetterMessages } from "@/app/ai/report";
+import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import { useStudySummaries } from "@/app/study/progress";
 import { ErrorState } from "@/components/ErrorState";
@@ -322,7 +323,7 @@ function ReportLetter({
     const [letter, setLetter] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [nonce, setNonce] = useState(0);
+    const ticketRef = useRef(0);
 
     const top = report.expenses.categories[0];
     const input = useMemo(
@@ -352,85 +353,108 @@ function ReportLetter({
         report.expenses.count === 0 &&
         study.questions === 0;
 
+    const restoreInput = (task: ReturnType<typeof find>) => ({
+        task,
+        result: getResult<string>(key),
+        cached: readAiCache<string>(key),
+        hasValue: (value: string) => value.trim().length > 0,
+    });
+
+    const run = useCallback(
+        async (force: boolean) => {
+            if (!configured) {
+                openSettings();
+                return;
+            }
+            const ticket = ++ticketRef.current;
+            setLoading(true);
+            setError("");
+            if (force) setLetter("");
+            try {
+                const value = await runTask<string>({
+                    key,
+                    group: key,
+                    cacheKey: key,
+                    title: "年度小结",
+                    subtitle: `${year} 年的这一页`,
+                    href: "/report",
+                    kind: "text",
+                    force,
+                    summarize: () => "写好了",
+                    run: async ({ signal }) => {
+                        const text = await chatText(
+                            settings,
+                            reportLetterMessages(input),
+                            signal,
+                        );
+                        const trimmed = text.trim();
+                        if (!trimmed) {
+                            throw new AiError("AI 没写出内容，再试一次");
+                        }
+                        return trimmed;
+                    },
+                });
+                if (ticketRef.current === ticket) setLetter(value);
+            } catch (err) {
+                if (ticketRef.current !== ticket || isAiCanceled(err)) return;
+                // 重新写失败时别把之前写好的那封藏起来：缓存里的好结果优先于
+                // 这次 error（restore.test.ts:84-93 保护的正是这种情形）。
+                const decision = decideAiRestore<string>(
+                    restoreInput(find(key)),
+                );
+                if (decision.kind === "ready") {
+                    setLetter(decision.value);
+                    setError("");
+                } else {
+                    setError(aiErrorText(err));
+                }
+            } finally {
+                if (ticketRef.current === ticket) setLoading(false);
+            }
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [
+            configured,
+            find,
+            getResult,
+            input,
+            key,
+            openSettings,
+            runTask,
+            settings,
+            year,
+        ],
+    );
+
+    // 打开 / 换 key 时统一决策：永远先看缓存（移除旧的 nonce===0 gate），
+    // 之后即使某次重新写失败，好缓存也不会被藏起来。
     useEffect(() => {
         if (empty) return;
         if (!configured) {
             setLetter("");
             return;
         }
-        if (nonce === 0) {
-            const cached = readAiCache<string>(key);
-            if (cached) {
-                setLetter(cached);
-                setLoading(false);
-                return;
-            }
-        }
-
-        const task = find(key);
-        if (task?.status === "error") {
-            setError(task.error ?? "AI 请求失败");
+        const decision = decideAiRestore<string>(restoreInput(find(key)));
+        if (decision.kind === "ready") {
+            setLetter(decision.value);
+            setError("");
             setLoading(false);
             return;
         }
-        if (task?.status === "canceled") {
+        if (decision.kind === "error") {
+            setError(decision.message);
+            setLoading(false);
+            return;
+        }
+        if (decision.kind === "canceled") {
             setError("已取消");
             setLoading(false);
             return;
         }
-        if (task?.status === "done") {
-            const result = getResult<string>(key);
-            if (result) {
-                setLetter(result);
-                setLoading(false);
-                return;
-            }
-        }
-
-        let active = true;
-        setLoading(true);
-        setError("");
-        setLetter("");
-        runTask<string>({
-            key,
-            group: key,
-            cacheKey: key,
-            title: "年度小结",
-            subtitle: `${year} 年的这一页`,
-            href: "/report",
-            kind: "text",
-            force: nonce > 0,
-            summarize: () => "写好了",
-            run: async ({ signal }) => {
-                const text = await chatText(
-                    settings,
-                    reportLetterMessages(input),
-                    signal,
-                );
-                const value = text.trim();
-                if (!value) {
-                    throw new AiError("AI 没写出内容，再试一次");
-                }
-                return value;
-            },
-        })
-            .then((value) => {
-                if (active) setLetter(value);
-            })
-            .catch((err) => {
-                if (active && !isAiCanceled(err)) {
-                    setError(aiErrorText(err));
-                }
-            })
-            .finally(() => {
-                if (active) setLoading(false);
-            });
-
-        return () => {
-            active = false;
-        };
+        // running / none：run() 会接上同一个任务或开一个新的
+        void run(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, nonce, configured, empty]);
+    }, [key, configured, empty]);
 
     // 在报告页上看着呢，完成时就不用再弹通知了
     useEffect(() => {
@@ -454,7 +478,7 @@ function ReportLetter({
                     <button
                         type="button"
                         className="text-[11px] font-semibold text-primary"
-                        onClick={() => setNonce((value) => value + 1)}
+                        onClick={() => void run(true)}
                     >
                         重新写
                     </button>

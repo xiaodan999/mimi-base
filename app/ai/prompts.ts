@@ -15,9 +15,9 @@ import type {
 } from "@/app/study/types";
 
 import type { AiMessage } from "./client";
+import { fenceUntrusted, systemPrompt } from "./prompt-base";
 
-const SYSTEM =
-    "你是「秘密基地」学习板块里的 AI 学习搭子，擅长护理质控考试。用中文回答，口语化、具体、别堆术语；不要自称 AI，不要说“作为 AI”。";
+const SYSTEM = systemPrompt("学习搭子，擅长护理质控考试", "");
 
 function stripHtml(value: string): string {
     return value
@@ -201,7 +201,7 @@ export function diagnoseWrongMessages(
         { role: "system", content: SYSTEM },
         {
             role: "user",
-            content: `${subjectBrief(subject)}\n\n${itemToText(item, modName)}\n\n学生选的是：${userAnswerText(item, answer)}\n\n请做一次「错题验尸」，分四段：\n1. 他为什么会选这个答案（推测误解）\n2. 正确思路是什么\n3. 下次看到什么信号要警惕\n4. 一句话记忆钩子\n如果学生没作答，就分析这道题最常见的误解。总字数 300 字以内。`,
+            content: `${subjectBrief(subject)}\n\n${itemToText(item, modName)}\n\n${fenceUntrusted("学生选的答案", userAnswerText(item, answer))}\n\n请做一次「错题验尸」，分四段：\n1. 他为什么会选这个答案（推测误解）\n2. 正确思路是什么\n3. 下次看到什么信号要警惕\n4. 一句话记忆钩子\n如果学生没作答，就分析这道题最常见的误解。总字数 300 字以内。`,
         },
     ];
 }
@@ -237,7 +237,7 @@ export function gradeMessages(
         { role: "system", content: SYSTEM },
         {
             role: "user",
-            content: `${subjectBrief(subject)}\n\n${itemToText(item, modName)}\n\n学生的作答：${userAnswerText(item, answer)}\n\n请按考试踩分点批改，严格但别打击人。只输出 JSON，不要 markdown：\n{"score":0到100的整数,"hit":["答到的得分点"],"miss":["漏掉的得分点"],"comment":"两三句点评，先肯定再指出问题","modelAnswer":"一份能拿满分的参考答案"}`,
+            content: `${subjectBrief(subject)}\n\n${itemToText(item, modName)}\n\n${fenceUntrusted("学生的作答", userAnswerText(item, answer))}\n\n请按考试踩分点批改，严格但别打击人。只输出 JSON，不要 markdown：\n{"score":0到100的整数,"hit":["答到的得分点"],"miss":["漏掉的得分点"],"comment":"两三句点评，先肯定再指出问题","modelAnswer":"一份能拿满分的参考答案"}`,
         },
     ];
 }

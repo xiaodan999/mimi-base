@@ -5,7 +5,7 @@ import { Send, Sparkles } from "lucide-react";
 import { useAi } from "@/app/ai/AiContext";
 import AiMarkdown from "@/app/ai/AiMarkdown";
 import AiSheet from "@/app/ai/AiSheet";
-import { hashText } from "@/app/ai/cache";
+import { hashText, readAiCache } from "@/app/ai/cache";
 import {
     aiErrorText,
     isAiCanceled,
@@ -13,6 +13,7 @@ import {
     throwIfAborted,
 } from "@/app/ai/client";
 import { askMessages } from "@/app/ai/home";
+import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import {
     categoryFromRecord,
@@ -124,7 +125,7 @@ export default function AskSheet({
     streak: number;
 }) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, cancel, attend } = useAiTasks();
+    const { runTask, cancel, attend, find, getResult, tasks } = useAiTasks();
     const user = useCurrentUser();
     const [question, setQuestion] = useState("");
     const [answer, setAnswer] = useState("");
@@ -139,6 +140,40 @@ export default function AskSheet({
         if (!open) return;
         return attend(group);
     }, [open, group, attend]);
+
+    // 关掉再打开（或切页面回来）时用统一决策接回上一次的回答 / 后台任务
+    const activeTask = tasks.find((task) => task.key === activeKeyRef.current);
+    useEffect(() => {
+        if (!open) return;
+        const key = activeKeyRef.current;
+        const decision = decideAiRestore<string>({
+            task: activeTask ?? (key ? find(key) : undefined),
+            local: answer,
+            result: key ? getResult<string>(key) : undefined,
+            cached: key ? readAiCache<string>(key) : undefined,
+            hasValue: (value) => value.trim().length > 0,
+        });
+        switch (decision.kind) {
+            case "ready":
+                setAnswer(decision.value);
+                setError("");
+                setLoading(false);
+                break;
+            case "running":
+                setLoading(true);
+                setError("");
+                break;
+            case "error":
+                setError(decision.message);
+                setLoading(false);
+                break;
+            case "canceled":
+            case "none":
+                setLoading(false);
+                break;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, activeTask]);
 
     const ask = async (preset?: string) => {
         const value = (preset ?? question).trim();
@@ -164,8 +199,10 @@ export default function AskSheet({
             const text = await runTask<string>({
                 key,
                 group,
+                cacheKey: key,
                 title: "问问我的基地",
                 subtitle: value,
+                href: "/home",
                 kind: "stream",
                 summarize: () => "回答已生成",
                 run: async ({ signal, report }) => {

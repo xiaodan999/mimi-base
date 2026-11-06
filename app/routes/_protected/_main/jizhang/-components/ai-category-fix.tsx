@@ -7,6 +7,7 @@ import AiSheet from "@/app/ai/AiSheet";
 import { hashText, readAiCache } from "@/app/ai/cache";
 import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { categoryGuessMessages } from "@/app/ai/expense";
+import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -103,7 +104,7 @@ export default function AiCategoryFix({
     onClose: () => void;
 }) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, attend, find, tasks } = useAiTasks();
+    const { runTask, attend, find, getResult, tasks } = useAiTasks();
     const user = useCurrentUser();
     const queryClient = useQueryClient();
     const { categories, getCategory } = useExpenseCategories();
@@ -127,18 +128,28 @@ export default function AiCategoryFix({
         `${rows.map((row) => row.id).join(",")}|${includeOther}`,
     )}`;
 
+    const restoreInput = (task: ReturnType<typeof find>) => ({
+        task,
+        result: getResult<Record<string, string>>(cacheKey),
+        cached: readAiCache<Record<string, string>>(cacheKey),
+        hasValue: (value: Record<string, string>) =>
+            Object.keys(value).length > 0,
+    });
+
     useEffect(() => {
         if (!open) {
             setIncludeOther(false);
             return;
         }
-        setGuesses(readAiCache<Record<string, string>>(cacheKey) ?? {});
         setMessage("");
-        const task = find(cacheKey);
-        setGuessing(task?.status === "running");
-        if (task?.status === "error") {
-            setMessage(task.error ?? "AI 请求失败");
-        }
+        // 统一决策：running 优先，再 store result → cache；失败时仍显示好缓存
+        const decision = decideAiRestore<Record<string, string>>(
+            restoreInput(find(cacheKey)),
+        );
+        setGuesses(decision.kind === "ready" ? decision.value : {});
+        setGuessing(decision.kind === "running");
+        if (decision.kind === "error") setMessage(decision.message);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, includeOther, cacheKey, find]);
 
     // 后台猜完或从别的页面回来时，接上任务状态
@@ -146,25 +157,21 @@ export default function AiCategoryFix({
     const appliedRef = useRef<string | null>(null);
     useEffect(() => {
         if (!open || !activeTask) return;
-        if (activeTask.status === "running") {
-            setGuessing(true);
-            return;
-        }
-        if (activeTask.status === "done") {
+        const decision = decideAiRestore<Record<string, string>>(
+            restoreInput(activeTask),
+        );
+        setGuessing(decision.kind === "running");
+        if (decision.kind === "ready") {
             // 同一个结果只应用一次，别覆盖用户手动改过的分类
             if (appliedRef.current !== activeTask.id) {
                 appliedRef.current = activeTask.id;
-                setGuesses(readAiCache<Record<string, string>>(cacheKey) ?? {});
+                setGuesses(decision.value);
             }
-            setGuessing(false);
-            return;
+            setMessage("");
+        } else if (decision.kind === "error") {
+            setMessage(decision.message);
         }
-        if (activeTask.status === "error") {
-            setMessage(activeTask.error ?? "AI 请求失败");
-            setGuessing(false);
-            return;
-        }
-        setGuessing(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey, activeTask]);
 
     useEffect(() => {
@@ -200,6 +207,7 @@ export default function AiCategoryFix({
                 cacheKey,
                 title: "AI 补全分类",
                 subtitle: `${rows.length} 笔账`,
+                href: "/jizhang",
                 kind: "json",
                 summarize: (value) => `猜好了 ${Object.keys(value).length} 条`,
                 run: async ({ signal }) => {

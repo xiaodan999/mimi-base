@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Trash2 } from "lucide-react";
+import { Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
 
 import { toast } from "@/app/study/toast";
 import pb from "@/lib/pb";
@@ -10,12 +10,14 @@ import { aiErrorText, testAiConnection } from "./client";
 import {
     AI_PRESETS,
     CUSTOM_PRESET_ID,
+    discoverModels,
     matchPreset,
     openCodeRelayBaseUrl,
     type AiPreset,
     type AiSettings,
 } from "./config";
 import { notificationsSupported, requestSystemNotifications } from "./notify";
+import { formatUsd, readDailyUsage } from "./usage";
 
 type Props = {
     open: boolean;
@@ -46,6 +48,9 @@ export default function AiSettingsSheet({
         ok: boolean;
         text: string;
     } | null>(null);
+    const [models, setModels] = useState<string[]>([]);
+    const [discovering, setDiscovering] = useState(false);
+    const [usage, setUsage] = useState(() => readDailyUsage());
 
     useEffect(() => {
         if (!open) return;
@@ -53,6 +58,8 @@ export default function AiSettingsSheet({
         setPresetId(matchPreset(settings, presetBaseUrl));
         setShowKey(false);
         setTestResult(null);
+        setModels([]);
+        setUsage(readDailyUsage());
     }, [open, settings]);
 
     const patchDraft = (patch: Partial<AiSettings>) => {
@@ -90,6 +97,25 @@ export default function AiSettingsSheet({
         }
     };
 
+    const discover = async () => {
+        if (!draft.baseUrl.trim() || !draft.apiKey.trim()) {
+            toast("先填好 Base URL 和 Key 再拉模型");
+            return;
+        }
+        setDiscovering(true);
+        try {
+            const list = await discoverModels(draft);
+            setModels(list);
+            toast(
+                list.length > 0
+                    ? `发现 ${list.length} 个模型`
+                    : "这个服务商没返回模型列表，手动填也行",
+            );
+        } finally {
+            setDiscovering(false);
+        }
+    };
+
     const test = async () => {
         if (
             !draft.baseUrl.trim() ||
@@ -115,6 +141,7 @@ export default function AiSettingsSheet({
             toast(text);
         } finally {
             setTesting(false);
+            setUsage(readDailyUsage());
         }
     };
 
@@ -132,6 +159,7 @@ export default function AiSettingsSheet({
             model: draft.model.trim(),
             apiKey: draft.apiKey.trim(),
             notify: draft.notify,
+            dailyBudgetUsd: draft.dailyBudgetUsd,
         });
         toast("AI 设置已保存（只在这台设备）");
     };
@@ -206,6 +234,37 @@ export default function AiSettingsSheet({
                         autoComplete="off"
                         spellCheck={false}
                     />
+                    <button
+                        type="button"
+                        className="st-tiny mt-1 inline-flex items-center gap-1 font-semibold text-primary underline"
+                        onClick={() => void discover()}
+                        disabled={discovering}
+                    >
+                        {discovering ? (
+                            <RefreshCw className="size-3 animate-spin" />
+                        ) : (
+                            <RefreshCw className="size-3" />
+                        )}
+                        从服务商拉取模型列表
+                    </button>
+                    {models.length > 0 && (
+                        <select
+                            className="st-input mt-1"
+                            value=""
+                            onChange={(event) =>
+                                patchDraft({ model: event.target.value })
+                            }
+                        >
+                            <option value="" disabled>
+                                选一个模型（{models.length} 个）
+                            </option>
+                            {models.map((model) => (
+                                <option key={model} value={model}>
+                                    {model}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                 </label>
 
                 <label className="block">
@@ -237,7 +296,37 @@ export default function AiSettingsSheet({
                     </div>
                 </label>
 
-                <label className="flex items-start gap-3 rounded-xl border border-black/5 bg-muted/40 px-3 py-2.5">
+                <label className="block">
+                    <div className="st-tiny mb-1 font-bold">
+                        每天花费上限（美元，估）
+                    </div>
+                    <input
+                        className="st-input"
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={draft.dailyBudgetUsd}
+                        onChange={(event) =>
+                            patchDraft({
+                                dailyBudgetUsd: Math.max(
+                                    0,
+                                    Number(event.target.value) || 0,
+                                ),
+                            })
+                        }
+                        placeholder="0 = 不限制"
+                    />
+                    <div className="st-tiny mt-1">
+                        填 0 不限制；超过当天估算花费就暂停新的 AI 请求。
+                    </div>
+                </label>
+
+                <div className="st-tiny rounded-xl bg-muted/40 px-3 py-2">
+                    今日估算消耗 {formatUsd(usage.costUsd)} · {usage.calls} 次 ·{" "}
+                    {usage.tokens} tokens（只在本机估算，不是账单）
+                </div>
+
+                <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
                     <input
                         type="checkbox"
                         className="mt-0.5 size-4 shrink-0 accent-primary"

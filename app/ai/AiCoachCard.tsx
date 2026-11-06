@@ -10,6 +10,8 @@ import { useAi } from "./AiContext";
 import { readAiCache } from "./cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { planMessages, type AiPlan } from "./prompts";
+import { decideAiRestore } from "./restore";
+import type { AiTask } from "./task-store";
 import { useAiTasks } from "./tasks";
 
 type Props = {
@@ -79,45 +81,52 @@ export default function AiCoachCard({ subject, progress }: Props) {
     const group = `plan:${subject.id}:${dayKey()}`;
     const cacheKey = `${group}:${minutes}`;
 
+    // 统一用 decideAiRestore 决定显示已有结果、接上后台任务还是留空。
+    const restore = (task: AiTask | undefined) => {
+        const decision = decideAiRestore<AiPlan>({
+            task,
+            result: getResult<AiPlan>(cacheKey),
+            cached: readAiCache<AiPlan>(cacheKey),
+            hasValue: (value) => value.tasks.length > 0,
+        });
+        switch (decision.kind) {
+            case "ready":
+                setPlan(decision.value);
+                setError("");
+                setLoading(false);
+                break;
+            case "running":
+                setLoading(true);
+                setError("");
+                break;
+            case "error":
+                setError(decision.message);
+                setLoading(false);
+                break;
+            case "canceled":
+            case "none":
+                setLoading(false);
+                break;
+        }
+    };
+
     useEffect(() => {
-        setPlan(getResult<AiPlan>(cacheKey) ?? readAiCache<AiPlan>(cacheKey));
-        setError("");
-        const task = find(cacheKey);
-        setLoading(task?.status === "running");
-    }, [cacheKey, find, getResult]);
+        restore(find(cacheKey));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cacheKey]);
 
     // 卡片在页面上时，用户看得到计划，不用再弹完成通知
     useEffect(() => {
         return attend(group);
     }, [group, attend]);
 
-    // 从后台回来时，接上还在跑的计划
+    // 后台任务状态变化（跑完 / 失败 / 取消）也接上
     const activeTask = tasks.find((task) => task.key === cacheKey);
     useEffect(() => {
         if (!activeTask) return;
-        if (activeTask.status === "running") {
-            setLoading(true);
-            return;
-        }
-        if (activeTask.status === "done") {
-            const done =
-                getResult<AiPlan>(cacheKey) ?? readAiCache<AiPlan>(cacheKey);
-            if (done) {
-                setPlan(done);
-                setError("");
-            }
-            setLoading(false);
-            return;
-        }
-        if (activeTask.status === "error") {
-            setError(activeTask.error ?? "AI 请求失败");
-            setLoading(false);
-            return;
-        }
-        if (activeTask.status === "canceled") {
-            setLoading(false);
-        }
-    }, [activeTask, cacheKey, getResult]);
+        restore(activeTask);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTask]);
 
     const generate = useCallback(
         async (nextMinutes: number, force = false) => {
@@ -151,6 +160,7 @@ export default function AiCoachCard({ subject, progress }: Props) {
                     cacheKey: key,
                     title: "AI 学习计划",
                     subtitle: `${subject.title} · ${nextMinutes} 分钟`,
+                    href: "/study",
                     kind: "json",
                     force,
                     summarize: (value) => `${value.tasks.length} 个任务`,

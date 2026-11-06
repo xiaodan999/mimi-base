@@ -3,9 +3,11 @@ import { format } from "date-fns/esm";
 import { History } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
-import { hashText, readAiCache, writeAiCache } from "@/app/ai/cache";
-import { chatText } from "@/app/ai/client";
+import { hashText, readAiCache } from "@/app/ai/cache";
+import { AiError, chatText } from "@/app/ai/client";
 import { memoryMessages } from "@/app/ai/home";
+import { decideAiRestore } from "@/app/ai/restore";
+import { useAiTasks } from "@/app/ai/tasks";
 import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";
 import { getFileUrl } from "@/lib/pb";
@@ -15,6 +17,7 @@ import { useOnThisDay, type MemoryPost } from "../-home-data";
 export default function MemoryCard() {
     const user = useCurrentUser();
     const { settings, configured } = useAi();
+    const { runTask, find, getResult, attend } = useAiTasks();
     const { data } = useOnThisDay();
     const [line, setLine] = useState("");
 
@@ -27,44 +30,63 @@ export default function MemoryCard() {
             hashText(data.map((post) => post.id).join(",")),
         ].join(":");
     }, [data, user.id]);
+    const group = `memory:${user.id}`;
 
     useEffect(() => {
         if (!configured || !key || !data?.length) {
             setLine("");
             return;
         }
-        const cached = readAiCache<string>(key);
-        if (cached) {
-            setLine(cached);
+        const decision = decideAiRestore<string>({
+            task: find(key),
+            result: getResult<string>(key),
+            cached: readAiCache<string>(key),
+            hasValue: (value) => value.trim().length > 0,
+        });
+        if (decision.kind === "ready") {
+            setLine(decision.value);
             return;
         }
+        // 失败 / 取消：回忆卡没有旁白也能用
+        if (decision.kind === "error" || decision.kind === "canceled") return;
 
-        const controller = new AbortController();
-        chatText(
-            settings,
-            memoryMessages({
-                dateLabel: format(new Date(), "M月d日"),
-                texts: data
-                    .filter((post) => post.text.trim())
-                    .map((post) => ({
-                        yearsAgo: post.yearsAgo,
-                        text: post.text,
-                    })),
-            }),
-            controller.signal,
-        )
-            .then((text) => {
+        // running / none：runTask 后台跑，不再自己 abort
+        void runTask<string>({
+            key,
+            group,
+            cacheKey: key,
+            title: "去年今天",
+            href: "/home",
+            kind: "text",
+            run: async ({ signal }) => {
+                const text = await chatText(
+                    settings,
+                    memoryMessages({
+                        dateLabel: format(new Date(), "M月d日"),
+                        texts: data
+                            .filter((post) => post.text.trim())
+                            .map((post) => ({
+                                yearsAgo: post.yearsAgo,
+                                text: post.text,
+                            })),
+                    }),
+                    signal,
+                );
                 const value = text.trim();
-                if (!value || controller.signal.aborted) return;
-                writeAiCache(key, value);
-                setLine(value);
-            })
+                if (!value) throw new AiError("AI 没写出内容");
+                return value;
+            },
+        })
+            .then((value) => setLine(value))
             .catch(() => {
-                // 回忆卡没有旁白也能用。
+                // 回忆卡没有旁白也能用
             });
-
-        return () => controller.abort();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [configured, key, settings, data]);
+
+    useEffect(() => {
+        return attend(group);
+    }, [group, attend]);
 
     if (!data?.length) return null;
 

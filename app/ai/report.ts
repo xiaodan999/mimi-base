@@ -1,7 +1,10 @@
 import type { AiMessage } from "./client";
+import { fenceUntrusted, systemPrompt } from "./prompt-base";
 
-const SYSTEM =
-    "你在「秘密基地」里帮用户写年度总结。中文，像老朋友说话，具体、温和，不要模板腔，不要自称 AI，不要用“时光荏苒”这类词。";
+const SYSTEM = systemPrompt(
+    "帮用户写年度总结的老朋友",
+    "具体、温和，别用模板腔，别用“时光荏苒”这类词。",
+);
 
 export type ReportLetterInput = {
     year: number;
@@ -23,18 +26,23 @@ export function reportLetterMessages(input: ReportLetterInput): AiMessage[] {
             ? Math.round((input.correct / input.questions) * 100)
             : 0;
 
+    const dataBlock = [
+        `这是 ${input.year} 年的个人数据：`,
+        `- 动态 ${input.posts} 条，照片 ${input.photos} 张`,
+        `- 支出 ¥${input.spend.toFixed(2)}，共 ${input.entries} 笔`,
+        input.entries > 0
+            ? `- 花得最多的是${input.topCategory}，占 ${Math.round(input.topCategoryShare * 100)}%`
+            : "- 没有记账数据",
+        `- 做题 ${input.questions} 道，正确率 ${accuracy}%，连续学习 ${input.streak} 天，经验值 ${input.xp}`,
+    ].join("\n");
+
     return [
         { role: "system", content: SYSTEM },
         {
             role: "user",
             content: [
-                `这是 ${input.year} 年的个人数据：`,
-                `- 动态 ${input.posts} 条，照片 ${input.photos} 张`,
-                `- 支出 ¥${input.spend.toFixed(2)}，共 ${input.entries} 笔`,
-                input.entries > 0
-                    ? `- 花得最多的是${input.topCategory}，占 ${Math.round(input.topCategoryShare * 100)}%`
-                    : "- 没有记账数据",
-                `- 做题 ${input.questions} 道，正确率 ${accuracy}%，连续学习 ${input.streak} 天，经验值 ${input.xp}`,
+                // 分类名可能来自用户自定义，整段数据当数据，不当指令
+                fenceUntrusted("年度数据", dataBlock),
                 "",
                 "写一封 220 字以内的年度小结：",
                 "1. 先讲这一年记录下来的生活，挑一两个具体数字来说，别报流水账。",

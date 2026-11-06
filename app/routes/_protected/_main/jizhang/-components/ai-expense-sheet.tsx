@@ -10,7 +10,7 @@ import {
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { hashText } from "@/app/ai/cache";
+import { hashText, readAiCache, removeAiCache } from "@/app/ai/cache";
 import {
     AiError,
     aiErrorText,
@@ -21,6 +21,7 @@ import {
 } from "@/app/ai/client";
 import { expenseReceiptMessages, expenseTextMessages } from "@/app/ai/expense";
 import { imageToDataUrl } from "@/app/ai/image";
+import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +72,7 @@ export default function AiExpenseSheet({
     onClose: () => void;
 }) {
     const { settings, configured, openSettings } = useAi();
-    const { runTask, attend } = useAiTasks();
+    const { runTask, attend, find, getResult } = useAiTasks();
     const mutation = useAddJiZhang();
     const { categories, getCategory } = useExpenseCategories();
     const categoryOptions = useMemo(
@@ -94,6 +95,8 @@ export default function AiExpenseSheet({
     // would be reset on the next open.
     const parsingRef = useRef(false);
     const backgroundRef = useRef(false);
+    /** 当前这笔解析的任务 key，关掉再打开时据此接回后台任务/结果。 */
+    const activeKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!open) {
@@ -101,16 +104,44 @@ export default function AiExpenseSheet({
             if (parsingRef.current) backgroundRef.current = true;
             return;
         }
-        if (backgroundRef.current) {
-            backgroundRef.current = false;
-            return;
+        const key = activeKeyRef.current;
+        // 统一决策：running 优先，再 local 草稿 → store result → 缓存。
+        const decision = key
+            ? decideAiRestore<DraftRow[]>({
+                  task: find(key),
+                  local: rows,
+                  result: getResult<DraftRow[]>(key),
+                  cached: readAiCache<DraftRow[]>(key),
+                  hasValue: (value) => value.length > 0,
+              })
+            : ({ kind: "none" } as const);
+        switch (decision.kind) {
+            case "running":
+                backgroundRef.current = false;
+                setStage("input");
+                return; // loading 由仍在跑的 parse() 持有
+            case "ready":
+                backgroundRef.current = false;
+                setRows(decision.value);
+                setStage("review");
+                setError("");
+                return;
+            case "error":
+                backgroundRef.current = false;
+                setError(decision.message);
+                return;
+            case "canceled":
+            case "none":
+                backgroundRef.current = false;
+                activeKeyRef.current = null;
+                setStage("input");
+                setRows([]);
+                setError("");
+                setText("");
+                setReceipt(null);
+                return;
         }
-        // 平时每次打开都是新的一笔，不复用上次的草稿。
-        setStage("input");
-        setRows([]);
-        setError("");
-        setText("");
-        setReceipt(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     useEffect(() => {
@@ -153,6 +184,7 @@ export default function AiExpenseSheet({
             : "";
         const key = `expense-parse:${hashText(`${text.trim()}|${receiptKey}`)}`;
 
+        activeKeyRef.current = key;
         parsingRef.current = true;
         setLoading(true);
         setError("");
@@ -160,8 +192,10 @@ export default function AiExpenseSheet({
             const drafts = await runTask<DraftRow[]>({
                 key,
                 group: "expense-parse",
+                cacheKey: key,
                 title: "AI 记账",
                 subtitle: text.trim().slice(0, 30) || receipt?.file.name,
+                href: "/jizhang",
                 kind: "json",
                 summarize: (value) => `识别到 ${value.length} 笔`,
                 run: async ({ signal }) => {
@@ -235,6 +269,13 @@ export default function AiExpenseSheet({
                     error: "记录失败",
                 },
             );
+            // 记完就丢掉这一笔的草稿/缓存，下次打开是全新的一笔。
+            if (activeKeyRef.current) removeAiCache(activeKeyRef.current);
+            activeKeyRef.current = null;
+            setRows([]);
+            setStage("input");
+            setText("");
+            setReceipt(null);
             onClose();
         } catch {
             // toastPromise 已经提示过

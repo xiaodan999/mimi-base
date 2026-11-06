@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { useBackDismiss } from "@/lib/useBackDismiss";
+import { cn } from "@/lib/utils";
 
 type Props = {
     open: boolean;
@@ -56,19 +57,25 @@ export default function AiSheet({
                     onClick={onClose}
                 />
                 <div className="ai-sheet kb-sheet-max relative flex w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-2xl">
-                    <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+                    <div className="flex items-center gap-3 border-b border-border px-4 py-3">
                         <div className="min-w-0 flex-1">
                             <DialogPrimitive.Title className="truncate text-[15px] font-extrabold">
                                 {title}
                             </DialogPrimitive.Title>
-                            {subtitle && (
-                                <DialogPrimitive.Description className="truncate text-[11px] text-muted-foreground">
-                                    {subtitle}
-                                </DialogPrimitive.Description>
-                            )}
+                            {/* Radix 需要 Description 才能正确标注对话框；调用方没给
+                                subtitle 时也渲染一个 sr-only 的，避免无障碍告警，
+                                同时不让空的占位撑开标题区。 */}
+                            <DialogPrimitive.Description
+                                className={cn(
+                                    "truncate text-[11px] text-muted-foreground",
+                                    !subtitle && "sr-only",
+                                )}
+                            >
+                                {subtitle || `${title}面板`}
+                            </DialogPrimitive.Description>
                         </div>
                         <button
-                            className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"
+                            className="grid size-11 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"
                             onClick={onClose}
                             aria-label="关闭"
                         >
@@ -82,7 +89,7 @@ export default function AiSheet({
                         {children}
                     </div>
                     {footer && (
-                        <div className="border-t border-black/5 px-4 py-3">
+                        <div className="border-t border-border px-4 py-3">
                             {footer}
                         </div>
                     )}

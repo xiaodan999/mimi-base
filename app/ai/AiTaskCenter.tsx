@@ -8,6 +8,7 @@ import {
     ChevronUp,
     Copy,
     Loader2,
+    RotateCw,
     Sparkles,
     X,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 import AiMarkdown from "./AiMarkdown";
 import AiSheet from "./AiSheet";
 import type { AiTask } from "./task-store";
+import { formatUsd, readDailyUsage } from "./usage";
 
 type PillProps = {
     running: number;
@@ -61,6 +63,7 @@ type CenterProps = {
     open: boolean;
     onClose: () => void;
     onCancel: (id: string) => void;
+    onRetry: (id: string) => void;
     onDismiss: (id: string) => void;
     onClearFinished: () => void;
 };
@@ -70,6 +73,7 @@ export function AiTaskCenter({
     open,
     onClose,
     onCancel,
+    onRetry,
     onDismiss,
     onClearFinished,
 }: CenterProps) {
@@ -78,6 +82,7 @@ export function AiTaskCenter({
     const running = tasks.filter((task) => task.status === "running");
     const finished = tasks.filter((task) => task.status !== "running");
     const now = useNow(open && running.length > 0);
+    const daily = readDailyUsage();
 
     const copy = (text: string) => {
         if (!navigator.clipboard) {
@@ -270,20 +275,37 @@ export function AiTaskCenter({
                                             </>
                                         )}
 
-                                        {href && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    onClose();
-                                                    void navigate({
-                                                        to: href,
-                                                    });
-                                                }}
-                                                className="mt-2 rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground"
-                                            >
-                                                去查看
-                                            </button>
-                                        )}
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {task.status === "error" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        onRetry(task.id)
+                                                    }
+                                                    className="flex items-center gap-1 rounded-full border border-border/70 px-3 py-1 text-[11px] font-bold text-muted-foreground"
+                                                >
+                                                    <RotateCw
+                                                        className="size-3"
+                                                        aria-hidden="true"
+                                                    />
+                                                    重试
+                                                </button>
+                                            )}
+                                            {href && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        onClose();
+                                                        void navigate({
+                                                            to: href,
+                                                        });
+                                                    }}
+                                                    className="rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground"
+                                                >
+                                                    去查看
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -299,6 +321,10 @@ export function AiTaskCenter({
                     </div>
                 )}
 
+                <p className="st-tiny pt-1 text-center">
+                    今日估算消耗 {formatUsd(daily.costUsd)} · {daily.calls} 次 ·{" "}
+                    {daily.tokens} tokens
+                </p>
                 <p className="st-tiny pt-1 text-center">
                     结果只保存在这台设备 · 关闭 App 会中断进行中的任务
                 </p>

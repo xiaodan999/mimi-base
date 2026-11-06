@@ -79,6 +79,7 @@ export default function AiExpenseReview({
             title="账单点评"
             subtitle={`${input.rangeLabel} · ${input.count} 笔`}
             cacheKey={cacheKey}
+            href="/jizhang"
             messages={messages}
             chips={[
                 { label: "怎么省？", prompt: "给我三个具体能省钱的改法。" },

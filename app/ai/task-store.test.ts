@@ -227,4 +227,51 @@ describe("AI task store", () => {
         store.cancel("running");
         await expect(running).rejects.toMatchObject({ name: "AbortError" });
     });
+
+    test("每个任务都有一个可回去查看的 href（默认 /home，可覆盖）", async () => {
+        const store = createAiTaskStore();
+        await store.start({
+            key: "a",
+            title: "A",
+            run: async () => "x",
+        });
+        await store.start({
+            key: "b",
+            title: "B",
+            href: "/report",
+            run: async () => "y",
+        });
+        const byKey = Object.fromEntries(
+            store.getSnapshot().map((task) => [task.key, task.href]),
+        );
+        expect(byKey.a).toBe("/home");
+        expect(byKey.b).toBe("/report");
+    });
+
+    test("retry 用原参数强制重跑一个失败任务", async () => {
+        const store = createAiTaskStore();
+        let calls = 0;
+        const first = store.start({
+            key: "retry-me",
+            title: "会失败",
+            run: async () => {
+                calls += 1;
+                if (calls === 1) throw new Error("boom");
+                return "ok";
+            },
+        });
+        await expect(first).rejects.toThrow("boom");
+        const failed = store.getSnapshot()[0];
+        expect(failed.status).toBe("error");
+
+        const retried = store.retry(failed.id);
+        expect(retried).toBeDefined();
+        await expect(retried!).resolves.toBe("ok");
+        expect(calls).toBe(2);
+        // 旧失败任务被替换，新的那条已完成
+        expect(store.getSnapshot().some((task) => task.id === failed.id)).toBe(
+            false,
+        );
+        expect(store.getSnapshot()[0].status).toBe("done");
+    });
 });

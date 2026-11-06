@@ -84,6 +84,7 @@ export default function AiGradeSheet({
                     subtitle: `${TYPE_NAME[item.type]} · ${
                         moduleName ?? item.m
                     }`,
+                    href: "/study",
                     kind: "json",
                     force,
                     summarize: (value) => `得分 ${value.score}`,
