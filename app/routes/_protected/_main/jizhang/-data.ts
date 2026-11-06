@@ -14,6 +14,11 @@ import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
 import pb, { pbDate } from "@/lib/pb";
+import {
+    type JiZhangItemData,
+    type JiZhangRecord,
+    toJiZhangItemData,
+} from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
 import {
@@ -25,22 +30,9 @@ import {
     type ExpenseCategoryRecord,
 } from "./-categories";
 
-export type JiZhangItemData = {
-    id: string;
-    price: number;
-    itemName: string;
-    createdAt: string;
-    /** Empty for rows created before the category field was added. */
-    category: string;
-};
-
-type JiZhangRecord = {
-    id: string;
-    item_name: string;
-    price: number;
-    created: string;
-    category?: string;
-};
+// The view-model shape now lives in lib/pb-types.ts; keep re-exporting it so
+// `-summary` and its tests importing from `./-data` don't need to change.
+export type { JiZhangItemData } from "@/lib/pb-types";
 
 export function useJiZhang(range: DateRange | undefined) {
     const user = useCurrentUser();
@@ -60,7 +52,7 @@ export function jiZhangQueryOptions(
     const { from, to } = range ?? {};
     return queryOptions({
         queryKey: qk.jiZhang.list(userId, from, to),
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             if (range === undefined || from === undefined) return [];
 
             // single day when `to` is undefined, otherwise the full range
@@ -76,6 +68,7 @@ export function jiZhangQueryOptions(
                         },
                     ),
                     sort: "-created",
+                    signal,
                 });
 
             const transformedData: {
@@ -83,15 +76,8 @@ export function jiZhangQueryOptions(
                 items: JiZhangItemData[];
             }[] = [];
 
-            groupBy(
-                rawData.map((item) => ({
-                    id: item.id,
-                    price: item.price,
-                    itemName: item.item_name,
-                    createdAt: item.created,
-                    category: item.category ?? "",
-                })),
-                (item) => getDateString(new Date(item.createdAt)),
+            groupBy(rawData.map(toJiZhangItemData), (item) =>
+                getDateString(new Date(item.createdAt)),
             ).forEach((items, date) => {
                 transformedData.push({ date, items });
             });
@@ -107,7 +93,7 @@ export function useAddJiZhang() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["add-ji-zhang"],
+        mutationKey: qk.mutations.addJiZhang(),
         mutationFn: async (
             newItem: Pick<JiZhangItemData, "itemName" | "price" | "category">,
         ) => {
@@ -131,7 +117,7 @@ export function useDeleteJiZhang() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["delete-ji-zhang"],
+        mutationKey: qk.mutations.deleteJiZhang(),
         mutationFn: async (itemToDelete: Pick<JiZhangItemData, "id">) => {
             const deleted = await pb
                 .collection("ji_zhang_biao")
@@ -149,7 +135,7 @@ export function useUpdateJiZhang() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["update-ji-zhang"],
+        mutationKey: qk.mutations.updateJiZhang(),
         mutationFn: async (patch: { id: string; category: string }) => {
             await pb
                 .collection("ji_zhang_biao")
@@ -164,13 +150,14 @@ export function useUpdateJiZhang() {
 export function expenseCategoriesQueryOptions(userId: string) {
     return queryOptions({
         queryKey: qk.jiZhang.categories.of(userId),
-        queryFn: async (): Promise<ExpenseCategoryRecord[]> => {
+        queryFn: async ({ signal }): Promise<ExpenseCategoryRecord[]> => {
             const records = await pb
                 .collection("ji_zhang_category")
                 .getFullList<ExpenseCategoryRecord>({
                     // update/delete are owner-scoped; only list my own rows.
                     filter: pb.filter("user_id = {:userId}", { userId }),
                     sort: "created",
+                    signal,
                 });
             return records;
         },
@@ -233,7 +220,7 @@ export function useCreateExpenseCategory() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["create-expense-category"],
+        mutationKey: qk.mutations.createExpenseCategory(),
         mutationFn: async ({
             name,
             icon,
@@ -262,7 +249,7 @@ export function useUpdateExpenseCategory() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["update-expense-category"],
+        mutationKey: qk.mutations.updateExpenseCategory(),
         mutationFn: async ({ id, name }: { id: string; name: string }) => {
             const trimmed = name.trim();
             assertCategoryNameAvailable(queryClient, user.id, trimmed, id);
@@ -286,7 +273,7 @@ export function useDeleteExpenseCategory() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["delete-expense-category"],
+        mutationKey: qk.mutations.deleteExpenseCategory(),
         mutationFn: async (id: string): Promise<number> => {
             const rows = await pb
                 .collection("ji_zhang_biao")

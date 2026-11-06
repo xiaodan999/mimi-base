@@ -66,6 +66,7 @@ function Posts() {
         hasNextPage,
         isFetchingNextPage,
         refetch,
+        refresh,
     } = usePostsInfinite(8, filter);
     const [composer, setComposer] = useState<ComposerState>(null);
     const [findOpen, setFindOpen] = useState(false);
@@ -77,7 +78,9 @@ function Posts() {
     } | null>(null);
 
     const { ref, inView } = useInView();
-    const pull = usePullToRefresh(() => refetch());
+    // Reset to a single (newest) page instead of `refetch()`ing every loaded
+    // page of the infinite feed.
+    const pull = usePullToRefresh(() => refresh());
     const pullProgress = Math.min(1, pull.distance / PULL_THRESHOLD);
     const { visible: showBackToTop, scrollToTop } = useScrollToTop();
 

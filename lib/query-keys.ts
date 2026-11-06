@@ -50,4 +50,27 @@ export const qk = {
         ["memories", userId, day] as const,
     yearReport: (userId: string, year: number) =>
         ["year-report", userId, year] as const,
+    /**
+     * Mutation keys kept here too, so `useIsMutating` / devtools / future
+     * matching can't drift from the strings used by the hooks. The exact
+     * legacy strings are preserved.
+     */
+    mutations: {
+        // posts
+        postLike: () => ["mutate_post_like"] as const,
+        newPost: () => ["new_post"] as const,
+        updatePost: () => ["update_post"] as const,
+        deletePost: () => ["delete_post"] as const,
+        // comments (scoped per post)
+        newComment: (postId: string) => ["new_comment", postId] as const,
+        deleteComment: (postId: string) => ["delete_comment", postId] as const,
+        // ji_zhang_biao
+        addJiZhang: () => ["add-ji-zhang"] as const,
+        deleteJiZhang: () => ["delete-ji-zhang"] as const,
+        updateJiZhang: () => ["update-ji-zhang"] as const,
+        // ji_zhang_category
+        createExpenseCategory: () => ["create-expense-category"] as const,
+        updateExpenseCategory: () => ["update-expense-category"] as const,
+        deleteExpenseCategory: () => ["delete-expense-category"] as const,
+    },
 };

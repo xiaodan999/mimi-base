@@ -13,44 +13,67 @@ export const Route = createFileRoute("/_protected/post/new-poo")({
 
 function Page() {
     const newPostMutation = useNewPostMutation();
-    const [done, setDone] = useState(false);
+    const [result, setResult] = useState<"done" | "error" | null>(null);
+    const [loading, setLoading] = useState(true);
+    // Bumping the attempt re-runs the effect for the retry button.
+    const [attempt, setAttempt] = useState(0);
+
     useEffect(() => {
         let mounted = true;
+        setLoading(true);
+        setResult(null);
         (async () => {
-            if (!mounted) return;
-            await toastPromise(
-                newPostMutation.mutateAsync({
-                    text: "💩",
-                    layout: "moments",
-                    images: [],
-                    thumbs: [],
-                }),
-                {
-                    loading: "记录💩中...",
-                    success: "成功记录了一个💩",
-                    error: "记录失败",
-                },
-            );
-            setDone(true);
+            try {
+                await toastPromise(
+                    newPostMutation.mutateAsync({
+                        text: "💩",
+                        layout: "moments",
+                        images: [],
+                        thumbs: [],
+                    }),
+                    {
+                        loading: "记录💩中...",
+                        success: "成功记录了一个💩",
+                        error: "记录失败",
+                    },
+                );
+                if (mounted) setResult("done");
+            } catch {
+                // toastPromise rejects on mutation failure; surface a retry
+                // instead of leaving the "记录💩中..." spinner up forever.
+                if (mounted) setResult("error");
+            } finally {
+                // Always stop the spinner, on success or failure.
+                if (mounted) setLoading(false);
+            }
         })();
 
         return () => {
             mounted = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [attempt]);
+
+    const retry = () => setAttempt((value) => value + 1);
 
     return (
         <div className="flex flex-col items-center gap-4 pt-6">
             <img src="/images/poo.png" />
-            {!done && (
+            {loading && (
                 <>
                     <p>记录💩中...</p>
                     <LoadingSpinner />
                 </>
             )}
 
-            {done && (
+            {!loading && result === "error" && (
+                <>
+                    <p>记录失败，再试一次？</p>
+                    <Button onClick={retry}>重试</Button>
+                </>
+            )}
+
+            {!loading && result === "done" && (
                 <>
                     <p>完成记录</p>
                     <Button asChild>

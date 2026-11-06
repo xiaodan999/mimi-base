@@ -2,16 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth, useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
+import {
+    type MyRing,
+    type TouXiangCircleRecord,
+    toMyRing,
+} from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-export type MyRing = {
-    id: string;
-    name: string;
-    image: string;
-    collectionId: string;
-    collectionName: string;
-    owner?: string;
-};
+// The view-model shape now lives in lib/pb-types.ts; keep re-exporting it.
+export type { MyRing } from "@/lib/pb-types";
 
 const RING_COLLECTION = "tou_xiang_circle";
 
@@ -19,12 +18,15 @@ export function useMyRings() {
     const user = useCurrentUser();
     return useQuery({
         queryKey: qk.circles.mine(user.id),
-        queryFn: async () => {
-            const records = await pb.collection(RING_COLLECTION).getFullList({
-                filter: pb.filter("owner = {:owner}", { owner: user.id }),
-                sort: "-created",
-            });
-            return records as unknown as MyRing[];
+        queryFn: async ({ signal }): Promise<MyRing[]> => {
+            const records = await pb
+                .collection(RING_COLLECTION)
+                .getFullList<TouXiangCircleRecord>({
+                    filter: pb.filter("owner = {:owner}", { owner: user.id }),
+                    sort: "-created",
+                    signal,
+                });
+            return records.map(toMyRing);
         },
     });
 }

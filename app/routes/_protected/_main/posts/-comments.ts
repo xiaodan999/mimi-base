@@ -1,70 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useCurrentUser, type User } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
+import {
+    type CommentData,
+    type CommentRecord,
+    type CommentThread,
+    toCommentData,
+} from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-export type CommentData = {
-    id: string;
-    text: string;
-    author: User;
-    createdAt: string;
-    // "" for a top-level comment.
-    parentId: string;
-    /** Uploaded filenames; text or at least one image is present. */
-    images: string[];
-    /** Needed to build protected file URLs for the images. */
-    collectionId: string;
-};
-
-export type CommentThread = {
-    root: CommentData;
-    // Every descendant, flattened in chronological order. The `回复 @name`
-    // prefix in the UI keeps the actual parent visible without deep indents.
-    replies: CommentData[];
-};
-
-type CommentRecord = {
-    id: string;
-    text: string;
-    created: string;
-    parent_id?: string;
-    images?: string[];
-    collectionId: string;
-    expand?: {
-        author_id?: User;
-    };
-};
-
-const EMPTY_AUTHOR: User = {
-    id: "",
-    user_name: "",
-    tou_xiang: "",
-    circle: "",
-};
+// The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
+// components importing from `./-comments` don't need to change.
+export type { CommentData, CommentThread } from "@/lib/pb-types";
 
 export function useComments(postId: string, enabled = true) {
     return useQuery({
         queryKey: qk.comments.all(postId),
         enabled,
-        queryFn: async (): Promise<CommentData[]> => {
+        queryFn: async ({ signal }): Promise<CommentData[]> => {
             const records = await pb
                 .collection("comments")
                 .getFullList<CommentRecord>({
                     sort: "created",
                     expand: "author_id,author_id.circle",
                     filter: pb.filter("post_id = {:postId}", { postId }),
+                    signal,
                 });
 
-            return records.map((record) => ({
-                id: record.id,
-                text: record.text,
-                author: record.expand?.author_id ?? EMPTY_AUTHOR,
-                createdAt: record.created,
-                parentId: record.parent_id ?? "",
-                images: record.images ?? [],
-                collectionId: record.collectionId,
-            }));
+            return records.map(toCommentData);
         },
     });
 }
@@ -112,7 +76,7 @@ export function useNewCommentMutation(postId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["new_comment", postId],
+        mutationKey: qk.mutations.newComment(postId),
         mutationFn: async ({
             text,
             parentId,
@@ -145,7 +109,7 @@ export function useDeleteCommentMutation(postId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["delete_comment", postId],
+        mutationKey: qk.mutations.deleteComment(postId),
         mutationFn: async ({ id }: { id: string }) => {
             // Replies cascade; the counter hook runs for each removed record.
             await pb.collection("comments").delete(id);

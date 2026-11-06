@@ -9,30 +9,11 @@ import {
 } from "react";
 
 import pb, { clearFileToken, ensureFileToken } from "./pb";
+import { toUser, type Circle, type User, type UserRecord } from "./pb-types";
 
-export type Circle = {
-    id: string;
-    name: string;
-    description: string;
-    // file filename ("" when unset)
-    image: string;
-    // relation id of the uploader ("" for admin-seeded rings)
-    owner?: string;
-};
-
-export type User = {
-    id: string;
-    user_name: string;
-    // file filename ("" when unset); the URL comes from pb.files.getURL
-    tou_xiang: string;
-    // relation id ("" when unset); the record comes from `expand.circle`
-    circle: string;
-    // built-in ring key; "" is the default ring, "none" hides it
-    circle_preset?: string;
-    expand?: {
-        circle?: Circle;
-    };
-};
+// `User` / `Circle` are centralized in lib/pb-types.ts; re-export them so the
+// rest of the app keeps importing them from `@/lib/auth`.
+export type { User, Circle };
 
 /**
  * `loading` only covers the initial session restore. Once it settles the
@@ -91,10 +72,10 @@ const fetchUser = async (id: string): Promise<User | null> => {
     // `pb.authStore.record` has no expand, so fetch the profile with the
     // expanded circle for the avatar / circle rendering.
     try {
-        const record = await pb.collection("users").getOne(id, {
+        const record = await pb.collection("users").getOne<UserRecord>(id, {
             expand: "circle",
         });
-        return record as unknown as User;
+        return toUser(record);
     } catch (error) {
         console.log("Failed to fetch the user profile", error);
         return null;
@@ -129,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (pendingLoad.current) return pendingLoad.current;
 
         const run = (async () => {
-            const record = pb.authStore.record as User | null;
+            const record = pb.authStore.record;
             if (!pb.authStore.isValid || !record?.id) {
                 clearFileToken();
                 commit({ status: "anonymous", user: null });

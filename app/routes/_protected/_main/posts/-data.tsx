@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import {
     useInfiniteQuery,
     useMutation,
@@ -6,58 +7,22 @@ import {
     type InfiniteData,
 } from "@tanstack/react-query";
 
-import { useCurrentUser, type User } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/auth";
 import pb, { pbDate } from "@/lib/pb";
-import { pairThumbs } from "@/lib/photoFiles";
+import {
+    type PostData,
+    type PostLayout,
+    type PostLikeRecord,
+    type PostRecord,
+    toPostData,
+} from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
 import { groupPostMonths } from "./-utils";
 
-export type PostLayout = "moments" | "instagram";
-
-export type PostImage = {
-    name: string;
-    /** 600px grid thumbnail; absent on posts uploaded before thumbnails. */
-    thumb?: string;
-};
-
-export type PostData = {
-    id: string;
-    text: string;
-    author: User;
-    createdAt: string;
-    liked: boolean;
-    layout: PostLayout;
-    // Needed to build protected file URLs at render time.
-    collectionId: string;
-    images: PostImage[];
-    metrics: {
-        likeCount: number;
-        replyCount: number;
-    };
-};
-
-type PostRecord = {
-    id: string;
-    text: string;
-    created: string;
-    like_count: number;
-    comment_count: number;
-    images?: string[];
-    /**
-     * 600px thumbnails, paired to `images` by the token in their file name
-     * (see lib/photoFiles.ts). Uploaded by the client because PocketBase would
-     * re-encode them as PNG.
-     */
-    thumbs?: string[];
-    layout?: string;
-    // Files are served relative to the record's collection/record id.
-    collectionId: string;
-    collectionName: string;
-    expand?: {
-        author_id?: User;
-    };
-};
+// The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
+// components importing from `./-data` don't need to change.
+export type { PostData, PostImage, PostLayout } from "@/lib/pb-types";
 
 type PostsPage = {
     posts: PostData[];
@@ -106,30 +71,6 @@ function buildFilter({ month, q }: PostFilter) {
 
 const POST_EXPAND = "author_id,author_id.circle";
 
-const EMPTY_AUTHOR: User = {
-    id: "",
-    user_name: "",
-    tou_xiang: "",
-    circle: "",
-};
-
-function toPostData(post: PostRecord, likedPostIds: Set<string>): PostData {
-    return {
-        id: post.id,
-        text: post.text,
-        author: post.expand?.author_id ?? EMPTY_AUTHOR,
-        createdAt: post.created,
-        liked: likedPostIds.has(post.id),
-        layout: post.layout === "instagram" ? "instagram" : "moments",
-        collectionId: post.collectionId,
-        images: pairThumbs(post.images ?? [], post.thumbs ?? []),
-        metrics: {
-            likeCount: post.like_count ?? 0,
-            replyCount: post.comment_count ?? 0,
-        },
-    };
-}
-
 /**
  * Only the likes for the ids on this page are needed. The old version pulled
  * the user's entire like history on every page, which grows forever.
@@ -137,6 +78,7 @@ function toPostData(post: PostRecord, likedPostIds: Set<string>): PostData {
 async function fetchLikedPostIds(
     userId: string,
     postIds: string[],
+    signal?: AbortSignal,
 ): Promise<Set<string>> {
     if (postIds.length === 0) return new Set();
 
@@ -147,27 +89,37 @@ async function fetchLikedPostIds(
         return `post_id = {:${key}}`;
     });
 
-    const likes = await pb.collection("post_likes").getFullList<{
-        post_id: string;
-    }>({
-        filter: pb.filter(
-            `user_id = {:userId} && (${clauses.join(" || ")})`,
-            params,
-        ),
-    });
+    const likes = await pb
+        .collection("post_likes")
+        .getFullList<PostLikeRecord>({
+            filter: pb.filter(
+                `user_id = {:userId} && (${clauses.join(" || ")})`,
+                params,
+            ),
+            signal,
+        });
     return new Set(likes.map((like) => like.post_id));
 }
 
 export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
     const user = useCurrentUser();
+    const queryClient = useQueryClient();
+    const queryKey = qk.posts.list(user.id, postFilterKey(filter));
 
-    return useInfiniteQuery({
-        queryKey: qk.posts.list(user.id, postFilterKey(filter)),
+    const query = useInfiniteQuery({
+        queryKey,
         // A deep-scrolled feed has to stay in memory while the user visits
         // another tab; otherwise remounting it starts from a skeleton and the
         // restored scroll position has no content to land on.
         gcTime: 30 * 60_000,
-        queryFn: async ({ pageParam = 1 }): Promise<PostsPage> => {
+        // Keep the feed fresh long enough that a window refocus doesn't
+        // re-fetch every loaded page. Pull-to-refresh uses `refresh()` below,
+        // which explicitly reloads only the newest page.
+        staleTime: 5 * 60_000,
+        // Bound the number of cached pages so a long session can't grow
+        // without limit.
+        maxPages: 20,
+        queryFn: async ({ pageParam = 1, signal }): Promise<PostsPage> => {
             const page = pageParam as number;
             const filterExpr = buildFilter(filter);
             // Posts carry denormalized like_count / comment_count, the author
@@ -178,11 +130,13 @@ export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
                     sort: "-created",
                     expand: POST_EXPAND,
                     ...(filterExpr ? { filter: filterExpr } : {}),
+                    signal,
                 });
 
             const likedPostIds = await fetchLikedPostIds(
                 user.id,
                 result.items.map((post) => post.id),
+                signal,
             );
 
             return {
@@ -197,6 +151,24 @@ export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
         initialPageParam: 1,
         getNextPageParam: (lastPage) => lastPage.nextPage,
     });
+
+    // `refetch()` on an infinite query re-fetches every loaded page. For
+    // pull-to-refresh we only want the newest page: trim the cache down to a
+    // single page first, then refetch just that page.
+    const { refetch } = query;
+    const refresh = useCallback(() => {
+        queryClient.setQueryData<InfiniteData<PostsPage>>(queryKey, (old) =>
+            old && old.pages.length > 1
+                ? {
+                      pages: old.pages.slice(0, 1),
+                      pageParams: old.pageParams.slice(0, 1),
+                  }
+                : old,
+        );
+        return refetch();
+    }, [queryClient, queryKey, refetch]);
+
+    return { ...query, refresh };
 }
 
 /**
@@ -210,10 +182,13 @@ export function usePostMonths(enabled = true) {
         queryKey: qk.posts.months(user.id),
         enabled,
         staleTime: 5 * 60_000,
-        queryFn: async () => {
+        queryFn: async ({ signal }) => {
             const rows = await pb
                 .collection("posts")
-                .getFullList<{ created: string }>({ fields: "created" });
+                .getFullList<{ created: string }>({
+                    fields: "created",
+                    signal,
+                });
             return groupPostMonths(rows.map((row) => row.created));
         },
     });
@@ -226,7 +201,7 @@ export function usePostLikeMutation() {
     const feedKey = qk.posts.lists(user.id);
 
     return useMutation({
-        mutationKey: ["mutate_post_like"],
+        mutationKey: qk.mutations.postLike(),
         mutationFn: async ({
             postId,
             like,
@@ -298,9 +273,12 @@ export function usePostLikeMutation() {
                 queryClient.setQueryData(key, data),
             );
         },
-        // No settle-time invalidation: the optimistic row is the source of
-        // truth until the next natural refetch, so liking doesn't refetch the
-        // whole feed.
+        onSettled: () => {
+            // like_count / comment_count are maintained by the server hook, so
+            // reconcile the optimistic row with the real counters once the
+            // write settles instead of letting them drift.
+            void queryClient.invalidateQueries({ queryKey: feedKey });
+        },
     });
 }
 
@@ -309,7 +287,7 @@ export function useNewPostMutation() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["new_post"],
+        mutationKey: qk.mutations.newPost(),
         mutationFn: async ({
             text,
             layout,
@@ -344,7 +322,7 @@ export function useUpdatePostMutation() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["update_post"],
+        mutationKey: qk.mutations.updatePost(),
         mutationFn: async ({
             id,
             text,
@@ -396,7 +374,7 @@ export function useDeletePostMutation() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationKey: ["delete_post"],
+        mutationKey: qk.mutations.deletePost(),
         mutationFn: async ({ id }: { id: string }) => {
             const deleted = await pb.collection("posts").delete(id);
             if (!deleted) throw new Error("Failed to delete the post " + id);

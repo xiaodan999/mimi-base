@@ -12,7 +12,30 @@ import { ThemeProvider } from "@/lib/theme";
 
 import { routeTree } from "./routeTree.gen";
 
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            // A short freshness window keeps refocus/revisit from re-fetching
+            // every loaded page of the feed; explicit refetches still work.
+            staleTime: 60_000,
+            gcTime: 5 * 60_000,
+            refetchOnWindowFocus: true,
+            // PocketBase throws ClientResponseError with a `status`; 4xx
+            // (auth/validation/not-found) can never succeed on a retry.
+            retry: (failureCount, error) => {
+                const status = (error as { status?: number }).status;
+                if (
+                    typeof status === "number" &&
+                    status >= 400 &&
+                    status < 500
+                ) {
+                    return false;
+                }
+                return failureCount < 3;
+            },
+        },
+    },
+});
 
 // Set up a Router instance
 const router = createRouter({
