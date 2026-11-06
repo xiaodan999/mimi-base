@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ChevronLeft, Settings2 } from "lucide-react";
-
-import { useAi } from "@/app/ai/AiContext";
+import { ChevronLeft } from "lucide-react";
 
 // 完整的 study.css 跟着 /study/$subjectId 的 lazy 布局一起加载。
 // app shell 只引入 ai-tokens.css 的精简 token，不再把这份 60KB 样式带给每页。
@@ -29,7 +27,6 @@ export default function StudyShell({
     children: ReactNode;
 }) {
     const { saving, error, offline } = useStudy();
-    const { openSettings } = useAi();
     const { pathname } = useLocation();
     const base = `/study/${subject.id}`;
 
@@ -71,13 +68,6 @@ export default function StudyShell({
                             ? "同步中…"
                             : "已同步"}
                 </span>
-                <button
-                    onClick={openSettings}
-                    className="relative grid size-9 shrink-0 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
-                    aria-label="AI 设置"
-                >
-                    <Settings2 className="size-4" />
-                </button>
             </header>
 
             <nav className="study-tabs mt-2">
