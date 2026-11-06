@@ -26,6 +26,15 @@ describe("Docker sandbox flags", () => {
         expect(args[args.indexOf("--ipc") + 1]).toBe("none");
     });
 
+    test("sets the runtime-specific environment", () => {
+        expect(buildDockerRunArgs("x", "mimi-sandbox-py:abc")).toContain(
+            "PYTHONUNBUFFERED=1",
+        );
+        expect(buildDockerRunArgs("x", "mimi-sandbox-js:abc")).toContain(
+            "NODE_NO_WARNINGS=1",
+        );
+    });
+
     test("has no host mounts, privileged mode or Docker socket", () => {
         expect(args).not.toContain("--privileged");
         expect(args.join(" ")).not.toContain("docker.sock");
@@ -35,6 +44,7 @@ describe("Docker sandbox flags", () => {
 });
 
 const hasPython = Boolean(Bun.which("python3"));
+const hasNode = Boolean(Bun.which("node"));
 const executor = createSandboxExecutor({
     prod: false,
     dir: import.meta.dir,
@@ -90,6 +100,16 @@ result = sandbox.read("notes/a.txt")
         expect(response.error).toContain("路径");
     });
 
+    test("rejects an unknown language", async () => {
+        const response = await executor.run({
+            op: "run",
+            language: "ruby" as never,
+            code: "result = 1",
+        });
+        expect(response.ok).toBe(false);
+        expect(response.error).toContain("语言");
+    });
+
     test("a thrown error is reported without crashing the runner", async () => {
         const response = await executor.run({
             op: "run",
@@ -97,5 +117,37 @@ result = sandbox.read("notes/a.txt")
         });
         expect(response.ok).toBe(false);
         expect(response.error).toContain("boom");
+    });
+});
+
+describe.skipIf(!hasNode)("dev JavaScript executor", () => {
+    test("runs JS with return, console logs and files", async () => {
+        await executor.ensure();
+        const response = await executor.run({
+            op: "run",
+            language: "javascript",
+            code: `
+sandbox.write("js/a.txt", "hi");
+console.log("logged");
+return 1 + 1;
+`,
+        });
+        expect(response.ok).toBe(true);
+        expect(response.result).toBe(2);
+        expect(response.logs).toContain("logged");
+        expect(response.files["js/a.txt"]).toBe("hi");
+    });
+
+    test("supports async code and sandbox.fetch shape checks", async () => {
+        const response = await executor.run({
+            op: "run",
+            language: "javascript",
+            code: `
+const value = await Promise.resolve(3);
+return value * 2;
+`,
+        });
+        expect(response.ok).toBe(true);
+        expect(response.result).toBe(6);
     });
 });

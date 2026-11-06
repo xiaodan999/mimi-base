@@ -13,17 +13,22 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_run",
             description:
-                "在服务器的隔离沙箱里运行一段 Python 3 代码（只有标准库，没有 pip/第三方包）。可以访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口；print 输出和最后赋给 result 的值会返回。适合查实时信息、计算、处理文本/JSON、验证代码。",
+                "在服务器的隔离沙箱里运行代码，可选 Python 3（标准库）或 JavaScript（Node）。两者都能访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口。Python 用 print 输出、把最终结果赋给 result；JavaScript 用 console.log 输出、用 return 返回结果。适合查实时信息、计算、处理文本/JSON、验证代码。",
             parameters: {
                 type: "object",
                 properties: {
+                    language: {
+                        type: "string",
+                        enum: ["python", "javascript"],
+                        description: "使用哪种语言运行",
+                    },
                     code: {
                         type: "string",
                         description:
-                            "要执行的 Python 3 源码。用 print 输出中间结果，把最终结果赋给 result。",
+                            "要执行的源码。Python 用 print/result；JavaScript 用 console.log/return。",
                     },
                 },
-                required: ["code"],
+                required: ["language", "code"],
                 additionalProperties: false,
             },
         },
@@ -123,6 +128,8 @@ export async function executeChatTool(
         case "sandbox_run":
             response = await runSandbox({
                 op: "run",
+                language:
+                    args.language === "javascript" ? "javascript" : "python",
                 code: typeof args.code === "string" ? args.code : "",
                 files,
             });

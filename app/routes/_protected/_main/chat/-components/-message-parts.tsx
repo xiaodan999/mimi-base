@@ -278,6 +278,12 @@ export function ToolCallPart({
             : undefined;
     const failed = isError === true || payload?.ok === false;
     const Icon = TOOL_ICONS[toolName] ?? Terminal;
+    const language =
+        toolName === "sandbox_run" &&
+        typeof (args as { language?: unknown } | undefined)?.language ===
+            "string"
+            ? (args as { language: string }).language
+            : "";
     const logs = Array.isArray(payload?.logs)
         ? payload.logs.filter(
               (line): line is string => typeof line === "string",
@@ -313,6 +319,11 @@ export function ToolCallPart({
                 <Icon className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium">
                     {TOOL_TITLES[toolName] ?? toolName}
+                    {language === "javascript"
+                        ? " · JS"
+                        : language === "python"
+                          ? " · Python"
+                          : ""}
                 </span>
                 {running && (
                     <span className="inline-flex items-center gap-1 text-muted-foreground">

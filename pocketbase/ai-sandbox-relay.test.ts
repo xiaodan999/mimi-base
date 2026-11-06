@@ -96,14 +96,16 @@ describe("sandbox relay", () => {
         const res = await relay(
             request({
                 op: "run",
-                code: 'result = "hi"',
+                language: "javascript",
+                code: 'return "hi"',
                 files: { "a.txt": "x" },
             }),
         );
         expect(res?.status).toBe(200);
         expect(captured).toMatchObject({
             op: "run",
-            code: 'result = "hi"',
+            language: "javascript",
+            code: 'return "hi"',
         });
         expect(await res?.json()).toEqual({
             ok: true,
@@ -121,6 +123,19 @@ describe("sandbox relay", () => {
             return { ok: true, logs: [], files: {}, durationMs: 1 };
         });
         const res = await relay(request({ op: "exec" }));
+        expect(res?.status).toBe(400);
+        expect(called).toBe(false);
+    });
+
+    test("rejects an unknown language", async () => {
+        let called = false;
+        const relay = harness(async () => {
+            called = true;
+            return { ok: true, logs: [], files: {}, durationMs: 1 };
+        });
+        const res = await relay(
+            request({ op: "run", language: "ruby", code: "return 1" }),
+        );
         expect(res?.status).toBe(400);
         expect(called).toBe(false);
     });

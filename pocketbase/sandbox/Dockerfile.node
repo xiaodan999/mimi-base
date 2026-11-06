@@ -1,0 +1,13 @@
+# JavaScript runtime for the server-side sandbox. The container is started
+# with the same hardening flags as the Python image (see sandbox-exec.ts).
+# Override the base on hosts that need a registry mirror:
+#   SANDBOX_BASE_IMAGE_NODE=docker.m.daocloud.io/library/node:22-alpine
+ARG NODE_IMAGE=node:22-alpine
+FROM ${NODE_IMAGE}
+
+COPY runner.mjs /runner.mjs
+RUN chmod 644 /runner.mjs
+
+USER nobody
+WORKDIR /tmp
+ENTRYPOINT ["node", "/runner.mjs"]

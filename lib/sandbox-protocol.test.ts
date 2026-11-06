@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     MAX_CODE_CHARS,
     MAX_FILE_CHARS,
+    normalizeSandboxLanguage,
     normalizeSandboxPath,
     sanitizeFiles,
     validateSandboxCode,
@@ -46,6 +47,20 @@ describe("sanitizeFiles", () => {
         expect(sanitizeFiles(null)).toEqual({});
         expect(sanitizeFiles("x")).toEqual({});
         expect(sanitizeFiles([])).toEqual({});
+    });
+});
+
+describe("normalizeSandboxLanguage", () => {
+    test("defaults to python and accepts javascript", () => {
+        expect(normalizeSandboxLanguage(undefined)).toBe("python");
+        expect(normalizeSandboxLanguage("")).toBe("python");
+        expect(normalizeSandboxLanguage("python")).toBe("python");
+        expect(normalizeSandboxLanguage("javascript")).toBe("javascript");
+    });
+
+    test("rejects unknown languages", () => {
+        expect(normalizeSandboxLanguage("ruby")).toBeNull();
+        expect(normalizeSandboxLanguage(42)).toBeNull();
     });
 });
 

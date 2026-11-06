@@ -251,6 +251,13 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         ) {
             return json(400, { error: { message: "未知的沙箱操作" } });
         }
+        if (
+            body.language !== undefined &&
+            body.language !== "python" &&
+            body.language !== "javascript"
+        ) {
+            return json(400, { error: { message: "未知的代码语言" } });
+        }
 
         const quota = checkSandboxQuota(auth.uid);
         if (quota) return quota;

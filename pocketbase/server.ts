@@ -961,6 +961,7 @@ function scheduleRespawn(): void {
             "OPENCODE_CHAT_MODEL_DEFAULT",
             "AI_DAILY_REQUESTS_PER_USER",
             "SANDBOX_BASE_IMAGE",
+            "SANDBOX_BASE_IMAGE_NODE",
         ]) {
             if (process.env[key] !== undefined) {
                 respawnEnv[key] = process.env[key];

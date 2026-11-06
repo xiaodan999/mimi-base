@@ -1,15 +1,17 @@
 /**
  * Server-side code sandbox.
  *
- * Production runs each request in a fresh Docker container:
- * - dedicated bridge network whose egress is restricted by
+ * Production runs each request in a fresh Docker container: Python code in
+ * `mimi-sandbox-py` (python:3.12-slim) and JavaScript in `mimi-sandbox-js`
+ * (node:22-alpine). Both use:
+ * - a dedicated bridge network whose egress is restricted by
  *   `pocketbase/sandbox/docker-network.sh` (DNS + HTTP(S) to public IPs only)
  * - read-only root, tmpfs /tmp, non-root user, all capabilities dropped,
  *   no-new-privileges, PID/memory/CPU/file-descriptor limits
  * - the user's code arrives on stdin; it never appears in a command line
  * - a 20s wall-clock limit with an explicit `docker kill`
  *
- * Development (no Docker inside WSL) falls back to a plain `python3`
+ * Development (no Docker inside WSL) falls back to a plain `python3`/`node`
  * subprocess with a temporary directory. That fallback is **not** a
  * security boundary and is never used in production.
  */
@@ -21,12 +23,14 @@ import path from "node:path";
 
 import {
     describeError,
+    normalizeSandboxLanguage,
     normalizeSandboxPath,
     sanitizeFiles,
     validateSandboxCode,
     MAX_FILE_CHARS,
     SANDBOX_TIMEOUT_MS,
     type SandboxFiles,
+    type SandboxLanguage,
     type SandboxRequest,
     type SandboxResponse,
 } from "../lib/sandbox-protocol";
@@ -34,13 +38,13 @@ import {
 const MAX_STDOUT_BYTES = 256 * 1024;
 const MAX_STDERR_BYTES = 64 * 1024;
 const DOCKER_TIMEOUT_MS = SANDBOX_TIMEOUT_MS;
-const BUILD_TIMEOUT_MS = 180_000;
-const DOCKER_SOCKET_ENV = {
+const BUILD_TIMEOUT_MS = 240_000;
+const RUNNER_PATH = {
     PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 };
 
 export type SandboxExecutor = {
-    /** Prepare the Docker network/image; safe to call more than once. */
+    /** Prepare the Docker network/images; safe to call more than once. */
     ensure: () => Promise<void>;
     available: () => boolean;
     run: (request: SandboxRequest) => Promise<SandboxResponse>;
@@ -50,6 +54,15 @@ export type SandboxExecutorOptions = {
     prod: boolean;
     /** The `pocketbase/` directory (contains `sandbox/`). */
     dir: string;
+};
+
+type Runtime = {
+    language: SandboxLanguage;
+    dockerfile: string;
+    runner: string;
+    baseImage: string;
+    buildArg: string;
+    tag: string;
 };
 
 /** Docker run flags; exported so tests can pin the security properties. */
@@ -93,11 +106,15 @@ export function buildDockerRunArgs(name: string, image: string): string[] {
         "--env",
         "LANG=C.UTF-8",
         "--env",
-        "PYTHONUNBUFFERED=1",
-        "--env",
-        "PYTHONDONTWRITEBYTECODE=1",
+        languageEnv(image),
         image,
     ];
+}
+
+/** Python needs unbuffered stdout; Node needs no bytecode equivalent. */
+function languageEnv(image: string): string {
+    if (image.includes("-py:")) return "PYTHONUNBUFFERED=1";
+    return "NODE_NO_WARNINGS=1";
 }
 
 function emptyResponse(
@@ -148,7 +165,7 @@ async function runCommand(
         stdin: "ignore",
         stdout: "pipe",
         stderr: "pipe",
-        env: DOCKER_SOCKET_ENV,
+        env: RUNNER_PATH,
     });
     const timer = setTimeout(() => proc.kill(), timeoutMs);
     const [stdout, stderr, code] = await Promise.all([
@@ -160,12 +177,19 @@ async function runCommand(
     return { code, stdout, stderr };
 }
 
-function validateRequest(
-    request: SandboxRequest,
-):
-    | { ok: true; payload: Record<string, unknown>; files: SandboxFiles }
+function validateRequest(request: SandboxRequest):
+    | {
+          ok: true;
+          payload: Record<string, unknown>;
+          files: SandboxFiles;
+          language: SandboxLanguage;
+      }
     | { ok: false; error: string; files: SandboxFiles } {
     const files = sanitizeFiles(request.files);
+    const language = normalizeSandboxLanguage(request.language);
+    if (!language) {
+        return { ok: false, error: "未知的代码语言", files };
+    }
     if (
         request.op !== "run" &&
         request.op !== "read" &&
@@ -180,7 +204,13 @@ function validateRequest(
         return {
             ok: true,
             files,
-            payload: { op: "run", code: request.code, files },
+            language,
+            payload: {
+                op: "run",
+                language,
+                code: request.code,
+                files,
+            },
         };
     }
     if (request.op === "write") {
@@ -199,8 +229,10 @@ function validateRequest(
         return {
             ok: true,
             files,
+            language,
             payload: {
                 op: "write",
+                language,
                 path: target,
                 content: request.content,
                 files,
@@ -213,10 +245,16 @@ function validateRequest(
         return {
             ok: true,
             files,
-            payload: { op: "read", path: target, files },
+            language,
+            payload: { op: "read", language, path: target, files },
         };
     }
-    return { ok: true, files, payload: { op: "list", files } };
+    return {
+        ok: true,
+        files,
+        language,
+        payload: { op: "list", language, files },
+    };
 }
 
 function parseResponse(
@@ -271,17 +309,21 @@ function parseResponse(
     }
 }
 
-function imageTag(dir: string, baseImage: string): string {
+function imageTag(runtime: {
+    language: SandboxLanguage;
+    baseImage: string;
+    dockerfile: string;
+    runner: string;
+}): string {
     const hash = createHash("sha256");
-    hash.update(baseImage);
-    for (const name of ["runner.py", "Dockerfile"]) {
-        hash.update(readFileSync(path.join(dir, "sandbox", name)));
+    hash.update(runtime.language);
+    hash.update(runtime.baseImage);
+    for (const file of [runtime.runner, runtime.dockerfile]) {
+        hash.update(readFileSync(file));
     }
-    return `mimi-sandbox:${hash.digest("hex").slice(0, 12)}`;
-}
-
-function pythonPath(): string {
-    return Bun.which("python3") ?? "/usr/bin/python3";
+    return `mimi-sandbox-${runtime.language === "python" ? "py" : "js"}:${hash
+        .digest("hex")
+        .slice(0, 12)}`;
 }
 
 export function createSandboxExecutor({
@@ -290,16 +332,73 @@ export function createSandboxExecutor({
 }: SandboxExecutorOptions): SandboxExecutor {
     const sandboxDir = path.join(dir, "sandbox");
     const networkScript = path.join(sandboxDir, "docker-network.sh");
-    const runnerPath = path.join(sandboxDir, "runner.py");
-    const baseImage =
-        process.env.SANDBOX_BASE_IMAGE?.trim() || "python:3.12-slim";
-    const tag = imageTag(dir, baseImage);
-    const docker = Bun.which("docker");
-    const python = pythonPath();
+    const runs: Record<SandboxLanguage, Runtime> = {
+        python: {
+            language: "python",
+            dockerfile: path.join(sandboxDir, "Dockerfile"),
+            runner: path.join(sandboxDir, "runner.py"),
+            baseImage:
+                process.env.SANDBOX_BASE_IMAGE?.trim() || "python:3.12-slim",
+            buildArg: "PYTHON_IMAGE",
+            tag: "",
+        },
+        javascript: {
+            language: "javascript",
+            dockerfile: path.join(sandboxDir, "Dockerfile.node"),
+            runner: path.join(sandboxDir, "runner.mjs"),
+            baseImage:
+                process.env.SANDBOX_BASE_IMAGE_NODE?.trim() || "node:22-alpine",
+            buildArg: "NODE_IMAGE",
+            tag: "",
+        },
+    };
+    runs.python.tag = imageTag(runs.python);
+    runs.javascript.tag = imageTag(runs.javascript);
 
-    let ready = false;
-    let mode: "docker" | "python" | "none" = "none";
+    const docker = Bun.which("docker");
+    const python = Bun.which("python3");
+    const node = Bun.which("node");
+
+    const dockerReady = new Set<SandboxLanguage>();
+    const devReady = new Set<SandboxLanguage>();
     let ensuring: Promise<void> | null = null;
+
+    function logBuild(language: SandboxLanguage, error: string): void {
+        console.error(
+            `[sandbox] ${language} image build failed: ${error.slice(0, 300)}`,
+        );
+    }
+
+    async function prepareLanguage(runtime: Runtime): Promise<void> {
+        if (!docker) return;
+        const inspect = await runCommand(
+            [docker, "image", "inspect", runtime.tag],
+            10_000,
+        );
+        if (inspect.code !== 0) {
+            const build = await runCommand(
+                [
+                    docker,
+                    "build",
+                    "--build-arg",
+                    `${runtime.buildArg}=${runtime.baseImage}`,
+                    "-f",
+                    runtime.dockerfile,
+                    "--label",
+                    "mimi-sandbox=1",
+                    "-t",
+                    runtime.tag,
+                    sandboxDir,
+                ],
+                BUILD_TIMEOUT_MS,
+            );
+            if (build.code !== 0) {
+                logBuild(runtime.language, build.stderr || build.stdout);
+                return;
+            }
+        }
+        dockerReady.add(runtime.language);
+    }
 
     async function prepareDocker(): Promise<void> {
         if (!docker) {
@@ -324,51 +423,33 @@ export function createSandboxExecutor({
             );
             return;
         }
-        const inspect = await runCommand(
-            [docker, "image", "inspect", tag],
-            10_000,
+        await Promise.all([
+            prepareLanguage(runs.python),
+            prepareLanguage(runs.javascript),
+        ]);
+        console.log(
+            `[sandbox] ready languages: ${
+                [...dockerReady].join(", ") || "none"
+            }`,
         );
-        if (inspect.code !== 0) {
-            const build = await runCommand(
-                [
-                    docker,
-                    "build",
-                    "--build-arg",
-                    `PYTHON_IMAGE=${baseImage}`,
-                    "--label",
-                    "mimi-sandbox=1",
-                    "-t",
-                    tag,
-                    sandboxDir,
-                ],
-                BUILD_TIMEOUT_MS,
-            );
-            if (build.code !== 0) {
-                console.error(
-                    "[sandbox] image build failed:",
-                    build.stderr.slice(0, 300),
-                );
-                return;
-            }
-        }
-        mode = "docker";
-        ready = true;
     }
 
     async function ensure(): Promise<void> {
         if (ensuring) return ensuring;
         ensuring = (async () => {
-            if (!prod) {
-                if (Bun.which(python)) {
-                    mode = "python";
-                    ready = true;
-                    console.warn(
-                        "[sandbox] dev mode: direct python3 fallback (not isolated)",
-                    );
-                }
+            if (prod) {
+                await prepareDocker();
                 return;
             }
-            await prepareDocker();
+            if (python) devReady.add("python");
+            if (node) devReady.add("javascript");
+            console.warn(
+                `[sandbox] dev mode: direct runtimes (${
+                    [python ? "python" : "", node ? "node" : ""]
+                        .filter(Boolean)
+                        .join(", ") || "none"
+                }); not isolated`,
+            );
         })();
         try {
             await ensuring;
@@ -377,7 +458,12 @@ export function createSandboxExecutor({
         }
     }
 
+    function canRun(language: SandboxLanguage): boolean {
+        return prod ? dockerReady.has(language) : devReady.has(language);
+    }
+
     async function runDocker(
+        runtime: Runtime,
         payload: Record<string, unknown>,
         inputFiles: SandboxFiles,
     ): Promise<SandboxResponse> {
@@ -386,11 +472,11 @@ export function createSandboxExecutor({
         }
         const name = `mimi-sandbox-${randomUUID().slice(0, 8)}`;
         const started = Date.now();
-        const proc = Bun.spawn(buildDockerRunArgs(name, tag), {
+        const proc = Bun.spawn(buildDockerRunArgs(name, runtime.tag), {
             stdin: "pipe",
             stdout: "pipe",
             stderr: "pipe",
-            env: DOCKER_SOCKET_ENV,
+            env: RUNNER_PATH,
         });
 
         let timedOut = false;
@@ -434,27 +520,31 @@ export function createSandboxExecutor({
         }
     }
 
-    async function runPython(
+    async function runDirect(
+        runtime: Runtime,
         payload: Record<string, unknown>,
         inputFiles: SandboxFiles,
     ): Promise<SandboxResponse> {
-        if (!Bun.which(python)) {
+        const executable = runtime.language === "python" ? python : node;
+        if (!executable) {
             return emptyResponse(inputFiles, "站点沙箱暂时不可用");
         }
         const workDir = mkdtempSync(path.join(tmpdir(), "mimi-sandbox-"));
+        const command =
+            runtime.language === "python"
+                ? [executable, "-I", "-B", runtime.runner]
+                : [executable, runtime.runner];
         const started = Date.now();
-        const proc = Bun.spawn([python, "-I", "-B", runnerPath], {
+        const proc = Bun.spawn(command, {
             cwd: workDir,
             stdin: "pipe",
             stdout: "pipe",
             stderr: "pipe",
             env: {
-                PATH: DOCKER_SOCKET_ENV.PATH,
+                PATH: RUNNER_PATH.PATH,
                 HOME: workDir,
                 TMPDIR: workDir,
                 LANG: "C.UTF-8",
-                PYTHONUNBUFFERED: "1",
-                PYTHONDONTWRITEBYTECODE: "1",
                 MIMI_SANDBOX_ROOT: path.join(workDir, "sandbox"),
             },
         });
@@ -499,19 +589,22 @@ export function createSandboxExecutor({
         if (!checked.ok) {
             return emptyResponse(checked.files, checked.error);
         }
-        if (!ready) {
+        if (!canRun(checked.language)) {
             await ensure();
         }
-        if (!ready) {
+        if (!canRun(checked.language)) {
             return emptyResponse(
                 checked.files,
-                "站点沙箱暂时不可用，请联系管理员",
+                checked.language === "javascript"
+                    ? "JavaScript 沙箱暂时不可用"
+                    : "Python 沙箱暂时不可用",
             );
         }
+        const runtime = runs[checked.language];
         try {
-            return mode === "docker"
-                ? await runDocker(checked.payload, checked.files)
-                : await runPython(checked.payload, checked.files);
+            return prod
+                ? await runDocker(runtime, checked.payload, checked.files)
+                : await runDirect(runtime, checked.payload, checked.files);
         } catch (error) {
             return emptyResponse(
                 checked.files,
@@ -522,7 +615,7 @@ export function createSandboxExecutor({
 
     return {
         ensure,
-        available: () => ready,
+        available: () => (prod ? dockerReady.size > 0 : devReady.size > 0),
         run,
     };
 }

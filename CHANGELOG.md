@@ -18,9 +18,9 @@
 - 新增 `chat_conversations.thinking`（迁移 `1795200000_add_chat_thinking.js`）与会话内的「思考强度」选择；`POST /ai/chat/completions` 校验并透传 `reasoning_effort`，模型不支持的强度返回 400。
 - 新增内置「英语老师」人格，prompt 强制只输出英文。
 - 聊天输入框显示上下文占用百分比：取最近一次助手回复的 `prompt_tokens` 除以模型的 `contextWindow`，`/ai/models` 因此新增 `contextWindow`；达到 80% / 95% 时变色提醒。
-- 沙箱改为在服务器的 Docker 容器里运行 Python：`pocketbase/sandbox/` 提供 runner、Dockerfile 和网络脚本；`POST /ai/sandbox` 通过 PB 令牌鉴权，限制每用户 1 个并发、每天 200 次。
+- 沙箱改为在服务器的 Docker 容器里运行：`pocketbase/sandbox/` 提供 Python / Node 两个 runner、Dockerfile 和网络脚本；`sandbox_run.language` 选 `python` 或 `javascript`；`POST /ai/sandbox` 通过 PB 令牌鉴权，限制每用户 1 个并发、每天 200 次。
 - 沙箱容器只读根文件系统、非 root 用户、丢弃全部 capabilities、`no-new-privileges`、256MB / 0.5 CPU / 64 PID / 20 秒上限；代码从 stdin 传入，不落在命令行。
-- 独立的 `mimi-sandbox` bridge 只允许公网 DNS/HTTP(S)，在 `DOCKER-USER`/`FORWARD` 和 `INPUT` 两处拦截 loopback、内网、宿主地址和非 Web 端口；沙箱因此能查实时信息但碰不到 PocketBase、Caddy 或 SSH。
+- 独立的 `mimi-sandbox` bridge 只允许公网 DNS/HTTP(S)，在 `DOCKER-USER`/`FORWARD` 和 `INPUT` 两处拦截 loopback、内网、宿主地址和非 Web 端口；沙箱因此能查实时信息但碰不到 PocketBase、Caddy 或 SSH。Python 与 JavaScript 共用同一套容器加固和网络策略。
 
 ### 修复
 
@@ -33,7 +33,7 @@
 
 - `.env.example` 与 `pocketbase/README.md` 补充聊天模型白名单、思考强度与 `/ai` 新端点的说明。
 - `GET /ai/models` 增加 `thinkingLevels`，模型选择器同时展示三个模型和当前思考强度。
-- 代码工具语言从 JavaScript 改为 Python（仅标准库），工具描述与系统提示同步更新；`SANDBOX_BASE_IMAGE` 可指定国内可用的基础镜像源。
+- 代码工具支持 Python（标准库）和 JavaScript（Node），工具描述与系统提示同步更新；`SANDBOX_BASE_IMAGE` / `SANDBOX_BASE_IMAGE_NODE` 可指定国内可用的基础镜像源。
 
 ## 2026-11-06
 

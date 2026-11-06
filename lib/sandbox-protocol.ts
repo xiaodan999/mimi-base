@@ -20,8 +20,12 @@ export type SandboxFiles = Record<string, string>;
 
 export type SandboxOp = "run" | "read" | "write" | "list";
 
+export type SandboxLanguage = "python" | "javascript";
+
 export type SandboxRequest = {
     op: SandboxOp;
+    /** Defaults to Python when omitted (legacy requests). */
+    language?: SandboxLanguage;
     code?: string;
     path?: string;
     content?: string;
@@ -80,6 +84,15 @@ export function sanitizeFiles(input: unknown): SandboxFiles {
         files[path] = content;
     }
     return files;
+}
+
+/** Unknown values are rejected by the executor; missing means Python. */
+export function normalizeSandboxLanguage(
+    value: unknown,
+): SandboxLanguage | null {
+    if (value === undefined || value === null || value === "") return "python";
+    if (value === "python" || value === "javascript") return value;
+    return null;
 }
 
 export function describeError(error: unknown): string {

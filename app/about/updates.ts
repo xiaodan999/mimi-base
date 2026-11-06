@@ -28,7 +28,7 @@ export const UPDATES: Update[] = [
             "聊天可以选 DeepSeek V4.1 Flash、GLM-5.3 Flash 或 MiMo 2.6 Flash；DeepSeek 和 GLM 还能调思考强度（低 / 高 / 最高）。",
             "新增「英语老师」人格：只用英文回答，讲语法、词汇和地道表达。",
             "聊天输入框会显示上下文用了多少（百分比），接近上限时变色提醒。",
-            "AI 的代码工具改为在服务器的隔离容器里运行，可以联网查天气、网页和公开接口，但访问不到本站的数据。",
+            "AI 的代码工具改为在服务器的隔离容器里运行，支持 Python 和 JavaScript，可以联网查天气、网页和公开接口，但访问不到本站的数据。",
         ],
         fixed: [
             "DeepSeek V4.1 Flash 现在可以直接发图片。",
@@ -37,7 +37,7 @@ export const UPDATES: Update[] = [
         changed: [
             "聊天记录只保存在自己的账号里，换设备登录也能接着聊。",
             "语音输入交给手机键盘自带的听写，应用里不再单独录音。",
-            "代码工具改用 Python（只有标准库），写法和结果读取更直接。",
+            "代码工具支持 Python 和 JavaScript：Python 用 result，JavaScript 用 return，文件读写和联网方式一致。",
         ],
     },
     {
