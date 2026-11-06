@@ -36,6 +36,7 @@ import { formatMoney } from "@/lib/money";
 import pb, { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
+import { shortSha } from "@/lib/version";
 
 import AskSheet from "./-home/ask-sheet";
 import DailyLine from "./-home/daily-line";
@@ -194,9 +195,12 @@ function Page() {
                 <DinnerPicker />
             </section>
 
-            <p className="mt-6 text-center text-[10px] font-medium text-muted-foreground">
-                秘密基地 · V{APP_VERSION}
-            </p>
+            <Link
+                to="/about"
+                className="mt-6 block text-center text-[10px] font-medium text-muted-foreground"
+            >
+                秘密基地 · {import.meta.env.DEV ? "开发版" : shortSha(APP_SHA)}
+            </Link>
 
             <AskSheet
                 open={askOpen}

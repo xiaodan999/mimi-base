@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Camera, Pencil, Sparkles } from "lucide-react";
+import {
+    ArrowLeft,
+    Camera,
+    ChevronRight,
+    Info,
+    Pencil,
+    Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
+import { UPDATES } from "@/app/about/updates";
 import { useAi } from "@/app/ai/AiContext";
 import TouXiang from "@/components/TouXiang";
 import { CIRCLE_PRESETS, NO_RING } from "@/components/TouXiang/presets";
@@ -59,6 +68,9 @@ function Page() {
     const user = useCurrentUser();
     const ring = getUserRing(user);
     const { openSettings } = useAi();
+    // Read on mount: opening 关于 marks the update seen, and this page
+    // remounts when the user comes back.
+    const updateUnseen = isUpdateUnseen(UPDATES[0]?.date, readSeenUpdate());
 
     const [cropOpen, setCropOpen] = useState(false);
     const [cropFile, setCropFile] = useState<File | null>(null);
@@ -209,6 +221,33 @@ function Page() {
                     内置头像框是矢量绘制，任何尺寸都很清晰；星轨和霓虹会轻轻动起来（系统开启“减少动态效果”时会自动静止）。也可以上传自己的头像框。
                 </p>
             </section>
+
+            <Link
+                to="/about"
+                className="mt-4 flex items-center gap-3 rounded-3xl border border-border/60 bg-card p-4 shadow-soft transition-transform active:scale-[0.99]"
+            >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                    <Info className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                        关于秘密基地
+                        {updateUnseen && (
+                            <span
+                                aria-label="有新的更新记录"
+                                className="size-2 shrink-0 rounded-full bg-primary"
+                            />
+                        )}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        更新记录与构建信息
+                    </span>
+                </span>
+                <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                />
+            </Link>
 
             <RingPicker
                 open={ringOpen}

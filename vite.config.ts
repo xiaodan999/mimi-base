@@ -203,6 +203,9 @@ export default defineConfig(({ mode }) => {
         ],
         define: {
             APP_VERSION: JSON.stringify(pkg.version),
+            // Same sha as `version.json` / `x-spa-sha`, so the About page can
+            // tell whether the running bundle is the deployed one.
+            APP_SHA: JSON.stringify(appSha),
         },
     };
 });

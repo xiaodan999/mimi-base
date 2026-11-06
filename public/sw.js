@@ -148,6 +148,11 @@ self.addEventListener("fetch", (event) => {
     )
         return;
 
+    // The build stamp is how the About page notices a deploy; serving it from
+    // CacheStorage would keep comparing against the old one until the worker
+    // itself updates.
+    if (url.pathname === "/version.json") return;
+
     if (request.mode === "navigate") {
         event.respondWith(networkFirst(event, request, "/"));
         return;

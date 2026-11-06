@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
 let updateRequested = false;
+let registration: ServiceWorkerRegistration | null = null;
 
 function promptForUpdate(waiting: ServiceWorker) {
     toast("有新版本可用", {
@@ -10,11 +11,39 @@ function promptForUpdate(waiting: ServiceWorker) {
         action: {
             label: "刷新",
             onClick: () => {
-                updateRequested = true;
-                waiting.postMessage({ type: "SKIP_WAITING" });
+                applyUpdate(waiting);
             },
         },
     });
+}
+
+/**
+ * Hand control to the waiting worker. The page reloads on `controllerchange`,
+ * so this returns `false` when nothing is waiting yet (the caller can fall
+ * back to a plain reload).
+ */
+export function applyUpdate(waiting?: ServiceWorker | null): boolean {
+    const worker = waiting ?? registration?.waiting ?? null;
+    if (!worker) return false;
+    updateRequested = true;
+    worker.postMessage({ type: "SKIP_WAITING" });
+    return true;
+}
+
+/**
+ * Ask the browser to look for a new worker now. Used by the About page's
+ * "检查更新" action; the periodic visibility check uses the same call.
+ */
+export async function checkForUpdate(): Promise<void> {
+    if (!("serviceWorker" in navigator)) return;
+    try {
+        const reg =
+            registration ??
+            (await navigator.serviceWorker.getRegistration().catch(() => null));
+        await reg?.update();
+    } catch {
+        // Offline or the worker is not available: nothing to do.
+    }
 }
 
 /**
@@ -33,46 +62,47 @@ export function registerServiceWorker() {
 
     navigator.serviceWorker
         .register("/sw.js", { scope: "/", updateViaCache: "none" })
-        .then((registration) => {
+        .then((reg) => {
+            registration = reg;
             const watchInstalling = (installing: ServiceWorker) => {
                 installing.addEventListener("statechange", () => {
                     if (
                         installing.state === "installed" &&
                         navigator.serviceWorker.controller
                     ) {
-                        promptForUpdate(registration.waiting ?? installing);
+                        promptForUpdate(reg.waiting ?? installing);
                     }
                 });
             };
 
             // A previous session may have downloaded the worker already.
-            if (registration.waiting && navigator.serviceWorker.controller) {
-                promptForUpdate(registration.waiting);
+            if (reg.waiting && navigator.serviceWorker.controller) {
+                promptForUpdate(reg.waiting);
             }
             // `updatefound` can fire before this callback runs, so also attach
             // to an in-flight install directly.
-            if (registration.installing) {
-                watchInstalling(registration.installing);
+            if (reg.installing) {
+                watchInstalling(reg.installing);
             }
 
-            registration.addEventListener("updatefound", () => {
-                if (registration.installing) {
-                    watchInstalling(registration.installing);
+            reg.addEventListener("updatefound", () => {
+                if (reg.installing) {
+                    watchInstalling(reg.installing);
                 }
             });
 
             // Check right away so a reload after a deploy surfaces the update,
             // and again when the tab becomes visible (at most once a minute).
-            void registration.update();
+            void checkForUpdate();
             let lastCheck = 0;
-            const checkForUpdate = () => {
+            const checkWhenVisible = () => {
                 if (document.visibilityState !== "visible") return;
                 const now = Date.now();
                 if (now - lastCheck < 60_000) return;
                 lastCheck = now;
-                void registration.update();
+                void checkForUpdate();
             };
-            document.addEventListener("visibilitychange", checkForUpdate);
+            document.addEventListener("visibilitychange", checkWhenVisible);
         })
         .catch((error) => {
             console.error("service worker registration failed", error);

@@ -143,6 +143,26 @@ git push
 - Push `master` only when the user asks; the cleanup rule above applies once
   it is fast-forwarded and pushed.
 
+## Update log
+
+User-facing changes are recorded in two places **in the same commit**:
+
+- `app/about/updates.ts` — what 关于 shows in the app. Only changes a user can
+  notice; skip refactors, tooling and docs. Newest first, one entry per day
+  (extend today's entry instead of adding a second), Chinese copy with no
+  file paths or internal terms (`APP_SHA`, collection names, ...). Bullets go
+  under `added` / `fixed` / `changed`.
+- `CHANGELOG.md` — the developer-facing record. Add a bullet under the
+  matching `###` heading in today's dated section (`## YYYY-MM-DD`), creating
+  it above older sections if needed. Include internal work users won't notice.
+  Both files describe the same batch; keep them consistent.
+
+`app/about/updates.test.ts` checks the in-app log's shape (real dates,
+newest-first, at least one bullet) and that every in-app date has a matching
+`## YYYY-MM-DD` section in `CHANGELOG.md`. It cannot tell whether you logged a
+change at all — that part is on you. Never claim a feature the diff doesn't
+contain.
+
 ## Parallel sessions
 
 Several agent sessions may run at once. The **primary checkout** (the first
@@ -376,8 +396,9 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
 - Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`,
   which runs `bun fmt --staged`, `bun check`, `bun run typecheck:tsc`,
   `bun run test`, `bun run lint`, and `bun run format:check`.
-- `APP_VERSION` is a Vite `define` global (declared in `vite-env.d.ts`), not an
-  environment variable.
+- `APP_VERSION` and `APP_SHA` are Vite `define` globals (declared in
+  `vite-env.d.ts`), not environment variables. The app shows the build sha,
+  not a version number: there is no release-bump step.
 - `pb.autoCancellation(false)` in `lib/pb.ts` is intentional: the feed and like
   queries would otherwise abort each other.
 - PocketBase records use `created` / `updated`; app types map them (e.g.
