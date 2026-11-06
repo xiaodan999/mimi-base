@@ -77,9 +77,7 @@ bun run dev:all
 
 - Convention: directory `../mimi-base-<topic>`, branch `feat/<topic>`.
 - Run git from the environment that owns the checkout (native shell for a
-  native clone, inside WSL for a WSL checkout). Machine-specific paths and
-  quirks belong in `.zcode/local.md` (gitignored), not in this file; copy that
-  file into a new worktree when needed.
+  native clone, inside WSL for a WSL checkout).
 - Each worktree has its own `pocketbase/pb_data/` (own database) and its own
   `dev:all` stack; they can run side by side.
 - The PocketBase binary is copied automatically from a registered worktree, a
@@ -360,8 +358,6 @@ before your first commit.
 
 ## Read before changing sensitive areas
 
-- `.zcode/local.md` — machine-local notes (gitignored): paths, WSL quirks,
-  forwarder details. Read it when present.
 - `pocketbase/README.md` — server, deploy endpoint, ops, secrets.
 - `scripts/server-setup.sh` — fresh install / recovery.
 - `.github/workflows/deploy-db.yml` — deploy trigger and retry behavior.
