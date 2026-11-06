@@ -5,8 +5,9 @@
  * 重写了一遍），却全部被打进 bundle。现在只保留 SkinWidget 用到的 skin。
  * 它返回一段 SVG 字符串，由 SkinWidget 渲染；颜色走 CSS 变量跟随主题。
  *
- * 注：SkinWidget 里这枚 SVG 仍用 dangerouslySetInnerHTML 注入（内容是本文件
- * 里完全可信的硬编码字符串，不含任何用户输入）；要彻底移除可把它改写成 JSX。
+ * 注：SkinWidget 通过 `components/SvgMarkup.tsx` 注入这枚 SVG（内容是本文件
+ * 里完全可信的硬编码字符串，不含任何用户输入）；题库文本一律走
+ * `rich-text.tsx` 的 `renderRichText`。
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type DemoFn = (...args: any[]) => string;

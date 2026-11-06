@@ -49,7 +49,12 @@ export default function AvatarPreview({
                 style={{ width: size, height: size }}
                 onClick={() => setOpen(true)}
             >
-                <TouXiang size={size} touXiangUrl={avatarUrl} {...ring} />
+                <TouXiang
+                    size={size}
+                    touXiangUrl={avatarUrl}
+                    name={name}
+                    {...ring}
+                />
             </button>
 
             <Dialog open={open} onOpenChange={setOpen}>
@@ -66,6 +71,7 @@ export default function AvatarPreview({
                         <TouXiang
                             size="min(72vw, 20rem)"
                             touXiangUrl={avatarUrl}
+                            name={name}
                             {...ring}
                         />
                         <p className="text-sm font-medium text-white/90">

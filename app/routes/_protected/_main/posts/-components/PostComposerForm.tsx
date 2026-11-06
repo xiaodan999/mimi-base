@@ -131,6 +131,7 @@ export default function PostComposerForm({
                         className="shrink-0"
                         {...getUserRing(user)}
                         touXiangUrl={getUserAvatarUrl(user)}
+                        name={user.user_name}
                         size={40}
                     />
                     <div className="min-w-0 flex-1">

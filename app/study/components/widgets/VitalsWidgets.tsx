@@ -11,6 +11,7 @@ import {
 } from "./kit";
 import { useWidgetState } from "./useWidget";
 import type { Card } from "../../types";
+import { renderRichText } from "../rich-text";
 
 /* -------------------------------------------------------------------------- */
 /* 疼痛 NRS：拖滑杆 / 点表情                                                   */
@@ -342,12 +343,9 @@ export function FallWidget({ card }: { card: Card }) {
                                 <span className="iw-check-box">
                                     {on ? "✓" : ""}
                                 </span>
-                                <span
-                                    className="iw-factor-txt"
-                                    dangerouslySetInnerHTML={{
-                                        __html: factor.label,
-                                    }}
-                                />
+                                <span className="iw-factor-txt">
+                                    {renderRichText(factor.label)}
+                                </span>
                                 <em>+{factor.options[0]}</em>
                             </button>
                         );
@@ -357,12 +355,9 @@ export function FallWidget({ card }: { card: Card }) {
                     );
                     return (
                         <div key={factor.id} className="iw-factor-row">
-                            <span
-                                className="iw-factor-txt"
-                                dangerouslySetInnerHTML={{
-                                    __html: factor.label,
-                                }}
-                            />
+                            <span className="iw-factor-txt">
+                                {renderRichText(factor.label)}
+                            </span>
                             <Segmented
                                 options={factor.options}
                                 value={picked ?? 0}

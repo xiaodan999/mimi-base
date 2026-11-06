@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { Note, WidgetShell } from "./kit";
 import { useWidgetState } from "./useWidget";
 import type { Card, CardTable } from "../../types";
+import { renderRichText } from "../rich-text";
 
 type Part =
     | { type: "html"; html: string }
@@ -94,7 +95,7 @@ function Blank({
             aria-pressed={revealed}
         >
             {revealed ? (
-                <span dangerouslySetInnerHTML={{ __html: html }} />
+                <span>{renderRichText(html)}</span>
             ) : (
                 <span className="iw-blank-mask">点我</span>
             )}
@@ -162,17 +163,13 @@ export default function GenericRecall({ card }: { card: Card }) {
                     </span>
                     {fallbackOpen && (
                         <span className="iw-flip-back">
-                            <span
-                                dangerouslySetInnerHTML={{
-                                    __html: card.memo ?? card.trap ?? card.t,
-                                }}
-                            />
+                            <span>
+                                {renderRichText(
+                                    card.memo ?? card.trap ?? card.t,
+                                )}
+                            </span>
                             {card.trap && (
-                                <em
-                                    dangerouslySetInnerHTML={{
-                                        __html: `⚠️ ${card.trap}`,
-                                    }}
-                                />
+                                <em>{renderRichText(`⚠️ ${card.trap}`)}</em>
                             )}
                         </span>
                     )}
@@ -202,12 +199,9 @@ export default function GenericRecall({ card }: { card: Card }) {
                         <li key={line.key}>
                             {line.parts.map((part, index) =>
                                 part.type === "html" ? (
-                                    <span
-                                        key={index}
-                                        dangerouslySetInnerHTML={{
-                                            __html: part.html,
-                                        }}
-                                    />
+                                    <span key={index}>
+                                        {renderRichText(part.html)}
+                                    </span>
                                 ) : (
                                     <Blank
                                         key={part.key}
@@ -227,10 +221,9 @@ export default function GenericRecall({ card }: { card: Card }) {
                 <div className="iw-recall-table">
                     {card.table.rows.map((row, rowIndex) => (
                         <div className="iw-recall-row" key={rowIndex}>
-                            <div
-                                className="iw-recall-label"
-                                dangerouslySetInnerHTML={{ __html: row[0] }}
-                            />
+                            <div className="iw-recall-label">
+                                {renderRichText(row[0])}
+                            </div>
                             <div className="iw-recall-cells">
                                 {row.slice(1).map((cell, cellIndex) => {
                                     if (!cell.trim()) return null;

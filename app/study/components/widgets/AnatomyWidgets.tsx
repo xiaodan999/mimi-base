@@ -4,6 +4,8 @@ import { ChipRow, Note, WidgetShell } from "./kit";
 import { useWidgetState } from "./useWidget";
 import { DEMOS } from "../../demos";
 import type { Card } from "../../types";
+import { SvgMarkup } from "../SvgMarkup";
+import { renderRichText } from "../rich-text";
 
 /* -------------------------------------------------------------------------- */
 /* 心电监护五色导联                                                             */
@@ -428,20 +430,15 @@ export function SkinWidget({ card }: { card: Card }) {
                 onPick={(id) => patch({ option: id, done: 1 })}
             />
 
-            <div
-                className="iw-skin-svg"
-                dangerouslySetInnerHTML={{ __html: svg }}
-            />
+            <SvgMarkup className="iw-skin-svg" svg={svg} />
 
             {row && (
                 <div className="iw-skin-info">
                     <div>
                         <b>{row[0].replace(/<[^>]+>/g, "")}</b>
                     </div>
-                    <p dangerouslySetInnerHTML={{ __html: row[1] }} />
-                    <small
-                        dangerouslySetInnerHTML={{ __html: `处理：${row[2]}` }}
-                    />
+                    <p>{renderRichText(row[1])}</p>
+                    <small>{renderRichText(`处理：${row[2]}`)}</small>
                 </div>
             )}
 

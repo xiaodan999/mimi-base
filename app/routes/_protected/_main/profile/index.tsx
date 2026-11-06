@@ -138,6 +138,7 @@ function Page() {
                         <TouXiang
                             size={112}
                             touXiangUrl={getUserAvatarUrl(user)}
+                            name={user.user_name}
                             {...ring}
                         />
                     </button>

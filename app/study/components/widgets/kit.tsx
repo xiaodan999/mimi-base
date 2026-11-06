@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { renderRichText } from "../rich-text";
+
 export type WidgetOption = {
     id: string;
     label: string;
@@ -89,11 +91,7 @@ export function Checklist({
                     >
                         <span className="iw-check-box">{on ? "✓" : ""}</span>
                         <span className="iw-check-txt">
-                            <span
-                                dangerouslySetInnerHTML={{
-                                    __html: item.label,
-                                }}
-                            />
+                            <span>{renderRichText(item.label)}</span>
                             {item.sub && <small>{item.sub}</small>}
                         </span>
                     </button>
@@ -132,10 +130,9 @@ export function StepList({
                                 <span className="iw-step-dot">
                                     {i < step ? "✓" : i + 1}
                                 </span>
-                                <span
-                                    className="iw-step-txt"
-                                    dangerouslySetInnerHTML={{ __html: text }}
-                                />
+                                <span className="iw-step-txt">
+                                    {renderRichText(text)}
+                                </span>
                             </button>
                         </li>
                     );

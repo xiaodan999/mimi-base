@@ -14,6 +14,10 @@ on:
     # First publish on a fresh box, and manual resync after a recovery.
     workflow_dispatch:
 
+# Only read the repository; the deploy itself is an HTTP call with DEPLOY_TOKEN.
+permissions:
+    contents: read
+
 # ONE shared group with deploy-spa.yml: a commit touching both backend and
 # frontend paths can never run /db/sync (PB restart) and /spa/publish at once.
 concurrency:

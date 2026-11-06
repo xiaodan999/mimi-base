@@ -17,11 +17,15 @@
 - 移除未使用的依赖与 shadcn 原语。
 - `/version.json` 不再经过 Service Worker 缓存，避免「检查更新」比到旧版本。
 - 「关于」页在电脑上无法滚动到底部：该页在应用外壳之外，现在自己滚动。
+- 学习模块的卡片、表格和互动组件不再用 `dangerouslySetInnerHTML` 渲染题库内容，统一走 `renderRichText`；只有本地生成的 SVG 保留在 `SvgMarkup` 一处，并由测试锁定内容可用的标签。
+- 头像调用统一传入 `user_name`，读屏时输出「<name>的头像」。
+- 移除 Service Worker 里从未被订阅的 `push` 监听（应用只用本地 `Notification`）。
 
 ### 变更
 
 - `bun test` 现在覆盖整个仓库，而不再只扫描 `app/`、`lib/`。
 - `bun.lock` 的下载地址统一为默认 npm 源。
+- CI 工作流显式声明 `permissions: contents: read`，第三方 action 固定到提交 SHA。
 - 更新记录按构建日期组织，不再依赖版本号。
 - 新增更新记录的维护约定：用户可见变更同时写入 `app/about/updates.ts` 与 `CHANGELOG.md`，并由测试检查格式、顺序与日期对应。
 - 更新记录改为按日期折叠展示，默认展开最新一条。

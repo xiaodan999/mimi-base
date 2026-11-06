@@ -8,6 +8,10 @@ on:
     # publish can never run before typecheck/lint/format:check/tests pass.
     workflow_call:
 
+# Only read the repository; nothing here pushes or creates releases.
+permissions:
+    contents: read
+
 concurrency:
     # A called workflow inherits the caller's context, so `github.workflow` is
     # "ci" for a direct push run but "deploy-db" / "deploy-spa" for the gate
@@ -23,9 +27,9 @@ jobs:
     checks:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v7
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-            - uses: oven-sh/setup-bun@v2
+            - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
               with:
                   bun-version: 1.4.4
 

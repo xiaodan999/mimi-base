@@ -252,30 +252,7 @@ self.addEventListener("notificationclick", (event) => {
     );
 });
 
-self.addEventListener("push", async (e) => {
-    const { type, data } = e.data.json();
-    if (type === "notification") {
-        if (Notification.permission === "granted") {
-            const { title, options } = data;
-            const focused = await isFocused(options.data.pathname);
-            if (!focused) {
-                registration.showNotification(title, options);
-            } else {
-                console.log(
-                    "got a notification, but user does not need to see. cuz the window is focused.",
-                );
-            }
-        }
-    }
-});
-
-async function isFocused(pathname) {
-    const windowClients = await clients.matchAll({ type: "window" });
-    for (const client of windowClients) {
-        const clientPathname = new URL(client.url).pathname;
-        if (pathname === clientPathname && client.focused) {
-            return true;
-        }
-    }
-    return false;
-}
+// No `push` handler on purpose: the app never subscribes to Web Push
+// (`PushManager`/`applicationServerKey` appear nowhere in the codebase). AI
+// notifications are local `Notification` calls from `app/ai/notify.ts`, so a
+// push listener here was dead code that also lacked `event.waitUntil`.

@@ -229,6 +229,7 @@ export default function RingPicker({
                     <TouXiang
                         size={96}
                         touXiangUrl={getUserAvatarUrl(user)}
+                        name={user.user_name}
                         {...preview}
                     />
                     <span className="text-xs text-muted-foreground">预览</span>

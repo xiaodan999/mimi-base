@@ -83,3 +83,49 @@ describe("SUBJECT_META 数量与真实内容对齐", () => {
         expect(SUBJECT_META[0].id).toBe(NURSING_QC_META.id);
     });
 });
+
+describe("卡片富文本只用 renderRichText 认识的标签", () => {
+    // 富文本不再经过 innerHTML，而是由 renderRichText 解析。这里锁住内容和
+    // 渲染器的契约：一旦内容里出现 <i>/<span> 之类 renderRichText 不处理的
+    // 标签，测试就会失败，而不是在页面上悄悄显示成纯文本。
+    const allowed = /^(?:<\/?(?:b|strong)\s*>|<br\s*\/?>)$/i;
+
+    function richValues(): { where: string; value: string }[] {
+        const values: { where: string; value: string }[] = [];
+        for (const card of CARDS) {
+            card.points?.forEach((value, index) =>
+                values.push({ where: `${card.id}.points[${index}]`, value }),
+            );
+            if (card.memo)
+                values.push({ where: `${card.id}.memo`, value: card.memo });
+            if (card.trap)
+                values.push({ where: `${card.id}.trap`, value: card.trap });
+            card.sections?.forEach((section, sectionIndex) =>
+                section.items.forEach((value, index) =>
+                    values.push({
+                        where: `${card.id}.sections[${sectionIndex}].items[${index}]`,
+                        value,
+                    }),
+                ),
+            );
+            card.table?.rows.forEach((row, rowIndex) =>
+                row.forEach((value, cellIndex) =>
+                    values.push({
+                        where: `${card.id}.table[${rowIndex}][${cellIndex}]`,
+                        value,
+                    }),
+                ),
+            );
+        }
+        return values;
+    }
+
+    test("没有 renderRichText 不认识的标签", () => {
+        const bad = richValues().flatMap(({ where, value }) =>
+            (value.match(/<\/?[a-zA-Z][^>]*>/g) ?? [])
+                .filter((tag) => !allowed.test(tag))
+                .map((tag) => `${where}: ${tag}`),
+        );
+        expect(bad).toEqual([]);
+    });
+});

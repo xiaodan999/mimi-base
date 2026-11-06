@@ -204,8 +204,17 @@ before your first commit.
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`; `tu_pian_xin_xi` is
   legacy (its rows were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
-  that way. File fields are `protected`, so unauthenticated requests to
-  `/api/files/...` return 404.
+  that way. **This is deliberate, not a leak.** The product has exactly two
+  accounts for one couple, sign-up is locked (`users.createRule = null` in
+  `1792854446_updated_users.js`), and the shared feed / shared ledger _is_ the
+  feature. Don't "fix" auth-only rules by owner-scoping posts or comments, and
+  don't add a friends system. Scope today: `study_progress`,
+  `ji_zhang_category` and `tou_xiang_circle` are owner-scoped;
+  `ji_zhang_biao` is shared for reads but owner-scoped for update/delete. If a
+  third account is ever added, decide and migrate the per-collection scope
+  _before_ that account exists — auth-only rules would expose every row to it.
+  File fields are `protected`, so unauthenticated requests to `/api/files/...`
+  return 404.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
   Date literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
 - File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`)

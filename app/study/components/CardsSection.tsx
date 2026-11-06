@@ -11,6 +11,7 @@ import type { Card, QuizItem } from "../types";
 import CardDemo from "./CardDemo";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
+import { renderRichText } from "./rich-text";
 
 const TAG_CLASS: Record<string, string> = {
     易错: "r",
@@ -43,7 +44,6 @@ function CardItem({
     onDrill: () => void;
     onExplain: () => void;
 }) {
-    const html = (value: string) => ({ __html: value });
     const game = gameForCard(card.id);
 
     return (
@@ -75,7 +75,7 @@ function CardItem({
                 {card.points && (
                     <ul>
                         {card.points.map((point, i) => (
-                            <li key={i} dangerouslySetInnerHTML={html(point)} />
+                            <li key={i}>{renderRichText(point)}</li>
                         ))}
                     </ul>
                 )}
@@ -107,12 +107,9 @@ function CardItem({
                                     {card.table.rows.map((row, i) => (
                                         <tr key={i}>
                                             {row.map((cell, j) => (
-                                                <td
-                                                    key={j}
-                                                    dangerouslySetInnerHTML={html(
-                                                        cell,
-                                                    )}
-                                                />
+                                                <td key={j}>
+                                                    {renderRichText(cell)}
+                                                </td>
                                             ))}
                                         </tr>
                                     ))}
@@ -130,26 +127,21 @@ function CardItem({
                         <div className="sec-h">{section.h}</div>
                         <ul>
                             {section.items.map((line, i) => (
-                                <li
-                                    key={i}
-                                    dangerouslySetInnerHTML={html(line)}
-                                />
+                                <li key={i}>{renderRichText(line)}</li>
                             ))}
                         </ul>
                     </div>
                 ))}
 
                 {card.memo && (
-                    <div
-                        className="memo"
-                        dangerouslySetInnerHTML={html(`🧠 ${card.memo}`)}
-                    />
+                    <div className="memo">
+                        {renderRichText(`🧠 ${card.memo}`)}
+                    </div>
                 )}
                 {card.trap && (
-                    <div
-                        className="trap"
-                        dangerouslySetInnerHTML={html(`⚠️ 易错：${card.trap}`)}
-                    />
+                    <div className="trap">
+                        {renderRichText(`⚠️ 易错：${card.trap}`)}
+                    </div>
                 )}
             </div>
 
