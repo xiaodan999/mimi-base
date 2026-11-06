@@ -99,7 +99,7 @@ export default function AiVariantSheet({
     moduleName,
     onStart,
 }: Props) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings, openSettings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [loading, setLoading] = useState(false);
@@ -111,11 +111,6 @@ export default function AiVariantSheet({
     const run = useCallback(
         async (force = false) => {
             if (!source) return;
-            if (!configured) {
-                setError("先配置 AI Key");
-                openSettings();
-                return;
-            }
             if (!force) {
                 // 后台还有一个任务在跑时，别让旧缓存把它盖住。
                 const running = find(cacheKey)?.status === "running";
@@ -167,17 +162,7 @@ export default function AiVariantSheet({
                 setLoading(false);
             }
         },
-        [
-            cacheKey,
-            configured,
-            find,
-            moduleName,
-            openSettings,
-            runTask,
-            settings,
-            source,
-            subject,
-        ],
+        [cacheKey, find, moduleName, runTask, settings, source, subject],
     );
 
     useEffect(() => {

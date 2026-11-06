@@ -1,5 +1,5 @@
 /**
- * PocketBase supervisor + deploy endpoint.
+ * PocketBase supervisor + HTTP edge (AI relay + deploy endpoints).
  *
  *   bun run db    # dev:  127.0.0.1:8090 (PB_PORT changes the port; no
  *                 #       .env.prod in the repo)
@@ -7,10 +7,15 @@
  *                 #       automigrate off, deploy endpoints armed by secrets
  *
  * Downloads the pinned binary on first run, keeps `./pocketbase serve`
- * running, and serves the authenticated deploy endpoints on :9001
- * (bound to 127.0.0.1 unless DEPLOY_BIND is explicitly opted into the public
- * interface with DEPLOY_BIND_ALLOW_PUBLIC=1):
+ * running, and serves the AI relay and authenticated deploy endpoints on :9001
+ * (SUPERVISOR_PORT overrides; bound to 127.0.0.1 unless DEPLOY_BIND is
+ * explicitly opted into the public interface with DEPLOY_BIND_ALLOW_PUBLIC=1):
  *
+ *   POST /ai/opencode/v1/chat/completions
+ *                       authenticated streaming relay for the site's
+ *                       OpenCode Go key (see ai-relay.ts). The key comes from
+ *                       OPENCODE_API_KEY and never reaches the browser.
+ *   GET  /ai/health     relay status: key configured + model (no auth).
  *   POST /db/sync       git pull --ff-only -> stop PB -> pb_data snapshot ->
  *                       start PB -> respond only after /api/health passes.
  *                       A failed snapshot ABORTS the restart (PB stays down,
@@ -35,10 +40,10 @@
  * Must stay inside pocketbase/: the binary resolves pb_migrations and
  * pb_hooks relative to the data dir (pocketbase/pb_data/../).
  *
- * NOTE: /db/sync restarts PocketBase only. If the pull changed server.ts
- * itself, the supervisor respawns ITSELF detached, but only AFTER verifying the
- * new supervisor (and its PB) are healthy. The supervisor is started detached
- * by scripts/server-setup.sh; nothing restarts it on its own.
+ * NOTE: /db/sync restarts PocketBase only. If the pull changed server.ts or
+ * ai-relay.ts, the supervisor respawns ITSELF detached, but only AFTER
+ * verifying the new supervisor (and its PB) are healthy. The supervisor is
+ * started detached by scripts/server-setup.sh; nothing restarts it on its own.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import {
@@ -63,6 +68,8 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { createAiRelay } from "./ai-relay";
+
 const PB_VERSION = "0.40.6";
 const isWindows = process.platform === "win32";
 /** Release asset suffix, e.g. linux_amd64 / windows_amd64 / darwin_arm64. */
@@ -76,7 +83,6 @@ const binName = isWindows ? "pocketbase.exe" : "pocketbase";
 const dir = import.meta.dir; // .../pocketbase
 const bin = path.join(dir, binName);
 const repo = path.resolve(dir, "..");
-const DEPLOY_PORT = 9001;
 const SNAPSHOT_KEEP = 5;
 /** A real pb_data archive is far larger; reject empty/truncated archives. */
 const SNAPSHOT_MIN_BYTES = 1024;
@@ -136,7 +142,13 @@ if (existsSync(prodEnvPath)) {
     isProd = true;
 }
 
-// Deploy endpoints bind to loopback by default. A non-loopback bind needs an
+/**
+ * Bun HTTP port for the AI relay + deploy endpoints. Dev picks a free port per
+ * worktree (scripts/dev.ts); prod leaves it unset and keeps :9001.
+ */
+const supervisorPort = Number(process.env.SUPERVISOR_PORT ?? 9001) || 9001;
+
+// The HTTP server binds to loopback by default. A non-loopback bind needs an
 // explicit DEPLOY_BIND_ALLOW_PUBLIC=1 opt-in; otherwise we force loopback.
 const DEPLOY_LOOPBACK = new Set([
     "127.0.0.1",
@@ -150,7 +162,7 @@ let deployBind = requestedBind;
 if (!DEPLOY_LOOPBACK.has(requestedBind)) {
     if (process.env.DEPLOY_BIND_ALLOW_PUBLIC === "1") {
         console.warn(
-            `DEPLOY_BIND=${requestedBind} is non-loopback (explicit opt-in): deploy endpoint exposed`,
+            `DEPLOY_BIND=${requestedBind} is non-loopback (explicit opt-in): AI relay + deploy endpoints exposed`,
         );
     } else {
         console.warn(
@@ -323,7 +335,11 @@ function writeLock() {
         mkdirSync(dataDir, { recursive: true });
         writeFileSync(
             lockFile,
-            JSON.stringify({ pid: process.pid, port: httpPort }),
+            JSON.stringify({
+                pid: process.pid,
+                port: httpPort,
+                supervisorPort,
+            }),
         );
     } catch {
         // advisory only
@@ -357,8 +373,9 @@ function lockOwnerAlive(): boolean {
 }
 
 // Build a MINIMAL env for the PocketBase child: never forward deploy secrets
-// or the whole parent environment. Dev also arms the local seed account and
-// bypasses the (often WSL-hostile) HTTP proxy for opencode.ai.
+// or the whole parent environment. Dev also arms the local seed account. The
+// AI relay runs in this process, so the opencode.ai proxy bypass lives above,
+// not in this child env.
 const PB_ENV_ALLOW = [
     "PATH",
     "HOME",
@@ -380,17 +397,21 @@ function buildPbEnv(): Record<string, string> {
         const value = process.env[key];
         if (value !== undefined) env[key] = value;
     }
-    if (!isProd) {
-        env.MIMI_DEV = "1";
-        const bypass = [env.NO_PROXY, env.no_proxy, "opencode.ai"]
-            .filter(Boolean)
-            .join(",");
-        env.NO_PROXY = bypass;
-        env.no_proxy = bypass;
-    }
+    if (!isProd) env.MIMI_DEV = "1";
     return env;
 }
 const pbEnv = buildPbEnv();
+
+if (!isProd) {
+    // The AI relay (this process, not PocketBase) calls opencode.ai. WSL proxy
+    // environments often can't reach it, so bypass the proxy in dev only.
+    // pbEnv was captured above, so the PB child env stays untouched.
+    const bypass = [process.env.NO_PROXY, process.env.no_proxy, "opencode.ai"]
+        .filter(Boolean)
+        .join(",");
+    process.env.NO_PROXY = bypass;
+    process.env.no_proxy = bypass;
+}
 
 let child: ChildProcess | null = null;
 let stopping = false;
@@ -598,6 +619,16 @@ const fileHash = async (p: string) =>
     createHash("sha256")
         .update(await Bun.file(p).text())
         .digest("hex");
+
+/** Supervisor modules whose changes require a respawn after /db/sync. */
+const SUPERVISOR_MODULES = ["server.ts", "ai-relay.ts"];
+
+async function supervisorModulesHash(): Promise<string> {
+    const hashes = await Promise.all(
+        SUPERVISOR_MODULES.map((name) => fileHash(path.join(dir, name))),
+    );
+    return hashes.join(":");
+}
 
 const sha256Hex = (data: Uint8Array | string) =>
     createHash("sha256").update(data).digest("hex");
@@ -882,13 +913,13 @@ function repoSync(): Response {
 
 /**
  * Verify the NEW supervisor is healthy before the old one exits, then release
- * the lock so the replacement can own :9001 (its deploy endpoint retries the
- * briefly-busy port). If the replacement is unhealthy, keep serving and restore
- * our own PB child (#15).
+ * the lock so the replacement can own the supervisor port (its HTTP server
+ * retries the briefly-busy port). If the replacement is unhealthy, keep serving
+ * and restore our own PB child (#15).
  */
 function scheduleRespawn(): void {
     setTimeout(async () => {
-        console.log("server.ts changed on deploy — respawning supervisor");
+        console.log("server modules changed on deploy — respawning supervisor");
         const prevChild = child;
         manualRestart = true;
         stopping = true;
@@ -896,11 +927,26 @@ function scheduleRespawn(): void {
         await waitForHealthDown(8000);
 
         const logFd = openSync(path.join(repo, "mimi-db.log"), "a");
+        // Minimal env + a marker so the child bypasses our single-instance
+        // lock. It re-reads .env.prod itself, but carry the runtime port and
+        // AI relay config so a custom service-manager env is not lost.
+        const respawnEnv: Record<string, string | undefined> = {
+            ...pbEnv,
+            MIMI_RESPAWN_CHILD: "1",
+            SUPERVISOR_PORT: String(supervisorPort),
+        };
+        for (const key of [
+            "OPENCODE_API_KEY",
+            "OPENCODE_MODEL",
+            "AI_DAILY_REQUESTS_PER_USER",
+        ]) {
+            if (process.env[key] !== undefined) {
+                respawnEnv[key] = process.env[key];
+            }
+        }
         const next = spawn(process.execPath, [Bun.main], {
             cwd: repo,
-            // Minimal env + a marker so the child bypasses our single-instance
-            // lock. It re-reads .env.prod itself for the deploy secrets.
-            env: { ...pbEnv, MIMI_RESPAWN_CHILD: "1" },
+            env: respawnEnv,
             detached: true,
             stdio: ["ignore", logFd, logFd],
         });
@@ -932,7 +978,7 @@ function scheduleRespawn(): void {
 }
 
 async function dbSync(): Promise<Response> {
-    const serverTsBefore = await fileHash(path.join(dir, "server.ts"));
+    const modulesBefore = await supervisorModulesHash();
     try {
         execSync("git pull --ff-only", { cwd: repo, stdio: "inherit" });
         // If snapshotData() throws, restartPB rejects WITHOUT starting PB, so
@@ -947,7 +993,7 @@ async function dbSync(): Promise<Response> {
                 "pocketbase did not become healthy after deploy",
                 { status: 500 },
             );
-        if ((await fileHash(path.join(dir, "server.ts"))) !== serverTsBefore) {
+        if ((await supervisorModulesHash()) !== modulesBefore) {
             scheduleRespawn();
             return new Response("deploy ok (supervisor restarting)", {
                 status: 200,
@@ -963,23 +1009,44 @@ async function dbSync(): Promise<Response> {
     }
 }
 
-// ---------- deploy HTTP server ----------
+// ---------- AI relay + deploy HTTP server ----------
 
-function startDeployEndpoint() {
-    if (!deployToken()) {
-        console.log("no DEPLOY_TOKEN set — deploy endpoints disabled");
-        return;
-    }
+function startHttpServer() {
     let deploying = false;
     let publishing = false;
 
+    const dailyLimit = (() => {
+        const raw = process.env.AI_DAILY_REQUESTS_PER_USER;
+        if (raw === undefined || raw.trim() === "") return 100;
+        const value = Number(raw);
+        return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100;
+    })();
+
+    const aiRelay = createAiRelay({
+        pbBaseUrl: `http://127.0.0.1:${httpPort}`,
+        apiKey: process.env.OPENCODE_API_KEY ?? "",
+        model: process.env.OPENCODE_MODEL?.trim() || "deepseek-v4.1-flash",
+        dailyLimit,
+    });
+
     const serve = () =>
         Bun.serve({
-            port: DEPLOY_PORT,
+            port: supervisorPort,
             hostname: deployBind,
+            // Bun defaults to 10s. SSE can pause longer between chunks, and
+            // closing the socket would look like a failed answer.
+            idleTimeout: 120,
             async fetch(req) {
                 const url = new URL(req.url);
                 const pathname = url.pathname;
+
+                const ai = await aiRelay(req);
+                if (ai) return ai;
+
+                // No deploy secret: deploy endpoints stay off, but the AI
+                // relay above keeps serving (it authenticates PB users).
+                if (!deployToken())
+                    return new Response("not found", { status: 404 });
                 if (!DEPLOY_PATHS.includes(pathname))
                     return new Response("not found", { status: 404 });
                 if (req.method !== "POST")
@@ -1038,20 +1105,22 @@ function startDeployEndpoint() {
         });
 
     // Retry binding briefly: during a health-verified respawn the old process
-    // still owns :9001 for a moment until it exits.
+    // still owns the port for a moment until it exits.
     let tries = 0;
     const bind = () => {
         try {
             serve();
             console.log(
-                `deploy endpoint listening on ${deployBind}:${DEPLOY_PORT}`,
+                `AI relay + deploy endpoint listening on ${deployBind}:${supervisorPort} ` +
+                    `(AI key ${process.env.OPENCODE_API_KEY?.trim() ? "configured" : "missing"}; ` +
+                    `deploy ${deployToken() ? "armed" : "disabled"})`,
             );
         } catch (err) {
             if (++tries <= 20) {
-                console.warn(`deploy port busy, retry ${tries}/20...`);
+                console.warn(`supervisor port busy, retry ${tries}/20...`);
                 setTimeout(bind, 500);
             } else {
-                console.error("could not bind deploy endpoint:", err);
+                console.error("could not bind supervisor HTTP server:", err);
             }
         }
     };
@@ -1078,4 +1147,4 @@ if (isProd) {
 }
 writeLock();
 spawnPB();
-startDeployEndpoint();
+startHttpServer();

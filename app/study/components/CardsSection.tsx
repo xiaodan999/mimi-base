@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "@/app/ai/AiContext";
 import AiPanel from "@/app/ai/AiPanel";
 import { CARD_CHIPS, explainCardMessages } from "@/app/ai/prompts";
 
@@ -197,7 +196,6 @@ export default function CardsSection({
     focusCard?: string;
 }) {
     const { subject, progress, update } = useStudy();
-    const { configured, openSettings } = useAi();
     const [drill, setDrill] = useState<QuizItem[] | null>(null);
     const [explainId, setExplainId] = useState<string | null>(null);
 
@@ -224,11 +222,6 @@ export default function CardsSection({
     );
 
     const openExplain = (card: Card) => {
-        if (!configured) {
-            openSettings();
-            toast("先配置一下 AI Key");
-            return;
-        }
         setExplainId(card.id);
     };
 

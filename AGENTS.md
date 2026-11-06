@@ -269,22 +269,24 @@ before your first commit.
   and vision (`visionMessage` + `imageToDataUrl` in `image.ts`, which downsizes
   to 1024px JPEG). Prompts are split by domain (`expense.ts`, `posts.ts`,
   `home.ts`, `study.ts`, `report.ts`); the study prompt helpers stay in
-  `prompts.ts`. Settings (base URL / model / key) are stored only in
-  `localStorage` (`mimi:ai:v1`, with a legacy `mimi-study:ai:v1` fallback) and
-  sent directly to the provider; never send the key to PocketBase. Generated
-  content is cached under `mimi:ai-cache:v1:*` (legacy reads still work). The
-  provider must allow browser CORS
-  (DeepSeek / OpenRouter / SiliconFlow / Moonshot do; OpenAI official and
-  OpenCode Go official do not). OpenCode Go also needs `x-opencode-session`;
-  the client adds it automatically. `pocketbase/pb_hooks/ai_proxy.pb.js`
-  exposes a stateless OpenCode Go relay at
-  `/api/ai/opencode/v1/chat/completions`; the key is forwarded per request and
-  never stored. OpenCode Go always uses that relay (there is no direct preset
-  because the official endpoint blocks browser CORS), and `AiProvider`
-  migrates settings saved with the old direct URL on load. In dev, `server.ts`
-  adds `opencode.ai` to the PB child's
-  `NO_PROXY` because WSL proxy envs often can't reach it; prod keeps the
-  server's network config untouched.
+  `prompts.ts`.
+
+    The site owns the only AI key; by design there is no BYOK path. The Bun
+    supervisor (`pocketbase/server.ts`) mounts `pocketbase/ai-relay.ts` at
+    `/ai/opencode/v1/chat/completions`, authenticates the caller's PocketBase
+    token via `auth-refresh`, and streams the upstream SSE body back unchanged.
+    `OPENCODE_API_KEY` / `OPENCODE_MODEL` / `AI_DAILY_REQUESTS_PER_USER` come
+    from `.env.prod` (dev: `.env`); the key never reaches the browser,
+    PocketBase, or the logs, and `client.ts` only sends the PB token plus
+    `x-opencode-session`. Only notification/local-budget prefs live in
+    `localStorage` (`mimi:ai:v1`, legacy fallback); old saved API keys are
+    scrubbed on load. Generated content is cached under `mimi:ai-cache:v1:*`
+    keyed by `AI_MODEL` (`constants.ts`). Dev: `dev:all` picks a free
+    `SUPERVISOR_PORT` and Vite proxies `/ai` to it; the supervisor keeps
+    `opencode.ai` out of the dev proxy env. Prod: the reverse proxy must route
+    `/ai/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too), and
+    the Vercel build derives the relay from `VITE_POCKETBASE_URL`.
+
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use
   `runTask({ key, group, cacheKey, title, run })` and let the store own the
@@ -298,7 +300,7 @@ before your first commit.
   becomes unreachable. System notifications are opt-in via
   `AiSettings.notify` and only fire while the page is hidden. This is
   client-side background: reloading or fully closing the app still stops
-  in-flight requests, because the key only lives in `localStorage`.
+  in-flight requests, because the task store lives in memory.
 - AI entry points: 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天,
   问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),

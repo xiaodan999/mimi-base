@@ -6,13 +6,14 @@ everything lives inside the repo clone:
 ```
 <mimi>/                          # wherever you clone it = the whole deployment
 ├── .env.prod                    # gitignored: SUPERUSER_*, DEPLOY_TOKEN,
-│                                #   PB_HTTP (chmod 600)
+│                                #   PB_HTTP, OPENCODE_API_KEY (chmod 600)
 ├── mimi-db.log                  # gitignored runtime log
 ├── scripts/server-setup.sh      # one-command server setup (idempotent)
 └── pocketbase/                  # this dir:
     ├── server.ts                # supervisor: spawns the pinned PB binary and
-    │                            #   serves the token-protected /db/sync deploy
-    │                            #   endpoint on :9001
+    │                            #   serves the AI relay + token-protected
+    │                            #   deploy endpoints on :9001
+    ├── ai-relay.ts              # streaming /ai relay using the site key
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
     ├── pb_hooks/                # JSVM hooks (post like/comment counters)
     ├── pb_data/                 # live data (gitignored — SQLite + uploaded files)
@@ -40,7 +41,13 @@ current platform. On Windows the zip is extracted with the bundled `tar`.
 Set `PB_PORT` to run the database on another port (e.g. `PB_PORT=8091`), and
 `VITE_PORT` for the frontend. Each worktree has its own `pb_data/`, so two
 checkouts can run side by side; `dev:all` points the frontend at the PB it
-started. In the split flow, keep `VITE_POCKETBASE_URL` in `.env` in sync.
+started. It also picks a free `SUPERVISOR_PORT` (near 9001) for the AI relay
+and points Vite's `/ai` proxy at it. In the split flow, keep
+`VITE_POCKETBASE_URL` in `.env` in sync.
+
+For AI, put `OPENCODE_API_KEY` in `.env` (never commit it). The relay is part
+of `server.ts`, so it starts with `bun run db`; without a key the health route
+still works and chat answers 503.
 
 Admin UI: http://127.0.0.1:8090/_/
 
@@ -65,9 +72,43 @@ first for that — then also update the GitHub `DEPLOY_TOKEN` secret and
 restart PB).
 
 Exposing the API to the internet (reverse proxy + TLS) is a separate
-concern; the only requirement is that `/api/*`, `/db/sync` (and `/spa/*`
-when self-hosting the frontend) are reachable by your apps and the deploy
-pipeline.
+concern; the requirements are that `/api/*`, `/ai/*`, `/db/sync` (and
+`/spa/*` when self-hosting the frontend) are reachable by your apps and the
+deploy pipeline.
+
+## AI relay
+
+The browser never holds an API key. It calls
+`POST /ai/opencode/v1/chat/completions` with its PocketBase user token, and
+the Bun supervisor forwards the request to OpenCode Go with the server key,
+piping the SSE response back as it arrives. `GET /ai/health` reports
+`{ ok, keyConfigured, model }`.
+
+- **Key**: `OPENCODE_API_KEY` in `.env.prod` (prod) or `.env` (dev). It is
+  never sent to PocketBase, returned to the client, or logged.
+- **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The relay
+  overwrites whatever model the client sends.
+- **Quota**: `AI_DAILY_REQUESTS_PER_USER` (default 100, `0` = unlimited),
+  plus 20 requests/minute/user. Both are in-memory and reset on restart.
+- **Port**: `SUPERVISOR_PORT` overrides :9001 (dev:all chooses a free one;
+  leave it unset in prod).
+- **Proxy**: route `/ai/*` to the supervisor and disable response buffering,
+  or the stream arrives as one chunk:
+
+    ```nginx
+    location /ai/ {
+        proxy_pass http://127.0.0.1:9001;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+    }
+    ```
+
+    Caddy equivalent: `reverse_proxy 127.0.0.1:9001 { flush_interval -1 }`.
+
+The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/ai/...`, so the
+PB host's reverse proxy must expose `/ai/*` as well.
 
 ## Deploys
 
@@ -108,9 +149,10 @@ Nothing has to be switched off.
 - **No restart**: PocketBase reads `publicDir` on every request, so a
   frontend deploy never bounces the API. `POST /spa/rollback` swaps back
   to `build.old`; calling it again swaps forward.
-- **Reverse proxy**: route `/spa/*` to :9001 next to `/db/sync`, give
-  `/assets/*` a long immutable cache and `/`, `/index.html`, `/sw.js`,
-  `/manifest.json` `no-cache` (PB sends no `Cache-Control` of its own).
+- **Reverse proxy**: route `/ai/*`, `/spa/*` and `/repo/*` to :9001 next to
+  `/db/sync` (with buffering off for `/ai/`), give `/assets/*` a long
+  immutable cache and `/`, `/index.html`, `/sw.js`, `/manifest.json`
+  `no-cache` (PB sends no `Cache-Control` of its own).
 - `build/`, `build.next/` and `build.old/` are gitignored; they are not
   part of `pb_data` snapshots.
 - `PB_PUBLIC_DIR` overrides the served directory; `DEPLOY_BIND` pins the
@@ -123,8 +165,9 @@ Nothing has to be switched off.
   auto-starts PB; run from the clone root):
   `nohup bun pocketbase/server.ts >> mimi-db.log 2>&1 &`
 - **Secrets**: `.env.prod` in the clone root — generated on the box, never
-  committed anywhere. `PB_HTTP` in the same file sets the address
-  PocketBase binds (e.g. `0.0.0.0:8090`).
+  committed anywhere. `PB_HTTP` sets the address PocketBase binds (e.g.
+  `0.0.0.0:8090`); `OPENCODE_API_KEY` is the site AI key. After editing the
+  file, restart the supervisor so the relay picks it up.
 - **Uninstall**:
     ```bash
     pkill -f 'pocketbase/server.ts'; pkill -f 'pocketbase serve'

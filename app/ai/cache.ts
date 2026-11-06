@@ -3,13 +3,13 @@
  * 只写 localStorage，不同步到云端；换设备会重新生成。
  *
  * 每条缓存是一个带版本 / 模型 / 提示词版本 / 过期时间的信封，读的时候用
- * zod 校验；换模型、改提示词、保存设置都会让它失效。key 用 SHA-256 生成，
+ * zod 校验；换模型或改提示词都会让它失效。key 用 SHA-256 生成，
  * 不再用那个容易碰撞的 32 位 hash*31。
  */
 
 import { z } from "zod";
 
-import { AI_SETTINGS_KEY, LEGACY_SETTINGS_KEY } from "./constants";
+import { AI_MODEL } from "./constants";
 import { PROMPT_VERSION } from "./prompt-base";
 
 const PREFIX = "mimi:ai-cache:v1:";
@@ -28,21 +28,6 @@ const envelopeSchema = z.object({
 
 type CacheEnvelope = z.infer<typeof envelopeSchema>;
 
-/** 直接读设置 JSON，避免 cache -> config 形成循环依赖。 */
-function currentModel(): string {
-    if (typeof window === "undefined") return "";
-    try {
-        const raw =
-            localStorage.getItem(AI_SETTINGS_KEY) ??
-            localStorage.getItem(LEGACY_SETTINGS_KEY);
-        if (!raw) return "";
-        const parsed = JSON.parse(raw) as { model?: string };
-        return typeof parsed.model === "string" ? parsed.model.trim() : "";
-    } catch {
-        return "";
-    }
-}
-
 export function readAiCache<T>(key: string): T | null {
     if (typeof window === "undefined") return null;
     try {
@@ -55,7 +40,7 @@ export function readAiCache<T>(key: string): T | null {
         if (!parsed.success) return null;
         const env = parsed.data;
         // 换模型、改提示词都让旧结果失效。
-        if (env.model !== currentModel()) return null;
+        if (env.model !== AI_MODEL) return null;
         if (env.promptVersion !== PROMPT_VERSION) return null;
         if (Date.now() - env.createdAt > env.ttl) {
             removeAiCache(key);
@@ -78,7 +63,7 @@ export function writeAiCache<T>(
     try {
         const env: CacheEnvelope = {
             v: CACHE_VERSION,
-            model: currentModel(),
+            model: AI_MODEL,
             promptVersion: PROMPT_VERSION,
             createdAt: Date.now(),
             ttl: options?.ttlMs ?? DEFAULT_TTL_MS,

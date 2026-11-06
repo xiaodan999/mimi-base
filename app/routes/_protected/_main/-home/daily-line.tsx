@@ -29,7 +29,7 @@ export default function DailyLine({
     streak: number;
 }) {
     const user = useCurrentUser();
-    const { settings, configured } = useAi();
+    const { settings } = useAi();
     const { runTask, find, getResult, attend } = useAiTasks();
     const [line, setLine] = useState("");
 
@@ -46,10 +46,6 @@ export default function DailyLine({
     const group = `daily:${user.id}`;
 
     useEffect(() => {
-        if (!configured) {
-            setLine("");
-            return;
-        }
         const decision = decideAiRestore<string>({
             task: find(key),
             result: getResult<string>(key),
@@ -95,7 +91,7 @@ export default function DailyLine({
                 // 生成失败就保持默认文案
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, configured, settings, stats, greeting, streak]);
+    }, [key, settings, stats, greeting, streak]);
 
     // 卡片在首页上时，完成通知是多余的
     useEffect(() => {

@@ -38,7 +38,7 @@ export default function EditExpenseSheet({
     item: JiZhangItemData;
     onClose: () => void;
 }) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, attend, tasks } = useAiTasks();
     const { categories, getCategory } = useExpenseCategories();
     const update = useUpdateJiZhang();
@@ -97,11 +97,6 @@ export default function EditExpenseSheet({
     }, [attend]);
 
     const guess = async () => {
-        if (!configured) {
-            openSettings();
-            return;
-        }
-
         setGuessing(true);
         setHint("");
         try {

@@ -103,7 +103,7 @@ export default function AiCategoryFix({
     open: boolean;
     onClose: () => void;
 }) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, attend, find, getResult, tasks } = useAiTasks();
     const user = useCurrentUser();
     const queryClient = useQueryClient();
@@ -191,10 +191,6 @@ export default function AiCategoryFix({
     };
 
     const guess = async () => {
-        if (!configured) {
-            openSettings();
-            return;
-        }
         if (rows.length === 0) return;
 
         setGuessing(true);

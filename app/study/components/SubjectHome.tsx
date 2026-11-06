@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
 import AiCoachCard from "@/app/ai/AiCoachCard";
-import { useAi } from "@/app/ai/AiContext";
 import AiPanel from "@/app/ai/AiPanel";
 import { WEEKLY_CHIPS, weekKey, weeklyMessages } from "@/app/ai/prompts";
 import { sprintPlanMessages } from "@/app/ai/study";
@@ -16,11 +15,9 @@ import {
     streakDays,
 } from "../engine";
 import { starText } from "../lib";
-import { toast } from "../toast";
 
 export default function SubjectHome() {
     const { subject, progress } = useStudy();
-    const { configured, openSettings } = useAi();
     const [weeklyOpen, setWeeklyOpen] = useState(false);
     const [sprintOpen, setSprintOpen] = useState(false);
     const cards = cardStats(subject, progress);
@@ -111,11 +108,6 @@ export default function SubjectHome() {
                     <button
                         className="st-btn sm line"
                         onClick={() => {
-                            if (!configured) {
-                                openSettings();
-                                toast("先配置一下 AI Key");
-                                return;
-                            }
                             setWeeklyOpen(true);
                         }}
                     >
@@ -216,11 +208,6 @@ export default function SubjectHome() {
                     <button
                         className="st-btn sm line"
                         onClick={() => {
-                            if (!configured) {
-                                openSettings();
-                                toast("先配置一下 AI Key");
-                                return;
-                            }
                             setSprintOpen(true);
                         }}
                     >

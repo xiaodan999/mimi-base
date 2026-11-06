@@ -11,9 +11,6 @@ import {
 } from "./usage";
 
 const settings: AiSettings = {
-    baseUrl: "https://api.example.com/v1",
-    apiKey: "sk-test",
-    model: "deepseek-chat",
     notify: false,
     dailyBudgetUsd: 0,
 };

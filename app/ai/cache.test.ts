@@ -11,17 +11,8 @@ import {
     sha256Sync,
     writeAiCache,
 } from "./cache";
-import { writeAiSettings, type AiSettings } from "./config";
-import { AI_SETTINGS_KEY } from "./constants";
+import { AI_MODEL } from "./constants";
 import { PROMPT_VERSION } from "./prompt-base";
-
-const baseSettings: AiSettings = {
-    baseUrl: "https://api.example.com/v1",
-    apiKey: "sk-test",
-    model: "deepseek-chat",
-    notify: false,
-    dailyBudgetUsd: 0,
-};
 
 let store: Map<string, string>;
 
@@ -38,7 +29,6 @@ beforeEach(() => {
             return store.size;
         },
     };
-    store.set(AI_SETTINGS_KEY, JSON.stringify(baseSettings));
 });
 
 describe("缓存信封", () => {
@@ -48,7 +38,7 @@ describe("缓存信封", () => {
         expect(raw).toBeDefined();
         const env = JSON.parse(raw!);
         expect(env.v).toBe(1);
-        expect(env.model).toBe("deepseek-chat");
+        expect(env.model).toBe(AI_MODEL);
         expect(env.promptVersion).toBe(PROMPT_VERSION);
         expect(env.ttl).toBeGreaterThan(0);
         expect(env.createdAt).toBeGreaterThan(0);
@@ -66,12 +56,11 @@ describe("缓存信封", () => {
         expect(store.has("mimi:ai-cache:v1:expired")).toBe(false);
     });
 
-    test("换模型后旧缓存作废（model 归属）", () => {
+    test("信封里的模型和当前 AI_MODEL 不一致时作废", () => {
         writeAiCache("k", "v1");
-        store.set(
-            AI_SETTINGS_KEY,
-            JSON.stringify({ ...baseSettings, model: "another-model" }),
-        );
+        const env = JSON.parse(store.get("mimi:ai-cache:v1:k")!);
+        env.model = "another-model";
+        store.set("mimi:ai-cache:v1:k", JSON.stringify(env));
         expect(readAiCache("k")).toBeNull();
     });
 
@@ -80,13 +69,6 @@ describe("缓存信封", () => {
         const env = JSON.parse(store.get("mimi:ai-cache:v1:k")!);
         env.promptVersion = "old";
         store.set("mimi:ai-cache:v1:k", JSON.stringify(env));
-        expect(readAiCache("k")).toBeNull();
-    });
-
-    test("保存设置会让旧缓存失效", () => {
-        writeAiCache("k", "v1");
-        expect(readAiCache("k")).toBe("v1");
-        writeAiSettings({ ...baseSettings, model: "new-model" });
         expect(readAiCache("k")).toBeNull();
     });
 

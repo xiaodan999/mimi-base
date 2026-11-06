@@ -54,6 +54,8 @@ function fileEnv(): Record<string, string> {
 const env = fileEnv();
 const requestedVitePort =
     Number(process.env.VITE_PORT ?? env.VITE_PORT) || 3000;
+const requestedSupervisorPort =
+    Number(process.env.SUPERVISOR_PORT ?? env.SUPERVISOR_PORT) || 9001;
 let pbPort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
 
 function portFree(port: number, host = "0.0.0.0"): Promise<boolean> {
@@ -107,16 +109,28 @@ async function waitFor(
  */
 const pbLock = path.join(repo, "pocketbase", "pb_data", ".dev-server.json");
 
-function readPbLock(): { pid: number; port: number } | null {
+function readPbLock(): {
+    pid: number;
+    port: number;
+    supervisorPort?: number;
+} | null {
     try {
         const parsed = JSON.parse(readFileSync(pbLock, "utf8")) as {
             pid?: unknown;
             port?: unknown;
+            supervisorPort?: unknown;
         };
         if (typeof parsed.pid !== "number" || typeof parsed.port !== "number") {
             return null;
         }
-        return { pid: parsed.pid, port: parsed.port };
+        return {
+            pid: parsed.pid,
+            port: parsed.port,
+            supervisorPort:
+                typeof parsed.supervisorPort === "number"
+                    ? parsed.supervisorPort
+                    : undefined,
+        };
     } catch {
         return null;
     }
@@ -160,6 +174,29 @@ async function resolvePbPort(): Promise<{ port: number; reuse: boolean }> {
         log(`port ${port} is busy; trying ${port + 1} for PocketBase`);
     }
     fail(`no free port near ${pbPort} for PocketBase`);
+}
+
+async function pickSupervisorPort(): Promise<number> {
+    for (
+        let port = requestedSupervisorPort;
+        port < requestedSupervisorPort + 20;
+        port++
+    ) {
+        if (await portFree(port, "127.0.0.1")) return port;
+        log(`port ${port} is busy; trying ${port + 1} for the AI relay`);
+    }
+    fail(`no free port near ${requestedSupervisorPort} for the AI relay`);
+}
+
+async function relayHealthy(port: number): Promise<boolean> {
+    try {
+        const res = await fetch(`http://127.0.0.1:${port}/ai/health`, {
+            signal: AbortSignal.timeout(1500),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
 }
 
 function localAddresses(): string[] {
@@ -307,13 +344,32 @@ process.on("exit", cleanup);
 const { port: resolvedPbPort, reuse } = await resolvePbPort();
 pbPort = resolvedPbPort;
 
+let supervisorPort: number;
 if (reuse) {
-    log(`reusing this worktree's PocketBase on :${pbPort}`);
+    const lock = readPbLock();
+    if (lock?.supervisorPort) {
+        supervisorPort = lock.supervisorPort;
+        log(
+            `reusing this worktree's PocketBase on :${pbPort} and AI relay on :${supervisorPort}`,
+        );
+        if (!(await relayHealthy(supervisorPort))) {
+            log(
+                `AI relay on :${supervisorPort} is not responding; restart dev:all to enable streaming AI`,
+            );
+        }
+    } else {
+        supervisorPort = await pickSupervisorPort();
+        log(
+            "reused PocketBase has no AI relay; restart dev:all to enable streaming AI",
+        );
+    }
 } else {
+    supervisorPort = await pickSupervisorPort();
     log(`starting PocketBase on 127.0.0.1:${pbPort}`);
     const pbEnv: Record<string, string | undefined> = {
         ...process.env,
         PB_PORT: String(pbPort),
+        SUPERVISOR_PORT: String(supervisorPort),
     };
     delete pbEnv.PB_HTTP;
     const pb = spawn(
@@ -327,7 +383,7 @@ if (reuse) {
 
 const vitePort = await pickVitePort();
 log(
-    `starting Vite on 0.0.0.0:${vitePort} (API via /api -> 127.0.0.1:${pbPort})`,
+    `starting Vite on 0.0.0.0:${vitePort} (API via /api -> 127.0.0.1:${pbPort}, AI via /ai -> 127.0.0.1:${supervisorPort})`,
 );
 const vite = spawn(process.execPath, ["run", "dev"], {
     cwd: repo,
@@ -336,6 +392,7 @@ const vite = spawn(process.execPath, ["run", "dev"], {
         ...process.env,
         VITE_PORT: String(vitePort),
         PB_PORT: String(pbPort),
+        SUPERVISOR_PORT: String(supervisorPort),
         VITE_POCKETBASE_URL: "same-origin",
     },
 });

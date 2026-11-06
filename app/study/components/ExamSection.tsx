@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "@/app/ai/AiContext";
 import AiGradeSheet from "@/app/ai/AiGradeSheet";
 
 import { useStudy } from "./StudyContext";
@@ -18,12 +17,10 @@ import {
     type ExamResult,
 } from "../engine";
 import { gameForModule } from "../games/registry";
-import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
 
 export default function ExamSection() {
     const { subject, progress, update } = useStudy();
-    const { configured, openSettings } = useAi();
     const [preset, setPreset] = useState<ExamPreset | null>(null);
     const [items, setItems] = useState<QuizItem[]>([]);
     const [answers, setAnswers] = useState<Answer[]>([]);
@@ -390,11 +387,6 @@ export default function ExamSection() {
                                 <button
                                     className="st-btn sm ghost mt-2"
                                     onClick={() => {
-                                        if (!configured) {
-                                            openSettings();
-                                            toast("先配置一下 AI Key");
-                                            return;
-                                        }
                                         setGradeTarget({
                                             item,
                                             answer: answers[i],

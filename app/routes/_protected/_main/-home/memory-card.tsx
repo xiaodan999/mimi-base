@@ -16,7 +16,7 @@ import { useOnThisDay, type MemoryPost } from "../-home-data";
 
 export default function MemoryCard() {
     const user = useCurrentUser();
-    const { settings, configured } = useAi();
+    const { settings } = useAi();
     const { runTask, find, getResult, attend } = useAiTasks();
     const { data } = useOnThisDay();
     const [line, setLine] = useState("");
@@ -33,7 +33,7 @@ export default function MemoryCard() {
     const group = `memory:${user.id}`;
 
     useEffect(() => {
-        if (!configured || !key || !data?.length) {
+        if (!key || !data?.length) {
             setLine("");
             return;
         }
@@ -82,7 +82,7 @@ export default function MemoryCard() {
                 // 回忆卡没有旁白也能用
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [configured, key, settings, data]);
+    }, [key, settings, data]);
 
     useEffect(() => {
         return attend(group);

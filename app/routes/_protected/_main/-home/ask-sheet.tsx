@@ -124,7 +124,7 @@ export default function AskSheet({
     onClose: () => void;
     streak: number;
 }) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, cancel, attend, find, getResult, tasks } = useAiTasks();
     const user = useCurrentUser();
     const [question, setQuestion] = useState("");
@@ -178,10 +178,6 @@ export default function AskSheet({
     const ask = async (preset?: string) => {
         const value = (preset ?? question).trim();
         if (!value) return;
-        if (!configured) {
-            openSettings();
-            return;
-        }
 
         const key = `${group}:${hashText(value)}`;
         if (activeKeyRef.current && activeKeyRef.current !== key) {

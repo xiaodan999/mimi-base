@@ -29,7 +29,7 @@ export default function StudyShell({
     children: ReactNode;
 }) {
     const { saving, error, offline } = useStudy();
-    const { configured, openSettings } = useAi();
+    const { openSettings } = useAi();
     const { pathname } = useLocation();
     const base = `/study/${subject.id}`;
 
@@ -77,9 +77,6 @@ export default function StudyShell({
                     aria-label="AI 设置"
                 >
                     <Settings2 className="size-4" />
-                    {!configured && (
-                        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-amber-500" />
-                    )}
                 </button>
             </header>
 

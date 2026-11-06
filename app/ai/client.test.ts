@@ -12,12 +12,11 @@ import {
     type AiMessage,
 } from "./client";
 import type { AiSettings } from "./config";
+import { setAiRelayBaseUrlProvider } from "./endpoint";
+import { setAiAuthTokenProvider } from "./pb-token";
 import { recordUsage } from "./usage";
 
 const settings: AiSettings = {
-    baseUrl: "https://api.example.com/v1",
-    apiKey: "sk-test",
-    model: "deepseek-chat",
     notify: false,
     dailyBudgetUsd: 0,
 };
@@ -68,6 +67,8 @@ let calls: { url: string; init?: RequestInit }[] = [];
 beforeEach(() => {
     calls = [];
     installStorage();
+    setAiRelayBaseUrlProvider(() => "https://mimi.example.com/ai/opencode/v1");
+    setAiAuthTokenProvider(() => "pb-token");
     globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
         calls.push({ url: String(url), init });
         return handler(String(url), init);
@@ -135,6 +136,22 @@ describe("parseRetryAfter", () => {
 });
 
 describe("chatText / streamChat", () => {
+    test("只发 PB 令牌到 /ai 中转，不携带任何用户 Key", async () => {
+        handler = async () => jsonResponse(chatBody("ok"));
+        await chatText(settings, messages);
+
+        expect(calls[0].url).toBe(
+            "https://mimi.example.com/ai/opencode/v1/chat/completions",
+        );
+        const headers = new Headers(calls[0].init?.headers);
+        expect(headers.get("authorization")).toBe("pb-token");
+        expect(headers.has("x-opencode-key")).toBe(false);
+        const body = JSON.parse(String(calls[0].init?.body)) as {
+            model?: string;
+        };
+        expect(body.model).toBe("deepseek-v4.1-flash");
+    });
+
     test("非流式返回正文并带上 usage 统计", async () => {
         handler = async () => jsonResponse(chatBody(" 写好了 "));
         const text = await chatText(settings, messages);

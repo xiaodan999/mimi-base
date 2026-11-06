@@ -1,21 +1,11 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
 
 import { toast } from "@/app/study/toast";
-import pb from "@/lib/pb";
 
 import AiSheet from "./AiSheet";
 import { clearAiCache } from "./cache";
 import { aiErrorText, testAiConnection } from "./client";
-import {
-    AI_PRESETS,
-    CUSTOM_PRESET_ID,
-    discoverModels,
-    matchPreset,
-    openCodeRelayBaseUrl,
-    type AiPreset,
-    type AiSettings,
-} from "./config";
+import type { AiSettings } from "./config";
 import { notificationsSupported, requestSystemNotifications } from "./notify";
 import { formatUsd, readDailyUsage } from "./usage";
 
@@ -26,12 +16,6 @@ type Props = {
     onSave: (settings: AiSettings) => void;
 };
 
-/** PocketBase 中转的地址依赖当前部署，选中预设时再填进去 */
-function presetBaseUrl(preset: AiPreset): string {
-    if (preset.id !== "opencode-go-pb") return preset.baseUrl;
-    return openCodeRelayBaseUrl(pb.baseUrl);
-}
-
 export default function AiSettingsSheet({
     open,
     settings,
@@ -39,26 +23,17 @@ export default function AiSettingsSheet({
     onSave,
 }: Props) {
     const [draft, setDraft] = useState(settings);
-    const [presetId, setPresetId] = useState(() =>
-        matchPreset(settings, presetBaseUrl),
-    );
-    const [showKey, setShowKey] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<{
         ok: boolean;
         text: string;
     } | null>(null);
-    const [models, setModels] = useState<string[]>([]);
-    const [discovering, setDiscovering] = useState(false);
     const [usage, setUsage] = useState(() => readDailyUsage());
 
     useEffect(() => {
         if (!open) return;
         setDraft(settings);
-        setPresetId(matchPreset(settings, presetBaseUrl));
-        setShowKey(false);
         setTestResult(null);
-        setModels([]);
         setUsage(readDailyUsage());
     }, [open, settings]);
 
@@ -84,55 +59,11 @@ export default function AiSettingsSheet({
         patchDraft({ notify: true });
     };
 
-    const pickPreset = (id: string) => {
-        setPresetId(id);
-        setTestResult(null);
-        const preset = AI_PRESETS.find((item) => item.id === id);
-        if (preset) {
-            setDraft((prev) => ({
-                ...prev,
-                baseUrl: presetBaseUrl(preset),
-                model: preset.model,
-            }));
-        }
-    };
-
-    const discover = async () => {
-        if (!draft.baseUrl.trim() || !draft.apiKey.trim()) {
-            toast("先填好 Base URL 和 Key 再拉模型");
-            return;
-        }
-        setDiscovering(true);
-        try {
-            const list = await discoverModels(draft);
-            setModels(list);
-            toast(
-                list.length > 0
-                    ? `发现 ${list.length} 个模型`
-                    : "这个服务商没返回模型列表，手动填也行",
-            );
-        } finally {
-            setDiscovering(false);
-        }
-    };
-
     const test = async () => {
-        if (
-            !draft.baseUrl.trim() ||
-            !draft.model.trim() ||
-            !draft.apiKey.trim()
-        ) {
-            setTestResult({
-                ok: false,
-                text: "地址、模型和 Key 都要填完",
-            });
-            toast("先把地址、模型和 Key 填完");
-            return;
-        }
         setTesting(true);
         setTestResult(null);
         try {
-            await testAiConnection(draft);
+            await testAiConnection();
             setTestResult({ ok: true, text: "连接成功，可以用了" });
             toast("连接成功，可以用了");
         } catch (error) {
@@ -146,27 +77,11 @@ export default function AiSettingsSheet({
     };
 
     const save = () => {
-        if (
-            !draft.baseUrl.trim() ||
-            !draft.model.trim() ||
-            !draft.apiKey.trim()
-        ) {
-            toast("地址、模型、Key 都要填");
-            return;
-        }
         onSave({
-            baseUrl: draft.baseUrl.trim(),
-            model: draft.model.trim(),
-            apiKey: draft.apiKey.trim(),
             notify: draft.notify,
-            dailyBudgetUsd: draft.dailyBudgetUsd,
+            dailyBudgetUsd: Math.max(0, Number(draft.dailyBudgetUsd) || 0),
         });
         toast("AI 设置已保存（只在这台设备）");
-    };
-
-    const clearKey = () => {
-        onSave({ ...draft, apiKey: "" });
-        toast("已清除本机保存的 Key");
     };
 
     return (
@@ -174,127 +89,16 @@ export default function AiSettingsSheet({
             open={open}
             onClose={onClose}
             title="AI 设置"
-            subtitle="Key 只保存在本机浏览器，不会上传到服务器"
+            subtitle="AI 由本站提供，登录即可使用，不需要填 Key"
             zIndex={90}
         >
             {/* 这里用学习页的 st-* 控件，作用域放在内容上，别套到整个抽屉上：
                  `.study-root :where(button)` 会把 shadcn 按钮的背景和边框清掉。 */}
             <div className="study-root space-y-4">
-                <div>
-                    <div className="st-tiny mb-1 font-bold">服务商</div>
-                    <select
-                        className="st-input"
-                        value={presetId}
-                        onChange={(event) => pickPreset(event.target.value)}
-                    >
-                        {AI_PRESETS.map((preset) => (
-                            <option key={preset.id} value={preset.id}>
-                                {preset.name}
-                            </option>
-                        ))}
-                        <option value={CUSTOM_PRESET_ID}>自定义</option>
-                    </select>
-                    {presetId !== CUSTOM_PRESET_ID && (
-                        <div className="st-tiny mt-1">
-                            {
-                                AI_PRESETS.find(
-                                    (preset) => preset.id === presetId,
-                                )?.note
-                            }
-                        </div>
-                    )}
+                <div className="st-tiny rounded-xl bg-muted/40 px-3 py-2">
+                    模型和 API Key 都由站点统一配置。这里只保留通知和本机预算，
+                    不需要也不支持填写自己的 Key。
                 </div>
-
-                <label className="block">
-                    <div className="st-tiny mb-1 font-bold">Base URL</div>
-                    <input
-                        className="st-input"
-                        value={draft.baseUrl}
-                        onChange={(event) =>
-                            patchDraft({ baseUrl: event.target.value })
-                        }
-                        placeholder="https://api.deepseek.com/v1"
-                        autoComplete="off"
-                        spellCheck={false}
-                    />
-                    <div className="st-tiny mt-1">
-                        一般以 /v1 结尾；会自动补上 /chat/completions。
-                    </div>
-                </label>
-
-                <label className="block">
-                    <div className="st-tiny mb-1 font-bold">模型</div>
-                    <input
-                        className="st-input"
-                        value={draft.model}
-                        onChange={(event) =>
-                            patchDraft({ model: event.target.value })
-                        }
-                        placeholder="deepseek-chat"
-                        autoComplete="off"
-                        spellCheck={false}
-                    />
-                    <button
-                        type="button"
-                        className="st-tiny mt-1 inline-flex items-center gap-1 font-semibold text-primary underline"
-                        onClick={() => void discover()}
-                        disabled={discovering}
-                    >
-                        {discovering ? (
-                            <RefreshCw className="size-3 animate-spin" />
-                        ) : (
-                            <RefreshCw className="size-3" />
-                        )}
-                        从服务商拉取模型列表
-                    </button>
-                    {models.length > 0 && (
-                        <select
-                            className="st-input mt-1"
-                            value=""
-                            onChange={(event) =>
-                                patchDraft({ model: event.target.value })
-                            }
-                        >
-                            <option value="" disabled>
-                                选一个模型（{models.length} 个）
-                            </option>
-                            {models.map((model) => (
-                                <option key={model} value={model}>
-                                    {model}
-                                </option>
-                            ))}
-                        </select>
-                    )}
-                </label>
-
-                <label className="block">
-                    <div className="st-tiny mb-1 font-bold">API Key</div>
-                    <div className="relative">
-                        <input
-                            className="st-input pr-10"
-                            type={showKey ? "text" : "password"}
-                            value={draft.apiKey}
-                            onChange={(event) =>
-                                patchDraft({ apiKey: event.target.value })
-                            }
-                            placeholder="sk-..."
-                            autoComplete="off"
-                            spellCheck={false}
-                        />
-                        <button
-                            type="button"
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            onClick={() => setShowKey((value) => !value)}
-                            aria-label={showKey ? "隐藏 Key" : "显示 Key"}
-                        >
-                            {showKey ? (
-                                <EyeOff className="size-4" />
-                            ) : (
-                                <Eye className="size-4" />
-                            )}
-                        </button>
-                    </div>
-                </label>
 
                 <label className="block">
                     <div className="st-tiny mb-1 font-bold">
@@ -317,7 +121,8 @@ export default function AiSettingsSheet({
                         placeholder="0 = 不限制"
                     />
                     <div className="st-tiny mt-1">
-                        填 0 不限制；超过当天估算花费就暂停新的 AI 请求。
+                        填 0 不限制；超过当天估算花费就暂停这台设备的新请求。
+                        站点另有每日次数限制。
                     </div>
                 </label>
 
@@ -362,9 +167,6 @@ export default function AiSettingsSheet({
                     >
                         清空 AI 缓存
                     </button>
-                    <button className="st-btn sm ghost" onClick={clearKey}>
-                        <Trash2 className="size-4" /> 清除 Key
-                    </button>
                 </div>
 
                 {testResult && (
@@ -379,13 +181,6 @@ export default function AiSettingsSheet({
                         {testResult.text}
                     </div>
                 )}
-
-                <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] leading-6 text-amber-800">
-                    浏览器直连需要服务商允许跨域。DeepSeek、OpenRouter、硅基流动、Moonshot
-                    可以直连；OpenAI 官方和 OpenCode Go 官方地址不返回 CORS
-                    头。OpenCode Go 固定走「PocketBase 中转」，Key
-                    只在请求时经过你的服务器，不落库。
-                </div>
 
                 <button className="st-btn block" onClick={save}>
                     保存

@@ -54,6 +54,12 @@ if [ ! -f .env.prod ]; then
         # PB itself must listen on a host-reachable address for Caddy (and the
         # SPA/API); external access to :8090 is blocked by the cloud SG.
         echo "PB_HTTP=0.0.0.0:8090"
+        # Site AI (OpenCode Go). Fill this in after setup and restart the
+        # supervisor; until then AI features answer 503. The key never leaves
+        # the server and is not forwarded to PocketBase.
+        echo "OPENCODE_API_KEY="
+        echo "OPENCODE_MODEL=deepseek-v4.1-flash"
+        echo "AI_DAILY_REQUESTS_PER_USER=100"
     } > .env.prod
     chmod 600 .env.prod
 fi
@@ -95,6 +101,8 @@ echo "log:     $REPO/mimi-db.log"
 echo "secrets: $REPO/.env.prod (chmod 600) — read DEPLOY_TOKEN / SUPERUSER_PASSWORD there,"
 echo "         add DEPLOY_TOKEN as the GitHub 'Production' secret; never paste it to stdout/log"
 echo "health check: curl http://127.0.0.1:8090/api/health"
+echo "AI:          edit $REPO/.env.prod -> OPENCODE_API_KEY=... then restart the supervisor;"
+echo "             reverse proxy must send /ai/* to 127.0.0.1:9001 with buffering off"
 echo "restart:     cd $REPO && setsid nohup bun pocketbase/server.ts >> mimi-db.log 2>&1 < /dev/null &"
 echo "systemd:     none — the supervisor is started detached and is not restarted automatically"
 echo "frontend:    run the deploy-spa workflow once (Actions -> Run workflow);"

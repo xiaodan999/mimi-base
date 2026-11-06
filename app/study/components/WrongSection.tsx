@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "@/app/ai/AiContext";
 import AiPanel from "@/app/ai/AiPanel";
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
 import { hashText } from "@/app/ai/cache";
@@ -10,7 +9,6 @@ import { wrongOverviewMessages } from "@/app/ai/study";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
 import { gameForModule } from "../games/registry";
-import { toast } from "../toast";
 import type { QuizItem } from "../types";
 import AiDrillSheet from "./AiDrillSheet";
 import QuizRunner from "./QuizRunner";
@@ -18,7 +16,6 @@ import { useStudy } from "./StudyContext";
 
 export default function WrongSection() {
     const { subject, progress, update } = useStudy();
-    const { configured, openSettings } = useAi();
     const [session, setSession] = useState<{
         items: QuizItem[];
         track: boolean;
@@ -89,20 +86,10 @@ export default function WrongSection() {
     )}`;
 
     const openAnalysis = (item: QuizItem) => {
-        if (!configured) {
-            openSettings();
-            toast("先配置一下 AI Key");
-            return;
-        }
         setAnalysis(item);
     };
 
     const openVariant = (item: QuizItem) => {
-        if (!configured) {
-            openSettings();
-            toast("先配置一下 AI Key");
-            return;
-        }
         setVariantSource(item);
     };
 
@@ -154,11 +141,6 @@ export default function WrongSection() {
                 <button
                     className="st-btn sm line flex-1"
                     onClick={() => {
-                        if (!configured) {
-                            openSettings();
-                            toast("先配置一下 AI Key");
-                            return;
-                        }
                         setOverviewOpen(true);
                     }}
                 >
@@ -167,11 +149,6 @@ export default function WrongSection() {
                 <button
                     className="st-btn sm line flex-1"
                     onClick={() => {
-                        if (!configured) {
-                            openSettings();
-                            toast("先配置一下 AI Key");
-                            return;
-                        }
                         setDrillOpen(true);
                     }}
                 >

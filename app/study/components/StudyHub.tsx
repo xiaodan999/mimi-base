@@ -13,7 +13,7 @@ import ProgressRing from "./ProgressRing";
 
 export default function StudyHub() {
     const { data: summaries } = useStudySummaries();
-    const { configured, openSettings } = useAi();
+    const { openSettings } = useAi();
 
     return (
         <div className="study-root">
@@ -36,9 +36,6 @@ export default function StudyHub() {
                     aria-label="AI 设置"
                 >
                     <Settings2 className="size-4" />
-                    {!configured && (
-                        <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-amber-500" />
-                    )}
                 </button>
             </div>
 

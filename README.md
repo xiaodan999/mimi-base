@@ -222,13 +222,18 @@ VITE_POCKETBASE_URL=https://pb.example.com
 不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载时会直接
 抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
 
+**AI 由站点统一提供**：服务器在 `.env.prod` 里配置 `OPENCODE_API_KEY`（开发
+时放 `.env`），浏览器只带登录令牌访问 `/ai` 中转，不需要也不能填自己的 Key。
+反向代理必须把 `/ai/*` 转发到 `:9001` 并关闭响应缓冲（nginx
+`proxy_buffering off`），否则流式输出会退化成一次性返回。
+
 **两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
 是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`
 分开存放。因此：
 
-- `mimi:ai:v1`（AI 接口地址 / 模型 / key，只存在浏览器本地）、
-  `mimi-theme`（深浅色）、AI 结果缓存 `mimi:ai-cache:v1:*` 都是各自独立的；
-- 两边都要各自填一次 AI key，看到的缓存结果也可能不同；
+- `mimi:ai:v1`（AI 通知 / 本机预算）、`mimi-theme`（深浅色）、AI 结果缓存
+  `mimi:ai-cache:v1:*` 都是各自独立的；
+- AI Key 由服务器统一持有，两边都不需要再填；但 AI 结果缓存仍各自独立；
 - 手机上看哪个域名、就用哪一套本地数据。想省事就固定只用一个入口
   （推荐把 Vercel 当作备用，日常用自托管的那个域名）。
 
@@ -245,7 +250,8 @@ Run workflow）。之后推送到 `master` 的前端改动会自动发布。
   发布成功后会再调 `POST /repo/sync`（只做 `git pull --ff-only`，不重启
   PB），让服务器上的 checkout 跟上已部署的 commit；改到 `pocketbase/**`
   仍由 `deploy-db` 的 `/db/sync` 负责拉代码、备份、重启。
-- 反向代理要把 `/spa/*`、`/repo/*` 转发到 `:9001`，给 `/assets/*` 设长缓存，
+- 反向代理要把 `/ai/*`、`/spa/*`、`/repo/*` 转发到 `:9001`（`/ai` 关闭响应
+  缓冲），给 `/assets/*` 设长缓存，
   给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase 自己
   不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
 

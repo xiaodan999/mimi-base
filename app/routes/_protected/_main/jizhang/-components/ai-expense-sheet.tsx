@@ -94,7 +94,7 @@ export default function AiExpenseSheet({
     open: boolean;
     onClose: () => void;
 }) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
     const mutation = useAddJiZhang();
     const { categories, getCategory } = useExpenseCategories();
@@ -204,10 +204,6 @@ export default function AiExpenseSheet({
     };
 
     const parse = async () => {
-        if (!configured) {
-            openSettings();
-            return;
-        }
         if (!text.trim() && !receipt) {
             setError("说一句花了什么，或者拍张小票。");
             return;
@@ -342,19 +338,6 @@ export default function AiExpenseSheet({
             }
         >
             <div className="space-y-3 pb-2">
-                {!configured && (
-                    <div className="rounded-xl border border-warning/25 bg-warning/10 px-3 py-2 text-[12.5px] leading-6 text-foreground">
-                        还没配置 AI。
-                        <button
-                            type="button"
-                            className="ml-1 font-semibold text-warning underline"
-                            onClick={openSettings}
-                        >
-                            去设置
-                        </button>
-                    </div>
-                )}
-
                 {stage === "input" ? (
                     <>
                         <Textarea

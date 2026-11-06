@@ -53,7 +53,7 @@ export default function AiGradeSheet({
     moduleName,
     onAdopt,
 }: Props) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings, openSettings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
     const [grade, setGrade] = useState<AiGrade | null>(null);
     const [loading, setLoading] = useState(false);
@@ -67,11 +67,6 @@ export default function AiGradeSheet({
     const run = useCallback(
         async (force = false) => {
             if (!item) return;
-            if (!configured) {
-                setError("先配置 AI Key");
-                openSettings();
-                return;
-            }
             setLoading(true);
             setError("");
             if (force) setGrade(null);
@@ -104,17 +99,7 @@ export default function AiGradeSheet({
                 setLoading(false);
             }
         },
-        [
-            answer,
-            cacheKey,
-            configured,
-            item,
-            moduleName,
-            openSettings,
-            runTask,
-            settings,
-            subject,
-        ],
+        [answer, cacheKey, item, moduleName, runTask, settings, subject],
     );
 
     useEffect(() => {

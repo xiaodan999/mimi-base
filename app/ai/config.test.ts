@@ -1,132 +1,102 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
 import {
-    discoverModels,
-    isDirectOpenCodeBaseUrl,
-    migrateAiSettings,
     openCodeRelayBaseUrl,
-    pickFallbackModel,
-    type AiSettings,
+    readAiSettings,
+    writeAiSettings,
 } from "./config";
+import { AI_SETTINGS_KEY, LEGACY_SETTINGS_KEY } from "./constants";
 
-const settings = (patch: Partial<AiSettings> = {}): AiSettings => ({
-    baseUrl: "https://opencode.ai/inference/go/openai/v1",
-    model: "deepseek-v4.1-flash",
-    apiKey: "oc_test",
-    notify: true,
-    ...patch,
-    dailyBudgetUsd: patch.dailyBudgetUsd ?? 0,
+let store: Map<string, string>;
+
+beforeEach(() => {
+    store = new Map<string, string>();
+    (globalThis as unknown as { window: unknown }).window = globalThis;
+    (globalThis as unknown as { localStorage: unknown }).localStorage = {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+            store.set(key, String(value));
+        },
+        removeItem: (key: string) => store.delete(key),
+        clear: () => store.clear(),
+        key: (index: number) => [...store.keys()][index] ?? null,
+        get length() {
+            return store.size;
+        },
+    };
 });
 
-describe("OpenCode Go relay", () => {
-    test("builds the relay URL without duplicate slashes", () => {
+describe("站点中转地址", () => {
+    test("拼接时去掉重复斜杠", () => {
         expect(openCodeRelayBaseUrl("https://mimi.example.com/")).toBe(
-            "https://mimi.example.com/api/ai/opencode/v1",
+            "https://mimi.example.com/ai/opencode/v1",
+        );
+        expect(openCodeRelayBaseUrl("http://127.0.0.1:3000")).toBe(
+            "http://127.0.0.1:3000/ai/opencode/v1",
         );
     });
+});
 
-    test("recognizes both official direct endpoints", () => {
-        expect(
-            isDirectOpenCodeBaseUrl(
-                "https://opencode.ai/inference/go/openai/v1",
-            ),
-        ).toBe(true);
-        expect(isDirectOpenCodeBaseUrl("https://opencode.ai/zen/go/v1")).toBe(
-            true,
-        );
-        expect(
-            isDirectOpenCodeBaseUrl(
-                "https://mimi.example.com/api/ai/opencode/v1",
-            ),
-        ).toBe(false);
-    });
-
-    test("rewrites a saved direct endpoint to the relay", () => {
-        const relay = openCodeRelayBaseUrl("http://127.0.0.1:3000");
-        const result = migrateAiSettings(settings(), relay);
-        expect(result.changed).toBe(true);
-        expect(result.settings).toEqual({
-            ...settings(),
-            baseUrl: relay,
+describe("设置读写", () => {
+    test("没有设置时返回默认值", () => {
+        expect(readAiSettings()).toEqual({
+            notify: false,
+            dailyBudgetUsd: 0,
         });
     });
 
-    test("also rewrites a full chat-completions direct URL", () => {
-        const relay = openCodeRelayBaseUrl("https://mimi.example.com");
-        const result = migrateAiSettings(
-            settings({
-                baseUrl: "https://opencode.ai/zen/go/v1/chat/completions",
+    test("旧版本设置里的 Key / 地址 / 模型会被清掉", () => {
+        store.set(
+            AI_SETTINGS_KEY,
+            JSON.stringify({
+                baseUrl: "https://api.deepseek.com/v1",
+                apiKey: "sk-secret",
+                model: "deepseek-chat",
+                notify: true,
+                dailyBudgetUsd: 5,
             }),
-            relay,
         );
-        expect(result.settings.baseUrl).toBe(relay);
+
+        expect(readAiSettings()).toEqual({
+            notify: true,
+            dailyBudgetUsd: 5,
+        });
+
+        const stored = store.get(AI_SETTINGS_KEY) ?? "";
+        expect(stored).not.toContain("sk-secret");
+        expect(stored).not.toContain("deepseek");
+        expect(JSON.parse(stored)).toEqual({
+            notify: true,
+            dailyBudgetUsd: 5,
+        });
     });
 
-    test("moves a saved relay URL to the current origin", () => {
-        const result = migrateAiSettings(
-            settings({
-                baseUrl: "http://127.0.0.1:3000/api/ai/opencode/v1",
+    test("会迁移 legacy 键并清掉旧字段", () => {
+        store.set(
+            LEGACY_SETTINGS_KEY,
+            JSON.stringify({
+                apiKey: "sk-legacy",
+                baseUrl: "https://api.example.com/v1",
+                notify: true,
             }),
-            openCodeRelayBaseUrl("http://192.168.1.20:3000"),
         );
-        expect(result.changed).toBe(true);
-        expect(result.settings.baseUrl).toBe(
-            "http://192.168.1.20:3000/api/ai/opencode/v1",
-        );
+
+        expect(readAiSettings()).toEqual({
+            notify: true,
+            dailyBudgetUsd: 0,
+        });
+        expect(store.has(LEGACY_SETTINGS_KEY)).toBe(false);
+        expect(store.get(AI_SETTINGS_KEY)).not.toContain("sk-legacy");
     });
 
-    test("leaves other providers and an already-current URL alone", () => {
-        const relay = openCodeRelayBaseUrl("https://mimi.example.com");
-        expect(
-            migrateAiSettings(
-                settings({ baseUrl: "https://api.deepseek.com/v1" }),
-                relay,
-            ).changed,
-        ).toBe(false);
-        expect(
-            migrateAiSettings(settings({ baseUrl: relay }), relay).changed,
-        ).toBe(false);
-    });
-});
+    test("写入时归一化预算并删除 legacy 键", () => {
+        store.set(LEGACY_SETTINGS_KEY, "{}");
+        writeAiSettings({ notify: true, dailyBudgetUsd: -3 });
 
-describe("模型发现与兜底路由", () => {
-    test("pickFallbackModel 跳过当前模型、优先聊天类模型", () => {
-        expect(
-            pickFallbackModel("deepseek-chat", ["deepseek-chat"]),
-        ).toBeUndefined();
-        expect(
-            pickFallbackModel("deepseek-chat", [
-                "text-embedding-3",
-                "deepseek-chat",
-                "qwen-plus",
-            ]),
-        ).toBe("qwen-plus");
-        expect(pickFallbackModel("x", ["embedding-2"])).toBe("embedding-2");
-        expect(pickFallbackModel("x", [])).toBeUndefined();
-    });
-
-    test("discoverModels 解析 /models 并容错失败", async () => {
-        const realFetch = globalThis.fetch;
-        try {
-            globalThis.fetch = (async () =>
-                new Response(
-                    JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }, {}] }),
-                    { status: 200 },
-                )) as unknown as typeof fetch;
-            expect(await discoverModels(settings())).toEqual(["m1", "m2"]);
-
-            globalThis.fetch = (async () =>
-                new Response("nope", {
-                    status: 500,
-                })) as unknown as typeof fetch;
-            expect(await discoverModels(settings())).toEqual([]);
-
-            globalThis.fetch = (async () => {
-                throw new TypeError("CORS");
-            }) as unknown as typeof fetch;
-            expect(await discoverModels(settings())).toEqual([]);
-        } finally {
-            globalThis.fetch = realFetch;
-        }
+        expect(JSON.parse(store.get(AI_SETTINGS_KEY)!)).toEqual({
+            notify: true,
+            dailyBudgetUsd: 0,
+        });
+        expect(store.has(LEGACY_SETTINGS_KEY)).toBe(false);
     });
 });

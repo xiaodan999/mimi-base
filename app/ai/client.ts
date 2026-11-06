@@ -1,22 +1,15 @@
 import { z } from "zod";
 
-import {
-    discoverModels,
-    getAiSessionId,
-    pickFallbackModel,
-    type AiSettings,
-} from "./config";
+import { getAiSessionId, type AiSettings } from "./config";
+import { AI_MODEL } from "./constants";
+import { getAiRelayBaseUrl } from "./endpoint";
 import { getAiAuthToken } from "./pb-token";
 import { isOverBudget, recordUsage, type AiUsage } from "./usage";
 
 /*
- * 安全说明（BYOK）：API Key 只存在 localStorage，随请求直接发到用户自填的
- * baseUrl，不经过 PocketBase、不落库。因为 baseUrl 完全由用户编辑，服务端无法
- * 静态白名单全部域名，部署方至少应返回严格 CSP：
- *   default-src 'self'; script-src 'self'; object-src 'none';
- *   base-uri 'self'; frame-ancestors 'none'
- * 关键是禁用 unsafe-inline / unsafe-eval，避免 XSS 读走 localStorage 里的 Key。
- * index.html 由另一位维护者负责，这里只留说明，不改它。
+ * 站点统一提供 AI：浏览器只带自己的 PocketBase 令牌调用 `/ai` 中转，
+ * API Key 永远留在服务端（pocketbase/ai-relay.ts）。这里不再保存或发送
+ * 任何用户 Key，也不再支持自定义服务商地址。
  */
 
 export type AiRole = "system" | "user" | "assistant";
@@ -81,20 +74,20 @@ const BASE_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 8_000;
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
-/** 兼容用户填 base URL 或完整地址两种写法 */
-export function chatEndpoint(baseUrl: string): string {
-    const trimmed = baseUrl.trim().replace(/\/+$/, "");
-    if (!trimmed) return "";
-    if (/\/chat\/completions$/.test(trimmed)) return trimmed;
-    return `${trimmed}/chat/completions`;
+/** 站点中转的 chat completions 地址（由 AiProvider 注入）。 */
+function chatEndpoint(): string {
+    const base = getAiRelayBaseUrl().trim().replace(/\/+$/, "");
+    if (!base) return "";
+    if (/\/chat\/completions$/.test(base)) return base;
+    return `${base}/chat/completions`;
 }
 
 function friendlyStatus(status: number): string {
-    if (status === 401 || status === 403) return "API Key 不对或没有权限";
-    if (status === 404) return "地址或模型名不对，检查 base URL 和 model";
+    if (status === 401 || status === 403) return "登录已过期，请重新登录";
+    if (status === 404) return "AI 服务地址不对，检查部署里的 /ai 代理";
     if (status === 408) return "请求超时了，稍后再试";
-    if (status === 429) return "请求太频繁或额度用完了，歇一会儿再试";
-    if (status >= 500) return "服务端开小差了，稍后再试";
+    if (status === 429) return "请求太频繁或今天的额度用完了，歇一会儿再试";
+    if (status >= 500) return "AI 服务暂时不可用，稍后再试";
     return `请求失败（HTTP ${status}）`;
 }
 
@@ -112,16 +105,15 @@ async function readError(res: Response): Promise<AiError> {
                     ? json.error
                     : json.error?.message) ??
                 json.message ??
-                text;
+                "";
         } catch {
-            detail = text;
+            // 非 JSON（例如代理的错误页）不要把 HTML 塞给用户。
         }
     } catch {
         // ignore
     }
-    const hint = friendlyStatus(res.status);
     return new AiError(
-        detail ? `${hint}（${detail.slice(0, 160)}）` : hint,
+        detail ? detail.slice(0, 160) : friendlyStatus(res.status),
         res.status,
     );
 }
@@ -150,38 +142,25 @@ export function aiErrorText(error: unknown): string {
         return "已取消";
     }
     if (error instanceof TypeError) {
-        return "请求没发出去：可能是网络问题，或这个服务不允许浏览器直连（CORS）。可以在设置里换一个支持跨域的 base URL。";
+        return "请求没发出去：可能是网络问题，或站点的 /ai 代理没有配置好。";
     }
     return error instanceof Error ? error.message : "AI 请求失败";
 }
 
-function isOpenCodeGo(baseUrl: string): boolean {
-    return (
-        /opencode\.ai\/(?:inference\/go\/openai|zen\/go)\//i.test(baseUrl) ||
-        /\/api\/ai\/opencode(\/|$)/i.test(baseUrl)
-    );
-}
-
-function headers(settings: AiSettings): HeadersInit {
+function headers(): HeadersInit {
     const result: Record<string, string> = {
         "Content-Type": "application/json",
+        "x-opencode-session": getAiSessionId(),
+        "X-Client": "mimi-base/1.0",
     };
-    if (isOpenCodeGo(settings.baseUrl)) {
-        // OpenCode Go 走 PocketBase 中转：用自己的 PB 令牌鉴权，BYOK Key 走
-        // 独立请求头，避免误把 Key 交给 PB 鉴权层或把 PB 令牌发给上游。
-        const token = getAiAuthToken();
-        if (token) result.Authorization = token;
-        result["x-opencode-key"] = settings.apiKey.trim();
-        result["x-opencode-session"] = getAiSessionId();
-        result["X-Client"] = "mimi-base/1.0";
-    } else {
-        result.Authorization = `Bearer ${settings.apiKey.trim()}`;
-    }
+    // 中转用 PB 用户令牌鉴权；Key 由服务端补上。
+    const token = getAiAuthToken();
+    if (token) result.Authorization = token;
     return result;
 }
 
 /* ------------------------------------------------------------------ */
-/* 超时 + 重试 + 模型兜底                                              */
+/* 超时 + 重试                                                         */
 /* ------------------------------------------------------------------ */
 
 type SignalCtx = {
@@ -284,15 +263,14 @@ export function parseRetryAfter(value: string | null): number | undefined {
 
 async function requestWithRetry(
     url: string,
-    makeInit: (model: string) => RequestInit,
-    model: string,
+    makeInit: () => RequestInit,
     ctx: SignalCtx,
 ): Promise<Response> {
     let attempt = 0;
     while (true) {
         let res: Response;
         try {
-            res = await fetch(url, makeInit(model));
+            res = await fetch(url, makeInit());
         } catch (error) {
             if (ctx.signal.aborted) throw error;
             if (attempt < MAX_RETRIES) {
@@ -314,38 +292,6 @@ async function requestWithRetry(
     }
 }
 
-async function looksLikeModelError(res: Response): Promise<boolean> {
-    if (res.status !== 400 && res.status !== 404) return false;
-    try {
-        const text = await res.clone().text();
-        // 只在「确实是模型名不对」时兜底；像 response_format 不支持这类 400
-        // 交给 chatJSON 自己退回去重跑，别误换成别的模型。
-        const mentionsModel = /model|模型/i.test(text);
-        const notFound =
-            /not found|not exist|invalid|unknown|does not|不存在|不可用/i.test(
-                text,
-            );
-        return res.status === 404 || (mentionsModel && notFound);
-    } catch {
-        return res.status === 404;
-    }
-}
-
-async function resolveFallbackModel(
-    settings: AiSettings,
-    current: string,
-    signal: AbortSignal,
-): Promise<string | undefined> {
-    try {
-        return pickFallbackModel(
-            current,
-            await discoverModels(settings, signal),
-        );
-    } catch {
-        return undefined;
-    }
-}
-
 type RequestOptions = {
     stream: boolean;
     temperature: number;
@@ -360,14 +306,9 @@ type Performed = {
     ctx: SignalCtx;
 };
 
-function buildPayload(
-    settings: AiSettings,
-    messages: AiMessage[],
-    model: string,
-    options: RequestOptions,
-): string {
+function buildPayload(messages: AiMessage[], options: RequestOptions): string {
     const body: Record<string, unknown> = {
-        model,
+        model: AI_MODEL,
         messages,
         stream: options.stream,
         temperature: options.temperature,
@@ -388,37 +329,22 @@ async function performRequest(
     if (isOverBudget(settings)) {
         throw new AiError("今天的 AI 预算用完了，明天再来，或到设置里调高上限");
     }
-    const url = chatEndpoint(settings.baseUrl);
-    if (!url) throw new AiError("还没填 API 地址");
+    const url = chatEndpoint();
+    if (!url) throw new AiError("AI 服务地址未初始化，刷新页面再试");
 
     const ctx = composeSignal(options.signal, REQUEST_TIMEOUT_MS);
-    const makeInit = (model: string): RequestInit => ({
+    const makeInit = (): RequestInit => ({
         method: "POST",
-        headers: headers(settings),
-        body: buildPayload(settings, messages, model, options),
+        headers: headers(),
+        body: buildPayload(messages, options),
         signal: ctx.signal,
     });
 
     try {
-        let model = settings.model.trim();
-        let res = await requestWithRetry(url, makeInit, model, ctx);
-
-        // 模型名不对（404 / 400 提到 model）时，用 /models 里的第一个可用
-        // 模型兜底重跑一次，避免用户填错一个名字后整个 AI 功能看起来坏掉。
-        if (await looksLikeModelError(res)) {
-            const alternative = await resolveFallbackModel(
-                settings,
-                model,
-                ctx.signal,
-            );
-            if (alternative) {
-                model = alternative;
-                res = await requestWithRetry(url, makeInit, model, ctx);
-            }
-        }
+        const res = await requestWithRetry(url, makeInit, ctx);
         // 响应头已到：后面的时间交给读响应体的调用方按需重新计时。
         ctx.arm(0);
-        return { res, model, ctx };
+        return { res, model: AI_MODEL, ctx };
     } catch (error) {
         ctx.cleanup();
         throw classifyAbort(error, ctx.timedOut());
@@ -530,6 +456,7 @@ export function parseSseEvent(data: string): SseOutcome {
 /**
  * 流式对话：逐段 yield 文本，适合讲解 / 错题分析 / 周报。
  * - 请求带超时与 429/5xx 重试；关掉面板不会中止（由 runTask 持有 signal）。
+ * - 每收到一块就重置空闲超时，长回答不会因为总时长被掐断。
  * - 遇到 [DONE] 停止，data: {"error":...} 会抛 AiError。
  */
 export async function* streamChat(
@@ -754,16 +681,16 @@ export async function chatJSON<T>(
 }
 
 /** 设置页的「测试连接」：只发一个很短的问题，也套同样的超时。 */
-export async function testAiConnection(settings: AiSettings): Promise<void> {
-    const url = chatEndpoint(settings.baseUrl);
-    if (!url) throw new AiError("还没填 API 地址");
+export async function testAiConnection(): Promise<void> {
+    const url = chatEndpoint();
+    if (!url) throw new AiError("AI 服务地址未初始化，刷新页面再试");
     const ctx = composeSignal(undefined, REQUEST_TIMEOUT_MS);
     try {
         const res = await fetch(url, {
             method: "POST",
-            headers: headers(settings),
+            headers: headers(),
             body: JSON.stringify({
-                model: settings.model.trim(),
+                model: AI_MODEL,
                 messages: [{ role: "user", content: "只回复：ok" }],
                 stream: false,
                 max_tokens: 8,

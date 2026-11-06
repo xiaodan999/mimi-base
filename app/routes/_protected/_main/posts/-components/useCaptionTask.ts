@@ -48,7 +48,7 @@ export function useCaptionTask({
     images,
     seededKey,
 }: UseCaptionTaskArgs) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, cancel, attend, find, getResult } = useAiTasks();
     const [captionOpen, setCaptionOpen] = useState(false);
     const [captionLoading, setCaptionLoading] = useState(false);
@@ -82,11 +82,6 @@ export function useCaptionTask({
     const suggestCaptions = async (
         options: { force?: boolean; restore?: boolean } = {},
     ) => {
-        if (!configured) {
-            openSettings();
-            return;
-        }
-
         const force = options.force === true;
         const restore = options.restore === true;
         const key = captionKey;
@@ -221,12 +216,11 @@ export function useCaptionTask({
         // captionKey still describes the previous draft.
         if (seededKey === null) return;
         restoredOpenRef.current = true;
-        if (!configured) return;
         if (!find(captionKey)) return;
         void suggestCaptions({ restore: true });
         // 只在草稿重新打开时恢复一次，不跟输入内容联动。
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, captionKey, configured, seededKey]);
+    }, [open, captionKey, seededKey]);
 
     const applyCaption = (caption: string) => {
         setText((previous) =>

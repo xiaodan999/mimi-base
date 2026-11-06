@@ -190,8 +190,8 @@ function Page() {
             <section className="mt-4 rounded-3xl border border-border/60 bg-card p-5">
                 <h3 className="text-sm font-semibold">AI 设置</h3>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    配置 base URL、模型和 API Key，用于记账、配文、学习和
-                    年度报告。Key 只保存在本机浏览器。
+                    AI 由本站统一提供，登录即可用于记账、配文、学习和年度
+                    报告，不需要填 Key。这里可以调整完成通知和本机预算。
                 </p>
                 <Button
                     className="mt-3 w-full"

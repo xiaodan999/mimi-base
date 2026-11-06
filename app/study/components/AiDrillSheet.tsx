@@ -59,7 +59,7 @@ export default function AiDrillSheet({
     onStart: (items: QuizItem[]) => void;
 }) {
     const { subject, progress } = useStudy();
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, find, getResult, attend } = useAiTasks();
     const [items, setItems] = useState<QuizItem[]>([]);
     const [reason, setReason] = useState("");
@@ -100,11 +100,6 @@ export default function AiDrillSheet({
 
     const pick = useCallback(
         async (force = false) => {
-            if (!configured) {
-                openSettings();
-                return;
-            }
-
             const { candidates, weakModules } = buildCandidates();
             if (candidates.length === 0) {
                 setError("题库里还没有可练的题。");
@@ -194,26 +189,12 @@ export default function AiDrillSheet({
                 setLoading(false);
             }
         },
-        [
-            buildCandidates,
-            cacheKey,
-            configured,
-            fallback,
-            openSettings,
-            runTask,
-            settings,
-            subject,
-        ],
+        [buildCandidates, cacheKey, fallback, runTask, settings, subject],
     );
 
     // 打开时用统一决策接上后台任务 / 缓存结果（running 优先，再结果→缓存）。
     useEffect(() => {
         if (!open) return;
-        if (!configured) {
-            openSettings();
-            return;
-        }
-
         const byId = new Map(subject.bank.map((item) => [item.id, item]));
         const toItems = (result: DrillResult) =>
             result.ids.flatMap((id) => {

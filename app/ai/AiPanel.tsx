@@ -52,7 +52,7 @@ export default function AiPanel({
     intro,
     href = "/study",
 }: Props) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings, openSettings } = useAi();
     const { runTask, cancel, attend, tasks, find, getResult } = useAiTasks();
     const [turns, setTurns] = useState<AiTurn[]>([]);
     const [streaming, setStreaming] = useState(false);
@@ -156,12 +156,6 @@ export default function AiPanel({
             startedRef.current = null;
             return;
         }
-        if (!configured) {
-            startedRef.current = null;
-            setTurns([]);
-            setError("先点设置，填一下 API Key 和模型。");
-            return;
-        }
         if (startedRef.current === cacheKey) return;
         startedRef.current = cacheKey;
 
@@ -197,7 +191,7 @@ export default function AiPanel({
                 return;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, cacheKey, configured]);
+    }, [open, cacheKey]);
 
     // 后台任务（包括追问）还在跑时，重新打开面板也能看到进度
     const activeTask = tasks.find((task) => task.cacheKey === cacheKey);
@@ -257,19 +251,11 @@ export default function AiPanel({
     }, [turns, streaming]);
 
     const regenerate = useCallback(() => {
-        if (!configured) {
-            openSettings();
-            return;
-        }
         void run(messages, [], { force: true });
-    }, [configured, messages, openSettings, run]);
+    }, [messages, run]);
 
     const askChip = (chip: AiChip) => {
         if (streaming) return;
-        if (!configured) {
-            openSettings();
-            return;
-        }
         const history = turnsRef.current;
         void run(
             messages,

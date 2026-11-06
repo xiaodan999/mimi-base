@@ -318,7 +318,7 @@ function ReportLetter({
     study: ReturnType<typeof buildStudyReport>;
 }) {
     const user = useCurrentUser();
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
     const [letter, setLetter] = useState("");
     const [loading, setLoading] = useState(false);
@@ -362,10 +362,6 @@ function ReportLetter({
 
     const run = useCallback(
         async (force: boolean) => {
-            if (!configured) {
-                openSettings();
-                return;
-            }
             const ticket = ++ticketRef.current;
             setLoading(true);
             setError("");
@@ -413,27 +409,13 @@ function ReportLetter({
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [
-            configured,
-            find,
-            getResult,
-            input,
-            key,
-            openSettings,
-            runTask,
-            settings,
-            year,
-        ],
+        [find, getResult, input, key, runTask, settings, year],
     );
 
     // 打开 / 换 key 时统一决策：永远先看缓存（移除旧的 nonce===0 gate），
     // 之后即使某次重新写失败，好缓存也不会被藏起来。
     useEffect(() => {
         if (empty) return;
-        if (!configured) {
-            setLetter("");
-            return;
-        }
         const decision = decideAiRestore<string>(restoreInput(find(key)));
         if (decision.kind === "ready") {
             setLetter(decision.value);
@@ -454,13 +436,13 @@ function ReportLetter({
         // running / none：run() 会接上同一个任务或开一个新的
         void run(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key, configured, empty]);
+    }, [key, empty]);
 
     // 在报告页上看着呢，完成时就不用再弹通知了
     useEffect(() => {
-        if (empty || !configured) return;
+        if (empty) return;
         return attend(key);
-    }, [empty, configured, key, attend]);
+    }, [empty, key, attend]);
 
     return (
         <section className="mt-3 rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 shadow-soft">
@@ -488,17 +470,6 @@ function ReportLetter({
             {empty ? (
                 <p className="mt-3 text-xs leading-6 text-muted-foreground">
                     这一年还没有记录。先去发一条动态、记一笔账，明年再回来看看。
-                </p>
-            ) : !configured ? (
-                <p className="mt-3 text-xs leading-6 text-muted-foreground">
-                    配置 AI 后，这里会写一封专属于你的年度小结。
-                    <button
-                        type="button"
-                        className="ml-1 font-semibold text-primary underline"
-                        onClick={openSettings}
-                    >
-                        去设置
-                    </button>
                 </p>
             ) : loading ? (
                 <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">

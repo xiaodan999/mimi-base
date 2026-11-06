@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { useAi } from "@/app/ai/AiContext";
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
 
 import { TYPE_ICON, TYPE_NAME, shuffle } from "../engine";
@@ -22,7 +21,6 @@ const TYPES: QuizType[] = ["term", "single", "multi", "blank", "short"];
 
 export default function QuizSection({ quick }: { quick?: boolean }) {
     const { subject, progress } = useStudy();
-    const { configured, openSettings } = useAi();
     const [session, setSession] = useState<Session | null>(null);
     const [autoStarted, setAutoStarted] = useState(false);
     const [variantSource, setVariantSource] = useState<QuizItem | null>(null);
@@ -59,11 +57,6 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
     }, [quick, autoStarted]);
 
     const startAiVariant = () => {
-        if (!configured) {
-            openSettings();
-            toast("先配置一下 AI Key");
-            return;
-        }
         const wrong = Object.keys(progress.wrong)
             .map((id) => subject.bank.find((item) => item.id === id))
             .filter((item): item is QuizItem => Boolean(item));

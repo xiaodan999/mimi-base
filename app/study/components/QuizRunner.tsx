@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 
-import { useAi } from "@/app/ai/AiContext";
 import AiGradeSheet from "@/app/ai/AiGradeSheet";
 import AiPanel from "@/app/ai/AiPanel";
 import { hashText } from "@/app/ai/cache";
@@ -35,7 +34,6 @@ export default function QuizRunner({
     track = true,
 }: Props) {
     const { subject, update } = useStudy();
-    const { configured, openSettings } = useAi();
     // 做题是整屏浮层：侧滑返回应该退出练习，而不是退掉下面的页面。
     useBackDismiss(true, onExit);
     const [index, setIndex] = useState(0);
@@ -174,11 +172,6 @@ export default function QuizRunner({
         : undefined;
 
     const openAnalysis = (item: QuizItem, answer: Answer) => {
-        if (!configured) {
-            openSettings();
-            toast("先配置一下 AI Key");
-            return;
-        }
         setAnalysis({ item, answer });
     };
 

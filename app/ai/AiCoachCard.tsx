@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 
 import { dayKey } from "@/app/study/engine";
 import { gameForModule } from "@/app/study/games/registry";
-import { toast } from "@/app/study/toast";
 import type { Progress, StudySubject } from "@/app/study/types";
 
 import { useAi } from "./AiContext";
@@ -69,7 +68,7 @@ function normalizePlan(
 }
 
 export default function AiCoachCard({ subject, progress }: Props) {
-    const { settings, configured, openSettings } = useAi();
+    const { settings } = useAi();
     const { runTask, cancel, tasks, find, getResult, attend } = useAiTasks();
     const [minutes, setMinutes] = useState(20);
     const [plan, setPlan] = useState<AiPlan | null>(null);
@@ -130,11 +129,6 @@ export default function AiCoachCard({ subject, progress }: Props) {
 
     const generate = useCallback(
         async (nextMinutes: number, force = false) => {
-            if (!configured) {
-                openSettings();
-                toast("先配置一下 AI");
-                return;
-            }
             const key = `${group}:${nextMinutes}`;
             if (!force) {
                 const cached = readAiCache<AiPlan>(key);
@@ -191,16 +185,7 @@ export default function AiCoachCard({ subject, progress }: Props) {
                 if (ticket === requestRef.current) setLoading(false);
             }
         },
-        [
-            cancel,
-            configured,
-            group,
-            openSettings,
-            progress,
-            runTask,
-            settings,
-            subject,
-        ],
+        [cancel, group, progress, runTask, settings, subject],
     );
 
     return (

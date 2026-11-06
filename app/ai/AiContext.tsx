@@ -18,19 +18,17 @@ import pb from "@/lib/pb";
 
 import AiSettingsSheet from "./AiSettings";
 import {
-    isAiConfigured,
-    migrateAiSettings,
     openCodeRelayBaseUrl,
     readAiSettings,
     writeAiSettings,
     type AiSettings,
 } from "./config";
+import { setAiRelayBaseUrlProvider } from "./endpoint";
 import { setAiAuthTokenProvider } from "./pb-token";
 import { AiTasksProvider } from "./tasks";
 
 type AiContextValue = {
     settings: AiSettings;
-    configured: boolean;
     saveSettings: (settings: AiSettings) => void;
     settingsOpen: boolean;
     openSettings: () => void;
@@ -39,21 +37,16 @@ type AiContextValue = {
 
 const AiContext = createContext<AiContextValue | null>(null);
 
-// 中转需要 PB 令牌，但 client.ts 不能依赖 lib/pb.ts（加载时校验环境变量，
-// 会破坏 AI 单元测试）。由 Provider 注入一次，闭包里每次取最新值。
+// 中转需要 PB 令牌和当前部署的中转地址，但 client.ts 不能依赖 lib/pb.ts
+// （加载时校验环境变量，会破坏 AI 单元测试）。由 Provider 注入一次，
+// 闭包里每次取最新值。
 setAiAuthTokenProvider(() => pb.authStore.token);
+setAiRelayBaseUrlProvider(() => openCodeRelayBaseUrl(pb.baseUrl));
 
 export function AiProvider({ children }: { children: ReactNode }) {
-    const [settings, setSettings] = useState<AiSettings>(() => {
-        // 旧版本保存的 OpenCode Go 直连地址在浏览器里一定失败，加载时顺手
-        // 换成当前 PocketBase 的中转地址，用户不用重新配置。
-        const { settings: next, changed } = migrateAiSettings(
-            readAiSettings(),
-            openCodeRelayBaseUrl(pb.baseUrl),
-        );
-        if (changed) writeAiSettings(next);
-        return next;
-    });
+    const [settings, setSettings] = useState<AiSettings>(() =>
+        readAiSettings(),
+    );
     const [settingsOpen, setSettingsOpen] = useState(false);
 
     const saveSettings = useCallback((next: AiSettings) => {
@@ -67,7 +60,6 @@ export function AiProvider({ children }: { children: ReactNode }) {
     const value = useMemo(
         () => ({
             settings,
-            configured: isAiConfigured(settings),
             saveSettings,
             settingsOpen,
             openSettings,
