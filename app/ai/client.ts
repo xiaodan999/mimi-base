@@ -72,7 +72,10 @@ export const DEFAULT_MAX_TOKENS = {
     json: 1200,
 };
 
+/** 连接 / 首包超时：只覆盖到响应头返回为止。 */
 const REQUEST_TIMEOUT_MS = 60_000;
+/** 响应体静默超时：流式每收到一段就重置；一次性响应覆盖整个 body。 */
+const BODY_TIMEOUT_MS = 120_000;
 const MAX_RETRIES = 2;
 const BASE_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 8_000;
@@ -184,13 +187,19 @@ function headers(settings: AiSettings): HeadersInit {
 type SignalCtx = {
     signal: AbortSignal;
     timedOut: () => boolean;
+    /**
+     * 重新计时（0 = 停表）。连接阶段和读取响应体阶段需要不同 deadline：
+     * 慢速生成 1600 token 可以远超 60 秒，那个超时只该管到响应头到达为止；
+     * 响应体改用「静默多久没数据」兜底，流式每来一段就重置一次。
+     */
+    arm: (ms: number) => void;
     cleanup: () => void;
 };
 
 /**
- * 把「调用方的取消 signal」和一个「超时 deadline」合成一个 signal。
- * 等价于 AbortSignal.any([caller, AbortSignal.timeout(ms)])，但这里用可
- * clearTimeout 的定时器，请求结束后能把 timer 收掉，不会留下悬挂定时器。
+ * 把「调用方的取消 signal」和一个可重置的「超时 deadline」合成一个 signal。
+ * 等价于 AbortSignal.any([caller, AbortSignal.timeout(ms)])，但定时器可以
+ * 重新 arm/clear，请求结束后能收掉，不会留下悬挂定时器。
  */
 function composeSignal(
     signal: AbortSignal | undefined,
@@ -198,11 +207,18 @@ function composeSignal(
 ): SignalCtx {
     const controller = new AbortController();
     let timedOutFlag = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const onCallerAbort = () => controller.abort();
-    const timer = setTimeout(() => {
-        timedOutFlag = true;
-        controller.abort();
-    }, timeoutMs);
+    const arm = (ms: number) => {
+        if (timer !== null) clearTimeout(timer);
+        timer = null;
+        if (ms <= 0) return;
+        timer = setTimeout(() => {
+            timedOutFlag = true;
+            controller.abort();
+        }, ms);
+    };
+    arm(timeoutMs);
     if (signal?.aborted) {
         controller.abort();
     } else {
@@ -211,8 +227,10 @@ function composeSignal(
     return {
         signal: controller.signal,
         timedOut: () => timedOutFlag && !signal?.aborted,
+        arm,
         cleanup: () => {
-            clearTimeout(timer);
+            if (timer !== null) clearTimeout(timer);
+            timer = null;
             signal?.removeEventListener("abort", onCallerAbort);
         },
     };
@@ -398,6 +416,8 @@ async function performRequest(
                 res = await requestWithRetry(url, makeInit, model, ctx);
             }
         }
+        // 响应头已到：后面的时间交给读响应体的调用方按需重新计时。
+        ctx.arm(0);
         return { res, model, ctx };
     } catch (error) {
         ctx.cleanup();
@@ -527,6 +547,8 @@ export async function* streamChat(
 
     try {
         if (!res.ok) throw await readError(res);
+        // 只有「长时间没有任何数据」才算超时，整段生成可以慢慢来。
+        ctx.arm(BODY_TIMEOUT_MS);
 
         const type = res.headers.get("content-type") ?? "";
         if (!type.includes("event-stream") || !res.body) {
@@ -546,6 +568,7 @@ export async function* streamChat(
         while (!finished) {
             const { done, value } = await reader.read();
             if (done) break;
+            ctx.arm(BODY_TIMEOUT_MS); // 每来一段就重新计时
             const events = parser.push(decoder.decode(value, { stream: true }));
             for (const data of events) {
                 const outcome = parseSseEvent(data);
@@ -592,6 +615,7 @@ export async function chatText(
     });
     try {
         if (!res.ok) throw await readError(res);
+        ctx.arm(BODY_TIMEOUT_MS);
         const json = (await res.json()) as ChatResponse;
         recordUsageFor(model, json.usage);
         return json.choices?.[0]?.message?.content?.trim() ?? "";
@@ -676,6 +700,7 @@ export async function chatJSON<T>(
         });
         try {
             if (!res.ok) throw await readError(res);
+            ctx.arm(BODY_TIMEOUT_MS);
             const json = (await res.json()) as ChatResponse;
             recordUsageFor(model, json.usage);
             return json.choices?.[0]?.message?.content ?? "";

@@ -1,4 +1,5 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
 import { StudyProvider } from "@/app/study/components/StudyContext";
 import StudyShell from "@/app/study/components/StudyShell";
@@ -19,15 +20,18 @@ export const Route = createFileRoute("/_protected/_main/study/$subjectId")({
 });
 
 function SubjectLoading() {
+    // 这里只能用 Tailwind：study.css / games.css 跟着 StudyShell 和游戏 chunk
+    // 懒加载，pending 阶段它们还没到，用 .game-loading 会渲染成没有样式的文字。
     return (
-        <div className="study-root study-shell">
-            <div className="study-body">
-                <div className="game-loading" style={{ padding: 24 }}>
-                    <span className="game-loading-spin" aria-hidden="true" />
-                    <b>正在加载题库…</b>
-                    <span>第一次进入要下载知识卡，之后会快很多</span>
-                </div>
-            </div>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+            <Loader2
+                className="size-6 animate-spin text-primary"
+                aria-hidden="true"
+            />
+            <b className="text-sm font-bold">正在加载题库…</b>
+            <span className="text-xs">
+                第一次进入要下载知识卡，之后会快很多
+            </span>
         </div>
     );
 }

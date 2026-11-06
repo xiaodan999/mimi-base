@@ -74,12 +74,46 @@ describe("mergeProgress：并发合并写入", () => {
         expect(merged.badges).toEqual(["b1", "b2"]);
     });
 
-    test("错题本以本地为准：答对删除不会被服务端旧数据复活", () => {
+    test("错题本：答对留下的墓碑让删除生效，不会被服务端旧数据复活", () => {
         const server = normalizeProgress({
-            wrong: { q1: { c: 2, t: 1 } },
+            wrong: { q1: { c: 2, t: NOW - 1000 } },
         });
-        const local = normalizeProgress({ wrong: {} });
-        expect(mergeProgress(server, local).wrong).toEqual({});
+        const local = normalizeProgress({
+            wrong: {},
+            wrongDeleted: { q1: NOW },
+        });
+        const merged = mergeProgress(server, local);
+        expect(merged.wrong).toEqual({});
+        expect(merged.wrongDeleted.q1).toBe(NOW);
+    });
+
+    test("错题本：服务端独有的条目要保留（另一台设备刚答错）", () => {
+        const server = normalizeProgress({
+            wrong: {
+                q1: { c: 1, t: NOW - 2000 },
+                q2: { c: 1, t: NOW - 1000 },
+            },
+        });
+        const local = normalizeProgress({
+            wrong: { q1: { c: 2, t: NOW } },
+        });
+        const merged = mergeProgress(server, local);
+        expect(merged.wrong.q1).toEqual({ c: 2, t: NOW });
+        expect(merged.wrong.q2).toEqual({ c: 1, t: NOW - 1000 });
+    });
+
+    test("错题本：删除之后又答错了，墓碑不生效", () => {
+        const server = normalizeProgress({
+            wrong: {},
+            wrongDeleted: { q1: NOW - 1000 },
+        });
+        const local = normalizeProgress({
+            wrong: { q1: { c: 1, t: NOW } },
+        });
+        expect(mergeProgress(server, local).wrong.q1).toEqual({
+            c: 1,
+            t: NOW,
+        });
     });
 
     test("考试记录按 name:date:ts 去重", () => {
@@ -104,7 +138,7 @@ describe("mergeProgress：并发合并写入", () => {
         expect(old.xp).toBe(7);
     });
 
-    test("srs 保留服务端独有记录，较晚 due 覆盖", () => {
+    test("srs 保留服务端独有记录，本地排程优先", () => {
         const server = normalizeProgress({
             srs: {
                 q1: {
@@ -137,6 +171,35 @@ describe("mergeProgress：并发合并写入", () => {
         const merged = mergeProgress(server, local);
         expect(merged.srs.q1.interval).toBe(3);
         expect(merged.srs.q2).toBeDefined();
+    });
+
+    test("srs 答错（due 提前）也必须落库", () => {
+        const server = normalizeProgress({
+            srs: {
+                q1: {
+                    due: NOW + 6 * DAY,
+                    interval: 6,
+                    ease: 2.5,
+                    reps: 2,
+                    lapses: 0,
+                },
+            },
+        });
+        // 复习时忘了：due 变成 10 分钟后，lapses +1
+        const local = normalizeProgress({
+            srs: {
+                q1: {
+                    due: NOW + 10 * 60_000,
+                    interval: 0.007,
+                    ease: 1.7,
+                    reps: 0,
+                    lapses: 1,
+                },
+            },
+        });
+        const merged = mergeProgress(server, local);
+        expect(merged.srs.q1.due).toBe(NOW + 10 * 60_000);
+        expect(merged.srs.q1.lapses).toBe(1);
     });
 });
 
@@ -219,16 +282,36 @@ describe("dueQueue：按到期时间排队", () => {
 describe("recordQuizAnswer（QuizRunner 的纯 reducer）", () => {
     const q = item("q1");
 
-    test("答对：r+1、移除错题、写 srs、计入每日", () => {
+    test("答对：r+1、移除错题并留墓碑、写 srs、计入每日", () => {
         let progress = normalizeProgress({
             wrong: { q1: { c: 2, t: 1 } },
         });
         progress = recordQuizAnswer(progress, q, true, NOW);
         expect(progress.stat.q1).toEqual({ r: 1, w: 0 });
         expect(progress.wrong.q1).toBeUndefined();
+        expect(progress.wrongDeleted.q1).toBe(NOW);
         expect(progress.srs.q1).toBeDefined();
         expect(progress.daily.questions).toBe(1);
         expect(progress.daily.correct).toBe(1);
+    });
+
+    test("半对按 3 分排程：间隔比满分短，但不是遗忘重来", () => {
+        const base = normalizeProgress({
+            srs: {
+                q1: {
+                    due: NOW,
+                    interval: 6,
+                    ease: 2.5,
+                    reps: 2,
+                    lapses: 0,
+                },
+            },
+        });
+        const half = recordQuizAnswer(base, q, true, NOW, 3);
+        const full = recordQuizAnswer(base, q, true, NOW);
+        expect(half.srs.q1.lapses).toBe(0);
+        expect(half.srs.q1.reps).toBe(3);
+        expect(half.srs.q1.interval).toBeLessThan(full.srs.q1.interval);
     });
 
     test("答错：w+1、累计错题、srs 短期重来", () => {

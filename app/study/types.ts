@@ -182,6 +182,12 @@ export type Progress = {
     cards: Record<string, { seen?: 1; k?: 0 | 1 }>;
     stat: Record<string, { r: number; w: number }>;
     wrong: Record<string, { c: number; t: number }>;
+    /**
+     * 错题本的删除墓碑：答对时会删掉 wrong 里的条目，合并写入时没有墓碑就
+     * 分不清「这台设备删过」和「另一台设备才加过」，只能整表覆盖。
+     * id → 删除时间戳（ms）。
+     */
+    wrongDeleted: Record<string, number>;
     exams: { name: string; score: number; date: string; ts: number }[];
     terms: Record<string, { k?: number; flip?: number }>;
     days: string[];
@@ -206,6 +212,7 @@ export function emptyProgress(): Progress {
         cards: {},
         stat: {},
         wrong: {},
+        wrongDeleted: {},
         exams: [],
         terms: {},
         days: [],

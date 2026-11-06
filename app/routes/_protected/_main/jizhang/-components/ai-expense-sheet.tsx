@@ -64,6 +64,29 @@ function toDrafts(raw: RawParsed, categories: ExpenseCategory[]): DraftRow[] {
     });
 }
 
+/**
+ * 最近一笔解析的 key。任务中心里的「去查看」会跳到 /jizhang，组件重新挂载
+ * 后 ref 就没了；把它记在 sessionStorage 里，重新打开面板还能接回这笔草稿。
+ */
+const LAST_PARSE_KEY = "mimi:expense-parse:last";
+
+function readLastParseKey(): string | null {
+    try {
+        return sessionStorage.getItem(LAST_PARSE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function writeLastParseKey(key: string | null): void {
+    try {
+        if (key) sessionStorage.setItem(LAST_PARSE_KEY, key);
+        else sessionStorage.removeItem(LAST_PARSE_KEY);
+    } catch {
+        // 隐私模式下忽略
+    }
+}
+
 export default function AiExpenseSheet({
     open,
     onClose,
@@ -97,6 +120,8 @@ export default function AiExpenseSheet({
     const backgroundRef = useRef(false);
     /** 当前这笔解析的任务 key，关掉再打开时据此接回后台任务/结果。 */
     const activeKeyRef = useRef<string | null>(null);
+    /** rows 属于哪一次解析；换了描述后旧 rows 不能被当成新结果。 */
+    const rowsKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!open) {
@@ -104,12 +129,16 @@ export default function AiExpenseSheet({
             if (parsingRef.current) backgroundRef.current = true;
             return;
         }
-        const key = activeKeyRef.current;
+        // 同一页内关掉再打开走 ref；从任务中心「去查看」跳过来时组件已重建，
+        // 用 sessionStorage 里记住的 key 接回那一笔。
+        const key = activeKeyRef.current ?? readLastParseKey();
         // 统一决策：running 优先，再 local 草稿 → store result → 缓存。
+        // local 只在「这批 rows 确实是这个 key 的结果」时才算数，否则一次失败
+        // 的重新解析会把上一次的行当成结果展示出来，还把错误清掉。
         const decision = key
             ? decideAiRestore<DraftRow[]>({
                   task: find(key),
-                  local: rows,
+                  local: rowsKeyRef.current === key ? rows : undefined,
                   result: getResult<DraftRow[]>(key),
                   cached: readAiCache<DraftRow[]>(key),
                   hasValue: (value) => value.length > 0,
@@ -122,18 +151,23 @@ export default function AiExpenseSheet({
                 return; // loading 由仍在跑的 parse() 持有
             case "ready":
                 backgroundRef.current = false;
+                activeKeyRef.current = key ?? null;
+                rowsKeyRef.current = key ?? null;
                 setRows(decision.value);
                 setStage("review");
                 setError("");
                 return;
             case "error":
                 backgroundRef.current = false;
+                activeKeyRef.current = key ?? null;
                 setError(decision.message);
                 return;
             case "canceled":
             case "none":
                 backgroundRef.current = false;
                 activeKeyRef.current = null;
+                rowsKeyRef.current = null;
+                writeLastParseKey(null);
                 setStage("input");
                 setRows([]);
                 setError("");
@@ -185,6 +219,7 @@ export default function AiExpenseSheet({
         const key = `expense-parse:${hashText(`${text.trim()}|${receiptKey}`)}`;
 
         activeKeyRef.current = key;
+        writeLastParseKey(key);
         parsingRef.current = true;
         setLoading(true);
         setError("");
@@ -233,6 +268,7 @@ export default function AiExpenseSheet({
                     return next;
                 },
             });
+            rowsKeyRef.current = key;
             setRows(drafts);
             setStage("review");
         } catch (err) {
@@ -272,6 +308,8 @@ export default function AiExpenseSheet({
             // 记完就丢掉这一笔的草稿/缓存，下次打开是全新的一笔。
             if (activeKeyRef.current) removeAiCache(activeKeyRef.current);
             activeKeyRef.current = null;
+            rowsKeyRef.current = null;
+            writeLastParseKey(null);
             setRows([]);
             setStage("input");
             setText("");

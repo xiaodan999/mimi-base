@@ -34,8 +34,12 @@ const DEFAULT_PRICE = { input: 1, output: 1 };
 
 const USAGE_KEY = "mimi:ai-usage:v1";
 
+/** 本地日期（YYYY-MM-DD）。用 UTC 的话，UTC+8 的额度要到早上 8 点才归零。 */
 function today(): string {
-    return new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function emptyDay(): DailyUsage {

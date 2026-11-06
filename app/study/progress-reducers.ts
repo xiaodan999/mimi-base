@@ -18,19 +18,25 @@ export function recordQuizAnswer(
     target: QuizItem,
     ok: boolean,
     now = Date.now(),
+    /** SM-2 评分；自评半对传 3，别按满分排程。 */
+    grade?: number,
 ): Progress {
     const stat = current.stat[target.id] ?? { r: 0, w: 0 };
     const nextStat = ok
         ? { ...stat, r: stat.r + 1 }
         : { ...stat, w: stat.w + 1 };
     const wrong = { ...current.wrong };
+    const wrongDeleted = { ...(current.wrongDeleted ?? {}) };
     if (ok) {
+        // 删掉错题时留个墓碑，另一台设备合并时才不会把它复活。
+        if (wrong[target.id]) wrongDeleted[target.id] = now;
         delete wrong[target.id];
     } else {
         wrong[target.id] = {
             c: (wrong[target.id]?.c ?? 0) + 1,
             t: now,
         };
+        delete wrongDeleted[target.id];
     }
     return applySrs(
         bumpDaily(
@@ -38,11 +44,13 @@ export function recordQuizAnswer(
                 ...current,
                 stat: { ...current.stat, [target.id]: nextStat },
                 wrong,
+                wrongDeleted,
             },
             { questions: 1, correct: ok ? 1 : 0 },
         ),
         target.id,
         ok,
         now,
+        grade,
     );
 }

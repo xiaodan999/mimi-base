@@ -31,7 +31,7 @@ export default function NavButtons() {
     return (
         <nav
             aria-label="主导航"
-            className="z-30 flex items-stretch gap-0.5 border-t border-border/70 bg-background/85 px-1.5 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl"
+            className="z-30 flex items-stretch gap-0.5 border-t border-border/70 bg-background/85 pb-[env(safe-area-inset-bottom)] pl-[calc(0.375rem+env(safe-area-inset-left))] pr-[calc(0.375rem+env(safe-area-inset-right))] backdrop-blur-xl"
         >
             {routes.map(({ name, path, icon: Icon, exact }) => {
                 const active = exact

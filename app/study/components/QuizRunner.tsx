@@ -66,10 +66,12 @@ export default function QuizRunner({
     const total = items.length;
     const progressPercent = Math.round(((index + 1) / total) * 100);
 
-    const record = (target: QuizItem, ok: boolean) => {
+    const record = (target: QuizItem, ok: boolean, grade?: number) => {
         if (!track) return;
         // 纯 reducer：统计 / 错题 / 每日任务 / SM-2 排程一并更新，可单测。
-        update((current) => recordQuizAnswer(current, target, ok));
+        update((current) =>
+            recordQuizAnswer(current, target, ok, Date.now(), grade),
+        );
     };
 
     const settle = (ok: boolean) => {
@@ -123,7 +125,8 @@ export default function QuizRunner({
         setResult((prev) =>
             prev.map((v, i) => (i === index ? score >= 0.5 : v)),
         );
-        record(item, score >= 0.5);
+        // 半对按 SM-2 的 3 分排程（勉强想起），不是满分 5 分。
+        record(item, score >= 0.5, score === 0.5 ? 3 : undefined);
         if (score === 0.5 && track) {
             update((current) => {
                 const stat = current.stat[item.id];

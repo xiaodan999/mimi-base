@@ -116,9 +116,11 @@ export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
         // re-fetch every loaded page. Pull-to-refresh uses `refresh()` below,
         // which explicitly reloads only the newest page.
         staleTime: 5 * 60_000,
-        // Bound the number of cached pages so a long session can't grow
-        // without limit.
-        maxPages: 20,
+        // Deliberately NO `maxPages`: for a forward-only query TanStack trims
+        // with `addToEnd`, which drops the FIRST cached page — page 1, the
+        // newest posts. Past ~20 scrolled pages every invalidation and every
+        // pull-to-refresh would refetch from page 2+ instead, so a post that
+        // was just published could never appear. `gcTime` bounds the cache.
         queryFn: async ({ pageParam = 1, signal }): Promise<PostsPage> => {
             const page = pageParam as number;
             const filterExpr = buildFilter(filter);

@@ -300,7 +300,7 @@ function Posts() {
                 </div>
             </div>
 
-            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4">
+            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))]">
                 <Button
                     variant="secondary"
                     size="icon"
@@ -312,7 +312,7 @@ function Posts() {
                 </Button>
             </div>
 
-            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 flex flex-col items-center gap-2">
+            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] flex flex-col items-center gap-2">
                 {showBackToTop && (
                     <Button
                         variant="secondary"

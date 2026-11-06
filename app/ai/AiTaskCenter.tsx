@@ -37,7 +37,7 @@ export function AiTaskPill({ running, unseen, onOpen }: PillProps) {
             type="button"
             onClick={onOpen}
             aria-label={`AI 任务：${running} 个进行中，${unseen} 个待查看`}
-            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 z-40 flex items-center gap-2 rounded-full border border-border/70 bg-card/95 px-3.5 py-2 text-[11.5px] font-bold text-foreground shadow-lg backdrop-blur"
+            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))] z-40 flex items-center gap-2 rounded-full border border-border/70 bg-card/95 px-3.5 py-2 text-[11.5px] font-bold text-foreground shadow-lg backdrop-blur"
         >
             {running > 0 ? (
                 <Loader2

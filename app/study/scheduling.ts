@@ -58,14 +58,18 @@ export function scheduleSrs(
     };
 }
 
-/** 纯 reducer：把一次作答写进 progress.srs。 */
+/**
+ * 纯 reducer：把一次作答写进 progress.srs。
+ * `grade` 允许半对（自评 0.5 分）用 3 分排程，而不是按满分 5 分。
+ */
 export function applySrs(
     progress: Progress,
     itemId: string,
     ok: boolean,
     now = Date.now(),
+    grade = gradeFor(ok),
 ): Progress {
-    const next = scheduleSrs(progress.srs?.[itemId], gradeFor(ok), now);
+    const next = scheduleSrs(progress.srs?.[itemId], grade, now);
     return {
         ...progress,
         srs: { ...(progress.srs ?? {}), [itemId]: next },

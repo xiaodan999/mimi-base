@@ -72,25 +72,64 @@ function mergeCards(
     return { ...server, ...local };
 }
 
-/** 错题本以本地为准：答对会删除，不能被旧快照复活。 */
-function mergeWrong(
-    _server: Progress["wrong"],
-    local: Progress["wrong"],
-): Progress["wrong"] {
-    return { ...local };
+/**
+ * 墓碑只留最新的 500 条（按次数裁剪，不按时间：合并结果不该依赖本机时钟）。
+ * 个人题库远到不了这个量，够跨设备传播，也不会让 Progress 无限增长。
+ */
+const WRONG_TOMBSTONE_MAX = 500;
+
+function pruneTombstones(
+    tombstones: Progress["wrongDeleted"],
+): Progress["wrongDeleted"] {
+    const kept = Object.entries(tombstones)
+        .filter(([, ts]) => Number.isFinite(ts))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, WRONG_TOMBSTONE_MAX);
+    return Object.fromEntries(kept);
 }
 
-/** 间隔重复排程以「更新到更晚」的一条为准。 */
+/** 墓碑取并集，同一道题取更晚的删除时间。 */
+function mergeWrongDeleted(
+    server: Progress["wrongDeleted"],
+    local: Progress["wrongDeleted"],
+): Progress["wrongDeleted"] {
+    const out = { ...server };
+    for (const [id, ts] of Object.entries(local)) {
+        if (!Number.isFinite(ts)) continue;
+        out[id] = Math.max(out[id] ?? 0, ts);
+    }
+    return pruneTombstones(out);
+}
+
+/**
+ * 错题本按 id 合并：本地优先（答对会删掉条目），服务端独有的 key 保留
+ * （另一台设备刚答错的题不能被这台设备的旧快照抹掉）。
+ *
+ * 删除靠墓碑表达：只有「删除时间晚于这道题最后一次答错」时才真正移除；
+ * 反过来说明它后来又答错了，条目要留下。
+ */
+function mergeWrong(
+    server: Progress["wrong"],
+    local: Progress["wrong"],
+    tombstones: Progress["wrongDeleted"],
+): Progress["wrong"] {
+    const out = { ...server, ...local };
+    for (const [id, entry] of Object.entries(out)) {
+        if ((tombstones[id] ?? 0) >= entry.t) delete out[id];
+    }
+    return out;
+}
+
+/**
+ * 间隔重复以本地为准：本地快照是「服务端状态 + 这次作答」，答错会把 due
+ * 提前；按 due 取较大值反而会把这次失败丢掉（lapses 也永远不涨）。
+ * 服务端独有的 key 仍然保留。
+ */
 function mergeSrs(
     server: Record<string, SrsItem>,
     local: Record<string, SrsItem>,
 ): Record<string, SrsItem> {
-    const out = { ...server };
-    for (const [id, value] of Object.entries(local)) {
-        const base = out[id];
-        if (!base || value.due >= base.due) out[id] = value;
-    }
-    return out;
+    return { ...server, ...local };
 }
 
 function mergeExams(
@@ -173,11 +212,13 @@ export function mergeProgress(
 ): Progress {
     const s = normalizeProgress(server);
     const l = normalizeProgress(local);
+    const wrongDeleted = mergeWrongDeleted(s.wrongDeleted, l.wrongDeleted);
 
     return {
         cards: mergeCards(s.cards, l.cards),
         stat: mergeStat(s.stat, l.stat),
-        wrong: mergeWrong(s.wrong, l.wrong),
+        wrong: mergeWrong(s.wrong, l.wrong, wrongDeleted),
+        wrongDeleted,
         exams: mergeExams(s.exams, l.exams),
         terms: mergeTerms(s.terms, l.terms),
         days: [...new Set([...s.days, ...l.days])].slice(-400),

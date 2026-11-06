@@ -56,6 +56,35 @@ function writeLocal(
     }
 }
 
+/**
+ * 「本地有改动还没同步成功」的标记。没有它，重新打开 App 时会以为一切正常
+ * （error 初始 false），接着服务端 hydration 把没同步的本地快照覆盖掉。
+ */
+const pendingKey = (userId: string, subjectId: string) =>
+    `mimi-study:${userId}:${subjectId}:pending`;
+
+function hasPending(userId: string, subjectId: string): boolean {
+    if (!userId) return false;
+    try {
+        return localStorage.getItem(pendingKey(userId, subjectId)) === "1";
+    } catch {
+        return false;
+    }
+}
+
+function setPending(userId: string, subjectId: string, pending: boolean): void {
+    if (!userId) return;
+    try {
+        if (pending) {
+            localStorage.setItem(pendingKey(userId, subjectId), "1");
+        } else {
+            localStorage.removeItem(pendingKey(userId, subjectId));
+        }
+    } catch {
+        // 同上，忽略
+    }
+}
+
 /** 退出登录 / 切换账号时清掉上一个账号的离线缓存。 */
 function clearUserLocal(userId: string): void {
     if (!userId) return;
@@ -102,7 +131,8 @@ export function useStudyProgress(subjectId: string) {
         () => readLocal(userId, subjectId) ?? emptyProgress(),
     );
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState(false);
+    // 上一次会话里没同步成功：挂载时就如实显示「待重试」，而不是「已同步」。
+    const [error, setError] = useState(() => hasPending(userId, subjectId));
     const [online, setOnline] = useState(() =>
         typeof navigator === "undefined" ? true : navigator.onLine,
     );
@@ -111,7 +141,10 @@ export function useStudyProgress(subjectId: string) {
     const latest = useRef(progress);
     const timer = useRef<number | null>(null);
     const hydrated = useRef(false);
-    const hadError = useRef(false);
+    const hadError = useRef(hasPending(userId, subjectId));
+    const savingNow = useRef(false);
+    /** 写入期间又有新改动：结束后补写一次。 */
+    const dirtyAfterFlush = useRef(false);
     const prevScope = useRef({ userId, subjectId });
 
     const queryKey = useMemo(
@@ -141,13 +174,15 @@ export function useStudyProgress(subjectId: string) {
         hydrated.current = false;
         recordId.current = null;
         const fresh = readLocal(userId, subjectId) ?? emptyProgress();
+        const pending = hasPending(userId, subjectId);
         latest.current = fresh;
         setProgress(fresh);
-        setError(false);
-        hadError.current = false;
+        setError(pending);
+        hadError.current = pending;
     }, [userId, subjectId]);
 
-    // 首次拉取成功时以服务端为准（只 hydrate 一次，避免覆盖本地未保存的改动）
+    // 首次拉取成功时以服务端为准（只 hydrate 一次）。上一个会话没同步成功
+    // 时改成合并：服务端快照里没有本地那部分改动，直接覆盖会把它们丢掉。
     useEffect(() => {
         if (!query.isSuccess || hydrated.current) return;
         hydrated.current = true;
@@ -155,9 +190,13 @@ export function useStudyProgress(subjectId: string) {
         recordId.current = record?.id ?? null;
         if (record?.data) {
             const remote = normalizeProgress(record.data);
-            latest.current = remote;
-            setProgress(remote);
-            writeLocal(userId, subjectId, remote);
+            const local = readLocal(userId, subjectId);
+            const pending = hasPending(userId, subjectId);
+            const merged =
+                pending && local ? mergeProgress(remote, local) : remote;
+            latest.current = merged;
+            setProgress(merged);
+            writeLocal(userId, subjectId, merged);
         }
     }, [query.isSuccess, query.data, subjectId, userId]);
 
@@ -171,7 +210,16 @@ export function useStudyProgress(subjectId: string) {
             const snapshot = latest.current;
             // 未登录时不写本地、不发请求，避免留下 `mimi-study::...` 垃圾键。
             if (!userId) return;
+            // 重试定时器 / 事件回调可能叠加，同一时间只允许一次写入；
+            // 但这次改动不能被丢掉——记下来，当前请求结束后再写一遍。
+            if (savingNow.current) {
+                dirtyAfterFlush.current = true;
+                return;
+            }
+            savingNow.current = true;
             writeLocal(userId, subjectId, snapshot);
+            // 先打上待同步标记：请求途中被关掉，下次启动仍会重试。
+            setPending(userId, subjectId, true);
             setSaving(true);
             try {
                 const server = await findRecord(userId, subjectId);
@@ -190,6 +238,7 @@ export function useStudyProgress(subjectId: string) {
                     });
                     recordId.current = created.id;
                 }
+                setPending(userId, subjectId, false);
                 setError(false);
                 hadError.current = false;
                 // 总览（首页 / 报告）此前从不失效，进度写完就刷新它。
@@ -200,10 +249,12 @@ export function useStudyProgress(subjectId: string) {
                 // 关键：不再清空 recordId。下一次 flush 会重新 getList，
                 // 找到就 update、找不到才 create，不会陷入唯一约束死循环。
                 // 本地快照已写好，标记为失败并保留，联网后自动重试。
+                setPending(userId, subjectId, true);
                 setError(true);
                 hadError.current = true;
                 console.warn("学习进度同步失败，已保存在本地", err);
             } finally {
+                savingNow.current = false;
                 setSaving(false);
                 queryClient.setQueryData(queryKey, {
                     id: recordId.current ?? "",
@@ -211,6 +262,10 @@ export function useStudyProgress(subjectId: string) {
                     subject_id: subjectId,
                     data: latest.current,
                 });
+                if (dirtyAfterFlush.current) {
+                    dirtyAfterFlush.current = false;
+                    void flush();
+                }
             }
         },
         [queryClient, queryKey, subjectId, userId],
@@ -259,11 +314,27 @@ export function useStudyProgress(subjectId: string) {
         };
     }, []);
 
-    // 重新联网后自动重试上一次失败的同步
+    // 同步失败后自动重试：联网、回到前台/窗口聚焦，以及失败期间每 20 秒一次。
+    // 只在 online 事件上重试不够——服务端 5xx、PB 重启时浏览器一直在线，
+    // 那笔改动就再也不会重试。
     useEffect(() => {
-        if (online && hadError.current) void flush();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [online]);
+        if (!error || !online) return;
+        const retry = () => {
+            if (hadError.current) void flush();
+        };
+        retry();
+        const id = window.setInterval(retry, 20_000);
+        const onVisible = () => {
+            if (document.visibilityState === "visible") retry();
+        };
+        window.addEventListener("focus", retry);
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+            window.clearInterval(id);
+            window.removeEventListener("focus", retry);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
+    }, [error, online, flush]);
 
     const reset = useCallback(() => {
         const blank = emptyProgress();

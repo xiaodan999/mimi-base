@@ -130,14 +130,32 @@ export function readAiSettings(): AiSettings {
     }
 }
 
+/** 换地址 / 换模型 / 换 Key 之后旧结果才不可信；通知和预算不影响结果。 */
+function changesProvider(
+    previousRaw: string | null,
+    next: AiSettings,
+): boolean {
+    if (!previousRaw) return true;
+    try {
+        const previous = JSON.parse(previousRaw) as Partial<AiSettings>;
+        return (
+            (previous.baseUrl ?? "") !== next.baseUrl ||
+            (previous.model ?? "") !== next.model ||
+            (previous.apiKey ?? "") !== next.apiKey
+        );
+    } catch {
+        return true;
+    }
+}
+
 export function writeAiSettings(settings: AiSettings) {
     if (typeof window === "undefined") return;
     try {
         const next = JSON.stringify(settings);
         const previous = localStorage.getItem(STORAGE_KEY);
-        // 只要设置真的变了就作废旧的 AI 缓存：换模型 / 换地址后，旧结果不该
-        // 继续显示。启动时 OpenCode 直连地址的迁移也走这里，只会清一次。
-        if (previous !== next) clearAiCache();
+        // 只有换模型 / 换地址 / 换 Key 才作废 AI 缓存。之前只要任意设置变了
+        // （包括打开通知开关、改预算）就清空全部缓存，白花钱重新生成。
+        if (changesProvider(previous, settings)) clearAiCache();
         localStorage.setItem(STORAGE_KEY, next);
         localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
