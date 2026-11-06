@@ -32,6 +32,8 @@ export type StreamSnapshot = {
 export type StreamChatOptions = {
     model: string;
     messages: unknown[];
+    /** "" = provider default, otherwise low / high / max. */
+    reasoningEffort?: string;
     tools?: ChatToolDefinition[];
     signal?: AbortSignal;
     temperature?: number;
@@ -114,6 +116,9 @@ export async function streamChatCompletion(
                     stream_options: { include_usage: true },
                     temperature: options.temperature ?? 0.7,
                     max_tokens: options.maxTokens ?? MAX_TOKENS,
+                    ...(options.reasoningEffort
+                        ? { reasoning_effort: options.reasoningEffort }
+                        : {}),
                     ...(options.tools && options.tools.length > 0
                         ? { tools: options.tools, tool_choice: "auto" }
                         : {}),

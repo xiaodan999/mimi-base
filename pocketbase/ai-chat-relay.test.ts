@@ -19,6 +19,7 @@ const MODELS: ChatModelInfo[] = [
         vision: true,
         tools: true,
         reasoning: true,
+        thinkingLevels: ["low", "high"],
     },
     {
         id: "text-model",
@@ -26,6 +27,7 @@ const MODELS: ChatModelInfo[] = [
         vision: false,
         tools: false,
         reasoning: false,
+        thinkingLevels: [],
     },
 ];
 
@@ -225,6 +227,61 @@ describe("chat model allowlist", () => {
             }),
         );
         expect(res?.status).toBe(200);
+    });
+
+    test("passes a supported thinking level through", async () => {
+        const { relay, calls } = harness();
+        const res = await relay(
+            chatRequest(AI_CHAT_COMPLETIONS_PATH, {
+                model: "vision-model",
+                messages: [{ role: "user", content: "hi" }],
+                reasoning_effort: "high",
+            }),
+        );
+        expect(res?.status).toBe(200);
+        expect(upstreamBody(calls).reasoning_effort).toBe("high");
+    });
+
+    test("rejects a thinking level the model does not support", async () => {
+        const { relay, calls } = harness();
+        for (const effort of ["max", "ultra"]) {
+            const res = await relay(
+                chatRequest(AI_CHAT_COMPLETIONS_PATH, {
+                    model: "vision-model",
+                    messages: [{ role: "user", content: "hi" }],
+                    reasoning_effort: effort,
+                }),
+            );
+            expect(res?.status).toBe(400);
+            expect(await res?.json()).toMatchObject({
+                error: { message: expect.stringContaining("思考强度") },
+            });
+        }
+        expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
+    });
+
+    test("rejects any thinking level for a model without effort control", async () => {
+        const { relay } = harness();
+        const res = await relay(
+            chatRequest(AI_CHAT_COMPLETIONS_PATH, {
+                model: "text-model",
+                messages: [{ role: "user", content: "hi" }],
+                reasoning_effort: "low",
+            }),
+        );
+        expect(res?.status).toBe(400);
+    });
+
+    test("omits reasoning_effort when the conversation uses the default", async () => {
+        const { relay, calls } = harness();
+        await relay(
+            chatRequest(AI_CHAT_COMPLETIONS_PATH, {
+                model: "vision-model",
+                messages: [{ role: "user", content: "hi" }],
+                reasoning_effort: "",
+            }),
+        );
+        expect(upstreamBody(calls).reasoning_effort).toBeUndefined();
     });
 
     test("legacy endpoint still forces one model and ignores the allowlist", async () => {

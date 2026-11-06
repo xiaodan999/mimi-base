@@ -16,6 +16,7 @@ export type ChatConversationRecord = {
     owner: string;
     title: string;
     model: string;
+    thinking?: string;
     persona_id?: string;
     persona_name?: string;
     persona_prompt?: string;
@@ -202,6 +203,7 @@ export function toChatConversation(
         id: record.id,
         title: asString(record.title, 120) || "新对话",
         model: asString(record.model, 64),
+        thinking: asString(record.thinking, 8),
         personaId: asString(record.persona_id, 80),
         personaName: asString(record.persona_name, 60),
         personaPrompt: asString(record.persona_prompt),

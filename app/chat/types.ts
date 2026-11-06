@@ -14,6 +14,8 @@ export type ChatModel = {
     vision: boolean;
     tools: boolean;
     reasoning: boolean;
+    /** `reasoning_effort` values the model accepts; empty = not adjustable. */
+    thinkingLevels: string[];
 };
 
 export type ChatRole = "user" | "assistant";
@@ -68,6 +70,8 @@ export type ChatConversation = {
     id: string;
     title: string;
     model: string;
+    /** "" = provider default, otherwise "low" / "high" / "max". */
+    thinking: string;
     personaId: string;
     personaName: string;
     personaPrompt: string;

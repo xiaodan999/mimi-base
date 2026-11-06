@@ -104,7 +104,18 @@ export async function fetchChatModels(
         keyConfigured?: unknown;
     };
     const models = Array.isArray(json.models)
-        ? json.models.filter(isChatModel)
+        ? json.models.filter(isChatModel).map((model) => ({
+              ...model,
+              thinkingLevels: Array.isArray(
+                  (model as { thinkingLevels?: unknown }).thinkingLevels,
+              )
+                  ? (
+                        model as { thinkingLevels: unknown[] }
+                    ).thinkingLevels.filter(
+                        (level): level is string => typeof level === "string",
+                    )
+                  : [],
+          }))
         : [];
     const defaultModel =
         typeof json.defaultModel === "string" &&

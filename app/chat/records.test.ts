@@ -104,7 +104,21 @@ describe("toChatConversation", () => {
             title: "标题",
             personaName: "通用助手",
             sandboxFiles: { "a.txt": "1" },
+            thinking: "",
         });
+    });
+
+    test("maps the thinking level", () => {
+        const conversation = toChatConversation({
+            id: "c1",
+            owner: "u1",
+            title: "标题",
+            model: "m",
+            thinking: "high",
+            created: "",
+            updated: "",
+        });
+        expect(conversation.thinking).toBe("high");
     });
 
     test("falls back for an empty title", () => {
@@ -118,6 +132,7 @@ describe("toChatConversation", () => {
         });
         expect(conversation.title).toBe("新对话");
         expect(conversation.sandboxFiles).toEqual({});
+        expect(conversation.thinking).toBe("");
     });
 });
 

@@ -17,6 +17,7 @@ import {
     findChatModel,
     hasImagePart,
     normalizeModelId,
+    normalizeThinkingLevel,
     pickDefaultChatModel,
     resolveChatModels,
     type ChatModelInfo,
@@ -82,7 +83,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const chatModels =
         deps.chatModels && deps.chatModels.length > 0
             ? deps.chatModels
-            : resolveChatModels(deps.model);
+            : resolveChatModels();
     const defaultChatModel = pickDefaultChatModel(
         chatModels,
         deps.defaultChatModel?.trim() || deps.model,
@@ -245,6 +246,23 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                         message: "当前模型不支持图片，换一个支持视觉的模型",
                     },
                 });
+            }
+            // Thinking level is per conversation and validated here, so a
+            // client cannot send an effort the model does not implement.
+            const rawEffort =
+                typeof body.reasoning_effort === "string"
+                    ? body.reasoning_effort.trim().toLowerCase()
+                    : "";
+            if (rawEffort !== "") {
+                const effort = normalizeThinkingLevel(rawEffort);
+                if (!effort || !info.thinkingLevels.includes(effort)) {
+                    return json(400, {
+                        error: { message: "当前模型不支持这个思考强度" },
+                    });
+                }
+                body.reasoning_effort = effort;
+            } else {
+                delete body.reasoning_effort;
             }
         } else {
             // Legacy features get one fixed model; they cannot pick one.

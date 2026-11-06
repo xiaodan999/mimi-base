@@ -1028,10 +1028,7 @@ function startHttpServer() {
     // The general chat picks from a server-owned allowlist instead of a
     // forced model. `OPENCODE_CHAT_MODELS` narrows it; without it the catalog
     // in chat-models.ts is exposed.
-    const chatModels = resolveChatModels(
-        process.env.OPENCODE_MODEL?.trim() || "deepseek-v4.1-flash",
-        process.env.OPENCODE_CHAT_MODELS,
-    );
+    const chatModels = resolveChatModels(process.env.OPENCODE_CHAT_MODELS);
 
     const aiRelay = createAiRelay({
         pbBaseUrl: `http://127.0.0.1:${httpPort}`,

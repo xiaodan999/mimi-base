@@ -8,8 +8,14 @@
  * without touching the client.
  *
  * Capability flags drive the UI: a text-only model hides the image attach
- * button, and the relay refuses image parts sent to one anyway.
+ * button, and the relay refuses image parts sent to one anyway. Models with
+ * `thinkingLevels` expose the per-conversation reasoning effort picker; the
+ * relay rejects an effort the model does not support.
  */
+
+export const CHAT_THINKING_LEVELS = ["low", "high", "max"] as const;
+
+export type ChatThinkingLevel = (typeof CHAT_THINKING_LEVELS)[number];
 
 export type ChatModelInfo = {
     id: string;
@@ -20,62 +26,39 @@ export type ChatModelInfo = {
     tools: boolean;
     /** Streams chain of thought (`reasoning_content` deltas). */
     reasoning: boolean;
+    /** `reasoning_effort` values the model accepts; empty = not adjustable. */
+    thinkingLevels: readonly ChatThinkingLevel[];
 };
 
 /**
- * Best-effort catalog of OpenCode Zen ids. Only the entries the site's Go
- * plan actually serves will work; narrow the list with
- * `OPENCODE_CHAT_MODELS` to hide the rest.
+ * The three models the chat exposes. All of them accept images and tools.
+ * DeepSeek and GLM can tune reasoning effort; MiMo always thinks at its
+ * default level.
  */
 const CATALOG: readonly ChatModelInfo[] = [
     {
         id: "deepseek-v4.1-flash",
         label: "DeepSeek V4.1 Flash",
-        vision: false,
-        tools: true,
-        reasoning: true,
-    },
-    {
-        id: "deepseek-v4-pro",
-        label: "DeepSeek V4 Pro",
-        vision: false,
-        tools: true,
-        reasoning: true,
-    },
-    {
-        id: "glm-5.3",
-        label: "GLM-5.3",
-        vision: false,
-        tools: true,
-        reasoning: true,
-    },
-    {
-        id: "kimi-k2.5",
-        label: "Kimi K2.5",
-        vision: false,
-        tools: true,
-        reasoning: true,
-    },
-    {
-        id: "qwen3.8-max",
-        label: "Qwen3.8 Max",
         vision: true,
         tools: true,
         reasoning: true,
+        thinkingLevels: ["low", "high", "max"],
     },
     {
-        id: "claude-sonnet-4-5",
-        label: "Claude Sonnet 4.5",
+        id: "glm-5.3-flash",
+        label: "GLM-5.3 Flash",
         vision: true,
         tools: true,
         reasoning: true,
+        thinkingLevels: ["low", "high", "max"],
     },
     {
-        id: "gpt-5.5",
-        label: "GPT-5.5",
+        id: "mimo-v2.6-flash",
+        label: "MiMo 2.6 Flash",
         vision: true,
         tools: true,
         reasoning: true,
+        thinkingLevels: [],
     },
 ];
 
@@ -84,36 +67,27 @@ export function normalizeModelId(value: unknown): string {
     return typeof value === "string" ? value.trim().slice(0, 64) : "";
 }
 
+/** Empty string means "use the provider's default effort". */
+export function normalizeThinkingLevel(value: unknown): ChatThinkingLevel | "" {
+    const level = typeof value === "string" ? value.trim().toLowerCase() : "";
+    return (CHAT_THINKING_LEVELS as readonly string[]).includes(level)
+        ? (level as ChatThinkingLevel)
+        : "";
+}
+
 /**
- * Build the enabled list. With no `OPENCODE_CHAT_MODELS`, every catalog entry
- * is enabled (and the legacy `OPENCODE_MODEL` is added if the catalog does
- * not know it yet). With the env set, only those ids are exposed; an id the
+ * Build the enabled list. With no `OPENCODE_CHAT_MODELS`, the three catalog
+ * models are exposed. With the env set, only those ids are exposed; an id the
  * catalog does not know gets conservative flags (text-only, tools,
- * reasoning) and its id as the label.
+ * reasoning, no effort control) and its id as the label.
  */
-export function resolveChatModels(
-    legacyModel: string,
-    rawAllowlist?: string,
-): ChatModelInfo[] {
+export function resolveChatModels(rawAllowlist?: string): ChatModelInfo[] {
     const ids = (rawAllowlist ?? "")
         .split(",")
         .map((value) => normalizeModelId(value))
         .filter((value) => value !== "");
 
-    if (ids.length === 0) {
-        const models = [...CATALOG];
-        const legacy = normalizeModelId(legacyModel);
-        if (legacy && !models.some((model) => model.id === legacy)) {
-            models.unshift({
-                id: legacy,
-                label: legacy,
-                vision: false,
-                tools: true,
-                reasoning: true,
-            });
-        }
-        return models;
-    }
+    if (ids.length === 0) return [...CATALOG];
 
     const seen = new Set<string>();
     const models: ChatModelInfo[] = [];
@@ -128,6 +102,7 @@ export function resolveChatModels(
                 vision: false,
                 tools: true,
                 reasoning: true,
+                thinkingLevels: [],
             },
         );
     }

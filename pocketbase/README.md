@@ -99,10 +99,13 @@ The general chat (`/chat`) uses two more routes:
 - **Key**: `OPENCODE_API_KEY` in `.env.prod` (prod) or `.env` (dev). It is
   never sent to PocketBase, returned to the client, or logged.
 - **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The legacy
-  relay path overwrites whatever model the client sends. For chat,
-  `OPENCODE_CHAT_MODELS` (comma separated ids) narrows the allowlist;
-  `OPENCODE_CHAT_MODEL_DEFAULT` picks the default. The catalog and its
-  capability flags live in `chat-models.ts`.
+  relay path overwrites whatever model the client sends. Chat exposes
+  `deepseek-v4.1-flash`, `glm-5.3-flash` and `mimo-v2.6-flash` by default;
+  `OPENCODE_CHAT_MODELS` (comma separated ids) narrows that list and
+  `OPENCODE_CHAT_MODEL_DEFAULT` picks the default. The catalog, its vision /
+  tools flags and the thinking levels live in `chat-models.ts`. DeepSeek and
+  GLM accept `reasoning_effort` (`low` / `high` / `max`); MiMo does not, and
+  the relay rejects any effort the chosen model does not list.
 - **Quota**: `AI_DAILY_REQUESTS_PER_USER` (default 100, `0` = unlimited),
   plus 20 requests/minute/user. Both are in-memory and reset on restart.
 - **Port**: `SUPERVISOR_PORT` overrides :9001 (dev:all chooses a free one;

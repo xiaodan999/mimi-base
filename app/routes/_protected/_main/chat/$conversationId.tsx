@@ -68,6 +68,13 @@ function ChatConversationView({
         models.find((item) => item.id === fallbackId) ??
         models[0];
 
+    // Only send an effort the selected model advertises; a stored level can
+    // become invalid when the conversation switches models.
+    const thinking =
+        model?.thinkingLevels.includes(conversation.thinking) === true
+            ? conversation.thinking
+            : "";
+
     // A model removed from the server allowlist should not brick the chat:
     // fall back to the default and remember that choice.
     useEffect(() => {
@@ -75,6 +82,7 @@ function ChatConversationView({
         if (conversation.model === model.id) return;
         void actions.updateConversation(conversation.id, {
             model: model.id,
+            thinking: thinking,
         });
     }, [
         actions,
@@ -82,6 +90,7 @@ function ChatConversationView({
         conversation.model,
         model,
         modelsQuery.isSuccess,
+        thinking,
     ]);
 
     const session = useChatSession({
@@ -95,10 +104,21 @@ function ChatConversationView({
             <ChatHeader
                 conversation={conversation}
                 models={models}
+                thinking={thinking}
                 running={session.running}
                 onChangeModel={(modelId) => {
+                    const next = models.find((item) => item.id === modelId);
                     void actions.updateConversation(conversation.id, {
                         model: modelId,
+                        thinking:
+                            next?.thinkingLevels.includes(thinking) === true
+                                ? thinking
+                                : "",
+                    });
+                }}
+                onChangeThinking={(level) => {
+                    void actions.updateConversation(conversation.id, {
+                        thinking: level,
                     });
                 }}
                 onRename={async (title) => {

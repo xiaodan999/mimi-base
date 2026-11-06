@@ -153,6 +153,11 @@ export function useChatSession({
                             history,
                             conversationRef.current.personaPrompt,
                         ),
+                        reasoningEffort: modelInfo.thinkingLevels.includes(
+                            conversationRef.current.thinking,
+                        )
+                            ? conversationRef.current.thinking
+                            : undefined,
                         tools: toolsForModel(modelInfo),
                         signal: controller.signal,
                         onDelta: (snapshot) => {
@@ -164,7 +169,6 @@ export function useChatSession({
                         },
                     });
                 } catch (error) {
-                    setLive(null);
                     const message =
                         error instanceof Error
                             ? error.message
@@ -185,10 +189,13 @@ export function useChatSession({
                     if (saved) {
                         setOptimistic((previous) => [...previous, saved]);
                     }
+                    // Drop the live draft only after the persisted row (or the
+                    // optimistic copy) is in the list. Clearing it first made
+                    // the answer disappear for a frame on mobile.
+                    setLive(null);
                     break;
                 }
 
-                setLive(null);
                 const parts = snapshotParts(result);
                 const content = result.content;
                 const hasBody =
@@ -210,6 +217,7 @@ export function useChatSession({
                     ...(result.usage ? { usage: result.usage } : {}),
                 });
                 setOptimistic((previous) => [...previous, saved]);
+                setLive(null);
                 history = [...history, saved];
 
                 if (result.aborted || result.toolCalls.length === 0) {

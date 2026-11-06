@@ -43,7 +43,10 @@ function ChatListPage() {
                     actions.deleteConversation(conversation.id).catch(() => {}),
                 ),
             );
-            const created = await actions.createConversation(input);
+            const created = await actions.createConversation({
+                ...input,
+                thinking: "",
+            });
             await navigate({
                 to: "/chat/$conversationId",
                 params: { conversationId: created.id },

@@ -34,8 +34,10 @@ import { ModelPicker } from "./-model-picker";
 export type ChatHeaderProps = {
     conversation: ChatConversation;
     models: readonly ChatModel[];
+    thinking: string;
     running: boolean;
     onChangeModel: (modelId: string) => void;
+    onChangeThinking: (level: string) => void;
     onRename: (title: string) => Promise<void>;
     onDelete: () => Promise<void>;
     onClearSandbox: () => Promise<void>;
@@ -49,8 +51,10 @@ export type ChatHeaderProps = {
 export function ChatHeader({
     conversation,
     models,
+    thinking,
     running,
     onChangeModel,
+    onChangeThinking,
     onRename,
     onDelete,
     onClearSandbox,
@@ -105,7 +109,9 @@ export function ChatHeader({
                 <ModelPicker
                     models={models}
                     value={conversation.model}
+                    thinking={thinking}
                     onChange={onChangeModel}
+                    onThinkingChange={onChangeThinking}
                     disabled={running}
                 />
                 <DropdownMenu>

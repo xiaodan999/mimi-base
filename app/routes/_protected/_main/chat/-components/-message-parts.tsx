@@ -187,7 +187,7 @@ export function MarkdownText() {
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
             className="text-[15px] leading-relaxed [&_*]:break-words"
-            defer
+            smooth={false}
         />
     );
 }

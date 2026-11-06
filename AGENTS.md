@@ -314,7 +314,8 @@ before your first commit.
     General chat uses `POST /ai/chat/completions` + `GET /ai/models` instead:
     the model must be in the server allowlist (`chat-models.ts`, narrowed by
     `OPENCODE_CHAT_MODELS`), unknown ids get 400, text-only models lose
-    `tools`, and non-vision models reject image parts. The legacy path keeps
+    `tools`, non-vision models reject image parts, and `reasoning_effort` is
+    validated against the model's `thinkingLevels`. The legacy path keeps
     forcing `OPENCODE_MODEL`.
     `OPENCODE_API_KEY` / `OPENCODE_MODEL` / `AI_DAILY_REQUESTS_PER_USER` come
     from `.env.prod` (dev: `.env`); the key never reaches the browser,

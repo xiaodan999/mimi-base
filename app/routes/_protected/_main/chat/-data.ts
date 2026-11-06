@@ -109,6 +109,7 @@ export function useChatPersonas() {
 export type CreateConversationInput = {
     title: string;
     model: string;
+    thinking: string;
     persona: ChatPersona;
 };
 
@@ -127,6 +128,7 @@ export type CreateMessageInput = {
 export type ConversationPatch = {
     title?: string;
     model?: string;
+    thinking?: string;
     lastMessage?: string;
     sandboxFiles?: SandboxFiles;
 };
@@ -176,6 +178,7 @@ export function useChatActions() {
                     owner: user.id,
                     title: input.title.slice(0, 120) || "新对话",
                     model: input.model,
+                    thinking: input.thinking.slice(0, 8),
                     persona_id: input.persona.id,
                     persona_name: input.persona.name,
                     persona_prompt: input.persona.prompt,
@@ -194,6 +197,9 @@ export function useChatActions() {
                 body.title = patch.title.slice(0, 120) || "新对话";
             }
             if (patch.model !== undefined) body.model = patch.model;
+            if (patch.thinking !== undefined) {
+                body.thinking = patch.thinking.slice(0, 8);
+            }
             if (patch.lastMessage !== undefined) {
                 body.last_message = patch.lastMessage.slice(0, 200);
             }
@@ -239,7 +245,10 @@ export function useChatActions() {
                         : {}),
                     ...(input.usage ? { usage: input.usage } : {}),
                 });
-            await queryClient.invalidateQueries({
+            // Don't await the refetch: the caller swaps the live draft for
+            // the optimistic row immediately, and waiting here let a refetch
+            // render both copies for a frame (a visible jump on mobile).
+            void queryClient.invalidateQueries({
                 queryKey: qk.chat.messages(user.id, input.conversationId),
             });
             return toChatMessage(record);

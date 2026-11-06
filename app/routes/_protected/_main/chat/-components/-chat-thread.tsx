@@ -84,35 +84,39 @@ function AssistantMessage() {
                         },
                     }}
                 />
-                <ActionBarPrimitive.Root
-                    hideWhenRunning
-                    className="mt-1 flex items-center gap-0.5 opacity-70 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100"
-                >
-                    <ActionBarPrimitive.Copy asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="复制回复"
-                            title="复制回复"
-                            className="size-7 rounded-lg text-muted-foreground data-[copied=true]:text-primary"
-                        >
-                            <Copy className="size-3.5" />
-                        </Button>
-                    </ActionBarPrimitive.Copy>
-                    <MessagePrimitive.If last>
-                        <ActionBarPrimitive.Reload asChild>
+                {/* Reserve the bar's height: hiding it while streaming and
+                    showing it on completion shifted the answer on mobile. */}
+                <div className="mt-1 min-h-7">
+                    <ActionBarPrimitive.Root
+                        hideWhenRunning
+                        className="flex items-center gap-0.5 opacity-70 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100"
+                    >
+                        <ActionBarPrimitive.Copy asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                aria-label="重新生成"
-                                title="重新生成"
-                                className="size-7 rounded-lg text-muted-foreground"
+                                aria-label="复制回复"
+                                title="复制回复"
+                                className="size-7 rounded-lg text-muted-foreground data-[copied=true]:text-primary"
                             >
-                                <RotateCcw className="size-3.5" />
+                                <Copy className="size-3.5" />
                             </Button>
-                        </ActionBarPrimitive.Reload>
-                    </MessagePrimitive.If>
-                </ActionBarPrimitive.Root>
+                        </ActionBarPrimitive.Copy>
+                        <MessagePrimitive.If last>
+                            <ActionBarPrimitive.Reload asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="重新生成"
+                                    title="重新生成"
+                                    className="size-7 rounded-lg text-muted-foreground"
+                                >
+                                    <RotateCcw className="size-3.5" />
+                                </Button>
+                            </ActionBarPrimitive.Reload>
+                        </MessagePrimitive.If>
+                    </ActionBarPrimitive.Root>
+                </div>
             </div>
         </MessagePrimitive.Root>
     );
