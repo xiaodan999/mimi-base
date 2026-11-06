@@ -28,6 +28,8 @@ export type ChatModelInfo = {
     reasoning: boolean;
     /** `reasoning_effort` values the model accepts; empty = not adjustable. */
     thinkingLevels: readonly ChatThinkingLevel[];
+    /** Context window in tokens; 0 when unknown. */
+    contextWindow: number;
 };
 
 /**
@@ -43,6 +45,7 @@ const CATALOG: readonly ChatModelInfo[] = [
         tools: true,
         reasoning: true,
         thinkingLevels: ["low", "high", "max"],
+        contextWindow: 1_000_000,
     },
     {
         id: "glm-5.3-flash",
@@ -51,6 +54,7 @@ const CATALOG: readonly ChatModelInfo[] = [
         tools: true,
         reasoning: true,
         thinkingLevels: ["low", "high", "max"],
+        contextWindow: 1_000_000,
     },
     {
         id: "mimo-v2.6-flash",
@@ -59,6 +63,7 @@ const CATALOG: readonly ChatModelInfo[] = [
         tools: true,
         reasoning: true,
         thinkingLevels: [],
+        contextWindow: 1_048_576,
     },
 ];
 
@@ -103,6 +108,7 @@ export function resolveChatModels(rawAllowlist?: string): ChatModelInfo[] {
                 tools: true,
                 reasoning: true,
                 thinkingLevels: [],
+                contextWindow: 0,
             },
         );
     }

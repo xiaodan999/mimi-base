@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { ComposerPrimitive } from "@assistant-ui/react";
 import { ArrowUp, ImagePlus, Loader2, Square, X } from "lucide-react";
 
+import { contextPercent, formatTokenCount } from "@/app/chat/context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,8 @@ export type ChatComposerProps = {
     visionEnabled: boolean;
     disabled: boolean;
     running: boolean;
+    /** Latest prompt_tokens / the model's context window. */
+    contextUsage?: { used: number; total: number };
     onAddImages: (files: FileList | null) => void;
     onRemoveImage: (index: number) => void;
     onStop: () => void;
@@ -28,11 +31,16 @@ export function ChatComposer({
     visionEnabled,
     disabled,
     running,
+    contextUsage,
     onAddImages,
     onRemoveImage,
     onStop,
 }: ChatComposerProps) {
     const fileRef = useRef<HTMLInputElement>(null);
+    const percent =
+        contextUsage && contextUsage.total > 0
+            ? contextPercent(contextUsage.used, contextUsage.total)
+            : null;
 
     return (
         <div className="border-t border-border/70 bg-background/95 px-3 pb-2 pt-2 backdrop-blur-xl">
@@ -106,7 +114,7 @@ export function ChatComposer({
                     minRows={1}
                     maxRows={6}
                     disabled={disabled}
-                    className="min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground"
+                    className="min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-none [scrollbar-width:none] placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden"
                 />
 
                 {running ? (
@@ -136,9 +144,26 @@ export function ChatComposer({
                 )}
             </ComposerPrimitive.Root>
 
-            <p className="mt-1 px-1 text-center text-[10px] text-muted-foreground/80">
-                Enter 发送 · Shift + Enter 换行 · 用键盘的语音输入代替应用内录音
-            </p>
+            <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[10px] text-muted-foreground/80">
+                <span className="truncate">Enter 发送 · Shift+Enter 换行</span>
+                {percent !== null && contextUsage && (
+                    <span
+                        className={cn(
+                            "shrink-0 tabular-nums",
+                            percent >= 95
+                                ? "text-destructive"
+                                : percent >= 80
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "",
+                        )}
+                        title={`上次请求约 ${formatTokenCount(
+                            contextUsage.used,
+                        )} / ${formatTokenCount(contextUsage.total)} tokens`}
+                    >
+                        上下文 {percent}%
+                    </span>
+                )}
+            </div>
         </div>
     );
 }

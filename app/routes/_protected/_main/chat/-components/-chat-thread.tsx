@@ -11,6 +11,7 @@ import { ArrowDown, Copy, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { imagesToDataUrls } from "@/app/ai/image";
+import { latestPromptTokens } from "@/app/chat/context";
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 import { Button } from "@/components/ui/button";
 
@@ -243,6 +244,7 @@ export function ChatThread({
         () => messages.length === 0 && !live,
         [messages.length, live],
     );
+    const contextUsed = useMemo(() => latestPromptTokens(messages), [messages]);
 
     // Our own scroll-down affordance: assistant-ui's built-in button reports
     // "not at bottom" before the first scroll event and floats over the
@@ -306,6 +308,10 @@ export function ChatThread({
                     visionEnabled={visionEnabled}
                     disabled={disabled}
                     running={running}
+                    contextUsage={{
+                        used: contextUsed,
+                        total: model?.contextWindow ?? 0,
+                    }}
                     onAddImages={handleAddImages}
                     onRemoveImage={removeImage}
                     onStop={onStop}

@@ -104,18 +104,26 @@ export async function fetchChatModels(
         keyConfigured?: unknown;
     };
     const models = Array.isArray(json.models)
-        ? json.models.filter(isChatModel).map((model) => ({
-              ...model,
-              thinkingLevels: Array.isArray(
-                  (model as { thinkingLevels?: unknown }).thinkingLevels,
-              )
-                  ? (
-                        model as { thinkingLevels: unknown[] }
-                    ).thinkingLevels.filter(
-                        (level): level is string => typeof level === "string",
-                    )
-                  : [],
-          }))
+        ? json.models.filter(isChatModel).map((model) => {
+              const levels = (model as { thinkingLevels?: unknown })
+                  .thinkingLevels;
+              const contextWindow = (model as { contextWindow?: unknown })
+                  .contextWindow;
+              return {
+                  ...model,
+                  thinkingLevels: Array.isArray(levels)
+                      ? levels.filter(
+                            (level): level is string =>
+                                typeof level === "string",
+                        )
+                      : [],
+                  contextWindow:
+                      typeof contextWindow === "number" &&
+                      Number.isFinite(contextWindow)
+                          ? Math.max(0, Math.round(contextWindow))
+                          : 0,
+              };
+          })
         : [];
     const defaultModel =
         typeof json.defaultModel === "string" &&

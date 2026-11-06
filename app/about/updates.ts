@@ -27,6 +27,7 @@ export const UPDATES: Update[] = [
             "支持视觉的模型可以发图片；AI 还能在隔离环境里运行代码、读写这段对话的文件，用来计算和验证。",
             "聊天可以选 DeepSeek V4.1 Flash、GLM-5.3 Flash 或 MiMo 2.6 Flash；DeepSeek 和 GLM 还能调思考强度（低 / 高 / 最高）。",
             "新增「英语老师」人格：只用英文回答，讲语法、词汇和地道表达。",
+            "聊天输入框会显示上下文用了多少（百分比），接近上限时变色提醒。",
         ],
         fixed: [
             "DeepSeek V4.1 Flash 现在可以直接发图片。",

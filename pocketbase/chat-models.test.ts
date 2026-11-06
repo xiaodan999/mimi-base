@@ -21,6 +21,21 @@ describe("resolveChatModels", () => {
         expect(models.every((model) => model.tools)).toBe(true);
     });
 
+    test("exposes the provider context windows", () => {
+        const models = resolveChatModels();
+        expect(
+            models.find((model) => model.id === "deepseek-v4.1-flash")
+                ?.contextWindow,
+        ).toBe(1_000_000);
+        expect(
+            models.find((model) => model.id === "glm-5.3-flash")?.contextWindow,
+        ).toBe(1_000_000);
+        expect(
+            models.find((model) => model.id === "mimo-v2.6-flash")
+                ?.contextWindow,
+        ).toBe(1_048_576);
+    });
+
     test("only DeepSeek and GLM expose thinking levels", () => {
         const models = resolveChatModels();
         expect(
@@ -57,6 +72,7 @@ describe("resolveChatModels", () => {
                 tools: true,
                 reasoning: true,
                 thinkingLevels: [],
+                contextWindow: 0,
             },
         ]);
     });

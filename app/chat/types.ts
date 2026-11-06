@@ -16,6 +16,8 @@ export type ChatModel = {
     reasoning: boolean;
     /** `reasoning_effort` values the model accepts; empty = not adjustable. */
     thinkingLevels: string[];
+    /** Context window in tokens; 0 when the server does not know. */
+    contextWindow: number;
 };
 
 export type ChatRole = "user" | "assistant";

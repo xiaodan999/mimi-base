@@ -17,11 +17,13 @@
 - 聊天模型白名单收敛为 DeepSeek V4.1 Flash / GLM-5.3 Flash / MiMo 2.6 Flash；三者都支持图片与工具，DeepSeek 和 GLM 额外支持 `reasoning_effort` 的低 / 高 / 最高。
 - 新增 `chat_conversations.thinking`（迁移 `1795200000_add_chat_thinking.js`）与会话内的「思考强度」选择；`POST /ai/chat/completions` 校验并透传 `reasoning_effort`，模型不支持的强度返回 400。
 - 新增内置「英语老师」人格，prompt 强制只输出英文。
+- 聊天输入框显示上下文占用百分比：取最近一次助手回复的 `prompt_tokens` 除以模型的 `contextWindow`，`/ai/models` 因此新增 `contextWindow`；达到 80% / 95% 时变色提醒。
 
 ### 修复
 
 - 更正 `deepseek-v4.1-flash` 的视觉能力：它支持图片输入，`chat-models.ts` 现在标记为 `vision: true`；GLM-5.3 Flash 与 MiMo 2.6 Flash 同样标记为多模态。
 - 修复手机端回复结束瞬间的闪动：live 草稿改到持久化消息就绪后再移除，`createMessage` 不再等待 refetch（避免同一回复短暂渲染两份），Markdown 关闭 smooth / defer，消息操作栏预留固定高度。
+- 隐藏聊天输入框超过 6 行时的原生滚动条（提交按钮左侧的竖灰条），文本仍然可以滚动。
 
 ### 变更
 

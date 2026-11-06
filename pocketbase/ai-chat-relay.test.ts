@@ -20,6 +20,7 @@ const MODELS: ChatModelInfo[] = [
         tools: true,
         reasoning: true,
         thinkingLevels: ["low", "high"],
+        contextWindow: 200_000,
     },
     {
         id: "text-model",
@@ -28,6 +29,7 @@ const MODELS: ChatModelInfo[] = [
         tools: false,
         reasoning: false,
         thinkingLevels: [],
+        contextWindow: 0,
     },
 ];
 
