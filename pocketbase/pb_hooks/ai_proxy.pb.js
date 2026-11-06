@@ -31,10 +31,15 @@ routerAdd("POST", "/api/ai/opencode/v1/chat/completions", (c) => {
     const info = c.requestInfo();
 
     // 取请求头（首个值），大小写与连字符都不敏感。
+    // 注意：PocketBase 的 requestInfo().headers 会把头名统一成「小写 + 下划线」
+    // （`x-opencode-key` → `x_opencode_key`，`Content-Type` → `content_type`），
+    // 所以比较前必须把 `-` 也归一成 `_`，否则永远取不到这些头。
+    const normalizeHeaderName = (name) =>
+        String(name).toLowerCase().replace(/-/g, "_");
     const headerValue = (name) => {
-        const target = String(name).toLowerCase();
+        const target = normalizeHeaderName(name);
         for (const key in info.headers) {
-            if (String(key).toLowerCase() !== target) continue;
+            if (normalizeHeaderName(key) !== target) continue;
             const value = info.headers[key];
             const first = Array.isArray(value) ? value[0] : value;
             return first == null ? "" : String(first);
