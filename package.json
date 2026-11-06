@@ -32,6 +32,8 @@
         ]
     },
     "dependencies": {
+        "@assistant-ui/react": "0.15.32",
+        "@assistant-ui/react-markdown": "0.14.24",
         "@hookform/resolvers": "^7.0.1",
         "@radix-ui/react-avatar": "^1.1.1",
         "@radix-ui/react-context-menu": "^2.2.2",
@@ -59,6 +61,8 @@
         "react-dom": "^18.3.1",
         "react-hook-form": "^7.53.0",
         "react-intersection-observer": "^9.13.1",
+        "react-markdown": "^10.1.0",
+        "remark-gfm": "^4.0.1",
         "sonner": "^1.5.0",
         "tailwind-merge": "^2.5.4",
         "tailwindcss-animate": "^1.0.7",

@@ -3,6 +3,7 @@ import {
     BookOpen,
     House,
     MessageCircle,
+    MessageSquareText,
     UserRound,
     Wallet,
     type LucideIcon,
@@ -20,6 +21,7 @@ type NavRoute = {
 const routes: NavRoute[] = [
     { name: "首页", path: "/home", icon: House, exact: true },
     { name: "动态", path: "/posts", icon: MessageCircle },
+    { name: "聊天", path: "/chat", icon: MessageSquareText },
     { name: "记账", path: "/jizhang", icon: Wallet },
     { name: "学习", path: "/study", icon: BookOpen },
     { name: "我的", path: "/profile", icon: UserRound },

@@ -1,7 +1,7 @@
 # 秘密基地（mimi-base）
 
-一个用来记录照片、动态和小账本的个人小应用。它可以装在手机主屏幕上，
-像普通 App 一样打开使用。
+一个用来记录照片、动态和小账本、还能和 AI 聊天的个人小应用。它可以装在
+手机主屏幕上，像普通 App 一样打开使用。
 
 这个文件写给第一次运行项目的人。不需要懂太多编程，照着步骤做就可以。
 
@@ -226,6 +226,12 @@ VITE_POCKETBASE_URL=https://pb.example.com
 时放 `.env`），浏览器只带登录令牌访问 `/ai` 中转，不需要也不能填自己的 Key。
 反向代理必须把 `/ai/*` 转发到 `:9001` 并关闭响应缓冲（nginx
 `proxy_buffering off`），否则流式输出会退化成一次性返回。
+
+**聊天**：底部的「聊天」标签是通用 AI 对话。可选模型由服务端白名单决定
+（`OPENCODE_CHAT_MODELS`，见 `pocketbase/README.md`），客户端传其它模型 id
+会被拒绝；聊天记录保存在 PocketBase 的 `chat_*` 集合里，只有本人能读写。
+AI 的 `sandbox_*` 工具在浏览器里的隔离 Worker 中执行，不会在服务器上运行
+代码。
 
 **两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
 是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`

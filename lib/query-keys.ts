@@ -50,6 +50,17 @@ export const qk = {
         ["memories", userId, day] as const,
     yearReport: (userId: string, year: number) =>
         ["year-report", userId, year] as const,
+    chat: {
+        all: ["chat"] as const,
+        conversations: (userId: string) =>
+            ["chat", "conversations", userId] as const,
+        conversation: (userId: string, conversationId: string) =>
+            ["chat", "conversation", userId, conversationId] as const,
+        messages: (userId: string, conversationId: string) =>
+            ["chat", "messages", userId, conversationId] as const,
+        personas: (userId: string) => ["chat", "personas", userId] as const,
+        models: () => ["chat", "models"] as const,
+    },
     /**
      * Mutation keys kept here too, so `useIsMutating` / devtools / future
      * matching can't drift from the strings used by the hooks. The exact

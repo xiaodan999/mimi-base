@@ -69,6 +69,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import { createAiRelay } from "./ai-relay";
+import { resolveChatModels } from "./chat-models";
 
 const PB_VERSION = "0.40.6";
 const isWindows = process.platform === "win32";
@@ -621,7 +622,7 @@ const fileHash = async (p: string) =>
         .digest("hex");
 
 /** Supervisor modules whose changes require a respawn after /db/sync. */
-const SUPERVISOR_MODULES = ["server.ts", "ai-relay.ts"];
+const SUPERVISOR_MODULES = ["server.ts", "ai-relay.ts", "chat-models.ts"];
 
 async function supervisorModulesHash(): Promise<string> {
     const hashes = await Promise.all(
@@ -938,6 +939,8 @@ function scheduleRespawn(): void {
         for (const key of [
             "OPENCODE_API_KEY",
             "OPENCODE_MODEL",
+            "OPENCODE_CHAT_MODELS",
+            "OPENCODE_CHAT_MODEL_DEFAULT",
             "AI_DAILY_REQUESTS_PER_USER",
         ]) {
             if (process.env[key] !== undefined) {
@@ -1022,10 +1025,21 @@ function startHttpServer() {
         return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100;
     })();
 
+    // The general chat picks from a server-owned allowlist instead of a
+    // forced model. `OPENCODE_CHAT_MODELS` narrows it; without it the catalog
+    // in chat-models.ts is exposed.
+    const chatModels = resolveChatModels(
+        process.env.OPENCODE_MODEL?.trim() || "deepseek-v4.1-flash",
+        process.env.OPENCODE_CHAT_MODELS,
+    );
+
     const aiRelay = createAiRelay({
         pbBaseUrl: `http://127.0.0.1:${httpPort}`,
         apiKey: process.env.OPENCODE_API_KEY ?? "",
         model: process.env.OPENCODE_MODEL?.trim() || "deepseek-v4.1-flash",
+        chatModels,
+        defaultChatModel:
+            process.env.OPENCODE_CHAT_MODEL_DEFAULT?.trim() || undefined,
         dailyLimit,
     });
 

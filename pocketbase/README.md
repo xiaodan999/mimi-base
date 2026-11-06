@@ -84,10 +84,25 @@ the Bun supervisor forwards the request to OpenCode Go with the server key,
 piping the SSE response back as it arrives. `GET /ai/health` reports
 `{ ok, keyConfigured, model }`.
 
+The general chat (`/chat`) uses two more routes:
+
+- `GET /ai/models` (authenticated) returns the server-owned allowlist:
+  `models` (each with `id`, `label`, `vision`, `tools`, `reasoning`), plus
+  `defaultModel` and `keyConfigured`. The client can only render and send
+  these ids.
+- `POST /ai/chat/completions` behaves like the legacy endpoint but honours
+  `body.model` when it is in the allowlist, rejects unknown ids with `400`,
+  strips `tools` for text-only models, and rejects image parts sent to a
+  model without `vision`. Legacy features keep using
+  `/ai/opencode/v1/chat/completions`, where the relay still forces one model.
+
 - **Key**: `OPENCODE_API_KEY` in `.env.prod` (prod) or `.env` (dev). It is
   never sent to PocketBase, returned to the client, or logged.
-- **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The relay
-  overwrites whatever model the client sends.
+- **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The legacy
+  relay path overwrites whatever model the client sends. For chat,
+  `OPENCODE_CHAT_MODELS` (comma separated ids) narrows the allowlist;
+  `OPENCODE_CHAT_MODEL_DEFAULT` picks the default. The catalog and its
+  capability flags live in `chat-models.ts`.
 - **Quota**: `AI_DAILY_REQUESTS_PER_USER` (default 100, `0` = unlimited),
   plus 20 requests/minute/user. Both are in-memory and reset on restart.
 - **Port**: `SUPERVISOR_PORT` overrides :9001 (dev:all chooses a free one;

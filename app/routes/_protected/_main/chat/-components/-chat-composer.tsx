@@ -1,0 +1,144 @@
+import { useRef } from "react";
+import { ComposerPrimitive } from "@assistant-ui/react";
+import { ArrowUp, ImagePlus, Loader2, Square, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export type ChatComposerProps = {
+    images: readonly string[];
+    addingImages: boolean;
+    /** Vision gate: text-only models disable the attach button. */
+    visionEnabled: boolean;
+    disabled: boolean;
+    running: boolean;
+    onAddImages: (files: FileList | null) => void;
+    onRemoveImage: (index: number) => void;
+    onStop: () => void;
+};
+
+/**
+ * Composer built on assistant-ui's composer primitives (Enter to send,
+ * Shift+Enter for a newline, autosizing textarea). Dictation is intentionally
+ * left to the phone keyboard — there is no in-app recorder.
+ */
+export function ChatComposer({
+    images,
+    addingImages,
+    visionEnabled,
+    disabled,
+    running,
+    onAddImages,
+    onRemoveImage,
+    onStop,
+}: ChatComposerProps) {
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    return (
+        <div className="border-t border-border/70 bg-background/95 px-3 pb-2 pt-2 backdrop-blur-xl">
+            {images.length > 0 && (
+                <div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">
+                    {images.map((image, index) => (
+                        <div
+                            key={`${image.slice(0, 32)}-${index}`}
+                            className="relative shrink-0"
+                        >
+                            <img
+                                src={image}
+                                alt={`待发送图片 ${index + 1}`}
+                                className="size-16 rounded-xl border border-border/70 object-cover"
+                            />
+                            <button
+                                type="button"
+                                aria-label="移除图片"
+                                onClick={() => onRemoveImage(index)}
+                                className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <ComposerPrimitive.Root
+                className={cn(
+                    "flex items-end gap-1.5 rounded-2xl border border-border bg-card p-1.5 shadow-soft transition-colors focus-within:border-primary/50",
+                    disabled && "opacity-60",
+                )}
+            >
+                <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                        onAddImages(event.target.files);
+                        event.target.value = "";
+                    }}
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={
+                        visionEnabled
+                            ? "添加图片"
+                            : "当前模型不支持图片，换一个支持视觉的模型"
+                    }
+                    title={visionEnabled ? "添加图片" : "当前模型不支持图片"}
+                    disabled={!visionEnabled || disabled || running}
+                    onClick={() => fileRef.current?.click()}
+                    className="size-9 shrink-0 rounded-xl text-muted-foreground"
+                >
+                    {addingImages ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        <ImagePlus className="size-4" />
+                    )}
+                </Button>
+
+                <ComposerPrimitive.Input
+                    placeholder={
+                        disabled ? "站点没有可用的聊天模型" : "发消息…"
+                    }
+                    minRows={1}
+                    maxRows={6}
+                    disabled={disabled}
+                    className="min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-none placeholder:text-muted-foreground"
+                />
+
+                {running ? (
+                    <Button
+                        type="button"
+                        size="icon"
+                        aria-label="停止生成"
+                        title="停止生成"
+                        onClick={onStop}
+                        className="size-9 shrink-0 rounded-xl"
+                    >
+                        <Square className="size-3.5 fill-current" />
+                    </Button>
+                ) : (
+                    <ComposerPrimitive.Send asChild>
+                        <Button
+                            type="submit"
+                            size="icon"
+                            aria-label="发送"
+                            title="发送"
+                            disabled={disabled ? true : undefined}
+                            className="size-9 shrink-0 rounded-xl disabled:opacity-40"
+                        >
+                            <ArrowUp className="size-4" />
+                        </Button>
+                    </ComposerPrimitive.Send>
+                )}
+            </ComposerPrimitive.Root>
+
+            <p className="mt-1 px-1 text-center text-[10px] text-muted-foreground/80">
+                Enter 发送 · Shift + Enter 换行 · 用键盘的语音输入代替应用内录音
+            </p>
+        </div>
+    );
+}

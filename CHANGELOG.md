@@ -2,6 +2,23 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-07
+
+### 新增
+
+- 新增通用聊天：底部第 6 个标签「聊天」，支持多对话、从第一条消息自动起标题、改名和删除；历史存 PocketBase，按 `owner` 隔离，只有本人能读写。
+- 新增 `chat_conversations` / `chat_messages` / `chat_personas` 三个集合及迁移：消息以 assistant-ui 的 content parts 存 JSON，`seq` 保证顺序；自定义人格存 PB，对话创建时快照人格名称与设定。
+- 聊天使用 assistant-ui 的外部存储运行时（`useExternalStoreRuntime`），接入自己的流式请求和持久化；正文、思考过程、工具调用都以增量渲染。
+- 新增 `POST /ai/chat/completions` 与 `GET /ai/models`：模型来自服务端白名单（`pocketbase/chat-models.ts` + `OPENCODE_CHAT_MODELS`），未知 id 返回 400；纯文本模型会移除工具，非视觉模型拒收图片。旧的 `/ai/opencode/v1/chat/completions` 行为不变，仍由服务端强制单一模型。
+- 新增隔离沙箱：每次工具调用在独立 Web Worker 里执行（无 DOM / 存储，网络 API 被替换，15 秒硬超时），提供 `sandbox_run` / `sandbox_read` / `sandbox_write` / `sandbox_list`，文件快照随对话保存。
+- 聊天交互：流式回复、思考过程折叠、停止、重新生成、复制、Markdown/GFM 表格/代码块（带复制按钮）；模型支持视觉时才能附加图片，图片只随当前消息发送。
+- 语音输入使用手机键盘自带的听写，不引入应用内录音。
+- 补充 `bun test` 覆盖：SSE 与工具调用增量解析、标题生成、prompt 组装、沙箱协议与路径校验、模型白名单与中转拒绝逻辑。
+
+### 变更
+
+- `.env.example` 与 `pocketbase/README.md` 补充聊天模型白名单与 `/ai` 新端点的说明。
+
 ## 2026-11-06
 
 ### 新增

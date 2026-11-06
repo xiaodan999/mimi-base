@@ -13,8 +13,20 @@
 
 import { createHash } from "node:crypto";
 
+import {
+    findChatModel,
+    hasImagePart,
+    normalizeModelId,
+    pickDefaultChatModel,
+    resolveChatModels,
+    type ChatModelInfo,
+} from "./chat-models";
+
 export const AI_RELAY_PREFIX = "/ai";
 export const AI_CHAT_PATH = "/ai/opencode/v1/chat/completions";
+/** General chat entry point: honours the server allowlist instead of forcing one model. */
+export const AI_CHAT_COMPLETIONS_PATH = "/ai/chat/completions";
+export const AI_MODELS_PATH = "/ai/models";
 export const AI_HEALTH_PATH = "/ai/health";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
@@ -39,8 +51,15 @@ export type AiRelayDeps = {
     pbBaseUrl: string;
     /** Server-held OpenCode Go key. Empty disables chat (health stays up). */
     apiKey: string;
-    /** Model forced on every request. */
+    /** Model forced on every legacy request (`/ai/opencode/v1/...`). */
     model: string;
+    /**
+     * Models the general chat may pick from. Omit to derive the list from
+     * `model` plus the built-in catalog.
+     */
+    chatModels?: ChatModelInfo[];
+    /** Chat model used when a request leaves `model` empty. */
+    defaultChatModel?: string;
     /** Per-user daily request cap for the shared key; 0 = unlimited. */
     dailyLimit: number;
     /** Injectable for tests. */
@@ -60,6 +79,14 @@ export type AiRelay = (req: Request) => Promise<Response | null>;
 export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const fetchImpl = deps.fetch ?? fetch;
     const now = deps.now ?? Date.now;
+    const chatModels =
+        deps.chatModels && deps.chatModels.length > 0
+            ? deps.chatModels
+            : resolveChatModels(deps.model);
+    const defaultChatModel = pickDefaultChatModel(
+        chatModels,
+        deps.defaultChatModel?.trim() || deps.model,
+    );
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
     const minuteBuckets = new Map<string, MinuteBucket>();
     const dayBuckets = new Map<string, DayBucket>();
@@ -151,7 +178,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         return null;
     }
 
-    async function chat(req: Request): Promise<Response> {
+    async function chat(
+        req: Request,
+        mode: "legacy" | "chat" = "legacy",
+    ): Promise<Response> {
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
 
@@ -187,9 +217,40 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             return json(400, { error: { message: "请求体不是合法的 JSON" } });
         }
 
-        // The server owns the model; a user cannot point the shared key at an
-        // arbitrary (possibly expensive) model.
-        body.model = deps.model;
+        if (mode === "chat") {
+            const requested = normalizeModelId(body.model);
+            const info = requested
+                ? findChatModel(chatModels, requested)
+                : findChatModel(chatModels, defaultChatModel ?? "");
+            if (requested && !info) {
+                // The server owns the allowlist: an unknown id is a client bug
+                // or an attempt to spend the shared key on another model.
+                return json(400, {
+                    error: { message: `不支持的模型：${requested}` },
+                });
+            }
+            if (!info) {
+                return json(503, {
+                    error: { message: "站点还没有配置可用的聊天模型" },
+                });
+            }
+            body.model = info.id;
+            if (!info.tools) {
+                delete body.tools;
+                delete body.tool_choice;
+            }
+            if (!info.vision && hasImagePart(body.messages)) {
+                return json(400, {
+                    error: {
+                        message: "当前模型不支持图片，换一个支持视觉的模型",
+                    },
+                });
+            }
+        } else {
+            // Legacy features get one fixed model; they cannot pick one.
+            body.model = deps.model;
+        }
+
         for (const field of ["max_tokens", "max_completion_tokens"]) {
             const value = body[field];
             if (typeof value === "number" && value > MAX_OUTPUT_TOKENS) {
@@ -323,6 +384,23 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 keyConfigured: Boolean(deps.apiKey.trim()),
                 model: deps.model,
             });
+        }
+
+        if (url.pathname === AI_MODELS_PATH && req.method === "GET") {
+            const auth = await authenticate(req);
+            if (!auth.ok) return auth.response;
+            return json(200, {
+                models: chatModels,
+                defaultModel: defaultChatModel,
+                keyConfigured: Boolean(deps.apiKey.trim()),
+            });
+        }
+
+        if (
+            url.pathname === AI_CHAT_COMPLETIONS_PATH &&
+            req.method === "POST"
+        ) {
+            return chat(req, "chat");
         }
 
         if (url.pathname === AI_CHAT_PATH && req.method === "POST") {
