@@ -3,14 +3,12 @@
  * 单独放这里是为了能直接跑 bun test，不依赖 React / three。
  */
 
+import { clamp, starLadder } from "../lib";
+
 export type ScoreResult = {
     score: number;
     stars: 0 | 1 | 2 | 3;
 };
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
 
 /* ---------------- 夜巡 ---------------- */
 
@@ -45,14 +43,15 @@ export function wardScore(input: WardScoreInput): ScoreResult {
         ),
     );
 
-    let stars: ScoreResult["stars"] = 0;
-    if (found >= total) {
-        if (input.wrong === 0 && firstTry === total) stars = 3;
-        else if (input.wrong <= 2) stars = 2;
-        else stars = 1;
-    } else if (found >= Math.ceil(total * 0.6)) {
-        stars = 1;
-    }
+    const stars = starLadder([
+        {
+            ok: found >= total && input.wrong === 0 && firstTry === total,
+            stars: 3,
+        },
+        { ok: found >= total && input.wrong <= 2, stars: 2 },
+        { ok: found >= total, stars: 1 },
+        { ok: found >= Math.ceil(total * 0.6), stars: 1 },
+    ]);
 
     return { score, stars };
 }
@@ -89,7 +88,10 @@ export function bloodScore(input: BloodScoreInput): ScoreResult {
     const score = Math.round(
         clamp(100 - input.nearMiss * 18 - overtime * 0.1, 40, 100),
     );
-    const stars: ScoreResult["stars"] =
-        input.nearMiss === 0 ? 3 : input.nearMiss === 1 ? 2 : 1;
+    const stars = starLadder([
+        { ok: input.nearMiss === 0, stars: 3 },
+        { ok: input.nearMiss === 1, stars: 2 },
+        { ok: true, stars: 1 },
+    ]);
     return { score, stars };
 }

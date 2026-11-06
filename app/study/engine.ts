@@ -359,6 +359,43 @@ export function cardStats(subject: StudySubject, progress: Progress) {
     };
 }
 
+/**
+ * 与 cardStats 等价，但只依赖「元数据 + 进度」，不碰 cards.ts / bank.ts。
+ * 进度本身按 (user_id, subject_id) 分库，cards / widgets 的 key 只可能是
+ * 本科目的卡 id，所以可以直接统计整张表；用 min(total) 兜住历史脏 key。
+ */
+export function cardStatsFromMeta(
+    meta: { cardCount: number },
+    progress: Progress | undefined,
+) {
+    const total = Math.max(0, meta.cardCount);
+    if (!progress) {
+        return {
+            total,
+            known: 0,
+            seen: 0,
+            played: 0,
+            percent: 0,
+            playedPercent: 0,
+        };
+    }
+    const cards = Object.values(progress.cards ?? {});
+    const known = Math.min(total, cards.filter((c) => c?.k).length);
+    const seen = Math.min(total, cards.filter((c) => c?.seen).length);
+    const played = Math.min(
+        total,
+        Object.values(progress.widgets ?? {}).filter((w) => w?.done).length,
+    );
+    return {
+        total,
+        known,
+        seen,
+        played,
+        percent: total ? Math.round((known / total) * 100) : 0,
+        playedPercent: total ? Math.round((played / total) * 100) : 0,
+    };
+}
+
 export function daysLeft(examDate?: string): number | null {
     if (!examDate) return null;
     const target = new Date(examDate).getTime();

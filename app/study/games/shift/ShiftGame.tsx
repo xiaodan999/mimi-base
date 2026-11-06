@@ -24,6 +24,8 @@ import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
 import { recordGame, type GameOutcome } from "../meta";
 import WardScene from "../ward/WardScene";
+// 通用实战样式（ResultPanel 的 .gr-* / .g-btn）与本 lazy chunk 一起加载。
+import "../games.css";
 import "./shift.css";
 
 export * from "./meta";

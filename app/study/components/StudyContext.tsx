@@ -9,6 +9,10 @@ type StudyContextValue = {
     update: (mutate: (current: Progress) => Progress) => void;
     reset: () => void;
     saving: boolean;
+    /** 最近一次同步失败，改动已存本地 */
+    error: boolean;
+    /** 浏览器离线，等待联网重试 */
+    offline: boolean;
     loading: boolean;
 };
 
@@ -21,13 +25,21 @@ export function StudyProvider({
     subject: StudySubject;
     children: ReactNode;
 }) {
-    const { progress, update, reset, saving, loading } = useStudyProgress(
-        subject.id,
-    );
+    const { progress, update, reset, saving, error, offline, loading } =
+        useStudyProgress(subject.id);
 
     return (
         <StudyContext.Provider
-            value={{ subject, progress, update, reset, saving, loading }}
+            value={{
+                subject,
+                progress,
+                update,
+                reset,
+                saving,
+                error,
+                offline,
+                loading,
+            }}
         >
             {children}
         </StudyContext.Provider>

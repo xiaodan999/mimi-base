@@ -5,6 +5,7 @@ import { useAi } from "@/app/ai/AiContext";
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
 
 import { TYPE_ICON, TYPE_NAME, shuffle } from "../engine";
+import { dueCount, dueQueue } from "../scheduling";
 import { toast } from "../toast";
 import type { QuizItem, QuizType } from "../types";
 import QuizRunner from "./QuizRunner";
@@ -40,6 +41,14 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
         ).slice(0, 10);
         if (!pool.length) return;
         setSession({ items: pool, mode: "practice", title: "5 分钟快刷" });
+    };
+
+    // 按遗忘曲线挑题：已到期（或新题）优先，越早逾期越靠前。
+    const reviewCount = dueCount(subject.bank, progress.srs);
+    const startReview = () => {
+        const items = dueQueue(subject.bank, progress.srs);
+        if (!items.length) return;
+        setSession({ items, mode: "practice", title: "智能复习" });
     };
 
     useEffect(() => {
@@ -125,6 +134,16 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
 
             <div className="st-sec">强化训练</div>
             <div className="mod-grid">
+                <button className="mod" onClick={startReview}>
+                    <div className="mod-ic">⏰</div>
+                    <div className="mod-t">智能复习</div>
+                    <div className="mod-s">
+                        {reviewCount
+                            ? `按遗忘曲线 · ${reviewCount} 道待复习`
+                            : "今天暂时没有到期的题"}
+                    </div>
+                    <div className="mod-ring">{reviewCount}</div>
+                </button>
                 <button className="mod" onClick={startQuick}>
                     <div className="mod-ic">🎯</div>
                     <div className="mod-t">5 分钟快刷</div>

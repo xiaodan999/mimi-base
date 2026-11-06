@@ -13,8 +13,9 @@ import {
 } from "@/app/ai/prompts";
 import { useBackDismiss } from "@/lib/useBackDismiss";
 
-import { TYPE_NAME, answerText, bumpDaily, isAnswerCorrect } from "../engine";
+import { TYPE_NAME, answerText, isAnswerCorrect } from "../engine";
 import { gameForModule } from "../games/registry";
+import { recordQuizAnswer } from "../progress-reducers";
 import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
 import { useStudy } from "./StudyContext";
@@ -67,29 +68,8 @@ export default function QuizRunner({
 
     const record = (target: QuizItem, ok: boolean) => {
         if (!track) return;
-        update((current) => {
-            const stat = current.stat[target.id] ?? { r: 0, w: 0 };
-            const nextStat = ok
-                ? { ...stat, r: stat.r + 1 }
-                : { ...stat, w: stat.w + 1 };
-            const wrong = { ...current.wrong };
-            if (ok) {
-                delete wrong[target.id];
-            } else {
-                wrong[target.id] = {
-                    c: (wrong[target.id]?.c ?? 0) + 1,
-                    t: Date.now(),
-                };
-            }
-            return bumpDaily(
-                {
-                    ...current,
-                    stat: { ...current.stat, [target.id]: nextStat },
-                    wrong,
-                },
-                { questions: 1, correct: ok ? 1 : 0 },
-            );
-        });
+        // 纯 reducer：统计 / 错题 / 每日任务 / SM-2 排程一并更新，可单测。
+        update((current) => recordQuizAnswer(current, target, ok));
     };
 
     const settle = (ok: boolean) => {

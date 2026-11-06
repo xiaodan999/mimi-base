@@ -5,6 +5,8 @@
  * 不依赖 React / three，可以直接跑 bun test。
  */
 
+import { starLadder } from "../../lib";
+
 export type CaseVerdict = {
     stageOk: boolean;
     treatmentOk: boolean;
@@ -63,10 +65,11 @@ export function scoreSkinRun(verdicts: readonly CaseVerdict[]): SkinScore {
     const perfect = correctParts === totalParts;
 
     // 全部 12 项正确 = 3 星；≥80% = 2 星；≥50% = 1 星。
-    let stars: SkinScore["stars"] = 0;
-    if (perfect) stars = 3;
-    else if (ratio >= 0.8) stars = 2;
-    else if (ratio >= 0.5) stars = 1;
+    const stars = starLadder([
+        { ok: perfect, stars: 3 },
+        { ok: ratio >= 0.8, stars: 2 },
+        { ok: ratio >= 0.5, stars: 1 },
+    ]);
 
     return {
         score,

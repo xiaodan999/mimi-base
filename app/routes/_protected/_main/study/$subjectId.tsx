@@ -2,16 +2,38 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { StudyProvider } from "@/app/study/components/StudyContext";
 import StudyShell from "@/app/study/components/StudyShell";
-import { getSubject } from "@/app/study/registry";
-import "@/app/study/study.css";
+import { loadSubject } from "@/app/study/registry";
+
+// 完整的 study.css 由 StudyShell.tsx（本路由的 lazy 布局）引入，避免被
+// routeTree 静态提升进首屏 CSS；app shell 只需要 ai-tokens.css 那一小份。
 
 export const Route = createFileRoute("/_protected/_main/study/$subjectId")({
+    // 题库 / 知识卡（约 140KB CJK）走动态 import，只有真正进入某个科目时才
+    // 下载；首页、年度报告、科目总览都读 meta.ts，不会碰到这份内容。
+    loader: async ({ params }) => {
+        const subject = await loadSubject(params.subjectId);
+        return { subject };
+    },
+    pendingComponent: SubjectLoading,
     component: Layout,
 });
 
+function SubjectLoading() {
+    return (
+        <div className="study-root study-shell">
+            <div className="study-body">
+                <div className="game-loading" style={{ padding: 24 }}>
+                    <span className="game-loading-spin" aria-hidden="true" />
+                    <b>正在加载题库…</b>
+                    <span>第一次进入要下载知识卡，之后会快很多</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function Layout() {
-    const { subjectId } = Route.useParams();
-    const subject = getSubject(subjectId);
+    const { subject } = Route.useLoaderData();
 
     if (!subject) {
         return (

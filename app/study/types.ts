@@ -131,6 +131,23 @@ export type CardWidgetState = {
     updated?: number;
 };
 
+/**
+ * 一道题的间隔重复（SM-2）排程状态，存在 progress.srs[题目 id]。
+ * due / interval 用「天」为单位的时间戳（毫秒）与天数；ease 是难度系数。
+ */
+export type SrsItem = {
+    /** 下一次到期复习的时间戳（ms） */
+    due: number;
+    /** 当前间隔（天） */
+    interval: number;
+    /** SM-2 难度系数，>= 1.3 */
+    ease: number;
+    /** 连续答对次数 */
+    reps: number;
+    /** 累计遗忘（答错）次数 */
+    lapses: number;
+};
+
 /** 一个实战小游戏的个人最佳 */
 export type GameProgress = {
     /** 玩过几局 */
@@ -180,6 +197,8 @@ export type Progress = {
     daily: DailyStats;
     /** 今日任务的领取状态 */
     quest: QuestState;
+    /** 间隔重复排程（SM-2），按题目 id 存 */
+    srs: Record<string, SrsItem>;
 };
 
 export function emptyProgress(): Progress {
@@ -197,5 +216,6 @@ export function emptyProgress(): Progress {
         badges: [],
         daily: { date: "", questions: 0, correct: 0, cards: 0, games: 0 },
         quest: { date: "" },
+        srs: {},
     };
 }

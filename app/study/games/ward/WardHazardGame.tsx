@@ -1,3 +1,6 @@
+// 通用实战样式随 lazy chunk 一起加载（以前由静态引入的 GameHub 顺带提供）。
+import "../games.css";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 

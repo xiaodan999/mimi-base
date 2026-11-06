@@ -1,0 +1,274 @@
+/* ==========================================================================
+   AI 面板所需的学习基地设计 token（精简副本）
+   --------------------------------------------------------------------------
+   AiProvider 挂在 app shell 上，每一个页面都会加载它。以前这里 import 整份
+   study.css（3515 行 / ~60KB），只为拿到下面这十几个 st-* / ai-* 类。
+   本文件是 study.css 对应规则的精简副本，供 AiContext.tsx 全局引入；
+   完整的 study.css 只在 /study 路由（study/index.tsx、$subjectId.tsx）引入。
+
+   注意：AI 抽屉用的是 .ai-sheet，绝不能套 .study-root —— 后者的
+   :where(button) 重置会抹掉抽屉里 shadcn 按钮的背景和边框。
+
+   改动 token 时请同步 app/study/study.css 顶部的同一段定义。
+   ========================================================================== */
+
+/* 变量同时发布在 .study-root（学习页）和 .ai-sheet（抽屉自身）上，
+   这样学习页内外的 AI 面板都能拿到同一套配色。 */
+.study-root,
+.ai-sheet {
+    --bg: hsl(var(--background));
+    --bg2: hsl(var(--muted));
+    --card2: hsl(var(--muted));
+    --panel: hsl(var(--card));
+    --ink: hsl(var(--foreground));
+    --ink2: hsl(var(--muted-foreground));
+    --ink3: hsl(var(--muted-foreground));
+    --line: hsl(var(--border));
+    --hair: hsl(var(--border) / 0.7);
+
+    --brand: hsl(var(--primary));
+    --brand-ink: hsl(var(--primary-foreground));
+
+    --ok: hsl(var(--success));
+    --ok-bg: hsl(var(--success) / 0.14);
+    --no: hsl(var(--destructive));
+    --no-bg: hsl(var(--destructive) / 0.12);
+    --warn: hsl(var(--warning));
+    --warn-bg: hsl(var(--warning) / 0.16);
+
+    --m1: #ef4444;
+    --m2: #f59e0b;
+    --m3: #8b5cf6;
+    --m4: #10b981;
+    --m5: #3b82f6;
+    --m6: #ec4899;
+
+    --sh: var(--shadow-soft);
+    --sh2: var(--shadow-lift);
+
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.dark .study-root,
+.dark .ai-sheet {
+    --ok-bg: hsl(var(--success) / 0.18);
+    --no-bg: hsl(var(--destructive) / 0.18);
+    --warn-bg: hsl(var(--warning) / 0.2);
+}
+
+/* ---------------- st-* 通用控件（AI 面板实际用到的子集） ---------------- */
+
+.st-card {
+    background: var(--panel);
+    border-radius: 18px;
+    border: 1px solid var(--hair);
+    box-shadow: var(--sh);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.st-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.st-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.st-tiny {
+    font-size: 12px;
+    color: var(--ink3);
+    line-height: 1.6;
+}
+
+.st-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 18px;
+    border-radius: 13px;
+    font-weight: 700;
+    font-size: 15px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    box-shadow: 0 6px 16px -8px var(--brand);
+    transition:
+        transform 0.12s,
+        opacity 0.12s;
+    text-decoration: none;
+}
+
+.st-btn:active {
+    transform: scale(0.975);
+}
+
+.st-btn.block {
+    display: flex;
+    width: 100%;
+}
+
+.st-btn.ghost {
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: var(--sh);
+    border: 1px solid var(--hair);
+}
+
+.st-btn.line {
+    background: transparent;
+    color: var(--brand);
+    box-shadow: none;
+    border: 1.5px solid color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
+.st-btn.sm {
+    padding: 9px 13px;
+    font-size: 13.5px;
+    border-radius: 11px;
+}
+
+.st-btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.st-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    background: var(--bg2);
+    color: var(--ink2);
+    white-space: nowrap;
+}
+
+.st-chip.b {
+    background: color-mix(in srgb, var(--brand) 14%, transparent);
+    color: var(--brand);
+}
+
+.st-chip.w {
+    background: var(--warn-bg);
+    color: var(--warn);
+}
+
+.st-chip.r {
+    background: var(--no-bg);
+    color: var(--no);
+}
+
+.st-chip.g {
+    background: var(--ok-bg);
+    color: var(--ok);
+}
+
+.st-chip.p {
+    background: color-mix(in srgb, var(--m3) 15%, transparent);
+    color: var(--m3);
+}
+
+.st-input {
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 13px;
+    border: 1.5px solid var(--line);
+    background: var(--panel);
+    outline: none;
+    transition: 0.16s;
+    box-shadow: var(--sh);
+}
+
+.st-input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+textarea.st-input {
+    min-height: 110px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+/* ---------------- AI 面板专用 ---------------- */
+
+.ai-sheet {
+    animation: ai-sheet-in 0.18s ease-out;
+}
+
+@keyframes ai-sheet-in {
+    from {
+        transform: translateY(24px);
+        opacity: 0.5;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.ai-task {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 13px;
+    background: var(--bg2);
+    text-decoration: none;
+    color: var(--ink);
+}
+
+.ai-task-n {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 12px;
+    font-weight: 800;
+    flex: 0 0 auto;
+}
+
+.ai-md code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: hsl(var(--foreground) / 0.07);
+    padding: 1px 4px;
+    border-radius: 5px;
+}
+
+.ai-score {
+    font-size: 34px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.ai-skeleton {
+    height: 14px;
+    border-radius: 7px;
+    background: linear-gradient(90deg, var(--bg2), var(--card2), var(--bg2));
+    background-size: 200% 100%;
+    animation: ai-shimmer 1.2s infinite;
+}
+
+@keyframes ai-shimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
+}

@@ -7,11 +7,12 @@ import {
     type ReactNode,
 } from "react";
 
-// AI sheets live in the app shell, but the settings panel still uses the study
-// design tokens (`st-*`), so load that stylesheet once for every page.
+// AI sheets live in the app shell and reuse the study design tokens (`st-*`).
+// Load only the small token subset here — the full 3515-line study.css is
+// imported by the /study routes themselves, so no other page ships it.
 // Never put `.study-root` on a sheet wrapper: its `:where(button)` reset wipes
 // the background/border of the shadcn buttons these sheets use.
-import "@/app/study/study.css";
+import "@/app/study/ai-tokens.css";
 
 import pb from "@/lib/pb";
 

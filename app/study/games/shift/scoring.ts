@@ -3,6 +3,7 @@
  * 单独放这里是为了能直接跑 bun test，不依赖 React / three。
  */
 
+import { clamp, starLadder } from "../../lib";
 import type { ScoreResult } from "../scoring";
 
 export type ShiftScoreInput = {
@@ -23,10 +24,6 @@ export type ShiftScoreInput = {
     /** 患者安全归零导致的提前结束 */
     failed?: boolean;
 };
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
 
 export function shiftScore(input: ShiftScoreInput): ScoreResult {
     const total = Math.max(1, input.total ?? 8);
@@ -54,14 +51,15 @@ export function shiftScore(input: ShiftScoreInput): ScoreResult {
         ),
     );
 
-    let stars: ScoreResult["stars"] = 0;
-    if (resolved >= total) {
-        if (wrong === 0 && safety >= 90) stars = 3;
-        else if (wrong <= 2 && safety >= 60) stars = 2;
-        else stars = 1;
-    } else if (resolved >= Math.ceil(total * 0.6) && safety >= 30) {
-        stars = 1;
-    }
+    const stars = starLadder([
+        { ok: resolved >= total && wrong === 0 && safety >= 90, stars: 3 },
+        { ok: resolved >= total && wrong <= 2 && safety >= 60, stars: 2 },
+        { ok: resolved >= total, stars: 1 },
+        {
+            ok: resolved >= Math.ceil(total * 0.6) && safety >= 30,
+            stars: 1,
+        },
+    ]);
 
     return { score, stars };
 }

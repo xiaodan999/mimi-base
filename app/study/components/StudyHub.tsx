@@ -3,9 +3,12 @@ import { BookOpen, Settings2 } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
 
-import { cardStats, daysLeft, questionStats } from "../engine";
+// 这份完整样式跟着 /study 路由的 lazy 组件一起加载，不进首屏 CSS。
+import "@/app/study/study.css";
+
+import { cardStatsFromMeta, daysLeft, questionStats } from "../engine";
+import { KIND_LABEL, SUBJECT_META } from "../meta";
 import { useStudySummaries } from "../progress";
-import { KIND_LABEL, SUBJECTS } from "../registry";
 import ProgressRing from "./ProgressRing";
 
 export default function StudyHub() {
@@ -41,10 +44,10 @@ export default function StudyHub() {
 
             <div className="study-body">
                 <div className="hub-grid">
-                    {SUBJECTS.map((subject) => {
+                    {SUBJECT_META.map((subject) => {
                         const progress = summaries?.[subject.id];
                         const cards = progress
-                            ? cardStats(subject, progress)
+                            ? cardStatsFromMeta(subject, progress)
                             : null;
                         const questions = progress
                             ? questionStats(progress)
@@ -104,8 +107,8 @@ export default function StudyHub() {
                                         {KIND_LABEL[subject.kind]}
                                     </span>
                                     <span className="st-chip">
-                                        {subject.cards.length} 张卡 ·{" "}
-                                        {subject.bank.length} 题
+                                        {subject.cardCount} 张卡 ·{" "}
+                                        {subject.bankCount} 题
                                     </span>
                                     {cards && (
                                         <span className="st-chip b">
@@ -136,9 +139,10 @@ export default function StudyHub() {
                         ➕ 以后加科目
                     </div>
                     <div className="st-tiny mt-1">
-                        在 app/study/subjects/ 下新建一个目录导出科目数据，再到
-                        app/study/registry.ts 注册一行，这里就会自动多一张卡片，
-                        题库、知识卡、模拟考、错题本全部通用。
+                        在 app/study/meta.ts 加一份元数据、在 loadSubject
+                        里补一个 动态
+                        import，这里就会自动多一张卡片，题库、知识卡、模拟考、
+                        错题本全部通用。
                     </div>
                 </div>
             </div>

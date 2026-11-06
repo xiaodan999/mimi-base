@@ -15,6 +15,7 @@ import {
     questionStats,
     streakDays,
 } from "../engine";
+import { starText } from "../lib";
 import { toast } from "../toast";
 
 export default function SubjectHome() {
@@ -154,7 +155,7 @@ export default function SubjectHome() {
                     <b>🎮 3D 实战</b>
                     <span>
                         {ward
-                            ? `${"★".repeat(ward.stars)}${"☆".repeat(3 - ward.stars)} 最佳 ${ward.best} 分`
+                            ? `${starText(ward.stars)} 最佳 ${ward.best} 分`
                             : "夜巡病房，找出 8 处安全隐患"}
                     </span>
                 </Link>

@@ -4,6 +4,10 @@ import { ChevronLeft, Settings2 } from "lucide-react";
 
 import { useAi } from "@/app/ai/AiContext";
 
+// 完整的 study.css 跟着 /study/$subjectId 的 lazy 布局一起加载。
+// app shell 只引入 ai-tokens.css 的精简 token，不再把这份 60KB 样式带给每页。
+import "@/app/study/study.css";
+
 import type { StudySubject } from "../types";
 import { useStudy } from "./StudyContext";
 
@@ -24,7 +28,7 @@ export default function StudyShell({
     subject: StudySubject;
     children: ReactNode;
 }) {
-    const { saving } = useStudy();
+    const { saving, error, offline } = useStudy();
     const { configured, openSettings } = useAi();
     const { pathname } = useLocation();
     const base = `/study/${subject.id}`;
@@ -49,9 +53,23 @@ export default function StudyShell({
                 </div>
                 <span
                     className="shrink-0 text-[11px] font-semibold"
-                    style={{ color: saving ? "#d97706" : "#9ca3af" }}
+                    aria-live="polite"
+                    style={{
+                        color:
+                            error || offline
+                                ? "#dc2626"
+                                : saving
+                                  ? "#d97706"
+                                  : "#9ca3af",
+                    }}
                 >
-                    {saving ? "同步中…" : "已同步"}
+                    {error
+                        ? "同步失败 · 已存本地"
+                        : offline
+                          ? "离线 · 待同步"
+                          : saving
+                            ? "同步中…"
+                            : "已同步"}
                 </span>
                 <button
                     onClick={openSettings}

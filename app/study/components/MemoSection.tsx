@@ -1,9 +1,9 @@
+import { renderRichText } from "./rich-text";
 import { useStudy } from "./StudyContext";
 
 export default function MemoSection() {
     const { subject } = useStudy();
     const cards = subject.cards.filter((card) => card.memo);
-    const html = (value: string) => ({ __html: value });
 
     return (
         <div>
@@ -37,8 +37,9 @@ export default function MemoSection() {
                         <div
                             className="mt-1 text-[14px]"
                             style={{ lineHeight: 1.75 }}
-                            dangerouslySetInnerHTML={html(card.memo ?? "")}
-                        />
+                        >
+                            {renderRichText(card.memo ?? "")}
+                        </div>
                     </div>
                 );
             })}

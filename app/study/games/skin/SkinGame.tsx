@@ -24,6 +24,8 @@ import {
     type TreatmentId,
 } from "./cases";
 import { casePoints, scoreSkinRun, type SkinScore } from "./scoring";
+// 通用实战样式（ResultPanel 的 .gr-* / .g-btn）与本 lazy chunk 一起加载。
+import "../games.css";
 import "./skin.css";
 
 export const GAME_ID = "skin";

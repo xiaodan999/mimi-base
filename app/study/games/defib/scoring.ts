@@ -3,6 +3,7 @@
  * 不依赖 React / three，方便直接跑 bun test。
  */
 
+import { clamp, starLadder } from "../../lib";
 import type { ScoreResult } from "../scoring";
 
 /* ---------------- CPR 节律 ---------------- */
@@ -37,10 +38,6 @@ export type RhythmOptions = {
     durationMs?: number;
     bpm?: number;
 };
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
 
 export function rhythmBeatInterval(bpm = CPR_BPM): number {
     return 60_000 / Math.max(1, bpm);
@@ -182,26 +179,27 @@ export function defibScore(input: DefibScoreInput): DefibScoreResult {
     );
 
     const accuracy = clamp(input.rhythmAccuracy, 0, 1);
-    let stars: ScoreResult["stars"] = 0;
-    if (input.completed) {
-        if (
-            placementRatio >= 0.999 &&
-            sequenceRatio >= 0.999 &&
-            input.sequenceCompleted &&
-            accuracy >= 0.85
-        ) {
-            stars = 3;
-        } else if (
-            placementRatio >= 0.6 &&
-            accuracy >= 0.6 &&
-            input.sequenceCompleted &&
-            input.sequenceMistakes <= 1
-        ) {
-            stars = 2;
-        } else {
-            stars = 1;
-        }
-    }
+    const stars = starLadder([
+        {
+            ok:
+                input.completed &&
+                placementRatio >= 0.999 &&
+                sequenceRatio >= 0.999 &&
+                input.sequenceCompleted &&
+                accuracy >= 0.85,
+            stars: 3,
+        },
+        {
+            ok:
+                input.completed &&
+                placementRatio >= 0.6 &&
+                accuracy >= 0.6 &&
+                input.sequenceCompleted &&
+                input.sequenceMistakes <= 1,
+            stars: 2,
+        },
+        { ok: input.completed, stars: 1 },
+    ]);
 
     return { score, stars, placementRatio, rhythmQuality, sequenceRatio };
 }

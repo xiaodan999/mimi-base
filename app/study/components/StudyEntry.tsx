@@ -1,15 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { BookOpen, ChevronRight } from "lucide-react";
 
-import { cardStats } from "../engine";
+import { cardStatsFromMeta } from "../engine";
+import { SUBJECT_META } from "../meta";
 import { useStudySummaries } from "../progress";
-import { SUBJECTS } from "../registry";
 import ProgressRing from "./ProgressRing";
 
-/** 首页上的「学习基地」入口，列出所有科目 */
+/** 首页上的「学习基地」入口，列出所有科目（只读元数据，绝不加载题库） */
 export default function StudyEntry() {
     const { data } = useStudySummaries();
-    if (!SUBJECTS.length) return null;
+    if (!SUBJECT_META.length) return null;
 
     return (
         <div className="w-full">
@@ -31,29 +31,29 @@ export default function StudyEntry() {
             </div>
 
             <div className="space-y-2">
-                {SUBJECTS.slice(0, 3).map((subject) => {
-                    const progress = data?.[subject.id];
+                {SUBJECT_META.slice(0, 3).map((meta) => {
+                    const progress = data?.[meta.id];
                     const cards = progress
-                        ? cardStats(subject, progress)
+                        ? cardStatsFromMeta(meta, progress)
                         : null;
                     return (
                         <Link
-                            key={subject.id}
+                            key={meta.id}
                             to="/study/$subjectId"
-                            params={{ subjectId: subject.id }}
+                            params={{ subjectId: meta.id }}
                             className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-2.5 shadow-soft transition-colors hover:bg-accent active:bg-accent"
                         >
                             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-xl">
-                                {subject.icon}
+                                {meta.icon}
                             </span>
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate text-[13.5px] font-bold">
-                                    {subject.title}
+                                    {meta.title}
                                 </span>
                                 <span className="block truncate text-[11px] text-muted-foreground">
                                     {cards
-                                        ? `已掌握 ${cards.known}/${cards.total} 张卡 · ${subject.bank.length} 题`
-                                        : `${subject.cards.length} 张卡 · ${subject.bank.length} 题`}
+                                        ? `已掌握 ${cards.known}/${cards.total} 张卡 · ${meta.bankCount} 题`
+                                        : `${meta.cardCount} 张卡 · ${meta.bankCount} 题`}
                                 </span>
                             </span>
                             <ProgressRing

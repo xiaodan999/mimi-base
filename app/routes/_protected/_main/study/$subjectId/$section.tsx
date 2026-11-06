@@ -1,20 +1,24 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 
-import CardsSection from "@/app/study/components/CardsSection";
-import ExamSection from "@/app/study/components/ExamSection";
-import MemoSection from "@/app/study/components/MemoSection";
-import QuizSection from "@/app/study/components/QuizSection";
 import { useStudy } from "@/app/study/components/StudyContext";
-import TermsSection from "@/app/study/components/TermsSection";
-import WrongSection from "@/app/study/components/WrongSection";
-import GameHub from "@/app/study/games/GameHub";
-import BloodRoomGame from "@/app/study/games/blood/BloodRoomGame";
 import { getGame, isGameUnlocked } from "@/app/study/games/registry";
 
-// three.js 只给实战用，单独切出去，别拖慢知识卡 / 刷题
+// 每个板块、每个实战都是独立 chunk；games.css 也由这些 lazy chunk 自带，
+// 不再被 section 路由静态拖进来（打开知识卡 / 刷题时不会下载 1743 行游戏样式）。
+const CardsSection = lazy(() => import("@/app/study/components/CardsSection"));
+const ExamSection = lazy(() => import("@/app/study/components/ExamSection"));
+const MemoSection = lazy(() => import("@/app/study/components/MemoSection"));
+const QuizSection = lazy(() => import("@/app/study/components/QuizSection"));
+const TermsSection = lazy(() => import("@/app/study/components/TermsSection"));
+const WrongSection = lazy(() => import("@/app/study/components/WrongSection"));
+const GameHub = lazy(() => import("@/app/study/games/GameHub"));
 const WardHazardGame = lazy(
     () => import("@/app/study/games/ward/WardHazardGame"),
+);
+const BloodRoomGame = lazy(
+    () => import("@/app/study/games/blood/BloodRoomGame"),
 );
 const DefibGame = lazy(() => import("@/app/study/games/defib/DefibGame"));
 const SkinGame = lazy(() => import("@/app/study/games/skin/SkinGame"));
@@ -34,12 +38,15 @@ export const Route = createFileRoute(
     component: Section,
 });
 
-function GameLoading() {
+function SectionLoading() {
     return (
-        <div className="game-loading">
-            <span className="game-loading-spin" aria-hidden="true" />
-            <b>正在准备 3D 场景…</b>
-            <span>第一次进入要加载 three.js，之后会快很多</span>
+        <div className="flex flex-col items-center gap-2 px-6 py-16 text-center text-muted-foreground">
+            <Loader2
+                className="size-6 animate-spin text-primary"
+                aria-hidden="true"
+            />
+            <b className="text-sm font-bold">正在加载…</b>
+            <span className="text-xs">第一次进入会多花一点点时间</span>
         </div>
     );
 }
@@ -47,16 +54,18 @@ function GameLoading() {
 function BossLocked() {
     const { subject } = useStudy();
     return (
-        <div className="game-loading" style={{ padding: 24 }}>
-            <div style={{ fontSize: 34 }}>🌙</div>
-            <b>20:00 夜班还没开放</b>
-            <span>先拿到「夜巡 2 星 + 输血密室 2 星」，综合病例才会解锁。</span>
-            <div className="gr-actions">
+        <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+            <div className="text-4xl">🌙</div>
+            <b className="text-sm font-extrabold">20:00 夜班还没开放</b>
+            <span className="text-xs text-muted-foreground">
+                先拿到「夜巡 2 星 + 输血密室 2 星」，综合病例才会解锁。
+            </span>
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
                 <Link
                     to="/study/$subjectId/$section"
                     params={{ subjectId: subject.id, section: "games" }}
                     search={{ game: "ward-hazard" }}
-                    className="g-btn primary"
+                    className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
                 >
                     去夜巡
                 </Link>
@@ -64,7 +73,7 @@ function BossLocked() {
                     to="/study/$subjectId/$section"
                     params={{ subjectId: subject.id, section: "games" }}
                     search={{ game: "blood-room" }}
-                    className="g-btn ghost"
+                    className="rounded-xl border border-border px-4 py-2 text-sm font-bold"
                 >
                     去输血密室
                 </Link>
@@ -78,56 +87,49 @@ function Section() {
     const { m, quick, game, card } = Route.useSearch();
     const { progress } = useStudy();
 
+    let content: ReactNode;
     switch (section) {
         case "cards":
-            return <CardsSection moduleId={m} focusCard={card} />;
+            content = <CardsSection moduleId={m} focusCard={card} />;
+            break;
         case "quiz":
-            return <QuizSection quick={Boolean(quick)} />;
+            content = <QuizSection quick={Boolean(quick)} />;
+            break;
         case "games":
             if (game === "ward-hazard") {
-                return (
-                    <Suspense fallback={<GameLoading />}>
-                        <WardHazardGame />
-                    </Suspense>
-                );
-            }
-            if (game === "blood-room") return <BloodRoomGame />;
-            if (game === "defib") {
-                return (
-                    <Suspense fallback={<GameLoading />}>
-                        <DefibGame />
-                    </Suspense>
-                );
-            }
-            if (game === "skin") {
-                return (
-                    <Suspense fallback={<GameLoading />}>
-                        <SkinGame />
-                    </Suspense>
-                );
-            }
-            if (game === "shift") {
+                content = <WardHazardGame />;
+            } else if (game === "blood-room") {
+                content = <BloodRoomGame />;
+            } else if (game === "defib") {
+                content = <DefibGame />;
+            } else if (game === "skin") {
+                content = <SkinGame />;
+            } else if (game === "shift") {
                 const boss = getGame("shift");
-                if (boss && !isGameUnlocked(boss, progress)) {
-                    return <BossLocked />;
-                }
-                return (
-                    <Suspense fallback={<GameLoading />}>
+                content =
+                    boss && !isGameUnlocked(boss, progress) ? (
+                        <BossLocked />
+                    ) : (
                         <ShiftGame />
-                    </Suspense>
-                );
+                    );
+            } else {
+                content = <GameHub />;
             }
-            return <GameHub />;
+            break;
         case "exam":
-            return <ExamSection />;
+            content = <ExamSection />;
+            break;
         case "terms":
-            return <TermsSection />;
+            content = <TermsSection />;
+            break;
         case "wrong":
-            return <WrongSection />;
+            content = <WrongSection />;
+            break;
         case "memo":
-            return <MemoSection />;
+            content = <MemoSection />;
+            break;
         default:
-            return (
+            content = (
                 <div className="st-empty">
                     <div className="ei">🚧</div>
                     <div className="text-[15px] font-extrabold">
@@ -137,4 +139,6 @@ function Section() {
                 </div>
             );
     }
+
+    return <Suspense fallback={<SectionLoading />}>{content}</Suspense>;
 }

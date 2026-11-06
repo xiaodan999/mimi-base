@@ -5,8 +5,8 @@ import {
     getExpenseCategory,
     type ExpenseCategoryRecord,
 } from "@/app/routes/_protected/_main/jizhang/-categories";
-import { streakDays } from "@/app/study/engine";
-import { SUBJECTS } from "@/app/study/registry";
+import { cardStatsFromMeta, streakDays } from "@/app/study/engine";
+import { SUBJECT_META } from "@/app/study/meta";
 import { useCurrentUser } from "@/lib/auth";
 import pb, { pbDate } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
@@ -196,15 +196,15 @@ export function buildStudyReport(
         questions,
         correct,
         streak,
-        subjects: SUBJECTS.map((subject) => {
-            const progress = summaries?.[subject.id];
-            const known = subject.cards.filter(
-                (card) => progress?.cards[card.id]?.k,
-            ).length;
+        subjects: SUBJECT_META.map((meta) => {
+            const progress = summaries?.[meta.id];
+            const cards = progress
+                ? cardStatsFromMeta(meta, progress)
+                : undefined;
             return {
-                title: subject.title,
-                known,
-                total: subject.cards.length,
+                title: meta.title,
+                known: cards?.known ?? 0,
+                total: meta.cardCount,
             };
         }),
     };

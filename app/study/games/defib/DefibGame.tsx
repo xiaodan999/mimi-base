@@ -21,6 +21,8 @@ import {
     type LeadId,
     type ShockStepId,
 } from "./data";
+// 通用实战样式（.g-btn / .game-loading 等）与本 lazy chunk 一起加载。
+import "../games.css";
 import "./defib.css";
 import { GAME_ID } from "./meta";
 import {

@@ -1,14 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    EXAM_PRESETS,
     blankOK,
+    buildExam,
+    bumpDaily,
+    dayKey,
     isAnswerCorrect,
     keywordRatio,
     kwHit,
     norm,
+    questionStats,
     scoreExam,
+    settleDailyQuest,
+    streakDays,
 } from "./engine";
-import type { QuizItem } from "./types";
+import { emptyProgress, type QuizItem, type StudySubject } from "./types";
 
 describe("norm", () => {
     test("drops punctuation, spaces and case", () => {
@@ -115,5 +122,145 @@ describe("scoreExam", () => {
         expect(result.detail).toEqual([true, false]);
         expect(result.byType.single).toEqual({ n: 1, ok: 1 });
         expect(result.byType.multi).toEqual({ n: 1, ok: 0 });
+    });
+});
+
+describe("buildExam", () => {
+    function item(id: string, type: QuizItem["type"]): QuizItem {
+        return { id, m: "m1", type, stem: id, o: ["A"], a: 0 } as QuizItem;
+    }
+    const bank: QuizItem[] = [
+        item("s1", "single"),
+        item("s2", "single"),
+        item("s3", "single"),
+        item("m1", "multi"),
+        item("m2", "multi"),
+        item("t1", "term"),
+        item("b1", "blank"),
+        item("h1", "short"),
+    ];
+    const subject = { bank } as StudySubject;
+
+    test("按 counts 取题且不超过库存", () => {
+        const items = buildExam(subject, {
+            key: "x",
+            name: "x",
+            minutes: 1,
+            desc: "",
+            counts: { single: 2, multi: 5 },
+        });
+        expect(items.length).toBe(4);
+        expect(items.filter((i) => i.type === "single").length).toBe(2);
+        expect(items.filter((i) => i.type === "multi").length).toBe(2);
+    });
+
+    test("真实预设返回的题都来自题库", () => {
+        for (const preset of EXAM_PRESETS) {
+            const items = buildExam(subject, preset);
+            expect(items.every((i) => bank.includes(i))).toBe(true);
+        }
+    });
+
+    test("空 counts 返回空卷", () => {
+        expect(
+            buildExam(subject, {
+                key: "x",
+                name: "x",
+                minutes: 0,
+                desc: "",
+                counts: {},
+            }),
+        ).toEqual([]);
+    });
+});
+
+describe("streakDays", () => {
+    function dayOffset(n: number): string {
+        const date = new Date();
+        date.setDate(date.getDate() - n);
+        return dayKey(date);
+    }
+
+    test("没有任何记录为 0", () => {
+        expect(streakDays(emptyProgress())).toBe(0);
+    });
+
+    test("今天起连续 3 天", () => {
+        const progress = {
+            ...emptyProgress(),
+            days: [dayOffset(2), dayOffset(1), dayOffset(0)],
+        };
+        expect(streakDays(progress)).toBe(3);
+    });
+
+    test("中间断一天则只算到断点", () => {
+        const progress = {
+            ...emptyProgress(),
+            days: [dayOffset(2), dayOffset(0)],
+        };
+        expect(streakDays(progress)).toBe(1);
+    });
+
+    test("今天没学但昨天/前天学了，从昨天起连续", () => {
+        const progress = {
+            ...emptyProgress(),
+            days: [dayOffset(2), dayOffset(1)],
+        };
+        expect(streakDays(progress)).toBe(2);
+    });
+});
+
+describe("每日任务 reducer", () => {
+    test("bumpDaily 累加今天并结算三项任务", () => {
+        const progress = bumpDaily(emptyProgress(), {
+            questions: 10,
+            correct: 8,
+            cards: 1,
+            games: 1,
+        });
+        expect(progress.daily.date).toBe(dayKey());
+        expect(progress.daily.questions).toBe(10);
+        expect(progress.daily.correct).toBe(8);
+        expect(progress.xp).toBe(30);
+        expect(progress.quest.awarded).toBe(1);
+    });
+
+    test("同一天只发一次 XP", () => {
+        let progress = bumpDaily(emptyProgress(), {
+            questions: 10,
+            correct: 10,
+            cards: 1,
+            games: 1,
+        });
+        progress = bumpDaily(progress, { questions: 1 });
+        expect(progress.xp).toBe(30);
+    });
+
+    test("未达标不发奖", () => {
+        const progress = bumpDaily(emptyProgress(), { questions: 3 });
+        expect(progress.xp).toBe(0);
+        expect(progress.quest.awarded).toBeUndefined();
+    });
+});
+
+describe("questionStats", () => {
+    test("汇总答题数与正确率", () => {
+        const progress = {
+            ...emptyProgress(),
+            stat: { a: { r: 3, w: 1 }, b: { r: 2, w: 4 } },
+        };
+        expect(questionStats(progress)).toEqual({
+            done: 10,
+            right: 5,
+            accuracy: 50,
+        });
+    });
+
+    test("空进度为 0", () => {
+        expect(questionStats(emptyProgress())).toEqual({
+            done: 0,
+            right: 0,
+            accuracy: 0,
+        });
     });
 });
