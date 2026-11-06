@@ -1,13 +1,6 @@
 import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import {
-    ArrowLeft,
-    Camera,
-    ChevronRight,
-    Info,
-    Pencil,
-    Sparkles,
-} from "lucide-react";
+import { Camera, ChevronRight, Info, Pencil, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
@@ -124,17 +117,9 @@ function Page() {
 
     return (
         <div className="mx-auto w-full max-w-md px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
-            <header className="flex items-center gap-1">
-                <Button
-                    asChild
-                    className="-ml-2 text-muted-foreground"
-                    size="icon"
-                    variant="ghost"
-                >
-                    <Link to="/home" aria-label="返回首页">
-                        <ArrowLeft className="size-5" aria-hidden="true" />
-                    </Link>
-                </Button>
+            {/* 个人资料 is a bottom-nav tab root: no back arrow, same as the
+                other tab roots. The nav bar is the way back. */}
+            <header>
                 <h1 className="text-xl font-semibold tracking-tight">
                     个人资料
                 </h1>
