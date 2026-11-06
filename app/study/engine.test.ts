@@ -12,7 +12,6 @@ import {
     norm,
     questionStats,
     scoreExam,
-    settleDailyQuest,
     streakDays,
 } from "./engine";
 import { emptyProgress, type QuizItem, type StudySubject } from "./types";

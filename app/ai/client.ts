@@ -6,6 +6,7 @@ import {
     pickFallbackModel,
     type AiSettings,
 } from "./config";
+import { getAiAuthToken } from "./pb-token";
 import { isOverBudget, recordUsage, type AiUsage } from "./usage";
 
 /*
@@ -161,11 +162,17 @@ function isOpenCodeGo(baseUrl: string): boolean {
 function headers(settings: AiSettings): HeadersInit {
     const result: Record<string, string> = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${settings.apiKey.trim()}`,
     };
     if (isOpenCodeGo(settings.baseUrl)) {
+        // OpenCode Go 走 PocketBase 中转：用自己的 PB 令牌鉴权，BYOK Key 走
+        // 独立请求头，避免误把 Key 交给 PB 鉴权层或把 PB 令牌发给上游。
+        const token = getAiAuthToken();
+        if (token) result.Authorization = token;
+        result["x-opencode-key"] = settings.apiKey.trim();
         result["x-opencode-session"] = getAiSessionId();
         result["X-Client"] = "mimi-base/1.0";
+    } else {
+        result.Authorization = `Bearer ${settings.apiKey.trim()}`;
     }
     return result;
 }

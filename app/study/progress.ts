@@ -118,10 +118,6 @@ export function useStudyProgress(subjectId: string) {
         () => qk.studyProgress(userId, subjectId),
         [subjectId, userId],
     );
-    const summariesKey = useMemo(
-        () => [...STUDY_SUMMARIES_KEY, userId] as const,
-        [userId],
-    );
 
     const query = useQuery({
         queryKey,

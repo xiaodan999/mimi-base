@@ -25,6 +25,7 @@ import {
     writeAiSettings,
     type AiSettings,
 } from "./config";
+import { setAiAuthTokenProvider } from "./pb-token";
 import { AiTasksProvider } from "./tasks";
 
 type AiContextValue = {
@@ -37,6 +38,10 @@ type AiContextValue = {
 };
 
 const AiContext = createContext<AiContextValue | null>(null);
+
+// 中转需要 PB 令牌，但 client.ts 不能依赖 lib/pb.ts（加载时校验环境变量，
+// 会破坏 AI 单元测试）。由 Provider 注入一次，闭包里每次取最新值。
+setAiAuthTokenProvider(() => pb.authStore.token);
 
 export function AiProvider({ children }: { children: ReactNode }) {
     const [settings, setSettings] = useState<AiSettings>(() => {

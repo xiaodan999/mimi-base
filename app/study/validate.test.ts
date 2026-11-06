@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { NURSING_QC_META, SUBJECT_META } from "./meta";
 import { GAMES } from "./games/registry";
-import { HAZARDS, SCENE_LABELS } from "./games/ward/hazards";
 import { SHIFT_EVENTS } from "./games/shift/events";
+import { HAZARDS, SCENE_LABELS } from "./games/ward/hazards";
+import { NURSING_QC_META, SUBJECT_META } from "./meta";
 import { BANK } from "./subjects/nursing-qc/bank";
 import { CARDS } from "./subjects/nursing-qc/cards";
 import { STUDY_CONTENT_SCHEMA_VERSION, validateStudyContent } from "./validate";

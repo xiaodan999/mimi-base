@@ -15,7 +15,7 @@
         "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
-        "test": "bun test",
+        "test": "bun test --path-ignore-patterns=\"tmp/**\"",
         "typecheck": "bun check",
         "typecheck:tsc": "tsc --noEmit"
     },
