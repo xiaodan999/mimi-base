@@ -1,0 +1,33 @@
+# mimi-base / dan-pb.zxvcn.com
+#
+# Version-controlled reverse-proxy config (replaces the hand-edited
+# /root/main/Caddyfile). `host.docker.internal` is mapped by compose.yaml's
+# `extra_hosts: ["host.docker.internal:host-gateway"]`, so the config keeps
+# working even if the docker bridge network is recreated — unlike the old
+# hardcoded 172.19.0.1 gateway.
+#
+# Deploy endpoints (:9001) bind to loopback by default; when Caddy runs in
+# Docker it reaches them via host.docker.internal, which requires the explicit
+# DEPLOY_BIND=0.0.0.0 + DEPLOY_BIND_ALLOW_PUBLIC=1 opt-in in .env.prod (the
+# cloud security group blocks external probes to :9001). See deploy/README.md.
+
+dan-pb.zxvcn.com {
+    # Cache policy mirrors vercel.json: never cache the app shell, service
+    # worker or manifest, so the "有新版本可用" prompt and SW update fire.
+    # /version.json is fetched by the post-deploy bundle check.
+    @shell path / /index.html /sw.js /manifest.json /version.json
+    header @shell Cache-Control "no-cache"
+
+    @assets path /assets/*
+    header @assets Cache-Control "public,max-age=31536000,immutable"
+
+    @images path /images/*
+    header @images Cache-Control "public,max-age=86400,stale-while-revalidate=604800"
+
+    # Token-protected deploy endpoints -> bun supervisor on :9001.
+    @deploy path /db/sync /repo/sync /spa/publish /spa/rollback
+    reverse_proxy @deploy host.docker.internal:9001
+
+    # SPA, /api and the /_/ dashboard -> PocketBase on :8090 (serves build/).
+    reverse_proxy host.docker.internal:8090
+}

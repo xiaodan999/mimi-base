@@ -205,20 +205,49 @@ https://bun.sh 按提示安装。
 
 线上的页面可以同时存在两份——同一份代码、同一个数据库，互不影响：
 
-- **Vercel**：推送后由 Vercel 自己打包部署，页面用绝对地址访问数据库。
+- **Vercel**：推送后由 Vercel 自己打包部署（`vercel.json` 里配了
+  `framework: vite` / `buildCommand: bun run build` / `outputDirectory: build`）。
 - **PocketBase**：GitHub Actions 里的 `deploy-spa` 工作流打包
   （`VITE_POCKETBASE_URL=same-origin`），把产物传到服务器的
   `/spa/publish`，存进仓库目录下的 `build/`，由 PocketBase 直接对外提供。
 
+**Vercel 必须设置环境变量**：`deploy-spa` 用 `same-origin`，而 Vercel 页面
+和数据库不在同一个域名，所以在 Vercel 项目的 Environment Variables 里必须
+把 `VITE_POCKETBASE_URL` 写成绝对地址：
+
+```
+VITE_POCKETBASE_URL=https://dan-pb.zxvcn.com
+```
+
+不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载时会直接
+抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
+
+**两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
+是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`
+分开存放。因此：
+
+- `mimi:ai:v1`（AI 接口地址 / 模型 / key，只存在浏览器本地）、
+  `mimi-theme`（深浅色）、AI 结果缓存 `mimi:ai-cache:v1:*` 都是各自独立的；
+- 两边都要各自填一次 AI key，看到的缓存结果也可能不同；
+- 手机上看哪个域名、就用哪一套本地数据。想省事就固定只用一个入口
+  （推荐把 Vercel 当作备用，日常用 `dan-pb.zxvcn.com`）。
+
 第一次部署：在 GitHub 的 Actions 页面运行一次 `deploy-spa`（或点
 Run workflow）。之后推送到 `master` 的前端改动会自动发布。
 
-- 发布失败不会影响正在用的旧版本：服务器先解压到 `build.next`，
-  确认里面有 `index.html` 才替换 `build/`，旧的留在 `build.old`。
-- 想退回上一版：带上 `x-deploy-token` 请求 `POST /spa/rollback`；再调
-  一次就换回来。
+- 发布失败不会影响正在用的旧版本：服务器把产物解压到 `build.next/` 的
+  一个新版本目录，校验 tarball 的 sha256、逐个检查条目、确认有
+  `index.html` 后，才用**一次原子改名**切换 `build` 软链接；旧版本留作
+  `build.next/` 里的其他版本目录，可回滚。
+- 想退回上一版：带上部署令牌请求 `POST /spa/rollback`；再调一次就换回来。
 - 换前端不需要重启数据库：PocketBase 每次请求都直接读 `build/`。
-- 反向代理要把 `/spa/*` 转发到 `:9001`，给 `/assets/*` 设长缓存，给
-  `/`、`/index.html`、`/sw.js` 设不缓存（PocketBase 自己不发缓存头）。
+- **`/spa/publish` 只更新前端产物，不会更新服务器代码**：`deploy-spa`
+  发布成功后会再调 `POST /repo/sync`（只做 `git pull --ff-only`，不重启
+  PB），让服务器上的 checkout 跟上已部署的 commit；改到 `pocketbase/**`
+  仍由 `deploy-db` 的 `/db/sync` 负责拉代码、备份、重启。
+- 反向代理要把 `/spa/*`、`/repo/*` 转发到 `:9001`，给 `/assets/*` 设长缓存，
+  给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase 自己
+  不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
 
-细节（英文）见 `pocketbase/README.md` 的 Frontend 一节。
+部署、systemd、反向代理、快照恢复等运维细节见 `deploy/README.md`；
+后端英文说明见 `pocketbase/README.md` 的 Frontend 一节。

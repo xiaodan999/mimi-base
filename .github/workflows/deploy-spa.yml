@@ -1,10 +1,10 @@
 name: deploy-spa
 
 # Builds the frontend in CI and publishes it to PocketBase, which serves it
-# from ../build (`--publicDir`). Independent of deploy-db.yml: a frontend
-# deploy never restarts PB, and the Vercel deployment of the same commit is
-# unaffected. Requires the DEPLOY_TOKEN secret (same one as deploy-db) in the
-# "Production" environment.
+# from ../build (`--publicDir`). Publish is GATED on a successful `ci` run
+# (workflow_call) and serialized with deploy-db through the shared `deploy`
+# concurrency group. A publish never restarts PB; the Vercel deployment of the
+# same commit is unaffected. Requires a deploy secret in "Production".
 
 on:
     push:
@@ -27,12 +27,21 @@ on:
     # first publish on a fresh box, and manual republish after a rollback
     workflow_dispatch:
 
+# ONE shared group with deploy-db.yml: /db/sync (PB restart) and
+# /spa/publish can never overlap, so no retry loop is needed to dodge a
+# supervisor respawn.
 concurrency:
-    group: deploy-spa
+    group: deploy
     cancel-in-progress: false
 
 jobs:
+    # Reusable checks job (typecheck, lint, format:check, tests, build). Every
+    # deploy job below `needs: ci`, so lint/format/tests gate the publish (#11).
+    ci:
+        uses: ./.github/workflows/ci.yml
+
     build:
+        needs: ci
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -46,7 +55,8 @@ jobs:
 
             - name: Build (same-origin API)
               # PocketBase serves this bundle, so the API is whatever host
-              # loaded the page. `bun check` inside `build` gates the publish.
+              # loaded the page. GITHUB_SHA (== github.sha) is baked into
+              # build/version.json and build/sw.js by the sw-version plugin.
               run: VITE_POCKETBASE_URL=same-origin bun run build
 
             - name: Package
@@ -60,28 +70,57 @@ jobs:
                   if-no-files-found: error
 
     publish:
-        needs: build
+        needs: [ci, build]
         runs-on: ubuntu-latest
         environment: Production
         env:
             DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+            DEPLOY_TOKEN_SPA: ${{ secrets.DEPLOY_TOKEN_SPA }}
+            DEPLOY_TOKEN_REPO: ${{ secrets.DEPLOY_TOKEN_REPO }}
+            DEPLOY_SHA: ${{ github.sha }}
         steps:
             - uses: actions/download-artifact@v4
               with:
                   name: spa
 
-            - name: Publish to PocketBase
-              if: ${{ env.DEPLOY_TOKEN != '' }}
-              timeout-minutes: 10
-              # A server.ts change makes the supervisor respawn itself right
-              # after deploy-db, so :9001 can be briefly down — retry instead
-              # of failing the run.
+            # Gate every deploy/verify step on a configured secret so a fork
+            # (or a fresh box before secrets are added) does not fail on the
+            # "new bundle is live" assertion after a skipped publish.
+            - name: Check deploy secret
+              id: gate
               run: |
-                  for i in 1 2 3 4 5 6; do
+                  if [ -n "${DEPLOY_TOKEN_SPA:-$DEPLOY_TOKEN}" ]; then
+                      echo "armed=yes" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "armed=no" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Skip (no deploy secret)
+              if: steps.gate.outputs.armed != 'yes'
+              run: echo "deploy secret not configured — skipping publish / repo-sync / verify"
+
+            - name: Publish to PocketBase
+              if: steps.gate.outputs.armed == 'yes'
+              timeout-minutes: 10
+              # Hash the tarball in CI; the server verifies x-spa-sha256 and
+              # the HMAC signature before it writes or extracts anything.
+              run: |
+                  TOKEN="${DEPLOY_TOKEN_SPA:-$DEPLOY_TOKEN}"
+                  if [ -z "$TOKEN" ]; then
+                      echo "no deploy secret configured — skipping publish"
+                      exit 0
+                  fi
+                  BODY_SHA=$(sha256sum spa.tar.gz | awk '{print $1}')
+                  for i in $(seq 1 6); do
+                    TS=$(date +%s)
+                    SIG=$(printf '%s' "/spa/publish.$TS" | openssl dgst -sha256 -hmac "$TOKEN" | awk '{print $NF}')
                     if curl --fail-with-body --max-time 120 -sS -X POST \
                       https://dan-pb.zxvcn.com/spa/publish \
-                      -H "x-deploy-token: $DEPLOY_TOKEN" \
-                      -H "x-spa-sha: ${{ github.sha }}" \
+                      -H "x-deploy-token: $TOKEN" \
+                      -H "x-deploy-ts: $TS" \
+                      -H "x-deploy-signature: $SIG" \
+                      -H "x-spa-sha: $DEPLOY_SHA" \
+                      -H "x-spa-sha256: $BODY_SHA" \
                       --data-binary @spa.tar.gz; then
                       echo "published on attempt $i"
                       exit 0
@@ -92,14 +131,62 @@ jobs:
                   echo "publish failed — the previous bundle is still live"
                   exit 1
 
+            - name: Sync VPS checkout (pull only)
+              if: steps.gate.outputs.armed == 'yes'
+              # /spa/publish does NOT update server code. This pull-only
+              # endpoint keeps the on-disk checkout at the deployed commit
+              # WITHOUT a PB restart (issue #12).
+              run: |
+                  TOKEN="${DEPLOY_TOKEN_REPO:-${DEPLOY_TOKEN_SPA:-$DEPLOY_TOKEN}}"
+                  if [ -z "$TOKEN" ]; then
+                      echo "no deploy secret configured — skipping /repo/sync"
+                      exit 0
+                  fi
+                  for i in $(seq 1 6); do
+                    TS=$(date +%s)
+                    SIG=$(printf '%s' "/repo/sync.$TS" | openssl dgst -sha256 -hmac "$TOKEN" | awk '{print $NF}')
+                    if RESP=$(curl --fail-with-body --max-time 60 -sS -X POST \
+                      https://dan-pb.zxvcn.com/repo/sync \
+                      -H "x-deploy-token: $TOKEN" \
+                      -H "x-deploy-ts: $TS" \
+                      -H "x-deploy-signature: $SIG"); then
+                      echo "$RESP"
+                      if echo "$RESP" | grep -q "$DEPLOY_SHA"; then
+                        echo "VPS checkout is at deployed commit $DEPLOY_SHA"
+                        exit 0
+                      fi
+                      echo "VPS HEAD does not match $DEPLOY_SHA" >&2
+                      exit 1
+                    fi
+                    echo "attempt $i failed; retrying in 20s"
+                    sleep 20
+                  done
+                  echo "repo sync failed" >&2
+                  exit 1
+
             - name: Health check
-              if: ${{ env.DEPLOY_TOKEN != '' }}
+              if: steps.gate.outputs.armed == 'yes'
               run: |
                   curl --fail --max-time 30 -sS --retry 3 --retry-delay 5 --retry-all-errors \
                     https://dan-pb.zxvcn.com/api/health
                   curl --fail --max-time 30 -sS --retry 3 --retry-delay 5 --retry-all-errors \
                     https://dan-pb.zxvcn.com/ -o /dev/null
 
-            - name: Skip (DEPLOY_TOKEN secret not set)
-              if: ${{ env.DEPLOY_TOKEN == '' }}
-              run: echo "DEPLOY_TOKEN is not configured — skipping publish"
+            - name: Verify the NEW bundle is live
+              if: steps.gate.outputs.armed == 'yes'
+              # A 200 that serves stale code must not pass: assert the served
+              # version.json sha equals the commit we just published (#14).
+              run: |
+                  for i in $(seq 1 10); do
+                    GOT=$(curl -sS --max-time 30 \
+                      "https://dan-pb.zxvcn.com/version.json?t=$DEPLOY_SHA" \
+                      | jq -r '.sha // empty' 2>/dev/null || true)
+                    if [ "$GOT" = "$DEPLOY_SHA" ]; then
+                      echo "new bundle live: $GOT"
+                      exit 0
+                    fi
+                    echo "served sha '${GOT:-none}' != $DEPLOY_SHA; retry $i"
+                    sleep 6
+                  done
+                  echo "the NEW bundle is NOT being served (expected $DEPLOY_SHA)" >&2
+                  exit 1

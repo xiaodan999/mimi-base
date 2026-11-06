@@ -1,4 +1,8 @@
-const VERSION = "v9.0.2";
+// The build (vite.config.ts:mimi-sw-version) replaces this line with a
+// VERSION derived from package.json + the commit sha, so every deploy ships a
+// byte-different worker and the "有新版本可用" prompt fires. This value is only
+// a dev fallback; sw.js is registered in production builds only.
+const VERSION = "v0.0.1-dev";
 const CACHE_NAME = `mimi-base-${VERSION}`;
 
 console.log(VERSION);

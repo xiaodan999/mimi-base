@@ -1,9 +1,94 @@
 // vite.config.ts
 
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
+
+// `process.env.npm_package_version` is undefined outside an npm/bun script,
+// so read the version straight from package.json instead. `require` keeps this
+// an ESM-safe read that also works when the config is bundled by Vite itself.
+const require = createRequire(import.meta.url);
+const pkg = require("./package.json") as { version: string };
+
+/**
+ * Full commit sha this bundle was built from. CI exports GITHUB_SHA (== the
+ * `github.sha` the deploy workflow sends as `x-spa-sha`); local builds fall
+ * back to `git rev-parse HEAD`. It is written verbatim into `build/version.json`
+ * so the post-deploy check can assert the *new* bundle is the one being served.
+ */
+function resolveAppSha(): string {
+    const fromEnv =
+        process.env.GITHUB_SHA ||
+        process.env.GIT_SHA ||
+        process.env.VITE_APP_SHA;
+    if (fromEnv) return fromEnv.trim();
+    try {
+        return execSync("git rev-parse HEAD", {
+            cwd: process.cwd(),
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+        }).trim();
+    } catch {
+        return "dev";
+    }
+}
+
+const appSha = resolveAppSha();
+
+/**
+ * `public/sw.js` used to carry a hand-edited `VERSION` ("v9.0.2") unrelated to
+ * the deploy, so a byte-identical worker never triggered the "有新版本可用"
+ * prompt. Generate the worker's VERSION from package.json + the commit sha at
+ * build time and also emit `build/version.json` for deploy verification.
+ *
+ * Vite copies public/ into build/ during the build; `closeBundle` runs last, so
+ * we overwrite that copy with the injected worker and add the version file.
+ */
+function swVersionPlugin(): Plugin {
+    return {
+        name: "mimi-sw-version",
+        apply: "build",
+        closeBundle() {
+            const root = process.cwd();
+            const outDir = path.join(root, "build");
+            const src = readFileSync(
+                path.join(root, "public", "sw.js"),
+                "utf8",
+            );
+            const version = `v${pkg.version}-${appSha.slice(0, 12)}`;
+            const injected = src.replace(
+                /^const VERSION\s*=\s*.*?;\s*$/m,
+                `const VERSION = ${JSON.stringify(version)};`,
+            );
+            if (injected === src)
+                throw new Error("sw.js: could not find the VERSION anchor");
+            writeFileSync(path.join(outDir, "sw.js"), injected);
+            writeFileSync(
+                path.join(outDir, "version.json"),
+                `${JSON.stringify(
+                    {
+                        version: pkg.version,
+                        sha: appSha,
+                        appVersion: pkg.version,
+                        swVersion: version,
+                        builtAt: new Date().toISOString(),
+                    },
+                    null,
+                    2,
+                )}\n`,
+            );
+            console.log(
+                `[sw-version] ${version} (sha ${appSha.slice(0, 12)}) -> build/sw.js, build/version.json`,
+            );
+        },
+    };
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -98,6 +183,7 @@ export default defineConfig(({ mode }) => {
             }),
             viteReact(),
             preconnectPocketBase,
+            swVersionPlugin(),
             // Keep the 1.2 MB report out of `build/`; it used to be deployed
             // publicly at /stats.html. It now lands in the gitignored tmp/.
             visualizer({
@@ -107,7 +193,7 @@ export default defineConfig(({ mode }) => {
             }),
         ],
         define: {
-            APP_VERSION: JSON.stringify(process.env.npm_package_version),
+            APP_VERSION: JSON.stringify(pkg.version),
         },
     };
 });

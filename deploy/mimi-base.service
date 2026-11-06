@@ -1,0 +1,22 @@
+[Unit]
+Description=mimi-base PocketBase supervisor (bun pocketbase/server.ts)
+Documentation=https://github.com/xiaodan999/mimi-base
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/mimi-base
+ExecStart=/root/.bun/bin/bun pocketbase/server.ts
+# Wait for the API to answer before systemd considers the unit started. If it
+# never becomes healthy, the unit fails and Restart=always brings it back.
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8090/api/health >/dev/null 2>&1 && exit 0; sleep 1; done; echo "PB did not become healthy" >&2; exit 1'
+Restart=always
+RestartSec=3
+# Secrets come from /root/mimi-base/.env.prod (read by server.ts). Keep the
+# child's PATH/HOME/TZ minimal; server.ts builds an allowlisted env for PB.
+StandardOutput=append:/root/mimi-base/mimi-db.log
+StandardError=append:/root/mimi-base/mimi-db.log
+
+[Install]
+WantedBy=multi-user.target

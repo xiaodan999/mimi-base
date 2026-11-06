@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Server setup for the PocketBase host. Runs as a NORMAL user — everything
-# (bun install, the PocketBase process on 8090/9001) is user-level; only
-# your reverse proxy / TLS step needs root.
+# (bun install, the PocketBase process on 8090/9001) is user-level; only the
+# reverse proxy / TLS step needs root.
 #
 # Everything lives inside the repo clone: the supervisor (pocketbase/server.ts,
 # started as plain `bun run db`), the secrets file (.env.prod, gitignored)
-# and the log (mimi-db.log). No cron entries or services — PB does not
-# auto-start at boot.
+# and the log (mimi-db.log). For production boot-start + restart-on-crash use
+# the systemd unit in deploy/mimi-base.service (see deploy/README.md); this
+# script only starts the process immediately when nothing is running yet.
 #
 # Usage:
 #   git clone https://github.com/xiaodan999/mimi-base && cd mimi-base
@@ -38,20 +39,31 @@ echo "bun: $(bun --version)"
 
 # 3. secrets (generated on the box, never transited) -> .env.prod (gitignored).
 #    The superuser email is yours to choose — export SUPERUSER_EMAIL before running.
+#    Secrets are NEVER printed to stdout; read them from the file if needed.
 if [ ! -f .env.prod ]; then
     : "${SUPERUSER_EMAIL:?export SUPERUSER_EMAIL first}"
     {
         echo "SUPERUSER_EMAIL=$SUPERUSER_EMAIL"
         echo "SUPERUSER_PASSWORD=$(openssl rand -hex 16)"
         echo "DEPLOY_TOKEN=$(openssl rand -hex 24)"
+        # Deploy endpoints (:9001) bind to loopback by default. Set a
+        # non-loopback value AND DEPLOY_BIND_ALLOW_PUBLIC=1 only when Caddy
+        # runs in Docker and must reach them via host.docker.internal (the
+        # cloud security group still blocks external probes to :9001).
+        echo "DEPLOY_BIND=127.0.0.1"
+        # PB itself must listen on a host-reachable address for Caddy (and the
+        # SPA/API); external access to :8090 is blocked by the cloud SG.
         echo "PB_HTTP=0.0.0.0:8090"
     } > .env.prod
     chmod 600 .env.prod
 fi
+# Optional per-endpoint secrets (backwards compatible: DEPLOY_TOKEN still works
+# on its own). Add any you set here as GitHub "Production" secrets too:
+#   DEPLOY_TOKEN_DB / DEPLOY_TOKEN_SPA / DEPLOY_TOKEN_ROLLBACK / DEPLOY_TOKEN_REPO
 . .env.prod
 
 # 4. clean up any legacy mimi-db cron entries from older installs
-#    (boot-start was removed: PB does not auto-start at boot)
+#    (boot-start is now handled by the systemd unit, not cron)
 ( crontab -l 2>/dev/null | grep -v mimi-db || true ) | crontab -
 
 # 5. start (only if not already running) and register the superuser
@@ -62,10 +74,21 @@ cd pocketbase
 if [ ! -x ./pocketbase ]; then echo "waiting for binary download..."; sleep 20; fi
 # apply the committed schema (needed on a fresh pb_data; no-op when applied)
 ./pocketbase migrate up || echo "WARN: migrate up failed — check pb_migrations"
-./pocketbase superuser upsert "$SUPERUSER_EMAIL" "$SUPERUSER_PASSWORD" || \
-    echo "WARN: superuser upsert failed — is PB up? check $REPO/mimi-db.log"
 
-# 6. info for the reverse-proxy + GitHub steps
+# PocketBase 0.40.6 `superuser upsert` accepts the password ONLY as a
+# positional argument (there is no --password/stdin/env flag). Source it from
+# the environment (.env.prod), put it in a 0600 temp file, never echo it, never
+# leave it in a long-lived process environment, and shred the file. Brief argv
+# exposure on the short-lived pocketbase call is a CLI limitation; set
+# SUPERUSER_PASSWORD in the environment (it is never printed) to override.
+PW_FILE="$(mktemp)"; chmod 600 "$PW_FILE"
+printf '%s' "$SUPERUSER_PASSWORD" > "$PW_FILE"
+./pocketbase superuser upsert "$SUPERUSER_EMAIL" "$(cat "$PW_FILE")" >/dev/null || \
+    echo "WARN: superuser upsert failed — is PB up? check $REPO/mimi-db.log"
+shred -u "$PW_FILE" 2>/dev/null || rm -f "$PW_FILE"
+cd "$REPO"
+
+# 6. info for the reverse-proxy + GitHub steps (NO secrets echoed)
 GW=$(docker inspect "$(docker ps -aqf name=caddy 2>/dev/null)" \
         --format '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' 2>/dev/null \
      | awk '{print $1}' || true)
@@ -73,11 +96,11 @@ echo
 echo "================= SETUP DONE ================="
 echo "repo:    $REPO"
 echo "log:     $REPO/mimi-db.log"
-echo "secrets: $REPO/.env.prod (chmod 600)"
-echo "caddy gateway: ${GW:-none — proxy to 127.0.0.1:8090 / :9001 directly}"
+echo "secrets: $REPO/.env.prod (chmod 600) — read DEPLOY_TOKEN / SUPERUSER_PASSWORD there,"
+echo "         add DEPLOY_TOKEN as the GitHub 'Production' secret; never paste it to stdout/log"
+echo "caddy gateway: ${GW:-none — see deploy/compose.yaml host.docker.internal}"
 echo "health check: curl http://127.0.0.1:8090/api/health"
-echo "  DEPLOY_TOKEN: $DEPLOY_TOKEN   <- also add as the DEPLOY_TOKEN GitHub secret"
-echo "  superuser:    $SUPERUSER_EMAIL / $SUPERUSER_PASSWORD"
-echo "frontend:     run the deploy-spa workflow once (Actions -> Run workflow);"
-echo "              PB serves $REPO/build, / returns 404 until it is published"
+echo "systemd:     see deploy/mimi-base.service + deploy/README.md for Restart=always"
+echo "frontend:    run the deploy-spa workflow once (Actions -> Run workflow);"
+echo "             PB serves $REPO/build, / returns 404 until it is published"
 echo "=============================================="

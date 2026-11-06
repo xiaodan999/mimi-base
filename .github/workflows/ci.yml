@@ -4,6 +4,9 @@ on:
     push:
         branches: [master]
     pull_request:
+    # Reusable: deploy-db / deploy-spa call this as their `ci` gate, so a
+    # publish can never run before typecheck/lint/format:check/tests pass.
+    workflow_call:
 
 concurrency:
     group: ci-${{ github.ref }}
