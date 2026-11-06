@@ -420,6 +420,12 @@ let manualRestart = false;
 /** The supervisor's HTTP server, so a respawn can release :9001. */
 let supervisorServer: ReturnType<typeof Bun.serve> | null = null;
 let rebindSupervisor: (() => void) | null = null;
+/**
+ * Hash of the supervisor modules this process loaded. A deploy compares
+ * against this rather than the tree at the start of `/db/sync`: a retried
+ * request must still notice a pull that a previous attempt already did.
+ */
+let loadedModulesHash: string | null = null;
 
 const onSignal = () => {
     stopping = true;
@@ -998,7 +1004,6 @@ function scheduleRespawn(): void {
 }
 
 async function dbSync(): Promise<Response> {
-    const modulesBefore = await supervisorModulesHash();
     try {
         execSync("git pull --ff-only", { cwd: repo, stdio: "inherit" });
         // If snapshotData() throws, restartPB rejects WITHOUT starting PB, so
@@ -1013,7 +1018,10 @@ async function dbSync(): Promise<Response> {
                 "pocketbase did not become healthy after deploy",
                 { status: 500 },
             );
-        if ((await supervisorModulesHash()) !== modulesBefore) {
+        if (
+            loadedModulesHash !== null &&
+            (await supervisorModulesHash()) !== loadedModulesHash
+        ) {
             scheduleRespawn();
             return new Response("deploy ok (supervisor restarting)", {
                 status: 200,
@@ -1160,6 +1168,7 @@ function startHttpServer() {
 // ---------- startup ----------
 
 await ensureBinary();
+loadedModulesHash = await supervisorModulesHash();
 if (isProd) {
     ensureGenerationLayout();
     // Prod single-instance lock (#15): refuse to start if a live supervisor
