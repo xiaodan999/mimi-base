@@ -90,4 +90,49 @@ if (typeof Bun !== "undefined") {
         expect(counts(db).comment_count).toBe(0);
         db.close();
     });
+
+    // 回归测试：onRecord*Request 是中间件钩子，处理函数必须调用 e.next()，
+    // 否则 PocketBase 直接结束请求（200 + 空响应体），一行都不保存，而客户端
+    // SDK 会把空响应当成功（2026-11-06「发布成功但动态不出现」的事故）。
+    // 这里静态扫描源码，漏一个都会让测试失败。
+    const { readFileSync, readdirSync } = require("node:fs");
+    const { join } = require("node:path");
+
+    /** 取出每个 onRecord*Request 处理函数的完整函数体。 */
+    const requestHandlers = (dir) => {
+        const handlers = [];
+        for (const file of readdirSync(dir)) {
+            if (!file.endsWith(".pb.js")) continue;
+            const source = readFileSync(join(dir, file), "utf8");
+            const pattern = /onRecord\w+Request\(\(e\)\s*=>\s*\{/g;
+            let match;
+            while ((match = pattern.exec(source))) {
+                // 从 { 开始做括号配对，取出对应的函数体。
+                let depth = 1;
+                let index = pattern.lastIndex;
+                while (index < source.length && depth > 0) {
+                    if (source[index] === "{") depth += 1;
+                    else if (source[index] === "}") depth -= 1;
+                    index += 1;
+                }
+                handlers.push({
+                    file,
+                    body: source.slice(pattern.lastIndex, index - 1),
+                });
+            }
+        }
+        return handlers;
+    };
+
+    test("每个 onRecord*Request 钩子都调用 e.next()", () => {
+        const handlers = requestHandlers(__dirname);
+        // 钩子被改名或删掉时，这个测试不应该静默通过。
+        expect(handlers.length).toBeGreaterThan(0);
+        for (const handler of handlers) {
+            expect(
+                handler.body.includes("e.next()"),
+                `${handler.file} 的 onRecord*Request 处理函数缺少 e.next()`,
+            ).toBe(true);
+        }
+    });
 }

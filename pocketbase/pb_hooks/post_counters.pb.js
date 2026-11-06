@@ -22,12 +22,18 @@
 // 0.40.6 的 hook 名是 onRecordCreateRequest / onRecordUpdateRequest
 // （没有 onRecordBefore*Request 这一组），它们在保存前触发，改 e.record
 // 即可覆盖请求体里的值。
+//
+// 这两个是「中间件」钩子：处理函数必须调用 e.next()，PocketBase 才会继续
+// 真正的保存并写出响应。漏掉 e.next() 时请求会被直接结束成 200 + 空响应体
+// ——客户端 SDK 把空体当成成功（于是弹出「发布成功」），但一行都没写进库。
+// 2026-11-06 的「发布成功后动态不出现」就是漏了这一个调用。
 // ---------------------------------------------------------------------------
 
 // 新建帖子：计数一律从 0 开始，忽略请求体里可能夹带的值。
 onRecordCreateRequest((e) => {
     e.record.set("like_count", 0);
     e.record.set("comment_count", 0);
+    return e.next();
 }, "posts");
 
 // 编辑帖子：把两个计数恢复成数据库里的原值。作者即便 PATCH 成任意值，
@@ -38,6 +44,7 @@ onRecordUpdateRequest((e) => {
     const original = e.app.findRecordById("posts", e.record.id);
     e.record.set("like_count", original.getInt("like_count"));
     e.record.set("comment_count", original.getInt("comment_count"));
+    return e.next();
 }, "posts");
 
 // ---------------------------------------------------------------------------

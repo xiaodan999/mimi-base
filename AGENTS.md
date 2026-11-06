@@ -205,6 +205,12 @@ before your first commit.
   `pocketbase/pb_hooks/post_counters.pb.js` on like/comment create/delete. Do
   not bump them again on the client. The delete hook runs for cascaded replies
   too, so deleting a comment keeps the count accurate.
+- Every `onRecord*Request` hook is **middleware**: the handler must call
+  `e.next()` or PocketBase ends the request with `200` + an empty body and
+  saves nothing, while the client SDK resolves it as success. That silently
+  swallowed every new post for a while (see the `e.next()` regression test in
+  `post_counters.test.js`); the create/update mutations also refuse a response
+  without a record id.
 - `comments.parent_id` supports unlimited reply depth. `buildCommentThreads`
   groups every descendant under its top-level comment and the UI shows
   `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).

@@ -309,7 +309,15 @@ export function useNewPostMutation() {
             images.forEach((image) => formData.append("images", image));
             thumbs.forEach((thumb) => formData.append("thumbs", thumb));
 
-            await pb.collection("posts").create(formData);
+            const record = await pb
+                .collection("posts")
+                .create<PostRecord>(formData);
+            // A hook chain that never calls `e.next()` answers 200 with an
+            // empty body, which the SDK resolves like a success. Only report
+            // a post as published when the server actually returned it.
+            if (!record?.id) {
+                throw new Error("发布失败：服务器没有返回新动态");
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.posts.all });
@@ -361,7 +369,14 @@ export function useUpdatePostMutation() {
                 formData.append("thumbs", "");
             }
 
-            await pb.collection("posts").update(id, formData);
+            const record = await pb
+                .collection("posts")
+                .update<PostRecord>(id, formData);
+            // Same empty-200 trap as create: a save that returns no record
+            // never reached the database.
+            if (!record?.id) {
+                throw new Error("保存失败：服务器没有返回动态");
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.posts.all });
