@@ -1,4 +1,9 @@
-import { useId } from "react";
+import {
+    useId,
+    useState,
+    type MouseEvent as ReactMouseEvent,
+    type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import {
     normalizeChartSpec,
@@ -10,7 +15,10 @@ import { cn } from "@/lib/utils";
 /**
  * Inline chart for `show_chart` tool calls, hand-rolled SVG so there is no
  * chart library in the bundle. Colors come from theme utilities (fill-* /
- * stroke-* + opacity), so dark mode works without extra state.
+ * stroke-* + opacity), so dark mode works without extra state. Bars, points
+ * and slices are tappable: the picked one highlights and a readout line under
+ * the chart shows its exact label/value. Tap again or on the plot background
+ * to clear; a mouse also previews on hover.
  */
 
 const W = 320;
@@ -68,7 +76,74 @@ function pieSlice(
     return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
 }
 
+/**
+ * Shared tap/hover selection. Touch gets a sticky selection (tap the same
+ * item again to clear); a mouse previews on hover. Hover wins while present,
+ * so leaving an element falls back to the sticky pick.
+ */
+function useSelection() {
+    const [picked, setPicked] = useState<number | null>(null);
+    const [hovered, setHovered] = useState<number | null>(null);
+    return {
+        focused: hovered ?? picked,
+        pick: (index: number) =>
+            setPicked((prev) => (prev === index ? null : index)),
+        clear: () => setPicked(null),
+        hover: (event: ReactPointerEvent, index: number) => {
+            if (event.pointerType === "mouse") setHovered(index);
+        },
+        unhover: () => setHovered(null),
+    };
+}
+
+type Selection = ReturnType<typeof useSelection>;
+
+function pickHandlers(selection: Selection, index: number) {
+    return {
+        onClick: (event: ReactMouseEvent<SVGElement>) => {
+            event.stopPropagation();
+            selection.pick(index);
+        },
+        onPointerEnter: (event: ReactPointerEvent) =>
+            selection.hover(event, index),
+        onPointerLeave: selection.unhover,
+    };
+}
+
+/** The one selected data point, echoed under the chart as a text line. */
+function Readout({
+    label,
+    value,
+    unit,
+    percent,
+    dotClass,
+    dotOpacity,
+}: {
+    label: string;
+    value: number;
+    unit: string;
+    percent?: number;
+    dotClass: string;
+    dotOpacity: number;
+}) {
+    return (
+        <div className="flex items-center gap-1.5 text-[11px]">
+            <span
+                className={cn("size-2 shrink-0 rounded-full", dotClass)}
+                style={{ opacity: dotOpacity }}
+            />
+            <span className="min-w-0 truncate text-foreground/90">{label}</span>
+            <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
+                {formatValue(value)}
+                {unit ? ` ${unit}` : ""}
+                {percent !== undefined ? ` · ${percent}%` : ""}
+            </span>
+        </div>
+    );
+}
+
 function BarChart({ spec }: { spec: ChartSpec }) {
+    const selection = useSelection();
     const max = Math.max(...spec.values, 0.0001) * 1.12;
     const plotW = W - PAD_X * 2;
     const plotH = H - PAD_BOTTOM - PAD_TOP;
@@ -78,67 +153,104 @@ function BarChart({ spec }: { spec: ChartSpec }) {
     const multi = spec.style.palette === "multi";
 
     return (
-        <svg
-            viewBox={`0 0 ${W} ${H}`}
-            className="w-full"
-            role="img"
-            aria-label={`${spec.title} 柱状图`}
-        >
-            {spec.values.map((value, index) => {
-                const height = Math.max((value / max) * plotH, 2);
-                const x = PAD_X + slot * index + (slot - barW) / 2;
-                const y = PAD_TOP + plotH - height;
-                return (
-                    <g key={index}>
-                        <rect
-                            x={x}
-                            y={y}
-                            width={barW}
-                            height={height}
-                            rx={4}
-                            className={
-                                multi
-                                    ? CHART_FILLS[index % CHART_FILLS.length]
-                                    : "fill-primary"
-                            }
-                            opacity={multi ? 1 : 0.85}
-                        />
-                        {showValues && (
+        <div className="space-y-1.5">
+            <svg
+                viewBox={`0 0 ${W} ${H}`}
+                className="w-full select-none"
+                role="img"
+                aria-label={`${spec.title} 柱状图`}
+                onClick={selection.clear}
+            >
+                {spec.values.map((value, index) => {
+                    const height = Math.max((value / max) * plotH, 2);
+                    const x = PAD_X + slot * index + (slot - barW) / 2;
+                    const y = PAD_TOP + plotH - height;
+                    const active = selection.focused === index;
+                    const dimmed = selection.focused !== null && !active;
+                    const opacity = active
+                        ? 1
+                        : dimmed
+                          ? multi
+                              ? 0.35
+                              : 0.4
+                          : multi
+                            ? 1
+                            : 0.85;
+                    return (
+                        <g key={index}>
+                            <rect
+                                x={x}
+                                y={y}
+                                width={barW}
+                                height={height}
+                                rx={4}
+                                className={
+                                    multi
+                                        ? CHART_FILLS[
+                                              index % CHART_FILLS.length
+                                          ]
+                                        : "fill-primary"
+                                }
+                                opacity={opacity}
+                            />
+                            {showValues && (
+                                <text
+                                    x={x + barW / 2}
+                                    y={y - 4}
+                                    textAnchor="middle"
+                                    fontSize={10}
+                                    className="fill-muted-foreground"
+                                    opacity={dimmed ? 0.4 : 1}
+                                >
+                                    {formatValue(value)}
+                                </text>
+                            )}
                             <text
                                 x={x + barW / 2}
-                                y={y - 4}
+                                y={H - 6}
                                 textAnchor="middle"
                                 fontSize={10}
                                 className="fill-muted-foreground"
                             >
-                                {formatValue(value)}
+                                {truncateLabel(spec.labels[index])}
                             </text>
-                        )}
-                        <text
-                            x={x + barW / 2}
-                            y={H - 6}
-                            textAnchor="middle"
-                            fontSize={10}
-                            className="fill-muted-foreground"
-                        >
-                            {truncateLabel(spec.labels[index])}
-                        </text>
-                    </g>
-                );
-            })}
-            <line
-                x1={PAD_X}
-                y1={PAD_TOP + plotH}
-                x2={W - PAD_X}
-                y2={PAD_TOP + plotH}
-                className="stroke-border"
-                strokeWidth={1}
-            />
-        </svg>
+                            {/* Full-column transparent hit area. */}
+                            <rect
+                                x={PAD_X + slot * index}
+                                y={0}
+                                width={slot}
+                                height={H}
+                                fill="transparent"
+                                className="cursor-pointer"
+                                {...pickHandlers(selection, index)}
+                            />
+                        </g>
+                    );
+                })}
+                <line
+                    x1={PAD_X}
+                    y1={PAD_TOP + plotH}
+                    x2={W - PAD_X}
+                    y2={PAD_TOP + plotH}
+                    className="stroke-border"
+                    strokeWidth={1}
+                />
+            </svg>
+            {selection.focused !== null && (
+                <Readout
+                    label={spec.labels[selection.focused]}
+                    value={spec.values[selection.focused]}
+                    unit={spec.unit}
+                    dotClass="bg-primary"
+                    dotOpacity={1}
+                />
+            )}
+        </div>
     );
 }
 
 function LineChart({ spec }: { spec: ChartSpec }) {
+    const selection = useSelection();
     const max = Math.max(...spec.values, 0.0001) * 1.12;
     const min = Math.min(...spec.values, 0);
     const range = max - min || 1;
@@ -160,56 +272,92 @@ function LineChart({ spec }: { spec: ChartSpec }) {
     const showValues = spec.style.showValues && spec.labels.length <= 8;
 
     return (
-        <svg
-            viewBox={`0 0 ${W} ${H}`}
-            className="w-full"
-            role="img"
-            aria-label={`${spec.title} 折线图`}
-        >
-            <path d={area} className="fill-primary" opacity={0.1} />
-            <path
-                d={path}
-                fill="none"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="stroke-primary"
-            />
-            {points.map((point, index) => (
-                <g key={index}>
-                    <circle
-                        cx={point.x}
-                        cy={point.y}
-                        r={3}
-                        className="fill-primary"
-                    />
-                    {showValues && (
-                        <text
-                            x={point.x}
-                            y={point.y - 8}
-                            textAnchor="middle"
-                            fontSize={10}
-                            className="fill-muted-foreground"
-                        >
-                            {formatValue(point.value)}
-                        </text>
-                    )}
-                    <text
-                        x={point.x}
-                        y={H - 6}
-                        textAnchor="middle"
-                        fontSize={10}
-                        className="fill-muted-foreground"
-                    >
-                        {truncateLabel(spec.labels[index])}
-                    </text>
-                </g>
-            ))}
-        </svg>
+        <div className="space-y-1.5">
+            <svg
+                viewBox={`0 0 ${W} ${H}`}
+                className="w-full select-none"
+                role="img"
+                aria-label={`${spec.title} 折线图`}
+                onClick={selection.clear}
+            >
+                <path d={area} className="fill-primary" opacity={0.1} />
+                <path
+                    d={path}
+                    fill="none"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="stroke-primary"
+                />
+                {points.map((point, index) => {
+                    const active = selection.focused === index;
+                    const dimmed = selection.focused !== null && !active;
+                    return (
+                        <g key={index}>
+                            {active && (
+                                <circle
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r={8}
+                                    className="fill-primary"
+                                    opacity={0.18}
+                                />
+                            )}
+                            <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={active ? 4.5 : 3}
+                                className="fill-primary"
+                                opacity={dimmed ? 0.35 : 1}
+                            />
+                            {showValues && (
+                                <text
+                                    x={point.x}
+                                    y={point.y - 8}
+                                    textAnchor="middle"
+                                    fontSize={10}
+                                    className="fill-muted-foreground"
+                                    opacity={dimmed ? 0.4 : 1}
+                                >
+                                    {formatValue(point.value)}
+                                </text>
+                            )}
+                            <text
+                                x={point.x}
+                                y={H - 6}
+                                textAnchor="middle"
+                                fontSize={10}
+                                className="fill-muted-foreground"
+                            >
+                                {truncateLabel(spec.labels[index])}
+                            </text>
+                            <circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={16}
+                                fill="transparent"
+                                className="cursor-pointer"
+                                {...pickHandlers(selection, index)}
+                            />
+                        </g>
+                    );
+                })}
+            </svg>
+            {selection.focused !== null && (
+                <Readout
+                    label={spec.labels[selection.focused]}
+                    value={spec.values[selection.focused]}
+                    unit={spec.unit}
+                    dotClass="bg-primary"
+                    dotOpacity={1}
+                />
+            )}
+        </div>
     );
 }
 
 function PieChart({ spec }: { spec: ChartSpec }) {
+    const selection = useSelection();
     const maskId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
     const total = spec.values.reduce((sum, value) => sum + value, 0);
     if (total <= 0) return null;
@@ -219,16 +367,23 @@ function PieChart({ spec }: { spec: ChartSpec }) {
     const donut = spec.style.donut;
     const legend = spec.style.legend;
     let angle = -Math.PI / 2;
+    const slices = spec.values.map((value) => {
+        const start = angle;
+        const end = angle + (value / total) * Math.PI * 2;
+        angle = end;
+        return { start, end };
+    });
 
     const chart = (
         <svg
             viewBox={`0 0 ${size} ${size}`}
             className={cn(
-                "h-auto w-[120px] shrink-0",
+                "h-auto w-[120px] shrink-0 select-none",
                 legend === "right" ? "max-w-[45%]" : "max-w-full",
             )}
             role="img"
             aria-label={`${spec.title} 饼图`}
+            onClick={selection.clear}
         >
             {donut && (
                 <defs>
@@ -246,11 +401,9 @@ function PieChart({ spec }: { spec: ChartSpec }) {
                 </defs>
             )}
             <g mask={donut ? `url(#pie-mask-${maskId})` : undefined}>
-                {spec.values.map((value, index) => {
-                    const sweep = (value / total) * Math.PI * 2;
-                    const start = angle;
-                    const end = angle + sweep;
-                    angle = end;
+                {slices.map((slice, index) => {
+                    const active = selection.focused === index;
+                    const dimmed = selection.focused !== null && !active;
                     const fill = multi
                         ? CHART_FILLS[index % CHART_FILLS.length]
                         : "fill-primary";
@@ -261,24 +414,39 @@ function PieChart({ spec }: { spec: ChartSpec }) {
                                 cx={cx}
                                 cy={cy}
                                 r={r}
-                                className={fill}
+                                className={cn(fill, "cursor-pointer")}
+                                opacity={dimmed ? 0.3 : 1}
+                                {...pickHandlers(selection, index)}
                             />
                         );
                     }
+                    // Explode the picked slice a little along its mid angle.
+                    const mid = (slice.start + slice.end) / 2;
+                    const transform = active
+                        ? `translate(${(Math.cos(mid) * 4).toFixed(2)} ${(Math.sin(mid) * 4).toFixed(2)})`
+                        : undefined;
                     return (
                         <path
                             key={index}
-                            d={pieSlice(cx, cy, r, start, end)}
-                            className={fill}
+                            d={pieSlice(cx, cy, r, slice.start, slice.end)}
+                            className={cn(fill, "cursor-pointer")}
                             opacity={
-                                multi
+                                active
                                     ? 1
-                                    : PIE_OPACITIES[
-                                          index % PIE_OPACITIES.length
-                                      ]
+                                    : dimmed
+                                      ? multi
+                                          ? 0.3
+                                          : 0.25
+                                      : multi
+                                        ? 1
+                                        : PIE_OPACITIES[
+                                              index % PIE_OPACITIES.length
+                                          ]
                             }
                             stroke="var(--card)"
                             strokeWidth={1.5}
+                            transform={transform}
+                            {...pickHandlers(selection, index)}
                         />
                     );
                 })}
@@ -286,57 +454,99 @@ function PieChart({ spec }: { spec: ChartSpec }) {
         </svg>
     );
 
-    if (legend === "none") {
-        return <div className="flex justify-center">{chart}</div>;
-    }
-
-    const legendList = (
-        <ul
-            className={cn(
-                "min-w-0 space-y-1 text-xs",
-                legend === "right" ? "flex-1" : "w-full",
-            )}
-        >
-            {spec.labels.map((label, index) => (
-                <li
-                    key={index}
-                    className="flex items-center gap-1.5 leading-snug"
-                >
-                    <span
-                        className={cn(
-                            "size-2 shrink-0 rounded-full",
-                            multi
-                                ? CHART_DOTS[index % CHART_DOTS.length]
-                                : "bg-primary",
-                        )}
-                        style={{
-                            opacity: multi
-                                ? 1
-                                : PIE_OPACITIES[index % PIE_OPACITIES.length],
-                        }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-foreground/90">
-                        {truncateLabel(label, 8)}
-                    </span>
-                    <span className="min-w-0 max-w-[50%] shrink-0 truncate text-right tabular-nums text-muted-foreground">
-                        {formatValue(spec.values[index])}
-                        {spec.unit ? ` ${spec.unit}` : ""}
-                    </span>
-                </li>
-            ))}
-        </ul>
-    );
+    const legendList =
+        legend === "none" ? null : (
+            <ul
+                className={cn(
+                    "min-w-0 space-y-1 text-xs",
+                    legend === "right" ? "flex-1" : "w-full",
+                )}
+            >
+                {spec.labels.map((label, index) => {
+                    const active = selection.focused === index;
+                    return (
+                        <li key={index}>
+                            <button
+                                type="button"
+                                className={cn(
+                                    "flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left leading-snug",
+                                    active && "bg-muted/60",
+                                )}
+                                onClick={() => selection.pick(index)}
+                                onPointerEnter={(event) =>
+                                    selection.hover(event, index)
+                                }
+                                onPointerLeave={selection.unhover}
+                            >
+                                <span
+                                    className={cn(
+                                        "size-2 shrink-0 rounded-full",
+                                        multi
+                                            ? CHART_DOTS[
+                                                  index % CHART_DOTS.length
+                                              ]
+                                            : "bg-primary",
+                                    )}
+                                    style={{
+                                        opacity: multi
+                                            ? 1
+                                            : PIE_OPACITIES[
+                                                  index % PIE_OPACITIES.length
+                                              ],
+                                    }}
+                                />
+                                <span className="min-w-0 flex-1 truncate text-foreground/90">
+                                    {truncateLabel(label, 8)}
+                                </span>
+                                <span className="min-w-0 max-w-[50%] shrink-0 truncate text-right tabular-nums text-muted-foreground">
+                                    {formatValue(spec.values[index])}
+                                    {spec.unit ? ` ${spec.unit}` : ""}
+                                </span>
+                            </button>
+                        </li>
+                    );
+                })}
+            </ul>
+        );
 
     return (
-        <div
-            className={cn(
-                legend === "right"
-                    ? "flex items-center gap-3"
-                    : "flex flex-col items-center gap-2",
+        <div className="space-y-1.5">
+            {legend === "none" ? (
+                <div className="flex justify-center">{chart}</div>
+            ) : (
+                <div
+                    className={cn(
+                        legend === "right"
+                            ? "flex items-center gap-3"
+                            : "flex flex-col items-center gap-2",
+                    )}
+                >
+                    {chart}
+                    {legendList}
+                </div>
             )}
-        >
-            {chart}
-            {legendList}
+            {selection.focused !== null && (
+                <Readout
+                    label={spec.labels[selection.focused]}
+                    value={spec.values[selection.focused]}
+                    unit={spec.unit}
+                    percent={Math.round(
+                        (spec.values[selection.focused] / total) * 100,
+                    )}
+                    dotClass={
+                        multi
+                            ? CHART_DOTS[selection.focused % CHART_DOTS.length]
+                            : "bg-primary"
+                    }
+                    dotOpacity={
+                        multi
+                            ? 1
+                            : PIE_OPACITIES[
+                                  selection.focused % PIE_OPACITIES.length
+                              ]
+                    }
+                />
+            )}
         </div>
     );
 }

@@ -29,6 +29,7 @@
 - 新增聊天工具：`show_chart`（客户端 SVG 图表卡，`-chart-card.tsx`，柱/折/饼三种，数据经 `app/chat/chart.ts` 规范化）、`memory`（走 `/ai/tools/memory`，保存后失效 `qk.chat.memories`）、`read_url`、`get_expenses`（带 `tz` 时区参数）、`search_posts`。
 - `show_chart` 增加可选 `style`（`palette=theme/multi`、`donut`、`legend=right/bottom/none`、`showValues`）；新增 `--chart-1..6` 主题色 token 与 Tailwind `chart` 色阶，饼图可切环形/多色，图例可放到底部。
 - 新增 `render_ui` 声明式卡片工具：`app/chat/ui-spec.ts` 校验 8 种只读区块（`text` / `metrics` / `list` / `table` / `progress` / `badges` / `chart` / `divider`，最多 12 块、序列化 12k），`-ui-card.tsx` 用固定主题 token 渲染；没有 HTML、表单、链接、图片或外部 URL，结果随消息持久化；`-message-parts.tsx`、`tools.ts`、`tool-labels.ts` 和 Markdown 导出摘要同步。
+- 图表支持点按交互（`-chart-card.tsx`，`show_chart` 与 `render_ui` 内嵌图表共用）：柱/折/饼的柱子、折点和扇区可点选（触屏为点选态，鼠标悬停预览），选中项高亮、饼图扇区沿中线外弹，图例行变为可点按钮同步高亮；图表下方出现一行读数显示完整标签、数值和饼图占比。再点同一项或图表空白处取消；点选用 `onClick` 触发，滚动聊天不会误选。
 - 新增 `log_expense` 记账工具：`user-input.ts` 扩展 `expense` 请求类型，确认卡片（品名/金额/分类）点「记下」后由客户端直接创建 `ji_zhang_biao`（PB 规则绑定 `user_id`），成功后失效记账查询；取消不写入。
 - `buildSystemPrompt` / `buildApiMessages` 支持注入长期记忆（每次 run 前 `fetchQuery`，上限 30 条）。
 - 对话列表：搜索（标题/最后一条/人格名，`app/chat/conversations.ts` 纯函数）、人格筛选 chips、置顶（`chat_conversations.pinned`，置顶优先排序）。
@@ -65,6 +66,7 @@
 - 聊天工具调用参数不是合法 JSON 时（快速模型写长字符串时的裸换行、漏转义引号、非法转义等），不再直接报「工具参数不是合法的 JSON」：新增 `app/chat/tool-args.ts` 容错解析器，先严格解析，失败后按常见畸形修复（字符串内控制字符转义、未知转义保留字面反斜杠、`\'` 还原、未转义引号按结构启发式转义并带回溯、尾逗号、截断尾部补齐）再放弃；执行成功后把规范化的参数写回 tool-call part，后续轮次与历史重放给上游的始终是合法 JSON。
 - 读取 SSE 的 `finish_reason`（此前完全忽略）：输出达到 `max_tokens` 上限（`length`）被截断时，工具调用不再尝试修复参数（避免悄悄写入半截文件），而是把「输出达到长度上限被截断」作为工具错误回传给模型让它缩短或分次写入；聊天输出上限从 4096 提到 8192（`app/chat/stream.ts` 与中转 `MAX_OUTPUT_TOKENS` 同步）。
 - 系统提示词补充：调用工具后等结果返回再向用户确认成败，工具失败时如实说明，不要在结果回来前就说已经做好（修复截图里「写入文件失败」却抢答「已经做好了」的问题）。
+- 修复 `render_ui` 表格在手机上挡住页面滚动：`overflow-x-auto` 会把 `overflow-y` 一并算成滚动容器，`overscroll-contain` 又禁止手势链回聊天线程，落在表格上的上下滑动全部被吞掉。改为 `overscroll-x-contain`（`-ui-card.tsx`）：横向滑动仍留在表格内，上下滑动交还给页面。
 
 ### 变更
 

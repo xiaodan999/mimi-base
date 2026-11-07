@@ -161,7 +161,7 @@ function Block({ block }: { block: UiBlock }) {
             );
         case "table":
             return (
-                <div className="-mx-1 overflow-x-auto overscroll-contain">
+                <div className="-mx-1 overflow-x-auto overscroll-x-contain">
                     <table className="w-full min-w-[240px] border-collapse text-left text-xs">
                         <thead>
                             <tr className="border-b border-border/60">
