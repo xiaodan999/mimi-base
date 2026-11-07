@@ -5,6 +5,7 @@ import {
     endChatRun,
     getChatRunFiles,
     getChatRunSnapshot,
+    getRunningConversationIds,
     isChatRunActive,
     pruneChatRunOptimistic,
     setChatRunLive,
@@ -93,5 +94,34 @@ describe("chat run store", () => {
         expect(controller.signal.aborted).toBe(true);
         endChatRun(id, "stopped", "测试");
         unwatch();
+    });
+
+    test("running-id snapshot tracks runs and stays stable across token publishes", () => {
+        const a = "run-store-ids-a";
+        const b = "run-store-ids-b";
+        const watchA = watchChatRun(a);
+        const watchB = watchChatRun(b);
+
+        expect(getRunningConversationIds().size).toBe(0);
+
+        beginChatRun(a, new AbortController(), {});
+        expect([...getRunningConversationIds()]).toEqual([a]);
+
+        beginChatRun(b, new AbortController(), {});
+        const both = getRunningConversationIds();
+        expect([...both]).toEqual([a, b]);
+
+        // Streaming tokens publish constantly but never change membership:
+        // the list must keep getting the same reference (no re-render).
+        setChatRunLive(a, { id: "live", parts: [] });
+        expect(getRunningConversationIds()).toBe(both);
+
+        endChatRun(a, "done", "测试");
+        expect([...getRunningConversationIds()]).toEqual([b]);
+        endChatRun(b, "done", "测试");
+        expect(getRunningConversationIds().size).toBe(0);
+
+        watchA();
+        watchB();
     });
 });
