@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
     useExternalStoreRuntime,
+    WebSpeechSynthesisAdapter,
     type AppendMessage,
     type MessageStatus,
     type ThreadMessageLike,
@@ -9,6 +10,9 @@ import {
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 
 import type { LiveReply } from "../-use-chat-session";
+
+/** One speechSynthesis instance is enough for the whole app. */
+const speechAdapter = new WebSpeechSynthesisAdapter();
 
 /** assistant-ui's message shape, kept in sync with our stored parts. */
 function toThreadPart(part: ChatPart): unknown {
@@ -190,6 +194,7 @@ export function useChatRuntime({
         ...(onEdit
             ? { onEdit: async (message: AppendMessage) => onEdit(message) }
             : {}),
-        adapters: {},
+        // Read-aloud uses the browser's speechSynthesis (no provider, no key).
+        adapters: { speech: speechAdapter },
     });
 }

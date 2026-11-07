@@ -13,6 +13,7 @@ import {
     ComposerPrimitive,
     MessagePrimitive,
     ThreadPrimitive,
+    useAui,
     useAuiState,
     type AppendMessage,
     type EmptyMessagePartProps,
@@ -24,13 +25,22 @@ import {
     Copy,
     GitFork,
     Pencil,
+    Repeat2,
     RotateCcw,
     Sparkles,
-    Repeat2,
+    Volume2,
+    VolumeX,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { imagesToDataUrls } from "@/app/ai/image";
+import {
+    attachmentToMessageText,
+    extractFileText,
+    FILE_ACCEPT,
+    MAX_ATTACHMENTS,
+    type ExtractedFile,
+} from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 import { usePendingUserInput } from "@/app/chat/user-input";
@@ -44,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { LiveReply } from "../-use-chat-session";
+import { AttachmentSheet } from "./-attachment-sheet";
 import { ChatComposer } from "./-chat-composer";
 import { useChatRuntime } from "./-chat-runtime";
 import {
@@ -53,6 +64,7 @@ import {
     ReasoningPart,
     ToolCallPart,
 } from "./-message-parts";
+import { PostsImagePicker } from "./-posts-image-picker";
 import { UserInputPanel } from "./-user-input-panel";
 
 const MAX_IMAGES = 4;
@@ -214,6 +226,28 @@ function AssistantMessage() {
                                 <Copy className="size-3.5" />
                             </Button>
                         </ActionBarPrimitive.Copy>
+                        <ActionBarPrimitive.Speak asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="朗读回复"
+                                title="朗读回复"
+                                className="size-7 rounded-lg text-muted-foreground"
+                            >
+                                <Volume2 className="size-3.5" />
+                            </Button>
+                        </ActionBarPrimitive.Speak>
+                        <ActionBarPrimitive.StopSpeaking asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="停止朗读"
+                                title="停止朗读"
+                                className="size-7 rounded-lg text-muted-foreground"
+                            >
+                                <VolumeX className="size-3.5" />
+                            </Button>
+                        </ActionBarPrimitive.StopSpeaking>
                         <ForkButton />
                         <MessagePrimitive.If last>
                             <ActionBarPrimitive.Reload asChild>
@@ -275,6 +309,8 @@ export type ChatThreadProps = {
     model: ChatModel | undefined;
     models: readonly ChatModel[];
     personaName: string;
+    /** One-shot composer prefill (PWA share target). */
+    initialDraft?: string;
     onSend: (parts: ChatPart[]) => Promise<void>;
     onStop: () => void;
     onRegenerate: (
@@ -285,10 +321,24 @@ export type ChatThreadProps = {
     onFork: (messageId: string) => void;
 };
 
+/** One-shot composer prefill for the share-target handoff. */
+function ComposerSeed({ draft }: { draft: string }) {
+    const aui = useAui();
+    const seeded = useRef(false);
+    useEffect(() => {
+        if (seeded.current || draft === "") return;
+        seeded.current = true;
+        aui.composer.setText(draft);
+        // Strip the state so going back/forward does not re-seed an old draft.
+        window.history.replaceState({}, "");
+    }, [aui, draft]);
+    return null;
+}
+
 /**
  * The thread + composer. The composer keeps its own pending-image state;
- * images are appended to the message being sent and cleared right after, so
- * they never leak into the next message.
+ * images and document attachments are appended to the message being sent and
+ * cleared right after, so they never leak into the next message.
  */
 export function ChatThread({
     messages,
@@ -297,6 +347,7 @@ export function ChatThread({
     model,
     models,
     personaName,
+    initialDraft,
     onSend,
     onStop,
     onRegenerate,
@@ -304,10 +355,17 @@ export function ChatThread({
     onFork,
 }: ChatThreadProps) {
     const [images, setImages] = useState<string[]>([]);
+    const [docs, setDocs] = useState<ExtractedFile[]>([]);
     const [addingImages, setAddingImages] = useState(false);
     const [retryTarget, setRetryTarget] = useState<string | null>(null);
+    const [attachOpen, setAttachOpen] = useState(false);
+    const [postsOpen, setPostsOpen] = useState(false);
     const imagesRef = useRef<string[]>([]);
     imagesRef.current = images;
+    const docsRef = useRef<ExtractedFile[]>([]);
+    docsRef.current = docs;
+    const docInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const visionEnabled = model?.vision === true;
     const disabled = !model;
@@ -324,18 +382,30 @@ export function ChatThread({
         setImages((previous) => (previous.length > 0 ? [] : previous));
     }, [visionEnabled]);
 
-    const sendWithImages = useCallback(
+    const sendWithAttachments = useCallback(
         async (parts: ChatPart[]) => {
-            const pending = imagesRef.current;
-            if (pending.length > 0) {
+            const pendingImages = imagesRef.current;
+            const pendingDocs = docsRef.current;
+            if (pendingImages.length > 0) {
                 imagesRef.current = [];
                 setImages([]);
             }
-            const withImages: ChatPart[] = [
+            if (pendingDocs.length > 0) {
+                docsRef.current = [];
+                setDocs([]);
+            }
+            const withAttachments: ChatPart[] = [
                 ...parts,
-                ...pending.map((image) => ({ type: "image" as const, image })),
+                ...pendingDocs.map((doc) => ({
+                    type: "text" as const,
+                    text: attachmentToMessageText(doc),
+                })),
+                ...pendingImages.map((image) => ({
+                    type: "image" as const,
+                    image,
+                })),
             ];
-            await onSend(withImages);
+            await onSend(withAttachments);
         },
         [onSend],
     );
@@ -344,7 +414,7 @@ export function ChatThread({
         messages,
         live,
         running,
-        onSend: sendWithImages,
+        onSend: sendWithAttachments,
         onStop,
         onRegenerate,
         onEdit,
@@ -386,6 +456,53 @@ export function ChatThread({
             previous.filter((_, current) => current !== index),
         );
     }, []);
+
+    const handleAddDocs = useCallback(async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        const room = MAX_ATTACHMENTS - docsRef.current.length;
+        if (room <= 0) {
+            toast.error(`一条消息最多带 ${MAX_ATTACHMENTS} 个文件`);
+            return;
+        }
+        setAddingImages(true);
+        try {
+            const extracted: ExtractedFile[] = [];
+            for (const file of Array.from(files).slice(0, room)) {
+                try {
+                    extracted.push(await extractFileText(file));
+                } catch (error) {
+                    toast.error(
+                        error instanceof Error
+                            ? error.message
+                            : `${file.name} 读不出来`,
+                    );
+                }
+            }
+            if (extracted.length > 0) {
+                setDocs((previous) =>
+                    [...previous, ...extracted].slice(0, MAX_ATTACHMENTS),
+                );
+            }
+        } finally {
+            setAddingImages(false);
+        }
+    }, []);
+
+    const removeDoc = useCallback((index: number) => {
+        setDocs((previous) =>
+            previous.filter((_, current) => current !== index),
+        );
+    }, []);
+
+    const addPickedImage = useCallback(
+        (dataUrl: string) => {
+            if (!visionEnabled) return;
+            setImages((previous) =>
+                [...previous, dataUrl].slice(0, MAX_IMAGES),
+            );
+        },
+        [visionEnabled],
+    );
 
     const empty = useMemo(
         () => messages.length === 0 && !live,
@@ -473,7 +590,7 @@ export function ChatThread({
                     <ChatComposer
                         images={images}
                         addingImages={addingImages}
-                        visionEnabled={visionEnabled}
+                        docs={docs}
                         disabled={disabled}
                         inputPending={pendingInput !== null}
                         running={running}
@@ -481,11 +598,50 @@ export function ChatThread({
                             used: contextUsed,
                             total: model?.contextWindow ?? 0,
                         }}
-                        onAddImages={handleAddImages}
+                        onOpenAttach={() => setAttachOpen(true)}
                         onRemoveImage={removeImage}
+                        onRemoveDoc={removeDoc}
                         onStop={onStop}
                     />
                 </div>
+
+                <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                        void handleAddImages(event.target.files);
+                        event.target.value = "";
+                    }}
+                />
+                <input
+                    ref={docInputRef}
+                    type="file"
+                    accept={FILE_ACCEPT}
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                        void handleAddDocs(event.target.files);
+                        event.target.value = "";
+                    }}
+                />
+                <AttachmentSheet
+                    open={attachOpen}
+                    onOpenChange={setAttachOpen}
+                    visionEnabled={visionEnabled}
+                    addingImages={addingImages}
+                    onPickAlbum={() => imageInputRef.current?.click()}
+                    onPickPosts={() => setPostsOpen(true)}
+                    onPickFiles={() => docInputRef.current?.click()}
+                />
+                <PostsImagePicker
+                    open={postsOpen}
+                    onOpenChange={setPostsOpen}
+                    onPicked={addPickedImage}
+                />
+                <ComposerSeed draft={initialDraft ?? ""} />
 
                 <Sheet
                     open={retryTarget !== null}

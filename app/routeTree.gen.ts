@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as ProtectedMainRouteImport } from './routes/_protected/_main'
 import { Route as ProtectedSecretRouteImport } from './routes/_protected/secret'
+import { Route as ProtectedShareRouteImport } from './routes/_protected/share'
 import { Route as ProtectedMainHomeRouteImport } from './routes/_protected/_main/home'
 import { Route as ProtectedMainStudyRouteImport } from './routes/_protected/_main/study'
 import { Route as ProtectedPostNewPooRouteImport } from './routes/_protected/post/new-poo'
@@ -62,6 +63,11 @@ const ProtectedMainRoute = ProtectedMainRouteImport.update({
 const ProtectedSecretRoute = ProtectedSecretRouteImport.update({
   id: '/secret',
   path: '/secret',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedShareRoute = ProtectedShareRouteImport.update({
+  id: '/share',
+  path: '/share',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedMainHomeRoute = ProtectedMainHomeRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
+  '/share': typeof ProtectedShareRoute
   '/home': typeof ProtectedMainHomeRoute
   '/study': typeof ProtectedMainStudyRouteWithChildren
   '/post/new-poo': typeof ProtectedPostNewPooRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/secret': typeof ProtectedSecretRoute
+  '/share': typeof ProtectedShareRoute
   '/home': typeof ProtectedMainHomeRoute
   '/post/new-poo': typeof ProtectedPostNewPooRoute
   '/chat/$conversationId': typeof ProtectedMainChatConversationIdRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/logout': typeof LogoutRoute
   '/_protected/_main': typeof ProtectedMainRouteWithChildren
   '/_protected/secret': typeof ProtectedSecretRoute
+  '/_protected/share': typeof ProtectedShareRoute
   '/_protected/_main/home': typeof ProtectedMainHomeRoute
   '/_protected/_main/study': typeof ProtectedMainStudyRouteWithChildren
   '/_protected/post/new-poo': typeof ProtectedPostNewPooRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/logout'
     | '/secret'
+    | '/share'
     | '/home'
     | '/study'
     | '/post/new-poo'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/logout'
     | '/secret'
+    | '/share'
     | '/home'
     | '/post/new-poo'
     | '/chat/$conversationId'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/_protected/_main'
     | '/_protected/secret'
+    | '/_protected/share'
     | '/_protected/_main/home'
     | '/_protected/_main/study'
     | '/_protected/post/new-poo'
@@ -330,6 +342,13 @@ declare module '@tanstack/react-router' {
       path: '/secret'
       fullPath: '/secret'
       preLoaderRoute: typeof ProtectedSecretRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/share': {
+      id: '/_protected/share'
+      path: '/share'
+      fullPath: '/share'
+      preLoaderRoute: typeof ProtectedShareRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/_main/home': {
@@ -496,12 +515,14 @@ const ProtectedMainRouteWithChildren = ProtectedMainRoute._addFileChildren(
 interface ProtectedRouteChildren {
   ProtectedMainRoute: typeof ProtectedMainRouteWithChildren
   ProtectedSecretRoute: typeof ProtectedSecretRoute
+  ProtectedShareRoute: typeof ProtectedShareRoute
   ProtectedPostNewPooRoute: typeof ProtectedPostNewPooRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMainRoute: ProtectedMainRouteWithChildren,
   ProtectedSecretRoute: ProtectedSecretRoute,
+  ProtectedShareRoute: ProtectedShareRoute,
   ProtectedPostNewPooRoute: ProtectedPostNewPooRoute,
 }
 

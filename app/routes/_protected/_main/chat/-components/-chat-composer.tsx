@@ -1,24 +1,30 @@
-import { useRef } from "react";
 import { ComposerPrimitive } from "@assistant-ui/react";
-import { ArrowUp, ImagePlus, Loader2, Square, X } from "lucide-react";
+import { ArrowUp, FileText, Loader2, Paperclip, Square, X } from "lucide-react";
 
 import { contextPercent, formatTokenCount } from "@/app/chat/context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+export type PendingDoc = {
+    name: string;
+    kind: "text" | "pdf";
+    truncated: boolean;
+};
+
 export type ChatComposerProps = {
     images: readonly string[];
     addingImages: boolean;
-    /** Vision gate: text-only models disable the attach button. */
-    visionEnabled: boolean;
+    /** Extracted document attachments waiting to be sent. */
+    docs: readonly PendingDoc[];
     disabled: boolean;
     /** An ask_user request is waiting; don't send another message. */
     inputPending: boolean;
     running: boolean;
     /** Latest prompt_tokens / the model's context window. */
     contextUsage?: { used: number; total: number };
-    onAddImages: (files: FileList | null) => void;
+    onOpenAttach: () => void;
     onRemoveImage: (index: number) => void;
+    onRemoveDoc: (index: number) => void;
     onStop: () => void;
 };
 
@@ -30,16 +36,16 @@ export type ChatComposerProps = {
 export function ChatComposer({
     images,
     addingImages,
-    visionEnabled,
+    docs,
     disabled,
     inputPending,
     running,
     contextUsage,
-    onAddImages,
+    onOpenAttach,
     onRemoveImage,
+    onRemoveDoc,
     onStop,
 }: ChatComposerProps) {
-    const fileRef = useRef<HTMLInputElement>(null);
     const percent =
         contextUsage && contextUsage.total > 0
             ? contextPercent(contextUsage.used, contextUsage.total)
@@ -47,6 +53,30 @@ export function ChatComposer({
 
     return (
         <div className="border-t border-border/70 bg-background/95 px-3 pb-2 pt-2 backdrop-blur-xl">
+            {docs.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                    {docs.map((doc, index) => (
+                        <span
+                            key={`${doc.name}-${index}`}
+                            className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/70 bg-card px-2 py-1 text-[11px] text-muted-foreground"
+                        >
+                            <FileText className="size-3 shrink-0" />
+                            <span className="min-w-0 truncate">
+                                {doc.name}
+                                {doc.truncated ? "（已截断）" : ""}
+                            </span>
+                            <button
+                                type="button"
+                                aria-label={`移除附件 ${doc.name}`}
+                                onClick={() => onRemoveDoc(index)}
+                                className="ml-0.5 shrink-0 text-muted-foreground active:text-foreground"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
             {images.length > 0 && (
                 <div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">
                     {images.map((image, index) => (
@@ -78,37 +108,20 @@ export function ChatComposer({
                     disabled && "opacity-60",
                 )}
             >
-                <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => {
-                        onAddImages(event.target.files);
-                        event.target.value = "";
-                    }}
-                />
                 <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={
-                        visionEnabled
-                            ? "添加图片"
-                            : "当前模型不支持图片，换一个支持视觉的模型"
-                    }
-                    title={visionEnabled ? "添加图片" : "当前模型不支持图片"}
-                    disabled={
-                        !visionEnabled || disabled || running || inputPending
-                    }
-                    onClick={() => fileRef.current?.click()}
+                    aria-label="添加附件"
+                    title="添加图片或文件"
+                    disabled={disabled || running || inputPending}
+                    onClick={onOpenAttach}
                     className="size-9 shrink-0 rounded-xl text-muted-foreground"
                 >
                     {addingImages ? (
                         <Loader2 className="size-4 animate-spin" />
                     ) : (
-                        <ImagePlus className="size-4" />
+                        <Paperclip className="size-4" />
                     )}
                 </Button>
 

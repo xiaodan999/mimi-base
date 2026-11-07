@@ -6,3 +6,10 @@ interface ImportMetaEnv {
 
 declare const APP_VERSION: string;
 declare const APP_SHA: string;
+
+// The PWA share target hands a draft through history state (/share → thread).
+declare module "@tanstack/history" {
+    interface HistoryState {
+        draft?: string;
+    }
+}

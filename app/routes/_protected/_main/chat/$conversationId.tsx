@@ -1,5 +1,10 @@
 import { useCallback, useEffect } from "react";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+    Link,
+    createFileRoute,
+    useLocation,
+    useNavigate,
+} from "@tanstack/react-router";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -63,10 +68,17 @@ function ChatConversationView({
     conversation: ChatConversation;
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const actions = useChatActions();
     const modelsQuery = useChatModels();
     const personasQuery = useChatPersonas();
     const messagesQuery = useChatMessages(conversation.id);
+
+    // One-shot composer prefill from the PWA share target (/share).
+    const initialDraft =
+        typeof location.state?.draft === "string"
+            ? (location.state.draft as string)
+            : undefined;
 
     const models = modelsQuery.data?.models ?? [];
     const fallbackId = modelsQuery.data?.defaultModel ?? "";
@@ -268,6 +280,7 @@ function ChatConversationView({
                     model={model}
                     models={models}
                     personaName={conversation.personaName || "通用助手"}
+                    initialDraft={initialDraft}
                     onSend={session.send}
                     onStop={session.stop}
                     onRegenerate={session.regenerate}
