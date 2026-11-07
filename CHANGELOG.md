@@ -63,6 +63,7 @@
 
 ### 修复
 
+- 修数据工具结果卡片的头像条从不渲染（Playwright 浏览器 E2E 发现）：`-message-parts.tsx` 把 part 的 `result` 当成沙箱工具的嵌套结构（读 `result.result`）解析，而 `get_expenses` / `search_posts` 的 `result` 就是工具 JSON 本体，`people` / `items` 永远取不到。改为直接解析 part 的 `result`，并用浏览器 E2E 验证：登录 → 发消息 → 模型调用 `get_expenses` → 真实 PB 数据渲染出带头像的人物条。
 - 修 `by` 读错字段导致 AI 只会说「我 / 对方」：本站 users 的显示名是自定义的 `user_name`（App 全部界面都渲染它，内置 `name` 一直为空），`ai-tools.ts` 却读 `expand.*.name`，expand 即使解析成功也拿不到名字。抽出 `displayName()` 统一读 `user_name`（`name` 兜底，空则回退 我/对方）；本地起真实 PB 端到端验证：普通用户令牌下 `expand=user_id` / `expand=author_id` 对两个账号都能解析出 `user_name`。
 - `get_expenses` / `search_posts` 数据工具补上「是谁」：查询带 `expand=user_id` / `expand=author_id`（users 的 viewRule 允许登录用户互读，两个账号的资料都能解析），每条 item 增加 `by`（资料名，缺失时回退 我/对方）与 `mine`，`get_expenses` 另加按人汇总的 `people`（总额 + 笔数，按总额降序）；两个工具的 schema 描述同步。此前模型只能靠 `mine` 区分自己，答不了「谁花得最多」。
 - 修复视觉模型读扫描件 PDF 时 `read_attachment` mode=text 误报「换个支持图片的模型或移除几张图片再试」：无文字层的 PDF 在纯文本读取（不带 `pageImageLimit`）下必然失败，而这条报错假定调用方不支持图片。现在 `FileReadError` 带机器可读 `code`（`pdf_no_text_layer`，常量在 `lib/chat-files.ts`），`/ai/files` 的错误 JSON 透传（`pocketbase/ai-relay.ts`），`readChatError` 解析到 `ChatApiError.code`；客户端 `readAttachmentText`（`app/chat/attachments.ts`）在模型支持视觉时自动带 `pageImageLimit` 重试一次，渲染出的页图经 `resultImages` 通道交给模型（与 mode=pages 同路径），工具调用不再出现红色失败卡。纯文本模型维持报错，文案改为「换一个支持视觉的模型再试」。

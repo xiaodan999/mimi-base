@@ -203,11 +203,14 @@ export function ToolCallPart({
         payload?.artifact_error !== undefined
             ? String(payload.artifact_error)
             : "";
+    // Data tools store the raw tool JSON on the part (`result` IS the
+    // ExpensesToolResult / PostsToolResult); sandbox tools nest theirs under
+    // `result.result`. The person parsers expect the raw tool JSON.
     const people =
         toolName === "get_expenses"
-            ? expensesPeople(payload?.result)
+            ? expensesPeople(payload)
             : toolName === "search_posts"
-              ? postAuthors(payload?.result)
+              ? postAuthors(payload)
               : [];
 
     if (toolName === "show_chart" || toolName === "render_ui") {
