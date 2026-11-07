@@ -37,6 +37,12 @@ fi
 export PATH="$HOME/.bun/bin:$PATH"
 echo "bun: $(bun --version)"
 
+# Runtime dependencies for the supervisor (pdf.js / @napi-rs/canvas for chat
+# attachments). The browser build happens elsewhere; the server needs only
+# production deps.
+echo "installing dependencies (production)..."
+bun install --frozen-lockfile --production
+
 # 3. secrets (generated on the box, never transited) -> .env.prod (gitignored).
 #    The superuser email is yours to choose — export SUPERUSER_EMAIL before running.
 #    Secrets are NEVER printed to stdout; read them from the file if needed.

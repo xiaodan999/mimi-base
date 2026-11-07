@@ -540,7 +540,8 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
 - `lib/env.ts` validates `VITE_POCKETBASE_URL` at module load — a missing env
   var crashes the app immediately.
 - Default branch is `master`. Pushing `pocketbase/**` to `master` triggers
-  `.github/workflows/deploy-db.yml` → `/db/sync` (git pull, stop PB, snapshot
+  `.github/workflows/deploy-db.yml` → `/db/sync` (git pull,
+  `bun install --frozen-lockfile --production`, stop PB, snapshot
   `pb_data` while it is down, restart; migrations apply on restart even with
   automigrate off).
   Frontend paths trigger `.github/workflows/deploy-spa.yml`, which builds with

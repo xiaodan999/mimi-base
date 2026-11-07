@@ -61,12 +61,14 @@ jobs:
               # The CN route from GitHub runners drops out for minutes at a
               # time, so spread attempts over a wider window. A fresh
               # timestamped HMAC is signed per attempt (replay window 300s).
+              # /db/sync also installs production deps before restarting, so a
+              # dependency-changing deploy can take a few minutes.
               run: |
                   TOKEN="$DEPLOY_TOKEN"
                   for i in $(seq 1 8); do
                     TS=$(date +%s)
                     SIG=$(printf '%s' "/db/sync.$TS" | openssl dgst -sha256 -hmac "$TOKEN" | awk '{print $NF}')
-                    if curl --fail-with-body --max-time 60 -sS -X POST \
+                    if curl --fail-with-body --max-time 300 -sS -X POST \
                       "$PB_BASE_URL/db/sync" \
                       -H "x-deploy-token: $TOKEN" \
                       -H "x-deploy-ts: $TS" \
