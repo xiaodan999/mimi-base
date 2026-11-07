@@ -124,7 +124,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "send_file",
             description:
-                "把本次对话沙箱里的文本文件发送给用户，聊天里会显示成可预览、可下载的卡片。支持 HTML、Markdown、CSV、JSON、SVG、TXT 和代码文件；文件必须已经用 sandbox_write 或 sandbox_run 写进沙箱。用户说「发给我」「给我看看那个文件」时使用。图片会在生成时自动显示，不需要调用它。",
+                "把本次对话沙箱里的文本文件发送给用户，聊天里会显示成可预览、可下载的卡片。支持 HTML、Markdown、CSV、JSON、SVG、TXT 和代码文件；文件必须已经用 sandbox_write 或 sandbox_run 写进沙箱。用户说「发给我」「给我看看那个文件」时使用。图片会在生成时自动显示，不需要调用它。卡片显示在调用位置：调用之后你补写的文字都排在卡片下面，所以想先说明后卡片，就在同一条回复里先写完说明再调用；已经调用了，之后就不要再说「文件在下面」。",
             parameters: {
                 type: "object",
                 properties: {
