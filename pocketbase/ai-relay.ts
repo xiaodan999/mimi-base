@@ -13,6 +13,14 @@
 
 import { createHash } from "node:crypto";
 
+import {
+    AI_TOOLS_EXPENSES_PATH,
+    AI_TOOLS_MEMORY_PATH,
+    AI_TOOLS_POSTS_PATH,
+    AI_TOOLS_URL_PATH,
+    createAiToolsService,
+    type AiToolsCall,
+} from "./ai-tools";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
     findChatModel,
@@ -40,6 +48,10 @@ const SANDBOX_DAILY_LIMIT = 200;
 const SANDBOX_MAX_IN_FLIGHT = 4;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;
+/** Data tools (expenses/posts/memory/url) get their own, looser limits. */
+const TOOLS_RATE_MAX = 30;
+const TOOLS_DAILY_LIMIT = 200;
+const MAX_TOOLS_BODY_BYTES = 64 * 1024;
 const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 1000;
 const CONNECT_TIMEOUT_MS = 30_000;
@@ -80,7 +92,7 @@ export type AiRelayDeps = {
     now?: () => number;
 };
 
-type AuthOk = { ok: true; uid: string };
+type AuthOk = { ok: true; uid: string; token: string };
 type AuthFail = { ok: false; response: Response };
 
 type MinuteBucket = { start: number; count: number };
@@ -103,9 +115,16 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
     const minuteBuckets = new Map<string, MinuteBucket>();
     const dayBuckets = new Map<string, DayBucket>();
+    const toolsMinuteBuckets = new Map<string, MinuteBucket>();
+    const toolsDayBuckets = new Map<string, DayBucket>();
     const sandboxDayBuckets = new Map<string, DayBucket>();
     const sandboxUserInFlight = new Map<string, number>();
     let sandboxInFlight = 0;
+    const tools = createAiToolsService({
+        pbBaseUrl: deps.pbBaseUrl,
+        fetch: deps.fetch,
+        now,
+    });
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
         const header = req.headers.get("authorization")?.trim() ?? "";
@@ -115,7 +134,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         const cacheKey = createHash("sha256").update(token).digest("hex");
         const cached = authCache.get(cacheKey);
         if (cached && now() < cached.expiresAt) {
-            return { ok: true, uid: cached.uid };
+            return { ok: true, uid: cached.uid, token };
         }
 
         let res: Response;
@@ -151,7 +170,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         if (authCache.size >= AUTH_CACHE_MAX) authCache.clear();
         authCache.set(cacheKey, { uid, expiresAt: now() + AUTH_CACHE_MS });
-        return { ok: true, uid };
+        return { ok: true, uid, token };
     }
 
     function checkRate(uid: string): Response | null {
@@ -208,6 +227,90 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         }
         bucket.count += 1;
         return null;
+    }
+
+    function checkToolsRate(uid: string): Response | null {
+        const t = now();
+        const bucket = toolsMinuteBuckets.get(uid);
+        if (!bucket || t - bucket.start >= RATE_WINDOW_MS) {
+            toolsMinuteBuckets.set(uid, { start: t, count: 1 });
+        } else if (bucket.count >= TOOLS_RATE_MAX) {
+            const retryAfter = Math.max(
+                1,
+                Math.ceil((bucket.start + RATE_WINDOW_MS - t) / 1000),
+            );
+            return json(
+                429,
+                { error: { message: "工具请求太频繁了，歇一会儿再试" } },
+                { "Retry-After": String(retryAfter) },
+            );
+        } else {
+            bucket.count += 1;
+        }
+        return null;
+    }
+
+    function checkToolsQuota(uid: string): Response | null {
+        const day = new Date(now()).toISOString().slice(0, 10);
+        const bucket = toolsDayBuckets.get(uid);
+        if (!bucket || bucket.day !== day) {
+            toolsDayBuckets.set(uid, { day, count: 1 });
+            return null;
+        }
+        if (bucket.count >= TOOLS_DAILY_LIMIT) {
+            return json(429, {
+                error: { message: "今天的工具次数用完了，明天再试" },
+            });
+        }
+        bucket.count += 1;
+        return null;
+    }
+
+    const TOOL_PATHS = new Set<string>([
+        AI_TOOLS_EXPENSES_PATH,
+        AI_TOOLS_POSTS_PATH,
+        AI_TOOLS_MEMORY_PATH,
+        AI_TOOLS_URL_PATH,
+    ]);
+
+    async function toolsEndpoint(req: Request): Promise<Response> {
+        const auth = await authenticate(req);
+        if (!auth.ok) return auth.response;
+
+        const limited = checkToolsRate(auth.uid);
+        if (limited) return limited;
+
+        const declared = Number(req.headers.get("content-length") ?? 0);
+        if (Number.isFinite(declared) && declared > MAX_TOOLS_BODY_BYTES) {
+            return json(413, { error: { message: "请求体过大" } });
+        }
+
+        let body: Record<string, unknown>;
+        try {
+            const parsed = (await req.json()) as unknown;
+            if (
+                typeof parsed !== "object" ||
+                parsed === null ||
+                Array.isArray(parsed)
+            ) {
+                return json(400, { error: { message: "请求体格式不正确" } });
+            }
+            body = parsed as Record<string, unknown>;
+        } catch {
+            return json(400, { error: { message: "请求体不是合法的 JSON" } });
+        }
+
+        const quota = checkToolsQuota(auth.uid);
+        if (quota) return quota;
+
+        const call: AiToolsCall = {
+            pathname: new URL(req.url).pathname,
+            body,
+            uid: auth.uid,
+            token: auth.token,
+        };
+        const result = await tools(call);
+        return json(result.status, result.body);
     }
 
     async function sandbox(req: Request): Promise<Response> {
@@ -523,6 +626,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         if (url.pathname === AI_SANDBOX_PATH && req.method === "POST") {
             return sandbox(req);
+        }
+
+        if (TOOL_PATHS.has(url.pathname) && req.method === "POST") {
+            return toolsEndpoint(req);
         }
 
         if (
