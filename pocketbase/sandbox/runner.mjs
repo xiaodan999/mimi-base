@@ -12,9 +12,13 @@
  */
 
 import {
+    closeSync,
+    openSync,
     readFileSync,
+    readSync,
     readdirSync,
     rmSync,
+    statSync,
     writeFileSync,
     mkdirSync,
     realpathSync,
@@ -30,7 +34,36 @@ const MAX_TOTAL_CHARS = 400_000;
 const MAX_LOG_CHARS = 20_000;
 const MAX_LOG_LINES = 100;
 const MAX_RESULT_CHARS = 20_000;
+const MAX_ARTIFACTS = 3;
+const MAX_ARTIFACT_BYTES = 1_500_000;
+const MAX_ARTIFACT_TOTAL_BYTES = 3_000_000;
 const USER_AGENT = "mimi-base-sandbox/1.0";
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Only raster images the app renders in an `<img>`; SVG stays text. */
+function sniffImageMime(data) {
+    if (data.length >= 8 && data.subarray(0, 8).equals(PNG_MAGIC)) {
+        return "image/png";
+    }
+    if (
+        data.length >= 3 &&
+        data[0] === 0xff &&
+        data[1] === 0xd8 &&
+        data[2] === 0xff
+    ) {
+        return "image/jpeg";
+    }
+    const head = data.subarray(0, 6).toString("latin1");
+    if (head === "GIF87a" || head === "GIF89a") return "image/gif";
+    if (
+        data.length >= 12 &&
+        data.subarray(0, 4).toString("latin1") === "RIFF" &&
+        data.subarray(8, 12).toString("latin1") === "WEBP"
+    ) {
+        return "image/webp";
+    }
+    return null;
+}
 
 function normalizePath(value) {
     if (typeof value !== "string") return null;
@@ -87,9 +120,17 @@ function materialize(files) {
     }
 }
 
-function collectFiles() {
+/**
+ * Split the sandbox directory into text files and binary image artifacts.
+ * Raster images travel once in the run response (the text snapshot is
+ * re-sent with every request) and the client uploads them to PocketBase.
+ */
+function collectOutputs() {
     const files = {};
-    let total = 0;
+    const artifacts = [];
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    let textTotal = 0;
+    let artifactTotal = 0;
     const walk = (directory) => {
         let entries;
         try {
@@ -105,20 +146,71 @@ function collectFiles() {
                 continue;
             }
             if (!entry.isFile()) continue;
-            let content;
+            let raw;
             try {
-                content = readFileSync(full, "utf8").slice(0, MAX_FILE_CHARS);
+                // Read at most the artifact cap; larger text files are
+                // truncated later and larger binaries are skipped.
+                const size = statSync(full).size;
+                const buffer = Buffer.alloc(
+                    Math.min(size, MAX_ARTIFACT_BYTES + 1),
+                );
+                const fd = openSync(full, "r");
+                let read = 0;
+                try {
+                    while (read < buffer.length) {
+                        const count = readSync(
+                            fd,
+                            buffer,
+                            read,
+                            buffer.length - read,
+                            read,
+                        );
+                        if (count === 0) break;
+                        read += count;
+                    }
+                } finally {
+                    closeSync(fd);
+                }
+                raw =
+                    read === buffer.length ? buffer : buffer.subarray(0, read);
             } catch {
                 continue;
             }
-            total += content.length;
-            if (total > MAX_TOTAL_CHARS) return;
+            const mime = sniffImageMime(raw);
+            if (mime) {
+                if (raw.length > MAX_ARTIFACT_BYTES) continue;
+                if (artifacts.length >= MAX_ARTIFACTS) continue;
+                if (artifactTotal + raw.length > MAX_ARTIFACT_TOTAL_BYTES) {
+                    continue;
+                }
+                artifactTotal += raw.length;
+                artifacts.push({
+                    path: path.relative(ROOT, full),
+                    mime,
+                    bytes: raw.length,
+                    data: raw.toString("base64"),
+                });
+                continue;
+            }
+            if (Object.keys(files).length >= MAX_FILES) continue;
+            let content;
+            try {
+                content = decoder.decode(raw);
+            } catch {
+                continue;
+            }
+            content = content.slice(0, MAX_FILE_CHARS);
+            textTotal += content.length;
+            if (textTotal > MAX_TOTAL_CHARS) continue;
             files[path.relative(ROOT, full)] = content;
-            if (Object.keys(files).length >= MAX_FILES) return;
         }
     };
     walk(ROOT);
-    return files;
+    return { files, artifacts };
+}
+
+function collectFiles() {
+    return collectOutputs().files;
 }
 
 function requirePath(value) {
@@ -172,6 +264,28 @@ const sandbox = {
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return (await response.text()).slice(0, 2 * MAX_FILE_CHARS);
+    },
+    async download(url, value, timeout = 15) {
+        if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+            throw new Error("只支持 http/https");
+        }
+        const clean = normalizePath(value);
+        if (!clean) throw new Error("文件路径不合法");
+        const full = requirePath(clean);
+        const seconds = Math.min(Math.max(Number(timeout) || 15, 1), 20);
+        const response = await fetch(url, {
+            headers: { "User-Agent": USER_AGENT },
+            signal: AbortSignal.timeout(seconds * 1000),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = Buffer.from(await response.arrayBuffer());
+        if (data.length > MAX_ARTIFACT_BYTES) {
+            throw new Error(`文件太大（最多 ${MAX_ARTIFACT_BYTES} 字节）`);
+        }
+        if (data.length === 0) throw new Error("下载到的内容是空的");
+        mkdirSync(path.dirname(full), { recursive: true });
+        writeFileSync(full, data);
+        return { path: clean, size: data.length };
     },
 };
 
@@ -229,6 +343,7 @@ async function run(request) {
         result: null,
         logs: [],
         files,
+        artifacts: [],
         durationMs: 0,
     };
 
@@ -290,10 +405,12 @@ async function run(request) {
             if (value === undefined && Object.hasOwn(globalThis, "result")) {
                 value = globalThis.result;
             }
+            const collected = collectOutputs();
             response.ok = error === null;
             response.result = serializeResult(value);
             response.logs = logs.slice(0, MAX_LOG_LINES);
-            response.files = collectFiles();
+            response.files = collected.files;
+            response.artifacts = collected.artifacts;
             if (error) response.error = error;
         } else {
             throw new Error("未知操作");
@@ -322,6 +439,7 @@ try {
             result: null,
             logs: [],
             files: {},
+            artifacts: [],
             error: "请求不是合法的 JSON",
             durationMs: 0,
         }),

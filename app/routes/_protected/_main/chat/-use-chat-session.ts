@@ -31,6 +31,7 @@ import {
     type ToolHooks,
 } from "@/app/chat/tools";
 import type {
+    ChatArtifactPart,
     ChatConversation,
     ChatMessage,
     ChatModel,
@@ -332,12 +333,22 @@ export function useChatSession({
                 const toolHooks: ToolHooks = {
                     conversationId,
                     createExpense: actions.createExpense,
+                    saveArtifact: async ({ artifact }) =>
+                        actions.createArtifact({
+                            conversationId,
+                            messageId: saved.id,
+                            name: artifact.path,
+                            mime: artifact.mime,
+                            size: artifact.bytes,
+                            base64: artifact.data,
+                        }),
                     onMemoryChanged: () => {
                         void queryClient.invalidateQueries({
                             queryKey: qk.chat.memories(user.id),
                         });
                     },
                 };
+                const artifactParts: ChatArtifactPart[] = [];
                 for (const call of callParts) {
                     if (controller.signal.aborted) break;
                     const toolOutcome = await executeChatTool(
@@ -353,12 +364,19 @@ export function useChatSession({
                         result: toolOutcome.result,
                         isError: toolOutcome.isError,
                     });
+                    if (toolOutcome.artifacts?.length) {
+                        artifactParts.push(...toolOutcome.artifacts);
+                    }
                     updateChatRunOptimistic(conversationId, (previous) =>
                         previous.map((message) =>
                             message.id === saved.id
                                 ? {
                                       ...message,
-                                      parts: [...baseParts, ...executed],
+                                      parts: [
+                                          ...baseParts,
+                                          ...executed,
+                                          ...artifactParts,
+                                      ],
                                   }
                                 : message,
                         ),
@@ -368,6 +386,7 @@ export function useChatSession({
                 const finalParts: ChatPart[] = [
                     ...baseParts,
                     ...(executed.length > 0 ? executed : callParts),
+                    ...artifactParts,
                 ];
                 await actions
                     .updateMessage(saved.id, conversationId, {

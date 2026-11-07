@@ -1,3 +1,9 @@
+import {
+    changedPaths,
+    isBinaryArtifactPath,
+    sandboxArtifactPart,
+    textArtifactInfo,
+} from "./artifacts";
 import { normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
@@ -5,6 +11,7 @@ import {
     askUserRequestFromArgs,
     expenseRequestFromArgs,
     resolveInteractiveToolResult,
+    sendFileRequestFromArgs,
     type ToolHooks,
 } from "./tool-inputs";
 import {
@@ -15,7 +22,7 @@ import {
     type PostsToolResult,
     type ReadUrlToolResult,
 } from "./tools-server";
-import type { SandboxFiles } from "./types";
+import type { ChatArtifactPart, SandboxFiles } from "./types";
 import { requestUserInput } from "./user-input";
 
 // The pausable-tool logic lives in ./tool-inputs (pure, unit-testable);
@@ -40,7 +47,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_run",
             description:
-                "在服务器的隔离沙箱里运行代码，可选 Python 3（标准库）或 JavaScript（Node）。两者都能访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口。Python 用 print 输出、把最终结果赋给 result；JavaScript 用 console.log 输出、用 return 返回结果。适合查实时信息、计算、处理文本/JSON、验证代码。",
+                "在服务器的隔离沙箱里运行代码，可选 Python 3（标准库）或 JavaScript（Node）。两者都能访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口，用 sandbox.download(url, path) 把公网图片下载到沙箱（PNG/JPEG/WebP/GIF，最大 1.5MB）。Python 用 print 输出、把最终结果赋给 result；JavaScript 用 console.log 输出、用 return 返回结果。本轮生成或下载的图片会自动显示给用户，文本文件用 send_file 发送。适合查实时信息、计算、处理文本/JSON、验证代码。",
             parameters: {
                 type: "object",
                 properties: {
@@ -106,6 +113,29 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
             parameters: {
                 type: "object",
                 properties: {},
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "send_file",
+            description:
+                "把本次对话沙箱里的文本文件发送给用户，聊天里会显示成可预览、可下载的卡片。支持 HTML、Markdown、CSV、JSON、SVG、TXT 和代码文件；文件必须已经用 sandbox_write 或 sandbox_run 写进沙箱。用户说「发给我」「给我看看那个文件」时使用。图片会在生成时自动显示，不需要调用它。",
+            parameters: {
+                type: "object",
+                properties: {
+                    path: {
+                        type: "string",
+                        description: "沙箱里的相对路径，例如 report.html",
+                    },
+                    caption: {
+                        type: "string",
+                        description: "可选的说明，显示在卡片下方",
+                    },
+                },
+                required: ["path"],
                 additionalProperties: false,
             },
         },
@@ -309,6 +339,8 @@ export type ChatToolOutcome = {
     result: unknown;
     files: SandboxFiles;
     isError: boolean;
+    /** Artifact cards produced by this call; appended to the message. */
+    artifacts?: ChatArtifactPart[];
 };
 
 function parseArgs(argsText: string): Record<string, unknown> | null {
@@ -567,6 +599,65 @@ export async function executeChatTool(
         return { ...resolved, files };
     }
 
+    if (name === "send_file") {
+        const request = sendFileRequestFromArgs(args);
+        if (!request) {
+            return {
+                result: {
+                    ok: false,
+                    error: "文件路径不对（必须是沙箱里的相对路径）",
+                },
+                files,
+                isError: true,
+            };
+        }
+        if (isBinaryArtifactPath(request.path)) {
+            return {
+                result: {
+                    ok: false,
+                    error: "图片生成时会自动显示，不需要 send_file",
+                },
+                files,
+                isError: true,
+            };
+        }
+        const content = files[request.path];
+        if (content === undefined) {
+            return {
+                result: {
+                    ok: false,
+                    error: "沙箱里没有这个文件，先用 sandbox_write 写出来",
+                },
+                files,
+                isError: true,
+            };
+        }
+        if (content === "") {
+            return {
+                result: { ok: false, error: "这个文件是空的" },
+                files,
+                isError: true,
+            };
+        }
+        const info = textArtifactInfo(request.path);
+        return {
+            result: {
+                ok: true,
+                sent: true,
+                path: request.path,
+                name: info.name,
+                kind: info.kind,
+                mime: info.mime,
+                ...(request.caption ? { caption: request.caption } : {}),
+            },
+            files,
+            isError: false,
+            artifacts: [
+                sandboxArtifactPart(request.path, request.caption || undefined),
+            ],
+        };
+    }
+
     let response;
     switch (name) {
         case "sandbox_run":
@@ -604,15 +695,42 @@ export async function executeChatTool(
             };
     }
 
+    const changed = changedPaths(files, response.files);
+    const artifactParts: ChatArtifactPart[] = [];
+    let artifactError = "";
+    for (const artifact of response.artifacts) {
+        if (!hooks.saveArtifact) continue;
+        try {
+            artifactParts.push(await hooks.saveArtifact({ artifact }));
+        } catch (error) {
+            artifactError =
+                error instanceof Error
+                    ? error.message
+                    : "图片保存失败，刷新后可能看不到";
+        }
+    }
+
     return {
         result: {
             ok: response.ok,
             result: response.result ?? null,
             logs: response.logs,
             files: Object.keys(response.files).sort(),
+            changed,
+            ...(response.artifacts.length > 0
+                ? {
+                      artifacts: response.artifacts.map((artifact) => ({
+                          path: artifact.path,
+                          mime: artifact.mime,
+                          bytes: artifact.bytes,
+                      })),
+                  }
+                : {}),
+            ...(artifactError ? { artifact_error: artifactError } : {}),
             ...(response.error ? { error: response.error } : {}),
         },
         files: response.files,
         isError: !response.ok,
+        ...(artifactParts.length > 0 ? { artifacts: artifactParts } : {}),
     };
 }

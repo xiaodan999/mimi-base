@@ -1,4 +1,11 @@
+import {
+    MAX_ARTIFACT_BYTES,
+    normalizeSandboxPath,
+} from "@/lib/sandbox-protocol";
+
+import { textArtifactInfo } from "./artifacts";
 import type {
+    ChatArtifactPart,
     ChatConversation,
     ChatMemory,
     ChatMessage,
@@ -52,6 +59,20 @@ export type ChatPersonaRecord = {
     description?: string;
     created: string;
     updated: string;
+};
+
+export type ChatArtifactRecord = {
+    id: string;
+    collectionId?: string;
+    owner?: string;
+    conversation: string;
+    message?: string;
+    name: string;
+    mime: string;
+    size?: number;
+    caption?: string;
+    file?: string;
+    created: string;
 };
 
 export type ChatMemoryRecord = {
@@ -113,6 +134,49 @@ export function normalizeSandboxFiles(value: unknown): SandboxFiles {
     return files;
 }
 
+function normalizeArtifact(
+    raw: Record<string, unknown>,
+): ChatArtifactPart | null {
+    const caption = asString(raw.caption, 200);
+    if (raw.source === "sandbox") {
+        const path = normalizeSandboxPath(raw.path);
+        if (!path) return null;
+        const info = textArtifactInfo(path);
+        return {
+            type: "artifact",
+            source: "sandbox",
+            path,
+            name: asString(raw.name, 200) || info.name,
+            mime: asString(raw.mime, 80) || info.mime,
+            ...(caption ? { caption } : {}),
+        };
+    }
+    if (raw.source === "file") {
+        const artifactId = asString(raw.artifactId, 64);
+        const collectionId = asString(raw.collectionId, 64);
+        const file = asString(raw.file, 255);
+        const size =
+            typeof raw.size === "number" && Number.isFinite(raw.size)
+                ? Math.round(raw.size)
+                : 0;
+        if (!artifactId || !collectionId || !file) return null;
+        if (size < 0 || size > MAX_ARTIFACT_BYTES) return null;
+        const name = asString(raw.name, 200) || "图片";
+        return {
+            type: "artifact",
+            source: "file",
+            artifactId,
+            collectionId,
+            file,
+            name,
+            mime: asString(raw.mime, 80) || "image/png",
+            size,
+            ...(caption ? { caption } : {}),
+        };
+    }
+    return null;
+}
+
 function normalizeToolCall(
     raw: Record<string, unknown>,
     index: number,
@@ -160,6 +224,11 @@ export function normalizeParts(value: unknown): ChatPart[] {
                             : {}),
                     });
                 }
+                break;
+            }
+            case "artifact": {
+                const artifact = normalizeArtifact(part);
+                if (artifact) parts.push(artifact);
                 break;
             }
             case "tool-call": {

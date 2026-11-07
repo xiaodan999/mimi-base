@@ -225,8 +225,8 @@ before your first commit.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
   `post_likes`, `comment_likes` (schema only, unused by the UI),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
-  `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`;
-  `tu_pian_xin_xi` is
+  `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`,
+  `chat_artifacts`; `tu_pian_xin_xi` is
   legacy (its rows were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. **This is deliberate, not a leak.** The product has exactly two
@@ -234,7 +234,7 @@ before your first commit.
   `1792854446_updated_users.js`), and the shared feed / shared ledger _is_ the
   feature. Don't "fix" auth-only rules by owner-scoping posts or comments, and
   don't add a friends system. Scope today: `study_progress`,
-  `ji_zhang_category`, `tou_xiang_circle` and all three `chat_*` collections
+  `ji_zhang_category`, `tou_xiang_circle` and all `chat_*` collections
   are owner-scoped; `ji_zhang_biao` is shared for reads but owner-scoped for
   update/delete. If a third account is ever added, decide and migrate the
   per-collection scope _before_ that account exists — auth-only rules would
@@ -413,6 +413,19 @@ before your first commit.
   from-posts, PWA share target (`/share`, GET params → composer draft), and
   read-aloud via the browser speech adapter. Code blocks highlight with a
   lazy Shiki chunk (`app/chat/highlighter.ts`, JS regex engine, no wasm).
+- Chat artifacts (files the assistant hands the user): text files (HTML,
+  Markdown, CSV, JSON, SVG, code) stay in `chat_conversations.sandbox_files`
+  and an artifact part references the path; binary raster images come back
+  **once** in the `sandbox_run` response (`artifacts`, base64; the container
+  is stateless, so a later call cannot recover them), are uploaded to
+  `chat_artifacts` (owner-scoped, protected `file`, `message` cascade), and
+  the part stores only the record id + filename. `send_file` surfaces a text
+  file; `sandbox.download(url, path)` writes a public image into the sandbox.
+  The card and full-screen viewer live in `-artifact-viewer.tsx`; HTML/SVG
+  must render in `<iframe sandbox="">` (no `allow-same-origin`, no scripts)
+  with the injected `default-src 'none'` CSP — **never** inline or in a
+  Shadow DOM, which is not a security boundary (same origin, same
+  `localStorage` / PB token).
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天 inline
   in the feed), Study (wrong-answer overview, targeted drill, sprint plan),

@@ -42,7 +42,12 @@ import {
     type ExtractedFile,
 } from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
-import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
+import type {
+    ChatMessage,
+    ChatModel,
+    ChatPart,
+    SandboxFiles,
+} from "@/app/chat/types";
 import { usePendingUserInput } from "@/app/chat/user-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,10 +59,12 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { LiveReply } from "../-use-chat-session";
+import { ArtifactPreviewProvider } from "./-artifact-viewer";
 import { AttachmentSheet } from "./-attachment-sheet";
 import { ChatComposer } from "./-chat-composer";
 import { useChatRuntime } from "./-chat-runtime";
 import {
+    ArtifactPart,
     ChatImage,
     ErrorPart,
     MarkdownText,
@@ -205,7 +212,10 @@ function AssistantMessage() {
                         Empty: AssistantEmpty,
                         tools: { Override: ToolCallPart },
                         data: {
-                            by_name: { error: ErrorPart },
+                            by_name: {
+                                artifact: ArtifactPart,
+                                error: ErrorPart,
+                            },
                         },
                     }}
                 />
@@ -332,6 +342,8 @@ export type ChatThreadProps = {
     messages: readonly ChatMessage[];
     live: LiveReply | null;
     running: boolean;
+    /** Text artifacts resolve their preview from this snapshot. */
+    sandboxFiles: SandboxFiles;
     model: ChatModel | undefined;
     models: readonly ChatModel[];
     personaName: string;
@@ -373,6 +385,7 @@ export function ChatThread({
     messages,
     live,
     running,
+    sandboxFiles,
     model,
     models,
     personaName,
@@ -576,152 +589,154 @@ export function ChatThread({
     }, [pendingInput]);
 
     return (
-        <AssistantRuntimeProvider runtime={runtime}>
-            <ThreadActionsContext.Provider value={threadActions}>
-                <div className="flex h-full min-h-0 flex-col">
-                    <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col">
-                        <ThreadPrimitive.Viewport
-                            ref={viewportRef}
-                            onScroll={updateScroll}
-                            className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-4"
-                        >
-                            {empty ? (
-                                <ThreadEmpty
-                                    personaName={personaName}
-                                    starters={starters}
-                                    onSend={onSend}
-                                />
-                            ) : (
-                                <ThreadPrimitive.Messages
-                                    components={{
-                                        UserMessage,
-                                        AssistantMessage,
-                                    }}
-                                />
-                            )}
-                        </ThreadPrimitive.Viewport>
-                        {showScrollDown && (
-                            <button
-                                type="button"
-                                aria-label="滚动到最新消息"
-                                onClick={() => {
-                                    const element = viewportRef.current;
-                                    if (!element) return;
-                                    element.scrollTo({
-                                        top: element.scrollHeight,
-                                        behavior: "smooth",
-                                    });
-                                }}
-                                className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-lg active:bg-accent"
+        <ArtifactPreviewProvider files={sandboxFiles}>
+            <AssistantRuntimeProvider runtime={runtime}>
+                <ThreadActionsContext.Provider value={threadActions}>
+                    <div className="flex h-full min-h-0 flex-col">
+                        <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col">
+                            <ThreadPrimitive.Viewport
+                                ref={viewportRef}
+                                onScroll={updateScroll}
+                                className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-4"
                             >
-                                <ArrowDown className="size-4" />
-                            </button>
-                        )}
-                    </ThreadPrimitive.Root>
-
-                    <UserInputPanel conversationId={conversationId} />
-
-                    <ChatComposer
-                        images={images}
-                        addingImages={addingImages}
-                        docs={docs}
-                        disabled={disabled}
-                        inputPending={pendingInput !== null}
-                        running={running}
-                        contextUsage={{
-                            used: contextUsed,
-                            total: model?.contextWindow ?? 0,
-                        }}
-                        onOpenAttach={() => setAttachOpen(true)}
-                        onRemoveImage={removeImage}
-                        onRemoveDoc={removeDoc}
-                        onStop={onStop}
-                    />
-                </div>
-
-                <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => {
-                        void handleAddImages(event.target.files);
-                        event.target.value = "";
-                    }}
-                />
-                <input
-                    ref={docInputRef}
-                    type="file"
-                    accept={FILE_ACCEPT}
-                    multiple
-                    className="hidden"
-                    onChange={(event) => {
-                        void handleAddDocs(event.target.files);
-                        event.target.value = "";
-                    }}
-                />
-                <AttachmentSheet
-                    open={attachOpen}
-                    onOpenChange={setAttachOpen}
-                    visionEnabled={visionEnabled}
-                    addingImages={addingImages}
-                    onPickAlbum={() => imageInputRef.current?.click()}
-                    onPickPosts={() => setPostsOpen(true)}
-                    onPickFiles={() => docInputRef.current?.click()}
-                />
-                <PostsImagePicker
-                    open={postsOpen}
-                    onOpenChange={setPostsOpen}
-                    onPicked={addPickedImage}
-                />
-                <ComposerSeed draft={initialDraft ?? ""} />
-
-                <Sheet
-                    open={retryTarget !== null}
-                    onOpenChange={(open) => {
-                        if (!open) setRetryTarget(null);
-                    }}
-                >
-                    <SheetContent side="bottom" className="px-4 pb-6">
-                        <SheetHeader className="pb-1 text-left">
-                            <SheetTitle>换个模型重新生成</SheetTitle>
-                        </SheetHeader>
-                        <div className="space-y-1.5 pt-1">
-                            {models.map((candidate) => (
+                                {empty ? (
+                                    <ThreadEmpty
+                                        personaName={personaName}
+                                        starters={starters}
+                                        onSend={onSend}
+                                    />
+                                ) : (
+                                    <ThreadPrimitive.Messages
+                                        components={{
+                                            UserMessage,
+                                            AssistantMessage,
+                                        }}
+                                    />
+                                )}
+                            </ThreadPrimitive.Viewport>
+                            {showScrollDown && (
                                 <button
-                                    key={candidate.id}
                                     type="button"
-                                    disabled={running}
+                                    aria-label="滚动到最新消息"
                                     onClick={() => {
-                                        const target = retryTarget;
-                                        setRetryTarget(null);
-                                        if (!target) return;
-                                        void onRegenerate(target, {
-                                            model: candidate,
+                                        const element = viewportRef.current;
+                                        if (!element) return;
+                                        element.scrollTo({
+                                            top: element.scrollHeight,
+                                            behavior: "smooth",
                                         });
                                     }}
-                                    className={cn(
-                                        "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm active:bg-accent",
-                                        candidate.id === model?.id
-                                            ? "border-primary/40 bg-primary/5"
-                                            : "border-border/70 bg-card",
-                                    )}
+                                    className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-lg active:bg-accent"
                                 >
-                                    <span className="font-medium">
-                                        {candidate.label}
-                                    </span>
-                                    {candidate.id === model?.id && (
-                                        <span className="text-[11px] text-primary">
-                                            当前模型
-                                        </span>
-                                    )}
+                                    <ArrowDown className="size-4" />
                                 </button>
-                            ))}
-                        </div>
-                    </SheetContent>
-                </Sheet>
-            </ThreadActionsContext.Provider>
-        </AssistantRuntimeProvider>
+                            )}
+                        </ThreadPrimitive.Root>
+
+                        <UserInputPanel conversationId={conversationId} />
+
+                        <ChatComposer
+                            images={images}
+                            addingImages={addingImages}
+                            docs={docs}
+                            disabled={disabled}
+                            inputPending={pendingInput !== null}
+                            running={running}
+                            contextUsage={{
+                                used: contextUsed,
+                                total: model?.contextWindow ?? 0,
+                            }}
+                            onOpenAttach={() => setAttachOpen(true)}
+                            onRemoveImage={removeImage}
+                            onRemoveDoc={removeDoc}
+                            onStop={onStop}
+                        />
+                    </div>
+
+                    <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                            void handleAddImages(event.target.files);
+                            event.target.value = "";
+                        }}
+                    />
+                    <input
+                        ref={docInputRef}
+                        type="file"
+                        accept={FILE_ACCEPT}
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                            void handleAddDocs(event.target.files);
+                            event.target.value = "";
+                        }}
+                    />
+                    <AttachmentSheet
+                        open={attachOpen}
+                        onOpenChange={setAttachOpen}
+                        visionEnabled={visionEnabled}
+                        addingImages={addingImages}
+                        onPickAlbum={() => imageInputRef.current?.click()}
+                        onPickPosts={() => setPostsOpen(true)}
+                        onPickFiles={() => docInputRef.current?.click()}
+                    />
+                    <PostsImagePicker
+                        open={postsOpen}
+                        onOpenChange={setPostsOpen}
+                        onPicked={addPickedImage}
+                    />
+                    <ComposerSeed draft={initialDraft ?? ""} />
+
+                    <Sheet
+                        open={retryTarget !== null}
+                        onOpenChange={(open) => {
+                            if (!open) setRetryTarget(null);
+                        }}
+                    >
+                        <SheetContent side="bottom" className="px-4 pb-6">
+                            <SheetHeader className="pb-1 text-left">
+                                <SheetTitle>换个模型重新生成</SheetTitle>
+                            </SheetHeader>
+                            <div className="space-y-1.5 pt-1">
+                                {models.map((candidate) => (
+                                    <button
+                                        key={candidate.id}
+                                        type="button"
+                                        disabled={running}
+                                        onClick={() => {
+                                            const target = retryTarget;
+                                            setRetryTarget(null);
+                                            if (!target) return;
+                                            void onRegenerate(target, {
+                                                model: candidate,
+                                            });
+                                        }}
+                                        className={cn(
+                                            "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm active:bg-accent",
+                                            candidate.id === model?.id
+                                                ? "border-primary/40 bg-primary/5"
+                                                : "border-border/70 bg-card",
+                                        )}
+                                    >
+                                        <span className="font-medium">
+                                            {candidate.label}
+                                        </span>
+                                        {candidate.id === model?.id && (
+                                            <span className="text-[11px] text-primary">
+                                                当前模型
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                </ThreadActionsContext.Provider>
+            </AssistantRuntimeProvider>
+        </ArtifactPreviewProvider>
     );
 }

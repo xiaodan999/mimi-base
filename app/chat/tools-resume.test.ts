@@ -6,6 +6,7 @@ import {
     isInteractiveTool,
     pendingRequestFromToolCall,
     resolveInteractiveToolResult,
+    sendFileRequestFromArgs,
     type ToolHooks,
 } from "./tool-inputs";
 import { isTransientCancelReason } from "./user-input";
@@ -59,6 +60,27 @@ describe("expenseRequestFromArgs", () => {
         expect(expenseRequestFromArgs({ item: "", price: 1 })).toBeNull();
         expect(expenseRequestFromArgs({ item: "x", price: 0 })).toBeNull();
         expect(expenseRequestFromArgs({ item: "x", price: -3 })).toBeNull();
+    });
+});
+
+describe("sendFileRequestFromArgs", () => {
+    test("normalizes the path and trims the caption", () => {
+        expect(
+            sendFileRequestFromArgs({
+                path: "./out/invoice.html",
+                caption: " 对账单 ",
+            }),
+        ).toEqual({ path: "out/invoice.html", caption: "对账单" });
+        expect(sendFileRequestFromArgs({ path: "a.md" })).toEqual({
+            path: "a.md",
+            caption: "",
+        });
+    });
+
+    test("rejects missing and escaping paths", () => {
+        expect(sendFileRequestFromArgs({})).toBeNull();
+        expect(sendFileRequestFromArgs({ path: "../secret" })).toBeNull();
+        expect(sendFileRequestFromArgs({ path: "/etc/passwd" })).toBeNull();
     });
 });
 

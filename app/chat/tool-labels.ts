@@ -5,6 +5,7 @@ export const TOOL_TITLES: Record<string, string> = {
     sandbox_read: "读取文件",
     sandbox_write: "写入文件",
     sandbox_list: "列出文件",
+    send_file: "发送文件",
     show_chart: "生成图表",
     memory: "记忆",
     read_url: "读网页",

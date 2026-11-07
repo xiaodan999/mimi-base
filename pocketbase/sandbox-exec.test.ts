@@ -118,6 +118,41 @@ result = sandbox.read("notes/a.txt")
         expect(response.ok).toBe(false);
         expect(response.error).toContain("boom");
     });
+
+    test("returns raster images as base64 artifacts, not text files", async () => {
+        const response = await executor.run({
+            op: "run",
+            code: `
+import base64
+data = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==")
+open("chart.png", "wb").write(data)
+`,
+        });
+        expect(response.ok).toBe(true);
+        expect(response.artifacts).toHaveLength(1);
+        expect(response.artifacts[0]).toMatchObject({
+            path: "chart.png",
+            mime: "image/png",
+            bytes: 70,
+        });
+        expect(response.files["chart.png"]).toBeUndefined();
+    });
+
+    test("sandbox.download rejects non-http urls and escaping paths", async () => {
+        const scheme = await executor.run({
+            op: "run",
+            code: `sandbox.download("ftp://example.com/x.png", "x.png")`,
+        });
+        expect(scheme.ok).toBe(false);
+        expect(scheme.error).toContain("http");
+
+        const escape = await executor.run({
+            op: "run",
+            code: `sandbox.download("http://example.com/x.png", "../x.png")`,
+        });
+        expect(escape.ok).toBe(false);
+        expect(escape.error).toContain("路径");
+    });
 });
 
 describe.skipIf(!hasNode)("dev JavaScript executor", () => {
@@ -149,5 +184,23 @@ return value * 2;
         });
         expect(response.ok).toBe(true);
         expect(response.result).toBe(6);
+    });
+
+    test("sandbox.download rejects non-http urls and escaping paths", async () => {
+        const scheme = await executor.run({
+            op: "run",
+            language: "javascript",
+            code: `await sandbox.download("ftp://example.com/x.png", "x.png");`,
+        });
+        expect(scheme.ok).toBe(false);
+        expect(scheme.error).toContain("http");
+
+        const escape = await executor.run({
+            op: "run",
+            language: "javascript",
+            code: `await sandbox.download("http://example.com/x.png", "../x.png");`,
+        });
+        expect(escape.ok).toBe(false);
+        expect(escape.error).toContain("路径");
     });
 });

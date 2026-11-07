@@ -306,6 +306,7 @@ function ChatConversationView({
                     messages={session.messages}
                     live={session.live}
                     running={session.running}
+                    sandboxFiles={session.sandboxFiles}
                     model={model}
                     models={models}
                     personaName={conversation.personaName || "通用助手"}

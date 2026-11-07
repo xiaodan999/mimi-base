@@ -25,8 +25,11 @@ import {
     describeError,
     normalizeSandboxLanguage,
     normalizeSandboxPath,
+    sanitizeArtifacts,
     sanitizeFiles,
     validateSandboxCode,
+    MAX_ARTIFACT_BYTES,
+    MAX_ARTIFACT_TOTAL_BYTES,
     MAX_FILE_CHARS,
     SANDBOX_TIMEOUT_MS,
     type SandboxFiles,
@@ -36,6 +39,14 @@ import {
 } from "../lib/sandbox-protocol";
 
 const MAX_STDOUT_BYTES = 256 * 1024;
+/**
+ * The runner response also carries base64 images (up to the artifact caps),
+ * so it needs much more room than a command's diagnostics. Base64 adds ~33%.
+ */
+const MAX_RUNNER_STDOUT_BYTES =
+    Math.ceil(MAX_ARTIFACT_TOTAL_BYTES / 3) * 4 +
+    MAX_ARTIFACT_BYTES +
+    256 * 1024;
 const MAX_STDERR_BYTES = 64 * 1024;
 const DOCKER_TIMEOUT_MS = SANDBOX_TIMEOUT_MS;
 const BUILD_TIMEOUT_MS = 240_000;
@@ -122,7 +133,7 @@ function emptyResponse(
     error: string,
     durationMs = 0,
 ): SandboxResponse {
-    return { ok: false, logs: [], files, error, durationMs };
+    return { ok: false, logs: [], files, artifacts: [], error, durationMs };
 }
 
 async function readLimited(
@@ -276,6 +287,7 @@ function parseResponse(
             result?: unknown;
             logs?: unknown;
             files?: unknown;
+            artifacts?: unknown;
             error?: unknown;
             durationMs?: unknown;
         };
@@ -291,6 +303,7 @@ function parseResponse(
                       .slice(0, 100)
                 : [],
             files: sanitizeFiles(parsed.files),
+            artifacts: sanitizeArtifacts(parsed.artifacts),
             ...(typeof parsed.error === "string" && parsed.error !== ""
                 ? { error: parsed.error.slice(0, 300) }
                 : {}),
@@ -489,7 +502,7 @@ export function createSandboxExecutor({
             proc.stdin.write(JSON.stringify(payload));
             await proc.stdin.end();
             const [stdout, stderr, code] = await Promise.all([
-                readLimited(proc.stdout, MAX_STDOUT_BYTES),
+                readLimited(proc.stdout, MAX_RUNNER_STDOUT_BYTES),
                 readLimited(proc.stderr, MAX_STDERR_BYTES),
                 proc.exited,
             ]);
@@ -559,7 +572,7 @@ export function createSandboxExecutor({
             proc.stdin.write(JSON.stringify(payload));
             await proc.stdin.end();
             const [stdout, , code] = await Promise.all([
-                readLimited(proc.stdout, MAX_STDOUT_BYTES),
+                readLimited(proc.stdout, MAX_RUNNER_STDOUT_BYTES),
                 readLimited(proc.stderr, MAX_STDERR_BYTES),
                 proc.exited,
             ]);

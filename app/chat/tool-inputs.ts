@@ -1,3 +1,9 @@
+import {
+    normalizeSandboxPath,
+    type SandboxArtifact,
+} from "@/lib/sandbox-protocol";
+
+import type { ChatArtifactPart } from "./types";
 import type {
     UserInputAnswer,
     UserInputKind,
@@ -30,7 +36,36 @@ export type ToolHooks = {
     }) => Promise<{ id: string }>;
     /** The `memory` tool changed saved memories; refresh the injected set. */
     onMemoryChanged?: () => void;
+    /**
+     * Uploads a binary image produced by the sandbox to `chat_artifacts`.
+     * Injected because it needs PocketBase; the returned part is appended to
+     * the assistant message by the tool loop.
+     */
+    saveArtifact?: (input: {
+        artifact: SandboxArtifact;
+        caption?: string;
+    }) => Promise<ChatArtifactPart>;
 };
+
+export type SendFileRequest = {
+    path: string;
+    caption: string;
+};
+
+/** Validate `send_file` args (the file must also exist in the snapshot). */
+export function sendFileRequestFromArgs(
+    args: Record<string, unknown>,
+): SendFileRequest | null {
+    const path = normalizeSandboxPath(args.path);
+    if (!path) return null;
+    return {
+        path,
+        caption:
+            typeof args.caption === "string"
+                ? args.caption.trim().slice(0, 200)
+                : "",
+    };
+}
 
 /** Validate streamed `ask_user` args into a panel request, or null. */
 export function askUserRequestFromArgs(

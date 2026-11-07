@@ -16,7 +16,35 @@ export const MAX_OUTPUT_CHARS = 20_000;
 /** Hard limit enforced by the systemd unit and the executor. */
 export const SANDBOX_TIMEOUT_MS = 20_000;
 
+/**
+ * Binary outputs (images) the sandbox sends back alongside the text snapshot.
+ * The container is recreated for every request, so a binary that is not
+ * returned with the run that produced it is gone; the client uploads these
+ * to PocketBase immediately (see `chat_artifacts`).
+ *
+ * Keep in sync with `pocketbase/sandbox/runner.py` / `runner.mjs`.
+ */
+export const MAX_ARTIFACTS = 3;
+export const MAX_ARTIFACT_BYTES = 1_500_000;
+export const MAX_ARTIFACT_TOTAL_BYTES = 3_000_000;
+export const ARTIFACT_MIME_TYPES = [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
+] as const;
+
+export type ArtifactMime = (typeof ARTIFACT_MIME_TYPES)[number];
+
 export type SandboxFiles = Record<string, string>;
+
+export type SandboxArtifact = {
+    path: string;
+    mime: ArtifactMime;
+    bytes: number;
+    /** Standard base64 (no `data:` prefix), ASCII only. */
+    data: string;
+};
 
 export type SandboxOp = "run" | "read" | "write" | "list";
 
@@ -38,6 +66,8 @@ export type SandboxResponse = {
     result?: unknown;
     logs: string[];
     files: SandboxFiles;
+    /** Images produced by this run; `data` is base64. */
+    artifacts: SandboxArtifact[];
     error?: string;
     durationMs: number;
 };
@@ -84,6 +114,57 @@ export function sanitizeFiles(input: unknown): SandboxFiles {
         files[path] = content;
     }
     return files;
+}
+
+export function normalizeArtifactMime(value: unknown): ArtifactMime | null {
+    return typeof value === "string" &&
+        (ARTIFACT_MIME_TYPES as readonly string[]).includes(value)
+        ? (value as ArtifactMime)
+        : null;
+}
+
+/** Decoded byte length of standard base64, or null when it is malformed. */
+function base64Bytes(value: string): number | null {
+    if (value.length === 0 || value.length % 4 !== 0) return null;
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value)) return null;
+    const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+    return (value.length / 4) * 3 - padding;
+}
+
+/**
+ * Bound and validate the artifacts block the runner returns. The reported
+ * size is ignored: it is derived from the base64 payload so a lying runner
+ * cannot make the client accept more bytes than the cap.
+ */
+export function sanitizeArtifacts(input: unknown): SandboxArtifact[] {
+    if (!Array.isArray(input)) return [];
+    const artifacts: SandboxArtifact[] = [];
+    const seen = new Set<string>();
+    let total = 0;
+    for (const raw of input) {
+        if (artifacts.length >= MAX_ARTIFACTS) break;
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+            continue;
+        }
+        const record = raw as Record<string, unknown>;
+        const path = normalizeSandboxPath(record.path);
+        const mime = normalizeArtifactMime(record.mime);
+        const data = typeof record.data === "string" ? record.data : "";
+        if (!path || !mime || data === "" || seen.has(path)) continue;
+        const bytes = base64Bytes(data);
+        if (
+            bytes === null ||
+            bytes === 0 ||
+            bytes > MAX_ARTIFACT_BYTES ||
+            total + bytes > MAX_ARTIFACT_TOTAL_BYTES
+        ) {
+            continue;
+        }
+        seen.add(path);
+        total += bytes;
+        artifacts.push({ path, mime, bytes, data });
+    }
+    return artifacts;
 }
 
 /** Unknown values are rejected by the executor; missing means Python. */

@@ -26,6 +26,13 @@ function messageLines(message: ChatMessage): string[] {
             case "image":
                 lines.push("[图片]");
                 break;
+            case "artifact":
+                lines.push(
+                    part.source === "file"
+                        ? `[图片 ${part.name}]`
+                        : `[文件 ${part.name}]`,
+                );
+                break;
             case "tool-call": {
                 const title = TOOL_TITLES[part.toolName] ?? part.toolName;
                 if (part.isError) {

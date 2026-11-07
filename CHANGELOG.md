@@ -43,6 +43,11 @@
 - 修复手机端回复结束瞬间的闪动：live 草稿改到持久化消息就绪后再移除，`createMessage` 不再等待 refetch（避免同一回复短暂渲染两份），Markdown 关闭 smooth / defer，消息操作栏预留固定高度。
 - 隐藏聊天输入框超过 6 行时的原生滚动条（提交按钮左侧的竖灰条），文本仍然可以滚动。
 - 修复 AI 代码工具无法查询实时信息的问题：不再使用浏览器 Worker，改到服务器容器里执行并允许受限公网访问。
+- 新增聊天文件交付：`sandbox_run` 的响应现在额外返回图片工件（PNG/JPEG/WebP/GIF，base64，单张 ≤ 1.5MB、每次 ≤ 3 张、合计 ≤ 3MB），runner 的 `collect_files` 拆成 `collect_outputs`（文本快照 + 二进制工件），Python / Node 双实现；executor 的 stdout 上限提高到约 5.75MB 以容纳 base64。
+- 新增 `chat_artifacts` 集合（迁移 `1795400000_add_chat_artifacts.js`）：owner 隔离、`conversation`/`message` 关系级联删除、`file` 字段 protected 且限定四种栅格 MIME；客户端拿到工件后立即上传，消息 part 只存 record id + filename，渲染时用 `getFileUrl` 刷新 token。文本文件仍留在 `sandbox_files`，不重复存。
+- 新增 `send_file` 工具与 `sandbox.download(url, path)`：模型可以把沙箱里的 HTML/Markdown/CSV/JSON/SVG/文本/代码发给用户（渲染为可预览、可下载的 artifact 卡片），也能把公网图片写入沙箱后随本轮响应交付；图片在生成时自动发送，无需再调用 `send_file`。
+- 新增全屏工件预览（`-artifact-viewer.tsx`）：HTML/SVG 在 `<iframe sandbox="">`（opaque origin、无脚本）中打开，并注入 `default-src 'none'` 的 CSP、剥掉 `meta refresh` / `<base>`；Markdown 用静态渲染，JSON 美化，其他文本等宽显示；图片复用动态的 `ImageViewer`（缩放 / 滑动 / 下拉关闭）。
+- 聊天消息新增 artifact parts：`records.ts` 校验 sandbox/upload 两种来源，`-chat-runtime.tsx` 映射成 assistant-ui 的 data part，消息内渲染缩略图/文件卡；工具卡同时列出本次新增或修改的文件 chips；`export.ts` 导出为 `[文件 …]` / `[图片 …]` 占位；`prompt.ts` 不把工件回传给模型。
 
 ### 修复
 

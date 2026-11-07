@@ -2,17 +2,20 @@ import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchChatModels } from "@/app/chat/api";
+import { base64ToBytes, uploadFileName } from "@/app/chat/artifacts";
 import {
     toChatConversation,
     toChatMemory,
     toChatMessage,
     toChatPersona,
+    type ChatArtifactRecord,
     type ChatConversationRecord,
     type ChatMemoryRecord,
     type ChatMessageRecord,
     type ChatPersonaRecord,
 } from "@/app/chat/records";
 import type {
+    ChatArtifactPart,
     ChatConversation,
     ChatMemory,
     ChatMessage,
@@ -25,6 +28,10 @@ import type {
 import { useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
+import {
+    MAX_ARTIFACT_BYTES,
+    normalizeArtifactMime,
+} from "@/lib/sandbox-protocol";
 
 /* --------------------------------- reads -------------------------------- */
 
@@ -158,6 +165,19 @@ export type CreateMessageInput = {
     usage?: ChatUsage;
 };
 
+export type CreateArtifactInput = {
+    conversationId: string;
+    /** Assistant message the card lands on; cascades on delete/regenerate. */
+    messageId?: string;
+    /** Path the sandbox used, e.g. `chart.png`. */
+    name: string;
+    mime: string;
+    size: number;
+    /** Standard base64 from the sandbox response. */
+    base64: string;
+    caption?: string;
+};
+
 export type ConversationPatch = {
     title?: string;
     model?: string;
@@ -260,6 +280,54 @@ export function useChatActions() {
             await invalidate();
         },
         [invalidate],
+    );
+
+    /**
+     * Upload a binary artifact the sandbox just produced. The bytes only exist
+     * in the run response (the container is gone afterwards), so this must
+     * happen immediately. Text artifacts never come here — they stay in
+     * `sandbox_files`.
+     */
+    const createArtifact = useCallback(
+        async (input: CreateArtifactInput): Promise<ChatArtifactPart> => {
+            const mime = normalizeArtifactMime(input.mime);
+            if (!mime) throw new Error("这个文件类型不支持保存");
+            const bytes = base64ToBytes(input.base64);
+            if (bytes.length === 0) throw new Error("文件是空的");
+            if (bytes.length > MAX_ARTIFACT_BYTES) {
+                throw new Error("文件太大，保存不了");
+            }
+            const name = uploadFileName(input.name);
+            const form = new FormData();
+            form.append("owner", user.id);
+            form.append("conversation", input.conversationId);
+            if (input.messageId) form.append("message", input.messageId);
+            form.append("name", name);
+            form.append("mime", mime);
+            form.append("size", String(bytes.length));
+            if (input.caption)
+                form.append("caption", input.caption.slice(0, 200));
+            const blob = new Blob([bytes as unknown as BlobPart], {
+                type: mime,
+            });
+            form.append("file", new File([blob], name, { type: mime }));
+            const record = await pb
+                .collection("chat_artifacts")
+                .create<ChatArtifactRecord>(form);
+            if (!record.file) throw new Error("文件没有保存成功");
+            return {
+                type: "artifact",
+                source: "file",
+                artifactId: record.id,
+                collectionId: record.collectionId ?? "",
+                file: record.file,
+                name: record.name || name,
+                mime,
+                size: bytes.length,
+                ...(record.caption ? { caption: record.caption } : {}),
+            };
+        },
+        [user.id],
     );
 
     /**
@@ -468,6 +536,7 @@ export function useChatActions() {
         deleteConversation,
         getMessage,
         createMessage,
+        createArtifact,
         createExpense,
         updateMessage,
         deleteMessagesAfter,

@@ -40,8 +40,43 @@ export type ChatImagePart = {
     filename?: string;
 };
 
+/**
+ * A file the assistant handed to the user.
+ *
+ * - `sandbox` content stays in `chat_conversations.sandbox_files` (path ->
+ *   text), so a text/HTML/SVG artifact costs no extra storage. If the file is
+ *   cleared later the card degrades to "文件已删除".
+ * - `file` is an uploaded `chat_artifacts` record (binary images only). The
+ *   file name and collection id are stored here so the URL can be rebuilt
+ *   with a fresh protected-file token on every render.
+ */
+export type ChatArtifactPart =
+    | {
+          type: "artifact";
+          source: "sandbox";
+          path: string;
+          name: string;
+          mime: string;
+          caption?: string;
+      }
+    | {
+          type: "artifact";
+          source: "file";
+          artifactId: string;
+          collectionId: string;
+          file: string;
+          name: string;
+          mime: string;
+          size: number;
+          caption?: string;
+      };
+
 export type ChatPart =
-    ChatTextPart | ChatReasoningPart | ChatImagePart | ChatToolCallPart;
+    | ChatTextPart
+    | ChatReasoningPart
+    | ChatImagePart
+    | ChatToolCallPart
+    | ChatArtifactPart;
 
 export type ChatMessageStatus = "complete" | "stopped" | "error";
 

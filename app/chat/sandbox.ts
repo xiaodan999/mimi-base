@@ -1,4 +1,5 @@
 import {
+    sanitizeArtifacts,
     sanitizeFiles,
     type SandboxRequest,
     type SandboxResponse,
@@ -28,6 +29,7 @@ export async function runSandbox(
                 error: error.message,
                 logs: [],
                 files,
+                artifacts: [],
                 durationMs: 0,
             };
         }
@@ -41,6 +43,7 @@ export async function runSandbox(
                   )
                 : [],
             files: sanitizeFiles(data.files),
+            artifacts: sanitizeArtifacts(data.artifacts),
             ...(typeof data.error === "string" && data.error !== ""
                 ? { error: data.error }
                 : {}),
@@ -61,6 +64,7 @@ export async function runSandbox(
                       : "沙箱请求失败",
             logs: [],
             files,
+            artifacts: [],
             durationMs: 0,
         };
     }

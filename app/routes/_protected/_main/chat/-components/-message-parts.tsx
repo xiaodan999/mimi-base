@@ -1,244 +1,41 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState } from "react";
 import type {
+    DataMessagePartProps,
     ReasoningMessagePartProps,
     ToolCallMessagePartProps,
 } from "@assistant-ui/react";
-import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import {
     AlertTriangle,
     BarChart3,
     Brain,
     BrainCircuit,
-    Check,
     ChevronDown,
-    Copy,
+    Download,
     FileText,
     FolderOpen,
     Globe,
     HelpCircle,
+    Image as ImageIcon,
     Loader2,
     Newspaper,
+    Paperclip,
     Receipt,
     SquarePen,
     Terminal,
     Wallet,
 } from "lucide-react";
-import type { Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 
-import { highlightCode, isHighlightableLanguage } from "@/app/chat/highlighter";
+import { formatBytes, textArtifactInfo } from "@/app/chat/artifacts";
 import { TOOL_TITLES } from "@/app/chat/tool-labels";
+import type { ChatArtifactPart } from "@/app/chat/types";
 import { cn } from "@/lib/utils";
 
+import { useArtifactActions, useSandboxFiles } from "./-artifact-viewer";
 import { ChartCard } from "./-chart-card";
 
-/* -------------------------------- code --------------------------------- */
-
-function hastText(node: unknown): string {
-    if (node === null || typeof node !== "object") return "";
-    const record = node as { value?: unknown; children?: unknown[] };
-    if (typeof record.value === "string") return record.value;
-    if (Array.isArray(record.children)) {
-        return record.children.map(hastText).join("");
-    }
-    return "";
-}
-
-function hastLanguage(node: unknown): string {
-    if (node === null || typeof node !== "object") return "";
-    const children = (node as { children?: unknown[] }).children ?? [];
-    for (const child of children) {
-        if (child === null || typeof child !== "object") continue;
-        const element = child as {
-            tagName?: string;
-            properties?: { className?: unknown };
-        };
-        if (element.tagName !== "code") continue;
-        const classes = Array.isArray(element.properties?.className)
-            ? element.properties.className.map(String)
-            : [];
-        const language = classes.find((value) => value.startsWith("language-"));
-        if (language) return language.slice("language-".length);
-    }
-    return "";
-}
-
-function CodeBlock({
-    node,
-    children,
-}: {
-    node?: unknown;
-    children?: ReactNode;
-}) {
-    const [copied, setCopied] = useState(false);
-    const language = hastLanguage(node);
-    const raw = hastText(node).replace(/\n$/, "");
-
-    const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(raw);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // clipboard may be unavailable on http pages
-        }
-    };
-
-    return (
-        <div className="my-3 overflow-hidden rounded-xl border border-border/70 bg-muted/40">
-            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5 text-[11px] text-muted-foreground">
-                <span className="font-mono lowercase">
-                    {language || "code"}
-                </span>
-                <button
-                    type="button"
-                    onClick={copy}
-                    className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 active:bg-accent"
-                    aria-label="复制代码"
-                >
-                    {copied ? (
-                        <Check className="size-3" />
-                    ) : (
-                        <Copy className="size-3" />
-                    )}
-                    {copied ? "已复制" : "复制"}
-                </button>
-            </div>
-            <CodeBody code={raw} language={language}>
-                {children}
-            </CodeBody>
-        </div>
-    );
-}
-
-/** Plain text until Shiki (lazy-loaded chunk) delivers highlighted HTML. */
-function CodeBody({
-    code,
-    language,
-    children,
-}: {
-    code: string;
-    language: string;
-    children?: ReactNode;
-}) {
-    const [html, setHtml] = useState<string | null>(null);
-    useEffect(() => {
-        if (!isHighlightableLanguage(language)) return undefined;
-        let alive = true;
-        void highlightCode(code, language).then((result) => {
-            if (alive && result !== null) setHtml(result);
-        });
-        return () => {
-            alive = false;
-        };
-    }, [code, language]);
-
-    if (html === null) {
-        return (
-            <pre className="overflow-x-auto p-3 text-[12.5px] leading-relaxed">
-                {children}
-            </pre>
-        );
-    }
-    return (
-        <div
-            className="shiki-host overflow-x-auto p-3 text-[12.5px] leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: html }}
-        />
-    );
-}
-
-const markdownComponents: Components = {
-    p: ({ children }) => (
-        <p className="mb-2.5 whitespace-pre-wrap last:mb-0">{children}</p>
-    ),
-    h1: ({ children }) => (
-        <h1 className="mb-2 mt-4 text-lg font-semibold first:mt-0">
-            {children}
-        </h1>
-    ),
-    h2: ({ children }) => (
-        <h2 className="mb-2 mt-4 text-base font-semibold first:mt-0">
-            {children}
-        </h2>
-    ),
-    h3: ({ children }) => (
-        <h3 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">
-            {children}
-        </h3>
-    ),
-    ul: ({ children }) => (
-        <ul className="mb-2.5 list-disc space-y-1 pl-5 last:mb-0">
-            {children}
-        </ul>
-    ),
-    ol: ({ children }) => (
-        <ol className="mb-2.5 list-decimal space-y-1 pl-5 last:mb-0">
-            {children}
-        </ol>
-    ),
-    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-    blockquote: ({ children }) => (
-        <blockquote className="my-2.5 border-l-2 border-border pl-3 text-muted-foreground">
-            {children}
-        </blockquote>
-    ),
-    a: ({ href, children }) => (
-        <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline decoration-primary/40 underline-offset-2"
-        >
-            {children}
-        </a>
-    ),
-    table: ({ children }) => (
-        <div className="my-3 overflow-x-auto rounded-xl border border-border/70">
-            <table className="w-full border-collapse text-[13px]">
-                {children}
-            </table>
-        </div>
-    ),
-    thead: ({ children }) => (
-        <thead className="bg-muted/60 text-left">{children}</thead>
-    ),
-    th: ({ children }) => (
-        <th className="whitespace-nowrap border-b border-border/70 px-3 py-2 font-semibold">
-            {children}
-        </th>
-    ),
-    td: ({ children }) => (
-        <td className="border-b border-border/40 px-3 py-2 align-top last:border-0">
-            {children}
-        </td>
-    ),
-    hr: () => <hr className="my-4 border-border/70" />,
-    pre: ({ node, children }) => <CodeBlock node={node}>{children}</CodeBlock>,
-    code: ({ className, children, ...props }) => (
-        <code
-            className={cn(
-                "rounded bg-muted px-1 py-0.5 font-mono text-[12.5px] [pre_&]:bg-transparent [pre_&]:p-0",
-                className,
-            )}
-            {...props}
-        >
-            {children}
-        </code>
-    ),
-};
-
-/** Markdown text part with GFM tables, code blocks and a copy button. */
-export function MarkdownText() {
-    return (
-        <MarkdownTextPrimitive
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
-            className="text-[15px] leading-relaxed [&_*]:break-words"
-            smooth={false}
-        />
-    );
-}
+// The markdown renderer (and its lazy Shiki code blocks) lives in its own
+// module so the full-screen artifact preview can use it without a cycle.
+export { MarkdownText } from "./-markdown";
 
 /* ------------------------------ reasoning ------------------------------- */
 
@@ -281,6 +78,7 @@ const TOOL_ICONS: Record<string, typeof Terminal> = {
     sandbox_read: FileText,
     sandbox_write: SquarePen,
     sandbox_list: FolderOpen,
+    send_file: Paperclip,
     show_chart: BarChart3,
     memory: Brain,
     read_url: Globe,
@@ -307,6 +105,8 @@ type ToolResult = {
     result?: unknown;
     logs?: unknown;
     files?: unknown;
+    changed?: unknown;
+    artifact_error?: unknown;
     error?: unknown;
 };
 
@@ -319,6 +119,8 @@ export function ToolCallPart({
     isError,
 }: ToolCallMessagePartProps) {
     const [open, setOpen] = useState(false);
+    const sandboxFiles = useSandboxFiles();
+    const { openSandboxFile } = useArtifactActions();
     const running = result === undefined;
     const payload =
         result !== undefined && typeof result === "object" && result !== null
@@ -342,12 +144,21 @@ export function ToolCallPart({
               (file): file is string => typeof file === "string",
           )
         : [];
+    const changed = Array.isArray(payload?.changed)
+        ? payload.changed.filter(
+              (file): file is string => typeof file === "string",
+          )
+        : [];
     const errorText =
         payload?.error !== undefined
             ? String(payload.error)
             : failed
               ? "执行失败"
               : "";
+    const artifactError =
+        payload?.artifact_error !== undefined
+            ? String(payload.artifact_error)
+            : "";
 
     if (toolName === "show_chart") {
         // The chart itself renders while args stream in and from the
@@ -417,6 +228,26 @@ export function ToolCallPart({
                     )}
                 />
             </button>
+            {!failed && changed.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 border-t border-border/50 px-3 py-2">
+                    {changed
+                        .filter((path) => sandboxFiles[path] !== undefined)
+                        .slice(0, 3)
+                        .map((path) => (
+                            <button
+                                key={path}
+                                type="button"
+                                onClick={() => openSandboxFile(path)}
+                                className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/70 bg-muted/40 px-2 py-1 text-[11px] active:bg-accent"
+                            >
+                                <FileText className="size-3 shrink-0" />
+                                <span className="max-w-[10rem] truncate">
+                                    {path.split("/").pop()}
+                                </span>
+                            </button>
+                        ))}
+                </div>
+            )}
             {open && (
                 <div className="space-y-2 border-t border-border/50 px-3 py-2">
                     <div>
@@ -451,10 +282,122 @@ export function ToolCallPart({
                     {errorText !== "" && (
                         <div className="text-destructive">{errorText}</div>
                     )}
+                    {artifactError !== "" && (
+                        <div className="text-destructive">{artifactError}</div>
+                    )}
                 </div>
             )}
         </div>
     );
+}
+
+/* ------------------------------- artifacts ------------------------------ */
+
+const ARTIFACT_KIND_LABELS: Record<string, string> = {
+    html: "HTML",
+    markdown: "Markdown",
+    csv: "CSV",
+    json: "JSON",
+    svg: "SVG",
+    code: "代码",
+    text: "文本",
+};
+
+function ArtifactCard({ part }: { part: ChatArtifactPart }) {
+    const files = useSandboxFiles();
+    const { openArtifact, downloadArtifact, artifactUrl } =
+        useArtifactActions();
+
+    if (part.source === "file") {
+        const url = artifactUrl(part);
+        return (
+            <div className="my-2 overflow-hidden rounded-xl border border-border/60 bg-card/60 text-xs">
+                <button
+                    type="button"
+                    onClick={() => openArtifact(part)}
+                    aria-label={`预览 ${part.name}`}
+                    className="block w-full bg-muted/20 active:opacity-90"
+                >
+                    {url ? (
+                        <img
+                            src={url}
+                            alt={part.name}
+                            loading="lazy"
+                            className="max-h-72 w-full object-contain"
+                        />
+                    ) : (
+                        <div className="flex h-24 items-center justify-center text-muted-foreground">
+                            图片加载中…
+                        </div>
+                    )}
+                </button>
+                <div className="flex items-center gap-2 px-3 py-2">
+                    <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{part.name}</div>
+                        <div className="truncate text-[11px] text-muted-foreground">
+                            {part.caption || formatBytes(part.size) || "图片"}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => downloadArtifact(part)}
+                        aria-label={`下载 ${part.name}`}
+                        className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground active:bg-accent"
+                    >
+                        <Download className="size-3.5" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const source = files[part.path];
+    const info = textArtifactInfo(part.path);
+    if (source === undefined) {
+        return (
+            <div className="my-2 flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <FileText className="size-3.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{part.name}</div>
+                    <div className="truncate text-[11px]">文件已从沙箱删除</div>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="my-2 flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2 text-xs">
+            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{part.name}</div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                    {part.caption || ARTIFACT_KIND_LABELS[info.kind]}
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={() => openArtifact(part)}
+                className="shrink-0 rounded-lg px-2 py-1 font-medium text-primary active:bg-accent"
+            >
+                预览
+            </button>
+            <button
+                type="button"
+                onClick={() => downloadArtifact(part)}
+                aria-label={`下载 ${part.name}`}
+                className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground active:bg-accent"
+            >
+                <Download className="size-3.5" />
+            </button>
+        </div>
+    );
+}
+
+/** Rendered through assistant-ui's `data.by_name.artifact` slot. */
+export function ArtifactPart({ data }: DataMessagePartProps) {
+    const part = data as ChatArtifactPart | undefined;
+    if (!part || part.type !== "artifact") return null;
+    return <ArtifactCard part={part} />;
 }
 
 /* -------------------------------- images -------------------------------- */

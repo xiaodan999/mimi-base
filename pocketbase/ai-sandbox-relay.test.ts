@@ -61,6 +61,7 @@ describe("sandbox relay", () => {
             ok: true,
             logs: [],
             files: {},
+            artifacts: [],
             durationMs: 1,
         }));
         const res = await relay(request({ op: "list" }, ""));
@@ -73,6 +74,7 @@ describe("sandbox relay", () => {
                 ok: true,
                 logs: [],
                 files: {},
+                artifacts: [],
                 durationMs: 1,
             }),
             () => false,
@@ -90,6 +92,7 @@ describe("sandbox relay", () => {
                 result: "hi",
                 logs: ["logged"],
                 files: { "a.txt": "x" },
+                artifacts: [],
                 durationMs: 12,
             };
         });
@@ -112,6 +115,7 @@ describe("sandbox relay", () => {
             result: "hi",
             logs: ["logged"],
             files: { "a.txt": "x" },
+            artifacts: [],
             durationMs: 12,
         });
     });
@@ -120,7 +124,13 @@ describe("sandbox relay", () => {
         let called = false;
         const relay = harness(async () => {
             called = true;
-            return { ok: true, logs: [], files: {}, durationMs: 1 };
+            return {
+                ok: true,
+                logs: [],
+                files: {},
+                artifacts: [],
+                durationMs: 1,
+            };
         });
         const res = await relay(request({ op: "exec" }));
         expect(res?.status).toBe(400);
@@ -131,7 +141,13 @@ describe("sandbox relay", () => {
         let called = false;
         const relay = harness(async () => {
             called = true;
-            return { ok: true, logs: [], files: {}, durationMs: 1 };
+            return {
+                ok: true,
+                logs: [],
+                files: {},
+                artifacts: [],
+                durationMs: 1,
+            };
         });
         const res = await relay(
             request({ op: "run", language: "ruby", code: "return 1" }),
@@ -158,6 +174,7 @@ describe("sandbox relay", () => {
             ok: true,
             logs: [],
             files: {},
+            artifacts: [],
             durationMs: 1,
         });
         expect((await first)?.status).toBe(200);

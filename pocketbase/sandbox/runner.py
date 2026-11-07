@@ -11,6 +11,7 @@ and prints one JSON response on stdout. The user's code is never placed on
 the command line.
 """
 
+import base64
 import contextlib
 import json
 import os
@@ -27,7 +28,23 @@ MAX_TOTAL_CHARS = 400_000
 MAX_LOG_CHARS = 20_000
 MAX_LOG_LINES = 100
 MAX_RESULT_CHARS = 20_000
+MAX_ARTIFACTS = 3
+MAX_ARTIFACT_BYTES = 1_500_000
+MAX_ARTIFACT_TOTAL_BYTES = 3_000_000
 USER_AGENT = "mimi-base-sandbox/1.0"
+
+
+def sniff_image_mime(data: bytes) -> str | None:
+    """Only raster images the app renders in an `<img>`; SVG stays text."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 class BoundedWriter:
@@ -109,9 +126,17 @@ def materialize(files: dict[str, str]) -> None:
     os.makedirs(ROOT, exist_ok=True)
 
 
-def collect_files() -> dict[str, str]:
+def collect_outputs() -> tuple[dict[str, str], list[dict]]:
+    """Split the sandbox directory into text files and binary image artifacts.
+
+    Raster images cannot live in the text snapshot (it is re-sent with every
+    request), so they travel once in the run response and the client uploads
+    them to PocketBase. Everything else that decodes as UTF-8 is a text file.
+    """
     files: dict[str, str] = {}
-    total = 0
+    artifacts: list[dict] = []
+    text_total = 0
+    artifact_total = 0
     for base, dirs, names in os.walk(ROOT, followlinks=False):
         dirs[:] = [
             name
@@ -124,17 +149,44 @@ def collect_files() -> dict[str, str]:
                 continue
             path = os.path.relpath(full, ROOT)
             try:
-                with open(full, "r", encoding="utf-8") as handle:
-                    content = handle.read(MAX_FILE_CHARS)
-            except (OSError, UnicodeDecodeError):
+                with open(full, "rb") as handle:
+                    raw = handle.read(MAX_ARTIFACT_BYTES + 1)
+            except OSError:
                 continue
-            total += len(content)
-            if total > MAX_TOTAL_CHARS:
-                return files
-            files[path] = content
+            mime = sniff_image_mime(raw[:16])
+            if mime:
+                if len(raw) > MAX_ARTIFACT_BYTES:
+                    continue
+                if len(artifacts) >= MAX_ARTIFACTS:
+                    continue
+                if artifact_total + len(raw) > MAX_ARTIFACT_TOTAL_BYTES:
+                    continue
+                artifact_total += len(raw)
+                artifacts.append(
+                    {
+                        "path": path,
+                        "mime": mime,
+                        "bytes": len(raw),
+                        "data": base64.b64encode(raw).decode("ascii"),
+                    }
+                )
+                continue
             if len(files) >= MAX_FILES:
-                return files
-    return files
+                continue
+            try:
+                content = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            content = content[:MAX_FILE_CHARS]
+            text_total += len(content)
+            if text_total > MAX_TOTAL_CHARS:
+                continue
+            files[path] = content
+    return files, artifacts
+
+
+def collect_files() -> dict[str, str]:
+    return collect_outputs()[0]
 
 
 def write_files(files: dict[str, str]) -> None:
@@ -201,6 +253,34 @@ class Sandbox:
         with urllib.request.urlopen(request, timeout=seconds) as response:
             return response.read(2 * MAX_FILE_CHARS).decode("utf-8", "replace")
 
+    def download(
+        self, url: object, path: object, timeout: object = 15
+    ) -> dict:
+        """Download a public URL as bytes (images) into the sandbox."""
+        full = self._path(path)
+        if not isinstance(url, str) or not url.startswith(
+            ("http://", "https://")
+        ):
+            raise ValueError("只支持 http/https")
+        seconds = 15.0
+        try:
+            seconds = min(max(float(timeout), 1.0), 20.0)
+        except (TypeError, ValueError):
+            pass
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=seconds) as response:
+            data = response.read(MAX_ARTIFACT_BYTES + 1)
+        if len(data) > MAX_ARTIFACT_BYTES:
+            raise ValueError(
+                f"文件太大（最多 {MAX_ARTIFACT_BYTES} 字节）"
+            )
+        if not data:
+            raise ValueError("下载到的内容是空的")
+        os.makedirs(os.path.dirname(full) or ROOT, exist_ok=True)
+        with open(full, "wb") as handle:
+            handle.write(data)
+        return {"path": normalize_path(path), "size": len(data)}
+
 
 def serialize_result(value: object) -> object:
     try:
@@ -229,6 +309,7 @@ def run(request: dict) -> dict:
         "result": None,
         "logs": [],
         "files": files,
+        "artifacts": [],
         "durationMs": 0,
     }
 
@@ -288,7 +369,7 @@ def run(request: dict) -> dict:
                 except BaseException:
                     lines = traceback.format_exc().strip().splitlines()
                     error = (lines[-1] if lines else "执行出错")[:500]
-            collected = collect_files()
+            collected, artifacts = collect_outputs()
             logs = stdout.text().splitlines() if stdout.text() else []
             if stderr.text():
                 logs.extend(
@@ -299,6 +380,7 @@ def run(request: dict) -> dict:
                 result=serialize_result(namespace.get("result")),
                 logs=logs[:MAX_LOG_LINES],
                 files=collected,
+                artifacts=artifacts,
                 **({"error": error} if error else {}),
             )
         else:
@@ -327,6 +409,7 @@ def main() -> None:
                 "result": None,
                 "logs": [],
                 "files": {},
+                "artifacts": [],
                 "error": "请求不是合法的 JSON",
                 "durationMs": 0,
             }

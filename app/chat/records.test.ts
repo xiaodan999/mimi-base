@@ -61,6 +61,72 @@ describe("normalizeParts", () => {
     });
 });
 
+describe("artifact parts", () => {
+    test("keeps valid sandbox and uploaded artifacts", () => {
+        const parts = normalizeParts([
+            {
+                type: "artifact",
+                source: "sandbox",
+                path: "out/invoice.html",
+                name: "invoice.html",
+                mime: "text/html",
+                caption: "本月账单",
+            },
+            {
+                type: "artifact",
+                source: "file",
+                artifactId: "art123",
+                collectionId: "col456",
+                file: "chart_abc.png",
+                name: "chart.png",
+                mime: "image/png",
+                size: 2048,
+            },
+        ]);
+        expect(parts).toHaveLength(2);
+        expect(parts[0]).toMatchObject({
+            type: "artifact",
+            source: "sandbox",
+            path: "out/invoice.html",
+            caption: "本月账单",
+        });
+        expect(parts[1]).toMatchObject({
+            type: "artifact",
+            source: "file",
+            artifactId: "art123",
+            file: "chart_abc.png",
+            size: 2048,
+        });
+    });
+
+    test("drops escaping paths and incomplete uploads", () => {
+        expect(
+            normalizeParts([
+                {
+                    type: "artifact",
+                    source: "sandbox",
+                    path: "../secret.html",
+                },
+                {
+                    type: "artifact",
+                    source: "file",
+                    artifactId: "art123",
+                    file: "x.png",
+                },
+                {
+                    type: "artifact",
+                    source: "file",
+                    artifactId: "art123",
+                    collectionId: "col456",
+                    file: "x.png",
+                    size: 99_000_000,
+                },
+                { type: "artifact", source: "cloud" },
+            ]),
+        ).toEqual([]);
+    });
+});
+
 describe("messageText", () => {
     test("joins text parts only", () => {
         expect(

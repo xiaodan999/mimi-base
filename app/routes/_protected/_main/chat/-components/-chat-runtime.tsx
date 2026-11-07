@@ -27,6 +27,10 @@ function toThreadPart(part: ChatPart): unknown {
                 image: part.image,
                 ...(part.filename ? { filename: part.filename } : {}),
             };
+        case "artifact":
+            // assistant-ui renders `data` parts through the `data.by_name`
+            // slot; the artifact card is registered under the name below.
+            return { type: "data", name: "artifact", data: part };
         case "tool-call": {
             let args: Record<string, unknown> | undefined;
             try {
