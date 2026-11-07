@@ -7,7 +7,7 @@
  */
 
 /** 改这个版本号会让所有 AI 生成缓存失效（缓存信封带 promptVersion）。 */
-export const PROMPT_VERSION = "2026-11-v4";
+export const PROMPT_VERSION = "2026-11-v5";
 
 export const BASE_STYLE = [
     "用中文回答，口语化、具体、别堆术语，像熟人说话。",

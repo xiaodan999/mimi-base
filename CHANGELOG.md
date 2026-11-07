@@ -58,6 +58,7 @@
 - 修复聊天文件附件在手机上读不出内容：文件改为上传到服务器解析（`POST /ai/files`，`pocketbase/ai-files.ts`），pdf.js 在服务端加载 `node_modules` 里的 CMap 与标准字体，中文 PDF 不再提取为空；没有文字层的扫描 PDF 用 `@napi-rs/canvas` 渲染前几页 JPEG 交给视觉模型。客户端不再加载 pdf.js/CMap（手机端只上传原始字节），解析结果仍作为消息 part 保存；上限为 30MB、50k 字符、20 页文本、4 页图片，解析 60 秒超时。上传计入数据工具限额，nginx 的 `/ai/` 需要 `client_max_body_size 32m`。
 - 小票/订单截图不再被拆成多条账目：记账提示词区分「同一笔订单」和「多笔消费」，商品、打包费、配送费、随单购买的券包、红包/满减合并为一条，金额取实付（`app/ai/expense.ts`）；`PROMPT_VERSION` 升到 `2026-11-v3`，旧的解析缓存随之失效。
 - 优化记账名称：默认记商品名而不是品牌（瑞幸记「葡萄鲜切柠檬茶」而不是「瑞幸咖啡」），但麻辣烫、火锅、快餐套餐、肯德基这类现做的一餐记店名/餐厅名，不逐项列食材；用户自己说出的名字保持不变（`app/ai/expense.ts`）。`PROMPT_VERSION` 升到 `2026-11-v4`。
+- 外卖订单归到「外卖」分类：记账与小票解析的提示词补充判定——出现外卖、外送、宅急送、骑手、配送费、运费或美团外卖、饿了么等字样时归 `takeout`，即使是肯德基、麦当劳这类快餐；堂食 / 食堂 / 自己做饭才是 `food`。「补全分类」对带这些字样的项目名同样优先 `takeout`（`app/ai/expense.ts`）。`PROMPT_VERSION` 升到 `2026-11-v5`，旧解析缓存失效。
 - 修复手机端饼图右侧被裁掉：饼图圆心不再右移 8 个单位，新增 `pieGeometry` 保证圆和 1.5px 描边都在 viewBox 内；饼图宽度改为可缩放，图例数值列可收缩，窄屏不再挤出卡片。
 - 聊天 run 不再随对话页面卸载而丢失 UI 状态：`running`、流式草稿、乐观消息、`AbortController`、沙箱文件快照与页面 watcher 全部移到 `app/chat/run-store.ts`（按 conversation id 保存）。离开对话后模型循环和工具调用继续跑，回来会重新挂上同一条流并显示「运行中」；`isChatRunActive` 阻止重复发送（此前重新进入后必填状态为空，再次发送会撞上服务端每用户 1 个沙箱的并发限制，显示「沙箱正忙」）。挂载时的恢复扫描在 run 仍存活时跳过，不再把后台工具调用标成「页面刷新中断了这次执行」。`createMessage` / `updateMessage` / `deleteMessagesAfter` 同时写穿 React Query 的消息缓存，避免回来时读到工具执行前的旧行。没有页面在看该对话时，run 结束会弹出「回复完成 / 回复失败」toast。
 - `ask_user` / `log_expense` 的待回答问题带上 `conversationId`：导航离开不再取消（后台 run 继续等待），面板只在该对话显示；只有停止生成、切换对话或登出才会取消。`_main` 卸载时 `abortAllChatRuns` 中止全部 run 与提问；删除对话前先 `stopChatRun`，避免后台 run 继续写已删除的会话。

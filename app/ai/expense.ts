@@ -26,6 +26,7 @@ function parseRules(
         "只输出一个 JSON 对象，格式：",
         '{"items":[{"name":"午饭","price":25,"category":"food"}]}',
         `category 必须从这些值里选：${categoryLine(categories)}。拿不准就用 other。`,
+        "吃饭分 food 和 takeout：堂食、食堂、自己做饭是 food；外卖是 takeout，看到外卖、外送、宅急送、骑手、配送费、运费或美团外卖、饿了么这些字样就用 takeout，就算是肯德基、麦当劳这种快餐也一样。",
         "price 是人民币数字，不要带单位、不要带引号。",
         "一笔消费只输出一条：商品本身、打包费、配送费、餐盒费、随单购买的券包、红包和满减优惠都属于这一笔，合并进金额，不要单独成条，也不要把这些费用写进项目名。",
         "金额取这一笔最终实际支付的钱（实付 / 实付款 / 支付金额）：商品、打包费、配送费、随单购买的券包都算进去，红包 / 满减 / 优惠要扣掉；不要拿商品原价相加。",
@@ -153,6 +154,7 @@ export function categoryGuessMessages(
                 "给下面这些历史账目补分类。只输出 JSON：",
                 '{"items":[{"name":"原样返回的项目名","category":"food"}]}',
                 `category 必须是：${categoryLine(categories)}。`,
+                "名字里带外卖、外送、宅急送、美团、饿了么这些字样的归 takeout，就算是肯德基、麦当劳这种快餐也一样；其他吃饭归 food。",
                 "必须保留每一条的原始项目名，不要合并，不要新增。",
                 ...(options?.preferSpecific
                     ? [
