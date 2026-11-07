@@ -232,7 +232,7 @@ describe("ai tools service", () => {
                         category: "food",
                         created: "2026-11-02 01:00:00.000Z",
                         user_id: "user-1",
-                        expand: { user_id: { name: "小红" } },
+                        expand: { user_id: { user_name: "小红" } },
                     },
                     {
                         id: "b",
@@ -241,7 +241,7 @@ describe("ai tools service", () => {
                         category: "",
                         created: "2026-11-03 01:00:00.000Z",
                         user_id: "user-2",
-                        expand: { user_id: { name: "小黄" } },
+                        expand: { user_id: { user_name: "小黄" } },
                     },
                     {
                         id: "c",
@@ -250,6 +250,7 @@ describe("ai tools service", () => {
                         category: "fun",
                         created: "2026-11-04 01:00:00.000Z",
                         user_id: "user-2",
+                        // The built-in auth `name` is only a fallback.
                         expand: { user_id: { name: "小黄" } },
                     },
                 ],
@@ -300,7 +301,7 @@ describe("ai tools service", () => {
                         category: "",
                         created: "2026-11-03 01:00:00.000Z",
                         user_id: "user-2",
-                        expand: { user_id: { name: "  " } },
+                        expand: { user_id: { user_name: "  " } },
                     },
                 ],
             }),
@@ -352,7 +353,7 @@ describe("ai tools service", () => {
                         images: ["a.jpg"],
                         like_count: 3,
                         author_id: "user-2",
-                        expand: { author_id: { name: "小黄" } },
+                        expand: { author_id: { user_name: "小黄" } },
                     },
                     {
                         id: "p2",

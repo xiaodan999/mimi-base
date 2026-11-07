@@ -65,6 +65,21 @@ const toolFail = (error: string): AiToolsResult => ({
     body: { ok: false, error },
 });
 
+/** Expanded `users` row. The display name lives in the custom `user_name`
+ * field (what the whole app renders); `name` is only a belt-and-suspenders
+ * fallback in case the built-in auth field ever exists again. */
+type ExpandUser = { user_name?: unknown; name?: unknown };
+
+function displayName(user: ExpandUser | undefined, mine: boolean): string {
+    const name =
+        typeof user?.user_name === "string"
+            ? user.user_name.trim()
+            : typeof user?.name === "string"
+              ? user.name.trim()
+              : "";
+    return name !== "" ? name : mine ? "我" : "对方";
+}
+
 /** Local (timezone-aware) day range to UTC ms. `tz` is the JS
  * `getTimezoneOffset()` value: minutes to add to local time for UTC. */
 export function dayRangeUtc(
@@ -172,16 +187,12 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 category?: unknown;
                 created?: unknown;
                 user_id?: unknown;
-                expand?: { user_id?: { name?: unknown } };
+                expand?: { user_id?: ExpandUser };
             }>;
         };
         const rows = (json.items ?? []).map((row) => {
             const ownerId = typeof row.user_id === "string" ? row.user_id : "";
             const mine = ownerId === call.uid;
-            const name =
-                typeof row.expand?.user_id?.name === "string"
-                    ? row.expand.user_id.name.trim()
-                    : "";
             return {
                 ownerId,
                 entry: {
@@ -191,7 +202,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                     category:
                         typeof row.category === "string" ? row.category : "",
                     created: typeof row.created === "string" ? row.created : "",
-                    by: name !== "" ? name : mine ? "我" : "对方",
+                    by: displayName(row.expand?.user_id, mine),
                     mine,
                 },
             };
@@ -269,22 +280,18 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 images?: unknown;
                 like_count?: unknown;
                 author_id?: unknown;
-                expand?: { author_id?: { name?: unknown } };
+                expand?: { author_id?: ExpandUser };
             }>;
         };
         const items = (json.items ?? []).map((row) => {
             const mine = row.author_id === call.uid;
-            const name =
-                typeof row.expand?.author_id?.name === "string"
-                    ? row.expand.author_id.name.trim()
-                    : "";
             return {
                 id: typeof row.id === "string" ? row.id : "",
                 text: text(row.text, MAX_POST_TEXT_CHARS),
                 created: typeof row.created === "string" ? row.created : "",
                 images: Array.isArray(row.images) ? row.images.length : 0,
                 likes: Number(row.like_count) || 0,
-                by: name !== "" ? name : mine ? "我" : "对方",
+                by: displayName(row.expand?.author_id, mine),
                 mine,
             };
         });
