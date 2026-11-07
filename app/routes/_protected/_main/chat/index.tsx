@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import { stopChatRun } from "@/app/chat/run-store";
+import { stopChatRun, useRunningConversationIds } from "@/app/chat/run-store";
 import type { ChatPersona } from "@/app/chat/types";
 
 import { ConversationList } from "./-components/-conversation-list";
@@ -29,6 +29,7 @@ function ChatListPage() {
     const [newOpen, setNewOpen] = useState(false);
     const [memoriesOpen, setMemoriesOpen] = useState(false);
     const memories = useChatMemories();
+    const runningIds = useRunningConversationIds();
 
     const modelList = models.data?.models ?? [];
 
@@ -71,6 +72,7 @@ function ChatListPage() {
                 conversations={conversations.data ?? []}
                 personas={personas.data ?? []}
                 loading={conversations.isLoading}
+                runningIds={runningIds}
                 onNewChat={() => setNewOpen(true)}
                 onOpenMemories={() => setMemoriesOpen(true)}
                 onRename={async (id, title) => {
@@ -81,6 +83,20 @@ function ChatListPage() {
                     // not looking at; stop it before the row disappears.
                     stopChatRun(id);
                     await actions.deleteConversation(id);
+                }}
+                onDeleteMany={async (ids) => {
+                    // Same as the single delete: stop every run first so a
+                    // background reply can't recreate the rows being removed.
+                    for (const id of ids) stopChatRun(id);
+                    const results = await Promise.allSettled(
+                        ids.map((id) => actions.deleteConversation(id)),
+                    );
+                    const failed = results.filter(
+                        (result) => result.status === "rejected",
+                    ).length;
+                    if (failed > 0) {
+                        throw new Error(`${failed} 个对话删除失败`);
+                    }
                 }}
                 onTogglePin={async (id, pinned) => {
                     await actions.updateConversation(id, { pinned });

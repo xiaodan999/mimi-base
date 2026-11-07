@@ -4,6 +4,10 @@ import { formatDistanceToNow } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
 import {
     Brain,
+    CheckCircle2,
+    Circle,
+    ListChecks,
+    Loader2,
     MessageCircle,
     MoreHorizontal,
     Pencil,
@@ -86,10 +90,13 @@ export type ConversationListProps = {
     conversations: readonly ChatConversation[];
     personas: readonly ChatPersona[];
     loading: boolean;
+    /** Conversations with a run in flight; rows show a working indicator. */
+    runningIds: ReadonlySet<string>;
     onNewChat: () => void;
     onOpenMemories: () => void;
     onRename: (id: string, title: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    onDeleteMany: (ids: string[]) => Promise<void>;
     onTogglePin: (id: string, pinned: boolean) => Promise<void>;
 };
 
@@ -97,10 +104,12 @@ export function ConversationList({
     conversations,
     personas,
     loading,
+    runningIds,
     onNewChat,
     onOpenMemories,
     onRename,
     onDelete,
+    onDeleteMany,
     onTogglePin,
 }: ConversationListProps) {
     const [renameTarget, setRenameTarget] = useState<ChatConversation | null>(
@@ -113,6 +122,9 @@ export function ConversationList({
     const [busy, setBusy] = useState(false);
     const [query, setQuery] = useState("");
     const [personaFilter, setPersonaFilter] = useState("all");
+    const [selectMode, setSelectMode] = useState(false);
+    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
     const visible = useMemo(
         () => filterConversations(conversations, query, personaFilter),
@@ -123,6 +135,27 @@ export function ConversationList({
         [conversations, personas],
     );
 
+    const exitSelectMode = () => {
+        setSelectMode(false);
+        setSelected(new Set());
+    };
+
+    const toggleSelected = (id: string) => {
+        setSelected((previous) => {
+            const next = new Set(previous);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const allVisibleSelected =
+        visible.length > 0 &&
+        visible.every((conversation) => selected.has(conversation.id));
+
     return (
         <>
             <div className="px-4 pb-3 pt-4">
@@ -131,58 +164,127 @@ export function ConversationList({
                         聊天
                     </h1>
                     <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="rounded-xl text-muted-foreground"
-                            onClick={onOpenMemories}
-                        >
-                            <Brain className="mr-1 size-4" />
-                            记忆
-                        </Button>
-                        <Button
-                            size="sm"
-                            className="rounded-xl"
-                            onClick={onNewChat}
-                        >
-                            <Plus className="mr-1 size-4" />
-                            新对话
-                        </Button>
+                        {!selectMode && conversations.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl text-muted-foreground"
+                                aria-label="批量管理对话"
+                                onClick={() => setSelectMode(true)}
+                            >
+                                <ListChecks className="size-5" />
+                            </Button>
+                        )}
+                        {!selectMode && (
+                            <>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="rounded-xl text-muted-foreground"
+                                    onClick={onOpenMemories}
+                                >
+                                    <Brain className="mr-1 size-4" />
+                                    记忆
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="rounded-xl"
+                                    onClick={onNewChat}
+                                >
+                                    <Plus className="mr-1 size-4" />
+                                    新对话
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                    和 AI 随便聊聊，记录只存在你的账号里
+                    {selectMode
+                        ? selected.size > 0
+                            ? `已选 ${selected.size} 个对话`
+                            : "点对话勾选，可以一次删掉多个"
+                        : "和 AI 随便聊聊，记录只存在你的账号里"}
                 </p>
-                {conversations.length > 0 && (
-                    <div className="relative mt-3">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            placeholder="搜索对话…"
-                            aria-label="搜索对话"
-                            className="h-10 rounded-xl bg-card pl-9"
-                        />
+                {selectMode ? (
+                    <div className="mt-3 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={() => {
+                                if (allVisibleSelected) {
+                                    setSelected(new Set());
+                                } else {
+                                    setSelected(
+                                        new Set(
+                                            visible.map(
+                                                (conversation) =>
+                                                    conversation.id,
+                                            ),
+                                        ),
+                                    );
+                                }
+                            }}
+                        >
+                            {allVisibleSelected ? "取消全选" : "全选"}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled={selected.size === 0}
+                            onClick={() => setBulkConfirmOpen(true)}
+                        >
+                            删除
+                            {selected.size > 0 ? `（${selected.size}）` : ""}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto rounded-xl"
+                            onClick={exitSelectMode}
+                        >
+                            取消
+                        </Button>
                     </div>
-                )}
-                {chips.length > 1 && (
-                    <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        <FilterChip
-                            active={personaFilter === "all"}
-                            label="全部"
-                            count={conversations.length}
-                            onClick={() => setPersonaFilter("all")}
-                        />
-                        {chips.map((chip) => (
-                            <FilterChip
-                                key={chip.id}
-                                active={personaFilter === chip.id}
-                                label={`${chip.icon} ${chip.name}`}
-                                count={chip.count}
-                                onClick={() => setPersonaFilter(chip.id)}
-                            />
-                        ))}
-                    </div>
+                ) : (
+                    <>
+                        {conversations.length > 0 && (
+                            <div className="relative mt-3">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={query}
+                                    onChange={(event) =>
+                                        setQuery(event.target.value)
+                                    }
+                                    placeholder="搜索对话…"
+                                    aria-label="搜索对话"
+                                    className="h-10 rounded-xl bg-card pl-9"
+                                />
+                            </div>
+                        )}
+                        {chips.length > 1 && (
+                            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                <FilterChip
+                                    active={personaFilter === "all"}
+                                    label="全部"
+                                    count={conversations.length}
+                                    onClick={() => setPersonaFilter("all")}
+                                />
+                                {chips.map((chip) => (
+                                    <FilterChip
+                                        key={chip.id}
+                                        active={personaFilter === chip.id}
+                                        label={`${chip.icon} ${chip.name}`}
+                                        count={chip.count}
+                                        onClick={() =>
+                                            setPersonaFilter(chip.id)
+                                        }
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -222,6 +324,83 @@ export function ConversationList({
                         conversation.personaId,
                         personas,
                     );
+                    const running = runningIds.has(conversation.id);
+                    const checked = selected.has(conversation.id);
+                    const main = (
+                        <>
+                            <div className="flex items-center gap-1.5">
+                                {conversation.pinned && (
+                                    <Pin
+                                        className="size-3 shrink-0 text-primary"
+                                        aria-label="已置顶"
+                                    />
+                                )}
+                                <span className="text-sm" aria-hidden>
+                                    {persona?.icon ?? "💬"}
+                                </span>
+                                <h2 className="truncate text-sm font-semibold">
+                                    {conversation.title}
+                                </h2>
+                                {running && (
+                                    <span className="shrink-0">
+                                        <Loader2
+                                            className="size-3.5 animate-spin text-primary"
+                                            aria-hidden
+                                        />
+                                        <span className="sr-only">
+                                            回复生成中
+                                        </span>
+                                    </span>
+                                )}
+                                <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                                    {relativeTime(conversation.updatedAt)}
+                                </span>
+                            </div>
+                            <p
+                                className={cn(
+                                    "mt-0.5 truncate text-xs",
+                                    running
+                                        ? "text-primary/80"
+                                        : "text-muted-foreground",
+                                )}
+                            >
+                                {running
+                                    ? "正在生成回复…"
+                                    : conversation.lastMessage ||
+                                      "还没有消息，点进去开始聊"}
+                            </p>
+                        </>
+                    );
+                    if (selectMode) {
+                        return (
+                            <button
+                                key={conversation.id}
+                                type="button"
+                                role="checkbox"
+                                aria-checked={checked}
+                                onClick={() => toggleSelected(conversation.id)}
+                                className={cn(
+                                    "flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left shadow-sm transition-colors active:bg-accent",
+                                    checked
+                                        ? "border-primary/50 bg-primary/5"
+                                        : "border-border/60 bg-card",
+                                )}
+                            >
+                                {checked ? (
+                                    <CheckCircle2
+                                        className="size-5 shrink-0 text-primary"
+                                        aria-hidden
+                                    />
+                                ) : (
+                                    <Circle
+                                        className="size-5 shrink-0 text-muted-foreground/50"
+                                        aria-hidden
+                                    />
+                                )}
+                                <div className="min-w-0 flex-1">{main}</div>
+                            </button>
+                        );
+                    }
                     return (
                         <div
                             key={conversation.id}
@@ -232,89 +411,74 @@ export function ConversationList({
                                 params={{ conversationId: conversation.id }}
                                 className="min-w-0 flex-1"
                             >
-                                <div className="flex items-center gap-1.5">
-                                    {conversation.pinned && (
-                                        <Pin
-                                            className="size-3 shrink-0 text-primary"
-                                            aria-label="已置顶"
-                                        />
-                                    )}
-                                    <span className="text-sm" aria-hidden>
-                                        {persona?.icon ?? "💬"}
-                                    </span>
-                                    <h2 className="truncate text-sm font-semibold">
-                                        {conversation.title}
-                                    </h2>
-                                    <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                                        {relativeTime(conversation.updatedAt)}
-                                    </span>
-                                </div>
-                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                    {conversation.lastMessage ||
-                                        "还没有消息，点进去开始聊"}
-                                </p>
+                                {main}
                             </Link>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 shrink-0 rounded-lg text-muted-foreground"
-                                        aria-label={`${conversation.title} 的操作`}
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                            void toastPromise(
-                                                onTogglePin(
-                                                    conversation.id,
-                                                    !conversation.pinned,
-                                                ),
-                                                {
-                                                    loading: "处理中…",
-                                                    success: conversation.pinned
-                                                        ? "已取消置顶"
-                                                        : "已置顶",
-                                                    error: "操作失败",
-                                                },
-                                            ).catch(() => {});
-                                        }}
-                                    >
-                                        {conversation.pinned ? (
-                                            <PinOff className="mr-2 size-4" />
-                                        ) : (
-                                            <Pin className="mr-2 size-4" />
-                                        )}
-                                        {conversation.pinned
-                                            ? "取消置顶"
-                                            : "置顶"}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                            setTitleDraft(conversation.title);
-                                            setRenameTarget(conversation);
-                                        }}
-                                    >
-                                        <Pencil className="mr-2 size-4" />
-                                        重命名
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                        onClick={() =>
-                                            setDeleteTarget(conversation)
-                                        }
-                                    >
-                                        <Trash2 className="mr-2 size-4" />
-                                        删除
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            {!selectMode && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="size-8 shrink-0 rounded-lg text-muted-foreground"
+                                            aria-label={`${conversation.title} 的操作`}
+                                        >
+                                            <MoreHorizontal className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={() => {
+                                                void toastPromise(
+                                                    onTogglePin(
+                                                        conversation.id,
+                                                        !conversation.pinned,
+                                                    ),
+                                                    {
+                                                        loading: "处理中…",
+                                                        success:
+                                                            conversation.pinned
+                                                                ? "已取消置顶"
+                                                                : "已置顶",
+                                                        error: "操作失败",
+                                                    },
+                                                ).catch(() => {});
+                                            }}
+                                        >
+                                            {conversation.pinned ? (
+                                                <PinOff className="mr-2 size-4" />
+                                            ) : (
+                                                <Pin className="mr-2 size-4" />
+                                            )}
+                                            {conversation.pinned
+                                                ? "取消置顶"
+                                                : "置顶"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={() => {
+                                                setTitleDraft(
+                                                    conversation.title,
+                                                );
+                                                setRenameTarget(conversation);
+                                            }}
+                                        >
+                                            <Pencil className="mr-2 size-4" />
+                                            重命名
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                            onClick={() =>
+                                                setDeleteTarget(conversation)
+                                            }
+                                        >
+                                            <Trash2 className="mr-2 size-4" />
+                                            删除
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
                     );
                 })}
@@ -429,6 +593,55 @@ export function ConversationList({
                                         },
                                     );
                                     setDeleteTarget(null);
+                                } catch {
+                                    // toast already shown
+                                } finally {
+                                    setBusy(false);
+                                }
+                            }}
+                        >
+                            删除
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={bulkConfirmOpen}
+                onOpenChange={(next) => {
+                    if (!next) setBulkConfirmOpen(false);
+                }}
+            >
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>
+                            删除选中的 {selected.size} 个对话？
+                        </DialogTitle>
+                        <DialogDescription>
+                            这些对话的所有消息会一起删除，无法恢复。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex-row justify-end gap-2">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setBulkConfirmOpen(false)}
+                        >
+                            取消
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={busy || selected.size === 0}
+                            onClick={async () => {
+                                const ids = [...selected];
+                                setBusy(true);
+                                try {
+                                    await toastPromise(onDeleteMany(ids), {
+                                        loading: "删除中…",
+                                        success: `已删除 ${ids.length} 个对话`,
+                                        error: "删除失败",
+                                    });
+                                    setBulkConfirmOpen(false);
+                                    exitSelectMode();
                                 } catch {
                                     // toast already shown
                                 } finally {

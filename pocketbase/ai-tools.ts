@@ -157,6 +157,9 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 filter,
                 sort: "created",
                 perPage: String(MAX_EXPENSE_ROWS),
+                // Who spent what: the users viewRule lets any signed-in user
+                // read both profiles, so the expand resolves for both sides.
+                expand: "user_id",
             },
         });
         if (!res.ok) return pbFail(res, "读不了账本");
@@ -168,21 +171,56 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 price?: unknown;
                 category?: unknown;
                 created?: unknown;
+                user_id?: unknown;
+                expand?: { user_id?: { name?: unknown } };
             }>;
         };
-        const items = (json.items ?? []).map((row) => ({
-            id: typeof row.id === "string" ? row.id : "",
-            item: text(row.item_name, MAX_ITEM_CHARS),
-            price: Math.round((Number(row.price) || 0) * 100) / 100,
-            category: typeof row.category === "string" ? row.category : "",
-            created: typeof row.created === "string" ? row.created : "",
-        }));
+        const rows = (json.items ?? []).map((row) => {
+            const ownerId = typeof row.user_id === "string" ? row.user_id : "";
+            const mine = ownerId === call.uid;
+            const name =
+                typeof row.expand?.user_id?.name === "string"
+                    ? row.expand.user_id.name.trim()
+                    : "";
+            return {
+                ownerId,
+                entry: {
+                    id: typeof row.id === "string" ? row.id : "",
+                    item: text(row.item_name, MAX_ITEM_CHARS),
+                    price: Math.round((Number(row.price) || 0) * 100) / 100,
+                    category:
+                        typeof row.category === "string" ? row.category : "",
+                    created: typeof row.created === "string" ? row.created : "",
+                    by: name !== "" ? name : mine ? "我" : "对方",
+                    mine,
+                },
+            };
+        });
+        const items = rows.map((row) => row.entry);
         const total = items.reduce((sum, item) => sum + item.price, 0);
         const byCategory: Record<string, number> = {};
         for (const item of items) {
             const key = item.category || "other";
             byCategory[key] =
                 Math.round(((byCategory[key] ?? 0) + item.price) * 100) / 100;
+        }
+        // Per-person totals, biggest spender first, so 「谁花得最多」 is a
+        // lookup instead of the model re-summing every row.
+        const byPerson = new Map<
+            string,
+            { name: string; mine: boolean; total: number; count: number }
+        >();
+        for (const row of rows) {
+            const entry = byPerson.get(row.ownerId) ?? {
+                name: row.entry.by,
+                mine: row.entry.mine,
+                total: 0,
+                count: 0,
+            };
+            entry.total =
+                Math.round((entry.total + row.entry.price) * 100) / 100;
+            entry.count += 1;
+            byPerson.set(row.ownerId, entry);
         }
         return toolOk({
             ok: true,
@@ -191,6 +229,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
             truncated: items.length >= MAX_EXPENSE_ROWS,
             total: Math.round(total * 100) / 100,
             byCategory,
+            people: [...byPerson.values()].sort((a, b) => b.total - a.total),
             items,
         });
     }
@@ -215,6 +254,9 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 ...(query ? { filter: `(text ~ "${query}")` } : {}),
                 sort: "-created",
                 perPage: String(limit),
+                // Author name for 「谁发的」questions; the users viewRule lets
+                // any signed-in user read both profiles.
+                expand: "author_id",
             },
         });
         if (!res.ok) return pbFail(res, "读不了动态");
@@ -227,16 +269,25 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 images?: unknown;
                 like_count?: unknown;
                 author_id?: unknown;
+                expand?: { author_id?: { name?: unknown } };
             }>;
         };
-        const items = (json.items ?? []).map((row) => ({
-            id: typeof row.id === "string" ? row.id : "",
-            text: text(row.text, MAX_POST_TEXT_CHARS),
-            created: typeof row.created === "string" ? row.created : "",
-            images: Array.isArray(row.images) ? row.images.length : 0,
-            likes: Number(row.like_count) || 0,
-            mine: row.author_id === call.uid,
-        }));
+        const items = (json.items ?? []).map((row) => {
+            const mine = row.author_id === call.uid;
+            const name =
+                typeof row.expand?.author_id?.name === "string"
+                    ? row.expand.author_id.name.trim()
+                    : "";
+            return {
+                id: typeof row.id === "string" ? row.id : "",
+                text: text(row.text, MAX_POST_TEXT_CHARS),
+                created: typeof row.created === "string" ? row.created : "",
+                images: Array.isArray(row.images) ? row.images.length : 0,
+                likes: Number(row.like_count) || 0,
+                by: name !== "" ? name : mine ? "我" : "对方",
+                mine,
+            };
+        });
         return toolOk({
             ok: true,
             ...(query ? { query } : {}),

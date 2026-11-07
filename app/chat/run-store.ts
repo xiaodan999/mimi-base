@@ -86,6 +86,25 @@ function entryFor(conversationId: string): RunEntry {
     return entry;
 }
 
+const NO_RUNNING_IDS: ReadonlySet<string> = new Set();
+let runningIds: ReadonlySet<string> = NO_RUNNING_IDS;
+
+/** `publish` is the only place `running` flips, so keep the id set in sync
+ * here. The reference only changes when the membership changes, so consumers
+ * don't re-render on every streaming token. */
+function refreshRunningIds() {
+    const next = new Set<string>();
+    for (const [id, entry] of entries) {
+        if (entry.running) next.add(id);
+    }
+    if (
+        next.size !== runningIds.size ||
+        [...next].some((id) => !runningIds.has(id))
+    ) {
+        runningIds = next;
+    }
+}
+
 function publish(entry: RunEntry) {
     entry.snapshot = {
         running: entry.running,
@@ -93,6 +112,7 @@ function publish(entry: RunEntry) {
         optimistic: entry.optimistic,
         sandboxFiles: entry.sandboxFiles,
     };
+    refreshRunningIds();
     notify();
 }
 
@@ -139,6 +159,20 @@ export function watchChatRun(conversationId: string): () => void {
 
 export function isChatRunActive(conversationId: string): boolean {
     return entries.get(conversationId)?.running === true;
+}
+
+/** Conversations with a run in flight, for list pages that show a
+ * working indicator without subscribing to each run's live draft. */
+export function getRunningConversationIds(): ReadonlySet<string> {
+    return runningIds;
+}
+
+export function useRunningConversationIds(): ReadonlySet<string> {
+    return useSyncExternalStore(
+        subscribeChatRuns,
+        getRunningConversationIds,
+        getRunningConversationIds,
+    );
 }
 
 /** Claim the conversation's run slot synchronously, before any await. */

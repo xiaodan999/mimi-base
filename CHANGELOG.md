@@ -55,9 +55,12 @@
 - 聊天附件改为先落库：新增 `chat_attachments` 集合（迁移 `1795500000_add_chat_attachments.js`，owner/conversation 关联 + 级联删除，文件字段 protected、上限 30MB），发消息前把原文件存进去，删除对话会连未发送的附件一起清理。`POST /ai/files` 改为接收 `{ attachmentId, pageImageLimit?, pages? }` 读取存储副本（JSON Content-Type 分流；旧的 raw-bytes 路径保留，兼容先于服务端发版的 SPA）：中转用调用者令牌取记录（view rule 兜底归属校验），再经 `/api/files/token` 领短时文件令牌取字节解析。
 - PDF 提取改为 vision-first：`extractUploadedFile` 在 `pageImageLimit > 0`（仅视觉模型会带）时同时返回文字与前 N 页 JPEG，表格/盖章/版式不再被文本抽取挤平（此前只在无文字层的扫描件上渲染）；`MAX_PAGE_IMAGES` 4 → 10，且与消息相册图片的 4 张预算分离；`ExtractedFile` 增加 `numPages` / `pages`。
 - 新增 `read_attachment` 聊天工具：`mode=text` 重读附件完整提取文字（`toolResultText` 对该工具按 `MAX_FILE_CHARS` 放宽，默认 12k 会截断），`mode=pages` 把指定页渲染成图片——页码经 `parsePageSpec`（`lib/chat-files.ts`）解析/去重/截断，单次最多 10 页、页号 ≤ 200。页图无法走 `role:"tool"` 的字符串内容：`ChatToolCallPart.resultImages` 存数据 URL，`buildApiMessages` 在 tool 结果后合成一条带 `image_url` 的 user 消息；`ToolHooks.visionEnabled`（会话传入 `model.vision`）对非视觉模型关闭 pages 模式，避免中转按图片 part 拒绝整条请求。
+- 对话列表新增运行中指示：后台还在生成回复的对话显示转圈和「正在生成回复…」预览。`app/chat/run-store.ts` 新增 `useRunningConversationIds`（`useSyncExternalStore` 快照为成员稳定的 `ReadonlySet`，流式 token publish 不会触发列表重渲染）。
+- 对话列表支持批量删除：头部新增多选按钮进入选择模式，点行勾选（role=checkbox）、全选/取消全选，确认后先 `stopChatRun` 再 `Promise.allSettled` 批量删除，部分失败时抛错提示；确认对话框复用单个删除的样式。
 
 ### 修复
 
+- `get_expenses` / `search_posts` 数据工具补上「是谁」：查询带 `expand=user_id` / `expand=author_id`（users 的 viewRule 允许登录用户互读，两个账号的资料都能解析），每条 item 增加 `by`（资料名，缺失时回退 我/对方）与 `mine`，`get_expenses` 另加按人汇总的 `people`（总额 + 笔数，按总额降序）；两个工具的 schema 描述同步。此前模型只能靠 `mine` 区分自己，答不了「谁花得最多」。
 - 修复视觉模型读扫描件 PDF 时 `read_attachment` mode=text 误报「换个支持图片的模型或移除几张图片再试」：无文字层的 PDF 在纯文本读取（不带 `pageImageLimit`）下必然失败，而这条报错假定调用方不支持图片。现在 `FileReadError` 带机器可读 `code`（`pdf_no_text_layer`，常量在 `lib/chat-files.ts`），`/ai/files` 的错误 JSON 透传（`pocketbase/ai-relay.ts`），`readChatError` 解析到 `ChatApiError.code`；客户端 `readAttachmentText`（`app/chat/attachments.ts`）在模型支持视觉时自动带 `pageImageLimit` 重试一次，渲染出的页图经 `resultImages` 通道交给模型（与 mode=pages 同路径），工具调用不再出现红色失败卡。纯文本模型维持报错，文案改为「换一个支持视觉的模型再试」。
 - 聊天工具循环跑满 6 轮后不再静默结束（表现为回复停在一张工具卡片上、没有任何正文和报错）：循环改为 `round <= MAX_TOOL_ROUNDS`，第 7 轮不提供 `tools` 并在 system prompt 附加 `WRAP_UP_SYSTEM_PROMPT`，要求模型根据已有工具结果用文字作答；该轮若幻觉出 tool calls 会被丢弃不执行，空内容仍走原有的「AI 没有返回内容」错误路径。
 - 思考模型在 `finish_reason=length` 且只有 reasoning（思考耗尽了 8192 输出上限）、没有正文和工具调用时，不再以 `complete` 落库成一条只有思考过程的「完整」回复；现在按 `error` 保存并提示「思考太长被截断了，请重试一次」，run 结算为 error（`-use-chat-session.ts` 的 `cutBeforeAnswer`）。

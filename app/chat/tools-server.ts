@@ -27,12 +27,22 @@ export type ExpensesToolResult = {
     truncated?: boolean;
     total?: number;
     byCategory?: Record<string, number>;
+    /** Per-person totals over the range, biggest spender first. */
+    people?: Array<{
+        name: string;
+        mine: boolean;
+        total: number;
+        count: number;
+    }>;
     items?: Array<{
         id: string;
         item: string;
         price: number;
         category: string;
         created: string;
+        /** Display name of who logged the expense (我 / 对方 fallback). */
+        by: string;
+        mine: boolean;
     }>;
 };
 
@@ -47,6 +57,8 @@ export type PostsToolResult = {
         created: string;
         images: number;
         likes: number;
+        /** Display name of the author (我 / 对方 fallback). */
+        by: string;
         mine: boolean;
     }>;
 };

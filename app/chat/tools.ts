@@ -340,7 +340,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "get_expenses",
             description:
-                "查询共享账本的流水和分类汇总（两个人的账都在里面）。from/to 是 YYYY-MM-DD，省略时默认本月。适合「这个月花了多少」「最近吃饭花了多少」这类问题；要把结果画出来就用 show_chart。",
+                "查询共享账本的流水和汇总（两个人的账都在里面；每笔带记账人 by，people 是按人汇总的总额和笔数，直接回答「谁花得最多」）。from/to 是 YYYY-MM-DD，省略时默认本月。适合「这个月花了多少」「最近吃饭花了多少」「谁花得多」这类问题；要把结果画出来就用 show_chart。",
             parameters: {
                 type: "object",
                 properties: {
@@ -362,7 +362,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "search_posts",
             description:
-                "搜索或浏览共享动态（两个人发的帖子都在里面）。query 是关键词（可省略=最近发布）；适合「我们去过哪里」「之前说过什么」这类回忆型问题。",
+                "搜索或浏览共享动态（两个人发的帖子都在里面，每条带发布人 by）。query 是关键词（可省略=最近发布）；适合「我们去过哪里」「之前说过什么」「谁发的」这类问题。",
             parameters: {
                 type: "object",
                 properties: {

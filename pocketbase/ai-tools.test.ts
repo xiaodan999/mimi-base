@@ -219,8 +219,10 @@ describe("ai tools service", () => {
 
     test("expenses aggregate totals by category over the shared ledger", async () => {
         let filter = "";
+        let expand = "";
         const tools = service((url) => {
             filter = url.searchParams.get("filter") ?? "";
+            expand = url.searchParams.get("expand") ?? "";
             return json({
                 items: [
                     {
@@ -229,6 +231,8 @@ describe("ai tools service", () => {
                         price: 20,
                         category: "food",
                         created: "2026-11-02 01:00:00.000Z",
+                        user_id: "user-1",
+                        expand: { user_id: { name: "小红" } },
                     },
                     {
                         id: "b",
@@ -236,6 +240,17 @@ describe("ai tools service", () => {
                         price: 15.5,
                         category: "",
                         created: "2026-11-03 01:00:00.000Z",
+                        user_id: "user-2",
+                        expand: { user_id: { name: "小黄" } },
+                    },
+                    {
+                        id: "c",
+                        item_name: "电影票",
+                        price: 45,
+                        category: "fun",
+                        created: "2026-11-04 01:00:00.000Z",
+                        user_id: "user-2",
+                        expand: { user_id: { name: "小黄" } },
                     },
                 ],
             });
@@ -248,11 +263,64 @@ describe("ai tools service", () => {
         });
         expect(filter).toContain('created >= "2026-10-31 16:00:00.000Z"');
         expect(filter).toContain('created <= "2026-11-07 15:59:59.999Z"');
+        expect(expand).toBe("user_id");
         expect(res.body).toMatchObject({
             ok: true,
-            total: 35.5,
-            byCategory: { food: 20, other: 15.5 },
-            count: 2,
+            total: 80.5,
+            byCategory: { food: 20, other: 15.5, fun: 45 },
+            count: 3,
+            people: [
+                { name: "小黄", mine: false, total: 60.5, count: 2 },
+                { name: "小红", mine: true, total: 20, count: 1 },
+            ],
+            items: [
+                { id: "a", by: "小红", mine: true },
+                { id: "b", by: "小黄", mine: false },
+                { id: "c", by: "小黄", mine: false },
+            ],
+        });
+    });
+
+    test("expenses fall back to 我/对方 when a profile name is missing", async () => {
+        const tools = service(() =>
+            json({
+                items: [
+                    {
+                        id: "a",
+                        item_name: "午饭",
+                        price: 20,
+                        category: "food",
+                        created: "2026-11-02 01:00:00.000Z",
+                        user_id: "user-1",
+                    },
+                    {
+                        id: "b",
+                        item_name: "奶茶",
+                        price: 10,
+                        category: "",
+                        created: "2026-11-03 01:00:00.000Z",
+                        user_id: "user-2",
+                        expand: { user_id: { name: "  " } },
+                    },
+                ],
+            }),
+        );
+        const res = await tools({
+            pathname: "/ai/tools/expenses",
+            body: { tz: -480 },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(res.body).toMatchObject({
+            ok: true,
+            items: [
+                { by: "我", mine: true },
+                { by: "对方", mine: false },
+            ],
+            people: [
+                { name: "我", mine: true, total: 20, count: 1 },
+                { name: "对方", mine: false, total: 10, count: 1 },
+            ],
         });
     });
 
@@ -269,6 +337,48 @@ describe("ai tools service", () => {
             token: "pb-token",
         });
         expect(filter).toBe('(text ~ "上海 AND 1=1")');
+    });
+
+    test("posts name the author of each row", async () => {
+        let expand = "";
+        const tools = service((url) => {
+            expand = url.searchParams.get("expand") ?? "";
+            return json({
+                items: [
+                    {
+                        id: "p1",
+                        text: "今天去了海边",
+                        created: "2026-11-01 10:00:00.000Z",
+                        images: ["a.jpg"],
+                        like_count: 3,
+                        author_id: "user-2",
+                        expand: { author_id: { name: "小黄" } },
+                    },
+                    {
+                        id: "p2",
+                        text: "我来发一条",
+                        created: "2026-11-02 10:00:00.000Z",
+                        like_count: 0,
+                        author_id: "user-1",
+                    },
+                ],
+            });
+        });
+        const res = await tools({
+            pathname: "/ai/tools/posts",
+            body: {},
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(expand).toBe("author_id");
+        expect(res.body).toMatchObject({
+            ok: true,
+            count: 2,
+            items: [
+                { id: "p1", by: "小黄", mine: false },
+                { id: "p2", by: "我", mine: true },
+            ],
+        });
     });
 
     test("read_url refuses private addresses without fetching", async () => {
