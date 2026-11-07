@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
 import { findPersona, resolvePersona } from "@/app/chat/personas";
 import { previewText } from "@/app/chat/records";
-import type { ChatConversation } from "@/app/chat/types";
+import type { ChatConversation, ChatMessage } from "@/app/chat/types";
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
 import { toastPromise } from "@/lib/toast-promise";
@@ -36,8 +36,13 @@ export const Route = createFileRoute("/_protected/_main/chat/$conversationId")({
 function ChatConversationPage() {
     const { conversationId } = Route.useParams();
     const conversation = useChatConversation(conversationId);
+    const messages = useChatMessages(conversationId);
 
-    if (conversation.isLoading) return <LoadingPage />;
+    // Wait for both queries before mounting the thread. Rendering it while the
+    // message rows are still loading made `messages` look empty, so an old
+    // conversation flashed the persona's starter screen (as if it were a
+    // brand-new "新对话") for a frame before the history appeared.
+    if (conversation.isLoading || messages.isLoading) return <LoadingPage />;
 
     if (conversation.isError || !conversation.data) {
         return (
@@ -60,21 +65,23 @@ function ChatConversationPage() {
         <ChatConversationView
             key={conversation.data.id}
             conversation={conversation.data}
+            storedMessages={messages.data ?? []}
         />
     );
 }
 
 function ChatConversationView({
     conversation,
+    storedMessages,
 }: {
     conversation: ChatConversation;
+    storedMessages: readonly ChatMessage[];
 }) {
     const navigate = useNavigate();
     const location = useLocation();
     const actions = useChatActions();
     const modelsQuery = useChatModels();
     const personasQuery = useChatPersonas();
-    const messagesQuery = useChatMessages(conversation.id);
 
     const [memoriesOpen, setMemoriesOpen] = useState(false);
     const memoriesQuery = useChatMemories();
@@ -119,8 +126,7 @@ function ChatConversationView({
 
     const session = useChatSession({
         conversation,
-        storedMessages: messagesQuery.data ?? [],
-        messagesLoading: messagesQuery.isLoading,
+        storedMessages,
         model,
     });
 

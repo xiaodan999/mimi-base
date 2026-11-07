@@ -87,9 +87,8 @@ function mergeById(
 
 export type UseChatSessionArgs = {
     conversation: ChatConversation;
+    /** Stored rows, already loaded by the route before the thread mounts. */
     storedMessages: readonly ChatMessage[];
-    /** True while the message query is loading; resume waits for it. */
-    messagesLoading: boolean;
     /** Resolved allowlisted model; undefined while the allowlist loads. */
     model: ChatModel | undefined;
 };
@@ -104,7 +103,6 @@ export type UseChatSessionArgs = {
 export function useChatSession({
     conversation,
     storedMessages,
-    messagesLoading,
     model,
 }: UseChatSessionArgs) {
     const actions = useChatActions();
@@ -696,7 +694,7 @@ export function useChatSession({
     // Scan once per conversation: revive an unanswered question, or mark
     // orphaned sandbox calls as interrupted so they don't spin forever.
     useEffect(() => {
-        if (messagesLoading || running || !model) return;
+        if (running || !model) return;
         if (scannedConversationRef.current === conversation.id) return;
         scannedConversationRef.current = conversation.id;
 
@@ -764,7 +762,6 @@ export function useChatSession({
     }, [
         actions,
         conversation.id,
-        messagesLoading,
         model,
         resumeInterruptedTurn,
         running,
