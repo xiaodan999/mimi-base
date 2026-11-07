@@ -28,6 +28,14 @@ describe("buildSystemPrompt", () => {
     test("base prompt survives an empty persona", () => {
         expect(buildSystemPrompt("  ")).toContain("mimi-base");
     });
+
+    test("wrap-up nudge only appears when the tool budget is spent", () => {
+        expect(buildSystemPrompt("")).not.toContain("已达上限");
+        const wrapUp = buildSystemPrompt("", [], true);
+        expect(wrapUp).toContain("工具调用次数已达上限");
+        // The wrap-up instruction rides on top of the base prompt.
+        expect(wrapUp).toContain("mimi-base");
+    });
 });
 
 describe("buildApiMessages", () => {
@@ -36,6 +44,13 @@ describe("buildApiMessages", () => {
         expect(result[0]).toMatchObject({ role: "system" });
         expect((result[0] as { content: string }).content).toContain(
             "人格设定",
+        );
+    });
+
+    test("wrapUp reaches the system prompt", () => {
+        const result = buildApiMessages([], "", { wrapUp: true });
+        expect((result[0] as { content: string }).content).toContain(
+            "工具调用次数已达上限",
         );
     });
 

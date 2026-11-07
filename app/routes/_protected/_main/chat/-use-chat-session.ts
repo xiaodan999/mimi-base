@@ -54,7 +54,11 @@ import { chatMemoriesQueryOptions, useChatActions } from "./-data";
 
 export type { LiveReply } from "@/app/chat/run-store";
 
-/** One assistant turn may call tools several times; stop runaway loops. */
+/**
+ * One assistant turn may call tools several times; stop runaway loops. The
+ * round after the cap runs tool-free: with tools the run could just stop on
+ * one more tool card, without them the model must wrap up into a text reply.
+ */
 const MAX_TOOL_ROUNDS = 6;
 
 function snapshotParts(snapshot: StreamSnapshot): ChatPart[] {
@@ -205,11 +209,15 @@ export function useChatSession({
             const memories = await fetchMemories();
             let files = getChatRunFiles(conversationId) ?? {};
 
-            for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+            for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
                 if (controller.signal.aborted) {
                     outcome = "stopped";
                     break;
                 }
+                // Past the cap the model loses its tools: offering them again
+                // would let the run end on yet another tool card with no
+                // answer; without them it must reply from what it has.
+                const allowTools = round < MAX_TOOL_ROUNDS;
                 const liveId = `live-${round}-${Date.now().toString(36)}`;
                 setChatRunLive(conversationId, { id: liveId, parts: [] });
 
@@ -225,14 +233,16 @@ export function useChatSession({
                         messages: buildApiMessages(
                             history,
                             conversationRef.current.personaPrompt,
-                            { memories },
+                            { memories, wrapUp: !allowTools },
                         ),
                         reasoningEffort: modelInfo.thinkingLevels.includes(
                             conversationRef.current.thinking,
                         )
                             ? conversationRef.current.thinking
                             : undefined,
-                        tools: toolsForModel(modelInfo),
+                        tools: allowTools
+                            ? toolsForModel(modelInfo)
+                            : undefined,
                         signal: controller.signal,
                         onDelta: (snapshot) => {
                             partial = snapshot;
@@ -269,12 +279,29 @@ export function useChatSession({
                     break;
                 }
 
-                const parts = snapshotParts(result);
+                // A tool call streamed on the tool-free wrap-up round cannot
+                // run; drop it so the message never shows a card for code
+                // that never executes.
+                const toolCalls = allowTools ? result.toolCalls : [];
+                const parts = snapshotParts({
+                    content: result.content,
+                    reasoning: result.reasoning,
+                    toolCalls,
+                });
                 const content = result.content;
                 const hasBody =
                     content !== "" ||
                     result.reasoning.trim() !== "" ||
-                    result.toolCalls.length > 0;
+                    toolCalls.length > 0;
+                // `length` with nothing but reasoning: the thinking ate the
+                // whole output cap and no answer exists — surface that
+                // instead of saving a silently empty "complete" reply.
+                const cutBeforeAnswer =
+                    !result.aborted &&
+                    toolCalls.length === 0 &&
+                    content === "" &&
+                    result.finishReason === "length";
+                const failed = !result.aborted && (!hasBody || cutBeforeAnswer);
 
                 const saved = await actions.createMessage({
                     conversationId,
@@ -283,9 +310,17 @@ export function useChatSession({
                     content,
                     model: modelInfo.id,
                     seq: seq++,
-                    status: result.aborted ? "stopped" : "complete",
-                    ...(!hasBody && !result.aborted
-                        ? { error: "AI 没有返回内容，再试一次吧" }
+                    status: result.aborted
+                        ? "stopped"
+                        : failed
+                          ? "error"
+                          : "complete",
+                    ...(failed
+                        ? {
+                              error: cutBeforeAnswer
+                                  ? "思考太长被截断了，没能写出回答，请重试一次"
+                                  : "AI 没有返回内容，再试一次吧",
+                          }
                         : {}),
                     ...(result.usage ? { usage: result.usage } : {}),
                 });
@@ -295,11 +330,11 @@ export function useChatSession({
 
                 if (result.aborted) {
                     outcome = "stopped";
-                } else if (!hasBody) {
+                } else if (failed) {
                     outcome = "error";
                 }
 
-                if (result.aborted || result.toolCalls.length === 0) {
+                if (result.aborted || toolCalls.length === 0) {
                     if (content !== "") {
                         void actions.updateConversation(conversationId, {
                             lastMessage: previewText(content),
@@ -310,7 +345,7 @@ export function useChatSession({
 
                 // Execute the sandbox tools, then let the model read the
                 // results in a follow-up round (a new assistant message).
-                const callParts: ChatToolCallPart[] = result.toolCalls.map(
+                const callParts: ChatToolCallPart[] = toolCalls.map(
                     (call, index) => ({
                         type: "tool-call",
                         toolCallId: uniqueCallId(call, round, index),

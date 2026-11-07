@@ -58,6 +58,8 @@
 
 ### 修复
 
+- 聊天工具循环跑满 6 轮后不再静默结束（表现为回复停在一张工具卡片上、没有任何正文和报错）：循环改为 `round <= MAX_TOOL_ROUNDS`，第 7 轮不提供 `tools` 并在 system prompt 附加 `WRAP_UP_SYSTEM_PROMPT`，要求模型根据已有工具结果用文字作答；该轮若幻觉出 tool calls 会被丢弃不执行，空内容仍走原有的「AI 没有返回内容」错误路径。
+- 思考模型在 `finish_reason=length` 且只有 reasoning（思考耗尽了 8192 输出上限）、没有正文和工具调用时，不再以 `complete` 落库成一条只有思考过程的「完整」回复；现在按 `error` 保存并提示「思考太长被截断了，请重试一次」，run 结算为 error（`-use-chat-session.ts` 的 `cutBeforeAnswer`）。
 - 修复 `/db/sync` 安装依赖时找不到 bun：detached supervisor 的 `PATH` 只有系统目录（不含 `~/.bun/bin`），`execSync("bun install ...")` 以 127 退出并让部署失败（PB 未重启）。改用 `execFileSync(process.execPath, ["install", ...])`，直接调用当前运行的 Bun 二进制。
 - 消息操作栏里的「分叉」按钮容易和复制 / 编辑的小图标一起被误点，而点中会立刻复制整个对话并跳转。现在用户消息和 AI 回复都把「从这里分叉新对话」收进 `⋯` 更多菜单（`DropdownMenuItem`），朗读 / 停止朗读与换模型重试也一并收起，行内只保留复制、编辑和重新生成；用户消息的菜单额外提供「复制这条消息」。
 - 修复聊天文件附件在手机上读不出内容：文件改为上传到服务器解析（`POST /ai/files`，`pocketbase/ai-files.ts`），pdf.js 在服务端加载 `node_modules` 里的 CMap 与标准字体，中文 PDF 不再提取为空；没有文字层的扫描 PDF 用 `@napi-rs/canvas` 渲染前几页 JPEG 交给视觉模型。客户端不再加载 pdf.js/CMap（手机端只上传原始字节），解析结果仍作为消息 part 保存；上限为 30MB、50k 字符、20 页文本、4 页图片，解析 60 秒超时。上传计入数据工具限额，nginx 的 `/ai/` 需要 `client_max_body_size 32m`。
