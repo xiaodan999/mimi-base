@@ -6,6 +6,7 @@ import {
     useMemo,
     useRef,
     useState,
+    type ReactNode,
 } from "react";
 import {
     ActionBarPrimitive,
@@ -24,6 +25,7 @@ import {
     Check,
     Copy,
     GitFork,
+    MoreHorizontal,
     Pencil,
     Repeat2,
     RotateCcw,
@@ -50,6 +52,12 @@ import type {
 } from "@/app/chat/types";
 import { usePendingUserInput } from "@/app/chat/user-input";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Sheet,
     SheetContent,
@@ -113,20 +121,79 @@ function AssistantEmpty({ status }: EmptyMessagePartProps) {
     );
 }
 
-/** Per-message fork action; the id comes from the message scope. */
-function ForkButton() {
+/**
+ * Per-message overflow menu. Branching off a message copies the whole
+ * conversation and navigates away, so it must not sit next to the tiny
+ * copy/edit icons where a thumb can hit it by accident.
+ */
+function MessageActionsMenu({ children }: { children: ReactNode }) {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="更多操作"
+                    title="更多操作"
+                    className="size-7 rounded-lg text-muted-foreground"
+                >
+                    <MoreHorizontal className="size-3.5" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+                {children}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
+function ForkMenuItem() {
     const { onFork } = useContext(ThreadActionsContext);
     const messageId = useAuiState((state) => state.message.id);
     return (
-        <button
-            type="button"
-            aria-label="从这里分叉新对话"
-            title="从这里分叉新对话"
-            onClick={() => onFork(messageId)}
-            className="grid size-7 place-items-center rounded-lg text-muted-foreground active:bg-accent"
-        >
+        <DropdownMenuItem onSelect={() => onFork(messageId)}>
             <GitFork className="size-3.5" />
-        </button>
+            从这里分叉新对话
+        </DropdownMenuItem>
+    );
+}
+
+function CopyMenuItem({ label }: { label: string }) {
+    const copied = useAuiState((state) => state.message.isCopied);
+    return (
+        <DropdownMenuItem asChild>
+            <ActionBarPrimitive.Copy>
+                {copied ? (
+                    <Check className="size-3.5 text-primary" />
+                ) : (
+                    <Copy className="size-3.5" />
+                )}
+                {copied ? "已复制" : label}
+            </ActionBarPrimitive.Copy>
+        </DropdownMenuItem>
+    );
+}
+
+/** One item that swaps between 朗读 and 停止朗读 for the current message. */
+function SpeakMenuItem() {
+    const speaking = useAuiState((state) => state.message.speech != null);
+    if (speaking) {
+        return (
+            <DropdownMenuItem asChild>
+                <ActionBarPrimitive.StopSpeaking>
+                    <VolumeX className="size-3.5" />
+                    停止朗读
+                </ActionBarPrimitive.StopSpeaking>
+            </DropdownMenuItem>
+        );
+    }
+    return (
+        <DropdownMenuItem asChild>
+            <ActionBarPrimitive.Speak>
+                <Volume2 className="size-3.5" />
+                朗读回复
+            </ActionBarPrimitive.Speak>
+        </DropdownMenuItem>
     );
 }
 
@@ -190,7 +257,10 @@ function UserMessage() {
                             </Button>
                         </ActionBarPrimitive.Edit>
                     </ActionBarPrimitive.Root>
-                    <ForkButton />
+                    <MessageActionsMenu>
+                        <CopyMenuItem label="复制这条消息" />
+                        <ForkMenuItem />
+                    </MessageActionsMenu>
                 </div>
             </ComposerPrimitive.If>
         </MessagePrimitive.Root>
@@ -237,29 +307,13 @@ function AssistantMessage() {
                                 <Copy className="size-3.5" />
                             </Button>
                         </ActionBarPrimitive.Copy>
-                        <ActionBarPrimitive.Speak asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="朗读回复"
-                                title="朗读回复"
-                                className="size-7 rounded-lg text-muted-foreground"
-                            >
-                                <Volume2 className="size-3.5" />
-                            </Button>
-                        </ActionBarPrimitive.Speak>
-                        <ActionBarPrimitive.StopSpeaking asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="停止朗读"
-                                title="停止朗读"
-                                className="size-7 rounded-lg text-muted-foreground"
-                            >
-                                <VolumeX className="size-3.5" />
-                            </Button>
-                        </ActionBarPrimitive.StopSpeaking>
-                        <ForkButton />
+                        <MessageActionsMenu>
+                            <SpeakMenuItem />
+                            <ForkMenuItem />
+                            <MessagePrimitive.If last>
+                                <RetryModelMenuItem />
+                            </MessagePrimitive.If>
+                        </MessageActionsMenu>
                         <MessagePrimitive.If last>
                             <ActionBarPrimitive.Reload asChild>
                                 <Button
@@ -272,7 +326,6 @@ function AssistantMessage() {
                                     <RotateCcw className="size-3.5" />
                                 </Button>
                             </ActionBarPrimitive.Reload>
-                            <RetryModelButton />
                         </MessagePrimitive.If>
                     </ActionBarPrimitive.Root>
                 </div>
@@ -282,20 +335,14 @@ function AssistantMessage() {
 }
 
 /** Opens the 换模型重试 sheet for this reply. */
-function RetryModelButton() {
+function RetryModelMenuItem() {
     const { onRetryModel } = useContext(ThreadActionsContext);
     const messageId = useAuiState((state) => state.message.id);
     return (
-        <Button
-            variant="ghost"
-            size="icon"
-            aria-label="换个模型重新生成"
-            title="换个模型重新生成"
-            onClick={() => onRetryModel(messageId)}
-            className="size-7 rounded-lg text-muted-foreground"
-        >
+        <DropdownMenuItem onSelect={() => onRetryModel(messageId)}>
             <Repeat2 className="size-3.5" />
-        </Button>
+            换个模型重新生成
+        </DropdownMenuItem>
     );
 }
 
