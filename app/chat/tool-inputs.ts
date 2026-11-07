@@ -46,6 +46,12 @@ export type ToolHooks = {
         artifact: SandboxArtifact;
         caption?: string;
     }) => Promise<ChatArtifactPart>;
+    /**
+     * Whether the run's model accepts image parts. Gates `read_attachment`'s
+     * pages mode: rendered pages would reach the relay as image parts and get
+     * the whole request rejected on a text-only model.
+     */
+    visionEnabled?: boolean;
 };
 
 export type SendFileRequest = {

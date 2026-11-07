@@ -1,45 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-    attachmentToMessageText,
+    attachmentPartFromRecord,
     parseUploadedFileResponse,
+    withExtracted,
 } from "./attachments";
-
-describe("attachmentToMessageText", () => {
-    test("fences extracted text under a header", () => {
-        expect(
-            attachmentToMessageText({
-                name: "笔记.md",
-                kind: "text",
-                content: "# 你好",
-                truncated: false,
-            }),
-        ).toBe("[附件 笔记.md]\n```\n# 你好\n```");
-    });
-
-    test("mentions truncation", () => {
-        expect(
-            attachmentToMessageText({
-                name: "big.txt",
-                kind: "text",
-                content: "x",
-                truncated: true,
-            }),
-        ).toContain("内容过长，已截断");
-    });
-
-    test("labels a scanned PDF as page images", () => {
-        expect(
-            attachmentToMessageText({
-                name: "scan.pdf",
-                kind: "pdf",
-                content: "",
-                truncated: true,
-                pageImages: ["data:image/jpeg;base64,AA"],
-            }),
-        ).toBe("[附件 scan.pdf（扫描件，已转成 1 页图片发送）]");
-    });
-});
 
 describe("parseUploadedFileResponse", () => {
     test("keeps the server result and image data URLs", () => {
@@ -49,6 +14,7 @@ describe("parseUploadedFileResponse", () => {
                 kind: "pdf",
                 content: "",
                 truncated: true,
+                numPages: 12,
                 images: ["data:image/jpeg;base64,AA", "not-an-image"],
             },
             "fallback.pdf",
@@ -58,8 +24,31 @@ describe("parseUploadedFileResponse", () => {
             kind: "pdf",
             content: "",
             truncated: true,
+            numPages: 12,
             pageImages: ["data:image/jpeg;base64,AA"],
         });
+    });
+
+    test("keeps rendered page numbers for a pages-mode read", () => {
+        const file = parseUploadedFileResponse(
+            {
+                name: "合同.pdf",
+                kind: "pdf",
+                content: "",
+                truncated: false,
+                numPages: 30,
+                pages: [5, 6, "bad", 7],
+                images: [
+                    "data:image/jpeg;base64,AA",
+                    "data:image/jpeg;base64,BB",
+                ],
+            },
+            "",
+        );
+        // Pages pair with the images; extras and junk are dropped.
+        expect(file.pages).toEqual([5, 6]);
+        expect(file.pageImages).toHaveLength(2);
+        expect(file.numPages).toBe(30);
     });
 
     test("falls back to the picked name", () => {
@@ -77,5 +66,50 @@ describe("parseUploadedFileResponse", () => {
         expect(() =>
             parseUploadedFileResponse({ kind: "zip" }, "x.md"),
         ).toThrow("文件读取失败");
+    });
+});
+
+describe("attachment parts", () => {
+    const record = {
+        id: "att1",
+        collectionId: "col1",
+        file: "contract_abc123.pdf",
+        name: "订货合同.pdf",
+        mime: "application/pdf",
+        size: 12345,
+        kind: "pdf" as const,
+    };
+
+    test("starts as an empty shell around the stored record", () => {
+        expect(attachmentPartFromRecord(record)).toEqual({
+            type: "attachment",
+            attachmentId: "att1",
+            collectionId: "col1",
+            file: "contract_abc123.pdf",
+            name: "订货合同.pdf",
+            mime: "application/pdf",
+            size: 12345,
+            kind: "pdf",
+            truncated: false,
+            extracted: "",
+            pageImages: [],
+        });
+    });
+
+    test("withExtracted folds the extraction in without losing the reference", () => {
+        const part = withExtracted(attachmentPartFromRecord(record), {
+            name: "订货合同.pdf",
+            kind: "pdf",
+            content: "第一条",
+            truncated: true,
+            numPages: 8,
+            pageImages: ["data:image/jpeg;base64,AA"],
+        });
+        expect(part.attachmentId).toBe("att1");
+        expect(part.file).toBe("contract_abc123.pdf");
+        expect(part.pageCount).toBe(8);
+        expect(part.truncated).toBe(true);
+        expect(part.extracted).toBe("第一条");
+        expect(part.pageImages).toHaveLength(1);
     });
 });

@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchChatModels } from "@/app/chat/api";
 import { base64ToBytes, uploadFileName } from "@/app/chat/artifacts";
+import { type AttachmentRecord } from "@/app/chat/attachments";
 import {
     toChatConversation,
     toChatMemory,
     toChatMessage,
     toChatPersona,
     type ChatArtifactRecord,
+    type ChatAttachmentRecord,
     type ChatConversationRecord,
     type ChatMemoryRecord,
     type ChatMessageRecord,
@@ -26,6 +28,7 @@ import type {
     SandboxFiles,
 } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
+import { isPdfFileName } from "@/lib/chat-files";
 import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import {
@@ -331,6 +334,57 @@ export function useChatActions() {
     );
 
     /**
+     * Store a user-picked file (PDF, text, code) in `chat_attachments` before
+     * the message exists — the relay reads this copy for extraction, and the
+     * `read_attachment` tool re-reads it for follow-up questions. The
+     * conversation link makes conversation deletion clean up unsent picks.
+     */
+    const createAttachment = useCallback(
+        async (input: {
+            conversationId: string;
+            file: File;
+        }): Promise<AttachmentRecord> => {
+            const kind = isPdfFileName(input.file.name) ? "pdf" : "text";
+            const mime =
+                input.file.type ||
+                (kind === "pdf" ? "application/pdf" : "text/plain");
+            const name = uploadFileName(input.file.name);
+            const form = new FormData();
+            form.append("owner", user.id);
+            form.append("conversation", input.conversationId);
+            form.append("name", name);
+            form.append("mime", mime.slice(0, 80));
+            form.append("size", String(input.file.size));
+            form.append("kind", kind);
+            form.append("file", input.file, name);
+            const record = await pb
+                .collection("chat_attachments")
+                .create<ChatAttachmentRecord>(form);
+            if (!record.file) throw new Error("文件没有保存成功");
+            return {
+                id: record.id,
+                collectionId: record.collectionId ?? "",
+                file: record.file,
+                name: record.name || name,
+                mime,
+                size: input.file.size,
+                kind,
+            };
+        },
+        [user.id],
+    );
+
+    /** Delete a pick that never became a message (chip removed pre-send). */
+    const deleteAttachment = useCallback(async (id: string) => {
+        await pb
+            .collection("chat_attachments")
+            .delete(id)
+            .catch(() => {
+                // Already gone (conversation deleted, second tab, ...) is fine.
+            });
+    }, []);
+
+    /**
      * The write behind the chat's `log_expense` tool. Only called after the
      * user confirms the card; invalidating the ledger here keeps every caller
      * consistent (live loop and reload-resume alike).
@@ -537,6 +591,8 @@ export function useChatActions() {
         getMessage,
         createMessage,
         createArtifact,
+        createAttachment,
+        deleteAttachment,
         createExpense,
         updateMessage,
         deleteMessagesAfter,

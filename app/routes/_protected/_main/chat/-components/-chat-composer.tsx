@@ -1,23 +1,16 @@
 import { ComposerPrimitive } from "@assistant-ui/react";
 import { ArrowUp, FileText, Loader2, Paperclip, Square, X } from "lucide-react";
 
+import type { PendingAttachment } from "@/app/chat/attachments";
 import { contextPercent, formatTokenCount } from "@/app/chat/context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type PendingDoc = {
-    name: string;
-    kind: "text" | "pdf";
-    truncated: boolean;
-    /** JPEG pages the server rendered for a scanned PDF. */
-    pageImages?: readonly string[];
-};
-
 export type ChatComposerProps = {
     images: readonly string[];
     addingImages: boolean;
-    /** Extracted document attachments waiting to be sent. */
-    docs: readonly PendingDoc[];
+    /** Stored document attachments waiting to be sent. */
+    docs: readonly PendingAttachment[];
     disabled: boolean;
     /** An ask_user request is waiting; don't send another message. */
     inputPending: boolean;
@@ -59,21 +52,23 @@ export function ChatComposer({
                 <div className="mb-2 flex flex-wrap gap-1.5">
                     {docs.map((doc, index) => (
                         <span
-                            key={`${doc.name}-${index}`}
+                            key={`${doc.part.name}-${index}`}
                             className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/70 bg-card px-2 py-1 text-[11px] text-muted-foreground"
                         >
                             <FileText className="size-3 shrink-0" />
                             <span className="min-w-0 truncate">
-                                {doc.name}
-                                {doc.pageImages?.length
-                                    ? `（已转成 ${doc.pageImages.length} 页图片）`
-                                    : doc.truncated
-                                      ? "（已截断）"
-                                      : ""}
+                                {doc.part.name}
+                                {doc.reading
+                                    ? "（读取中…）"
+                                    : doc.part.pageImages.length > 0
+                                      ? `（前 ${doc.part.pageImages.length} 页已转图片）`
+                                      : doc.part.truncated
+                                        ? "（已截断）"
+                                        : ""}
                             </span>
                             <button
                                 type="button"
-                                aria-label={`移除附件 ${doc.name}`}
+                                aria-label={`移除附件 ${doc.part.name}`}
                                 onClick={() => onRemoveDoc(index)}
                                 className="ml-0.5 shrink-0 text-muted-foreground active:text-foreground"
                             >
@@ -83,14 +78,14 @@ export function ChatComposer({
                     ))}
                 </div>
             )}
-            {docs.some((doc) => (doc.pageImages?.length ?? 0) > 0) && (
+            {docs.some((doc) => doc.part.pageImages.length > 0) && (
                 <div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">
                     {docs.flatMap((doc, docIndex) =>
-                        (doc.pageImages ?? []).map((image, index) => (
+                        doc.part.pageImages.map((image, index) => (
                             <img
-                                key={`${doc.name}-${docIndex}-${index}`}
+                                key={`${doc.part.name}-${docIndex}-${index}`}
                                 src={image}
-                                alt={`${doc.name} 第 ${index + 1} 页`}
+                                alt={`${doc.part.name} 第 ${index + 1} 页`}
                                 className="h-16 w-auto max-w-24 shrink-0 rounded-lg border border-border/70 object-cover"
                             />
                         )),

@@ -47,6 +47,9 @@ function messageLines(message: ChatMessage): string[] {
                         : `[文件 ${part.name}]`,
                 );
                 break;
+            case "attachment":
+                lines.push(`[附件 ${part.name}]`);
+                break;
             case "tool-call": {
                 const title = TOOL_TITLES[part.toolName] ?? part.toolName;
                 if (part.isError) {

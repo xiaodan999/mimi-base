@@ -6,6 +6,7 @@ import {
     isAllowedFileSize,
     isPdfFileName,
     isSupportedFileName,
+    parsePageSpec,
     sanitizeFileName,
 } from "./chat-files";
 
@@ -46,5 +47,25 @@ describe("isAllowedFileSize", () => {
         expect(isAllowedFileSize(MAX_FILE_BYTES + 1)).toBe(false);
         expect(isAllowedFileSize(Number.NaN)).toBe(false);
         expect(isAllowedFileSize(MAX_FILE_BYTES)).toBe(true);
+    });
+});
+
+describe("parsePageSpec", () => {
+    test("parses single pages and ranges in any order", () => {
+        expect(parsePageSpec("3", 20)).toEqual([3]);
+        expect(parsePageSpec("2-5", 20)).toEqual([2, 3, 4, 5]);
+        expect(parsePageSpec("5-2", 20)).toEqual([2, 3, 4, 5]);
+        expect(parsePageSpec("1, 3，7", 20)).toEqual([1, 3, 7]);
+    });
+
+    test("clamps to the document and drops junk", () => {
+        expect(parsePageSpec("0, 8, 21", 20)).toEqual([8]);
+        expect(parsePageSpec("abc", 20)).toEqual([]);
+        expect(parsePageSpec("", 20)).toEqual([]);
+    });
+
+    test("caps the number of pages per request", () => {
+        expect(parsePageSpec("1-30", 200)).toHaveLength(10);
+        expect(parsePageSpec("1-30", 3)).toEqual([1, 2, 3]);
     });
 });

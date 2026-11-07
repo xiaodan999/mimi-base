@@ -193,6 +193,146 @@ describe("buildApiMessages", () => {
     });
 });
 
+describe("buildApiMessages with attachments", () => {
+    const attachmentPart = {
+        type: "attachment" as const,
+        attachmentId: "att1",
+        collectionId: "col1",
+        file: "contract.pdf",
+        name: "订货合同.pdf",
+        mime: "application/pdf",
+        size: 100,
+        kind: "pdf" as const,
+        pageCount: 12,
+        truncated: false,
+        extracted: "第一条 甲方……",
+        pageImages: ["data:image/jpeg;base64,AA"],
+    };
+
+    test("the newest attachment turn expands text plus page images", () => {
+        const result = buildApiMessages(
+            [
+                message({
+                    parts: [{ type: "text", text: "这是什么" }, attachmentPart],
+                }),
+            ],
+            "",
+        );
+        const user = result[1] as {
+            role: string;
+            content: { type: string; text?: string }[];
+        };
+        expect(user.role).toBe("user");
+        expect(user.content[0]).toMatchObject({ type: "text" });
+        const text = (user.content[0] as { text: string }).text;
+        expect(text).toContain("[附件 订货合同.pdf（PDF，共 12 页）]");
+        expect(text).toContain("第一条 甲方……");
+        expect(user.content[1]).toMatchObject({
+            type: "image_url",
+            image_url: { url: "data:image/jpeg;base64,AA" },
+        });
+        expect(user.content).toHaveLength(2);
+    });
+
+    test("older attachment turns collapse to a read_attachment stub", () => {
+        const result = buildApiMessages(
+            [
+                message({ id: "u1", seq: 1, parts: [attachmentPart] }),
+                message({
+                    id: "a1",
+                    seq: 2,
+                    role: "assistant",
+                    parts: [{ type: "text", text: "答复" }],
+                }),
+                message({
+                    id: "u2",
+                    seq: 3,
+                    parts: [
+                        { type: "text", text: "再看看这份" },
+                        attachmentPart,
+                    ],
+                }),
+            ],
+            "",
+        );
+        // u2 is the newest attachment turn and keeps its full content; u1
+        // collapses so history stays bounded.
+        const stub = (result[1] as { content: string }).content;
+        expect(stub).toContain("已省略");
+        expect(stub).toContain("read_attachment");
+        expect(stub).toContain("attachmentId: att1");
+        expect(stub).not.toContain("第一条 甲方……");
+        expect(JSON.stringify(result[1])).not.toContain("data:image/jpeg");
+        const full = result[3] as {
+            role: string;
+            content: { type: string }[];
+        };
+        expect(full.role).toBe("user");
+        expect(full.content).toHaveLength(2);
+    });
+
+    test("read_attachment results keep the full text and append page images as a user turn", () => {
+        const result = buildApiMessages(
+            [
+                message({
+                    role: "assistant",
+                    parts: [
+                        {
+                            type: "tool-call",
+                            toolCallId: "call_1",
+                            toolName: "read_attachment",
+                            argsText:
+                                '{"attachmentId":"att1","mode":"pages","pages":"2-3"}',
+                            result: { ok: true, pages: [2, 3] },
+                            resultImages: ["data:image/jpeg;base64,AA"],
+                        },
+                        { type: "text", text: "这两页写了……" },
+                    ],
+                }),
+            ],
+            "",
+        );
+        const tool = result[2] as { role: string; content: string };
+        expect(tool.role).toBe("tool");
+        expect(tool.content).toContain('"pages":[2,3]');
+        expect(tool.content).not.toContain("data:image");
+        const synthetic = result[3] as {
+            role: string;
+            content: { type: string }[];
+        };
+        expect(synthetic.role).toBe("user");
+        expect(synthetic.content[0]).toMatchObject({ type: "text" });
+        expect(synthetic.content[1]).toMatchObject({
+            type: "image_url",
+            image_url: { url: "data:image/jpeg;base64,AA" },
+        });
+    });
+
+    test("a long read_attachment text result is capped at the attachment limit, not 12k", () => {
+        const longText = "x".repeat(30_000);
+        const result = buildApiMessages(
+            [
+                message({
+                    role: "assistant",
+                    parts: [
+                        {
+                            type: "tool-call",
+                            toolCallId: "call_1",
+                            toolName: "read_attachment",
+                            argsText: '{"attachmentId":"att1","mode":"text"}',
+                            result: { ok: true, content: longText },
+                        },
+                        { type: "text", text: "读完" },
+                    ],
+                }),
+            ],
+            "",
+        );
+        const tool = result[2] as { content: string };
+        expect(tool.content.length).toBeGreaterThan(20_000);
+    });
+});
+
 describe("toolResultText", () => {
     test("keeps strings and serializes objects", () => {
         expect(toolResultText("hi")).toBe("hi");

@@ -17,6 +17,7 @@ import {
     useAui,
     useAuiState,
     type AppendMessage,
+    type DataMessagePartProps,
     type EmptyMessagePartProps,
     type ImageMessagePartProps,
 } from "@assistant-ui/react";
@@ -24,6 +25,7 @@ import {
     ArrowDown,
     Check,
     Copy,
+    FileText,
     GitFork,
     MoreHorizontal,
     Pencil,
@@ -36,15 +38,19 @@ import {
 import { toast } from "sonner";
 
 import { imagesToDataUrls } from "@/app/ai/image";
+import { formatBytes } from "@/app/chat/artifacts";
 import {
-    attachmentToMessageText,
-    extractFileText,
+    attachmentPartFromRecord,
+    extractAttachment,
+    withExtracted,
     FILE_ACCEPT,
     MAX_ATTACHMENTS,
-    type ExtractedFile,
+    type AttachmentRecord,
+    type PendingAttachment,
 } from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
 import type {
+    ChatAttachmentPart,
     ChatMessage,
     ChatModel,
     ChatPart,
@@ -64,8 +70,11 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { MAX_PAGE_IMAGES } from "@/lib/chat-files";
+import { getFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
+import { useChatActions } from "../-data";
 import type { LiveReply } from "../-use-chat-session";
 import { ArtifactPreviewProvider } from "./-artifact-viewer";
 import { AttachmentSheet } from "./-attachment-sheet";
@@ -84,12 +93,9 @@ import { UserInputPanel } from "./-user-input-panel";
 
 const MAX_IMAGES = 4;
 
-/** Page images rendered from scanned PDFs count toward the image limit. */
-function docImageCount(docs: readonly ExtractedFile[]): number {
-    return docs.reduce(
-        (total, doc) => total + (doc.pageImages?.length ?? 0),
-        0,
-    );
+/** Page images rendered from PDFs have their own per-message budget. */
+function docImageCount(docs: readonly PendingAttachment[]): number {
+    return docs.reduce((total, doc) => total + doc.part.pageImages.length, 0);
 }
 
 type ThreadActions = {
@@ -113,6 +119,44 @@ function UserText({ text }: { text: string }) {
 
 function UserImage({ image, filename }: ImageMessagePartProps) {
     return <ChatImage image={image} filename={filename} />;
+}
+
+/**
+ * File card for a stored attachment. Tapping opens the original file (the
+ * protected URL gets a fresh short-lived token per render).
+ */
+function UserAttachmentCard({ data }: DataMessagePartProps) {
+    const part = data as ChatAttachmentPart | undefined;
+    if (!part || part.type !== "attachment") return null;
+    const detail =
+        part.kind === "pdf" && part.pageCount
+            ? `PDF · ${part.pageCount} 页`
+            : part.kind === "pdf"
+              ? "PDF"
+              : formatBytes(part.size);
+    const url = getFileUrl(
+        { id: part.attachmentId, collectionId: part.collectionId },
+        part.file,
+    );
+    return (
+        <a
+            href={url || undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="mb-1.5 flex max-w-xs items-center gap-2 rounded-xl bg-primary-foreground/10 px-2.5 py-2 text-primary-foreground active:bg-primary-foreground/20"
+        >
+            <FileText className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium leading-tight">
+                    {part.name}
+                </span>
+                <span className="block text-[11px] leading-tight opacity-70">
+                    {detail}
+                    {part.truncated ? " · 已截断" : ""}
+                </span>
+            </span>
+        </a>
+    );
 }
 
 function AssistantEmpty({ status }: EmptyMessagePartProps) {
@@ -245,7 +289,15 @@ function UserMessage() {
             <ComposerPrimitive.If editing={false}>
                 <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
                     <MessagePrimitive.Parts
-                        components={{ Text: UserText, Image: UserImage }}
+                        components={{
+                            Text: UserText,
+                            Image: UserImage,
+                            data: {
+                                by_name: {
+                                    attachment: UserAttachmentCard,
+                                },
+                            },
+                        }}
                     />
                 </div>
                 <div className="mt-1 flex min-h-7 items-center gap-0.5 opacity-60 transition-opacity group-hover/message:opacity-100">
@@ -453,35 +505,40 @@ export function ChatThread({
     onFork,
 }: ChatThreadProps) {
     const [images, setImages] = useState<string[]>([]);
-    const [docs, setDocs] = useState<ExtractedFile[]>([]);
+    const [docs, setDocs] = useState<PendingAttachment[]>([]);
     const [addingImages, setAddingImages] = useState(false);
     const [retryTarget, setRetryTarget] = useState<string | null>(null);
     const [attachOpen, setAttachOpen] = useState(false);
     const [postsOpen, setPostsOpen] = useState(false);
     const imagesRef = useRef<string[]>([]);
     imagesRef.current = images;
-    const docsRef = useRef<ExtractedFile[]>([]);
+    const docsRef = useRef<PendingAttachment[]>([]);
     docsRef.current = docs;
     const docInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
 
     const visionEnabled = model?.vision === true;
     const disabled = !model;
+    const { createAttachment, deleteAttachment } = useChatActions();
 
     const threadActions = useMemo(
         () => ({ onFork, onRetryModel: setRetryTarget }),
         [onFork],
     );
 
-    // Switching to a text-only model must not leave images queued for a
-    // request the relay would reject. A scanned PDF is only page images, so
-    // it is dropped with them.
+    // Switching to a text-only model must not leave page images queued for a
+    // request the relay would reject. The attachment itself stays — its
+    // extracted text still reads fine without vision.
     useEffect(() => {
         if (visionEnabled) return;
         setImages((previous) => (previous.length > 0 ? [] : previous));
         setDocs((previous) =>
-            previous.some((doc) => doc.pageImages)
-                ? previous.filter((doc) => !doc.pageImages)
+            previous.some((doc) => doc.part.pageImages.length > 0)
+                ? previous.map((doc) =>
+                      doc.part.pageImages.length > 0
+                          ? { ...doc, part: { ...doc.part, pageImages: [] } }
+                          : doc,
+                  )
                 : previous,
         );
     }, [visionEnabled]);
@@ -489,7 +546,7 @@ export function ChatThread({
     const sendWithAttachments = useCallback(
         async (parts: ChatPart[]) => {
             const pendingImages = imagesRef.current;
-            const pendingDocs = docsRef.current;
+            const pendingDocs = docsRef.current.filter((doc) => !doc.reading);
             if (pendingImages.length > 0) {
                 imagesRef.current = [];
                 setImages([]);
@@ -498,18 +555,12 @@ export function ChatThread({
                 docsRef.current = [];
                 setDocs([]);
             }
+            // Orphaned picks (still reading, or dropped by the filter) are
+            // cleaned up by the conversation cascade; sending references the
+            // stored record instead of inlining the extraction.
             const withAttachments: ChatPart[] = [
                 ...parts,
-                ...pendingDocs.map((doc) => ({
-                    type: "text" as const,
-                    text: attachmentToMessageText(doc),
-                })),
-                ...pendingDocs.flatMap((doc) =>
-                    (doc.pageImages ?? []).map((image) => ({
-                        type: "image" as const,
-                        image,
-                    })),
-                ),
+                ...pendingDocs.map((doc) => doc.part),
                 ...pendingImages.map((image) => ({
                     type: "image" as const,
                     image,
@@ -537,10 +588,7 @@ export function ChatThread({
                 toast.error("当前模型不支持图片，换一个支持视觉的模型");
                 return;
             }
-            const room =
-                MAX_IMAGES -
-                imagesRef.current.length -
-                docImageCount(docsRef.current);
+            const room = MAX_IMAGES - imagesRef.current.length;
             if (room <= 0) {
                 toast.error(`一条消息最多 ${MAX_IMAGES} 张图片`);
                 return;
@@ -570,6 +618,11 @@ export function ChatThread({
         );
     }, []);
 
+    /**
+     * Pick documents: each file is stored in `chat_attachments` first, then
+     * the relay reads the stored copy (text extraction + page images for
+     * vision models). Failed reads drop the chip and the record.
+     */
     const handleAddDocs = useCallback(
         async (files: FileList | null) => {
             if (!files || files.length === 0) return;
@@ -580,19 +633,52 @@ export function ChatThread({
             }
             setAddingImages(true);
             try {
-                const extracted: ExtractedFile[] = [];
+                // Page images share one per-message budget across documents.
                 let imageRoom =
-                    MAX_IMAGES -
-                    imagesRef.current.length -
-                    docImageCount(docsRef.current);
+                    MAX_PAGE_IMAGES - docImageCount(docsRef.current);
                 for (const file of Array.from(files).slice(0, room)) {
+                    let record: AttachmentRecord | null = null;
                     try {
-                        const doc = await extractFileText(file, {
-                            pageImageLimit: visionEnabled ? imageRoom : 0,
+                        record = await createAttachment({
+                            conversationId,
+                            file,
                         });
-                        imageRoom -= doc.pageImages?.length ?? 0;
-                        extracted.push(doc);
+                        const recordId = record.id;
+                        const part = attachmentPartFromRecord(record);
+                        setDocs((previous) =>
+                            [...previous, { part, reading: true }].slice(
+                                0,
+                                MAX_ATTACHMENTS,
+                            ),
+                        );
+                        const pageImageLimit = visionEnabled
+                            ? Math.max(0, imageRoom)
+                            : 0;
+                        const extracted = await extractAttachment(recordId, {
+                            pageImageLimit,
+                        });
+                        imageRoom -= extracted.pageImages?.length ?? 0;
+                        setDocs((previous) =>
+                            previous.map((doc) =>
+                                doc.part.attachmentId === recordId
+                                    ? {
+                                          part: withExtracted(
+                                              doc.part,
+                                              extracted,
+                                          ),
+                                          reading: false,
+                                      }
+                                    : doc,
+                            ),
+                        );
                     } catch (error) {
+                        const failedId = record?.id;
+                        if (failedId) void deleteAttachment(failedId);
+                        setDocs((previous) =>
+                            previous.filter(
+                                (doc) => doc.part.attachmentId !== failedId,
+                            ),
+                        );
                         toast.error(
                             error instanceof Error
                                 ? error.message
@@ -600,32 +686,29 @@ export function ChatThread({
                         );
                     }
                 }
-                if (extracted.length > 0) {
-                    setDocs((previous) =>
-                        [...previous, ...extracted].slice(0, MAX_ATTACHMENTS),
-                    );
-                }
             } finally {
                 setAddingImages(false);
             }
         },
-        [visionEnabled],
+        [conversationId, createAttachment, deleteAttachment, visionEnabled],
     );
 
-    const removeDoc = useCallback((index: number) => {
-        setDocs((previous) =>
-            previous.filter((_, current) => current !== index),
-        );
-    }, []);
+    const removeDoc = useCallback(
+        (index: number) => {
+            const doc = docsRef.current[index];
+            if (doc) void deleteAttachment(doc.part.attachmentId);
+            setDocs((previous) =>
+                previous.filter((_, current) => current !== index),
+            );
+        },
+        [deleteAttachment],
+    );
 
     const addPickedImage = useCallback(
         (dataUrl: string) => {
             if (!visionEnabled) return;
             setImages((previous) =>
-                [...previous, dataUrl].slice(
-                    0,
-                    Math.max(0, MAX_IMAGES - docImageCount(docsRef.current)),
-                ),
+                [...previous, dataUrl].slice(0, MAX_IMAGES),
             );
         },
         [visionEnabled],

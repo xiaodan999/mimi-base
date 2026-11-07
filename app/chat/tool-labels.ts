@@ -10,6 +10,7 @@ export const TOOL_TITLES: Record<string, string> = {
     render_ui: "生成卡片",
     memory: "记忆",
     read_url: "读网页",
+    read_attachment: "读附件",
     get_expenses: "查账本",
     search_posts: "搜动态",
     log_expense: "记账",

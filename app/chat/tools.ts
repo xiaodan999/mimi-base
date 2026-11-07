@@ -18,6 +18,8 @@ import {
 import {
     postTool,
     timezoneOffsetMinutes,
+    type AttachmentPagesResult,
+    type AttachmentTextResult,
     type ExpensesToolResult,
     type MemoryToolResult,
     type PostsToolResult,
@@ -300,6 +302,35 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
     {
         type: "function",
         function: {
+            name: "read_attachment",
+            description:
+                "重新读取用户发过的附件（原文存在服务器上）。mode=text 返回提取的完整文字；mode=pages 把指定页渲染成图片（表格、盖章、版式都在图里，一次最多 10 页）。当附件内容在消息里被省略、被截断，或用户问的细节不在已发送的内容里时使用。",
+            parameters: {
+                type: "object",
+                properties: {
+                    attachmentId: {
+                        type: "string",
+                        description: "附件标注里的 attachmentId",
+                    },
+                    mode: {
+                        type: "string",
+                        enum: ["text", "pages"],
+                        description: "text=完整文字；pages=按页渲染图片",
+                    },
+                    pages: {
+                        type: "string",
+                        description:
+                            'mode=pages 时必填，如 "3" 或 "2-5"，一次最多 10 页',
+                    },
+                },
+                required: ["attachmentId", "mode"],
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
             name: "get_expenses",
             description:
                 "查询共享账本的流水和分类汇总（两个人的账都在里面）。from/to 是 YYYY-MM-DD，省略时默认本月。适合「这个月花了多少」「最近吃饭花了多少」这类问题；要把结果画出来就用 show_chart。",
@@ -383,6 +414,12 @@ export type ChatToolOutcome = {
     argsText?: string;
     /** Artifact cards produced by this call; appended to the message. */
     artifacts?: ChatArtifactPart[];
+    /**
+     * Page images a `read_attachment` call rendered. Never put them in
+     * `result` — the tool-result JSON would carry megabytes of base64 into
+     * the model context. `prompt.ts` sends them as a synthetic user message.
+     */
+    resultImages?: string[];
 };
 
 export async function executeChatTool(
@@ -561,6 +598,109 @@ async function runChatTool(
                     url,
                     error:
                         error instanceof Error ? error.message : "网页读取失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "read_attachment") {
+        const attachmentId =
+            typeof args.attachmentId === "string"
+                ? args.attachmentId.trim()
+                : "";
+        const mode = args.mode === "pages" ? "pages" : "text";
+        const pages = typeof args.pages === "string" ? args.pages : "";
+        if (attachmentId === "") {
+            return {
+                result: { ok: false, error: "缺少附件的 attachmentId" },
+                files,
+                isError: true,
+            };
+        }
+        if (mode === "pages" && pages.trim() === "") {
+            return {
+                result: { ok: false, error: "mode=pages 时要给出页码" },
+                files,
+                isError: true,
+            };
+        }
+        // Rendered pages reach the provider as image parts; a text-only
+        // model would get the whole request rejected by the relay.
+        if (mode === "pages" && hooks.visionEnabled !== true) {
+            return {
+                result: {
+                    ok: false,
+                    error: "当前模型不支持图片，用 mode=text 读取原文，或换一个支持视觉的模型",
+                },
+                files,
+                isError: true,
+            };
+        }
+        try {
+            if (mode === "pages") {
+                const data = await postTool<
+                    AttachmentPagesResult & { images?: unknown }
+                >("/files", {
+                    attachmentId,
+                    pages,
+                });
+                if (!data.ok) {
+                    return {
+                        result: {
+                            ok: false,
+                            attachmentId,
+                            error: data.error ?? "附件页读不了",
+                        },
+                        files,
+                        isError: true,
+                    };
+                }
+                // The relay answers with data URLs in `images`; the model's
+                // result stays page numbers only, images ride separately.
+                const resultImages = (
+                    Array.isArray(data.images) ? data.images : []
+                ).filter(
+                    (image): image is string =>
+                        typeof image === "string" &&
+                        image.startsWith("data:image/jpeg;base64,"),
+                );
+                return {
+                    result: {
+                        ok: true,
+                        attachmentId,
+                        name: data.name,
+                        pages: data.pages,
+                        numPages: data.numPages,
+                    },
+                    files,
+                    isError: false,
+                    ...(resultImages.length > 0 ? { resultImages } : {}),
+                };
+            }
+            const data = await postTool<AttachmentTextResult>("/files", {
+                attachmentId,
+            });
+            if (!data.ok) {
+                return {
+                    result: {
+                        ok: false,
+                        attachmentId,
+                        error: data.error ?? "附件读不了",
+                    },
+                    files,
+                    isError: true,
+                };
+            }
+            return { result: data, files, isError: false };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    attachmentId,
+                    error:
+                        error instanceof Error ? error.message : "附件读取失败",
                 },
                 files,
                 isError: true,

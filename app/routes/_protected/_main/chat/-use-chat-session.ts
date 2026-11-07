@@ -333,6 +333,7 @@ export function useChatSession({
 
                 const toolHooks: ToolHooks = {
                     conversationId,
+                    visionEnabled: modelInfo.vision,
                     createExpense: actions.createExpense,
                     saveArtifact: async ({ artifact }) =>
                         actions.createArtifact({
@@ -374,6 +375,10 @@ export function useChatSession({
                             : {}),
                         result: toolOutcome.result,
                         isError: toolOutcome.isError,
+                        ...(toolOutcome.resultImages &&
+                        toolOutcome.resultImages.length > 0
+                            ? { resultImages: toolOutcome.resultImages }
+                            : {}),
                     });
                     if (toolOutcome.artifacts?.length) {
                         artifactParts.push(...toolOutcome.artifacts);
@@ -568,8 +573,8 @@ export function useChatSession({
     /**
      * Edit a sent user message and rerun from it. assistant-ui hands us an
      * AppendMessage whose `parentId` is the edited message's parent; the
-     * edited message is the first user message after that point. Images on
-     * the original message are kept (only text is editable).
+     * edited message is the first user message after that point. Images and
+     * attachments on the original message are kept (only text is editable).
      */
     const editUserMessage = useCallback(
         async (message: AppendMessage) => {
@@ -591,10 +596,10 @@ export function useChatSession({
             if (!target) return;
 
             const textParts = appendMessageParts(message);
-            const keptImages = target.parts.filter(
-                (part) => part.type === "image",
+            const keptParts = target.parts.filter(
+                (part) => part.type === "image" || part.type === "attachment",
             );
-            const parts: ChatPart[] = [...textParts, ...keptImages];
+            const parts: ChatPart[] = [...textParts, ...keptParts];
             if (parts.length === 0) return;
             const content = messageText(parts);
 

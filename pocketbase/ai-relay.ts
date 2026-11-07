@@ -13,7 +13,12 @@
 
 import { createHash } from "node:crypto";
 
-import { AI_FILES_PATH, FileReadError, extractUploadedFile } from "./ai-files";
+import {
+    AI_FILES_PATH,
+    FileReadError,
+    extractPdfPageImages,
+    extractUploadedFile,
+} from "./ai-files";
 import {
     AI_TOOLS_EXPENSES_PATH,
     AI_TOOLS_MEMORY_PATH,
@@ -50,7 +55,12 @@ export const AI_HEALTH_PATH = "/ai/health";
 export const AI_GEO_IP_PATH = "/ai/geo/ip";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
-const MAX_BODY_BYTES = 4 * 1024 * 1024;
+/**
+ * Data-URL page images in the history and in read_attachment bursts are the
+ * payload driver; 4MB 413-ed long PDF chats. Tool results and attachments
+ * stay capped in lib/chat-files.ts, so this is headroom, not a license.
+ */
+const MAX_BODY_BYTES = 16 * 1024 * 1024;
 /** Tool calls carry whole files in their arguments; 4k truncated them. */
 const MAX_OUTPUT_TOKENS = 8192;
 const MAX_UPLOAD_BYTES = MAX_FILE_BYTES;
@@ -410,6 +420,208 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         }
     }
 
+    /**
+     * `/ai/files`: the current client persists the file in `chat_attachments`
+     * first and asks us to read that stored copy (JSON body). The raw-bytes
+     * path stays for a client that ships ahead of the server (the SPA and the
+     * supervisor deploy independently).
+     */
+    async function readFileAttachment(req: Request): Promise<Response> {
+        const contentType = req.headers.get("content-type") ?? "";
+        if (contentType.trim().toLowerCase().startsWith("application/json")) {
+            return readStoredAttachment(req);
+        }
+        return uploadFile(req);
+    }
+
+    /**
+     * Extract from an attachment the client already stored in
+     * `chat_attachments`. Ownership is enforced by the record's view rule
+     * (fetched with the caller's own token); the bytes are fetched through
+     * the loopback file API with a short-lived file token.
+     */
+    async function readStoredAttachment(req: Request): Promise<Response> {
+        const auth = await authenticate(req);
+        if (!auth.ok) return auth.response;
+
+        // Same budget as the legacy upload: user-triggered, PDF parsing is
+        // not free.
+        const limited = checkToolsRate(auth.uid);
+        if (limited) return limited;
+        const quota = checkToolsQuota(auth.uid);
+        if (quota) return quota;
+
+        let body: {
+            attachmentId?: unknown;
+            pageImageLimit?: unknown;
+            pages?: unknown;
+        };
+        try {
+            const text = await req.text();
+            if (text.length > MAX_TOOLS_BODY_BYTES) {
+                return json(413, {
+                    error: { message: "请求太大了" },
+                });
+            }
+            body = JSON.parse(text) as typeof body;
+        } catch {
+            return json(400, { error: { message: "请求格式不对" } });
+        }
+        const attachmentId =
+            typeof body.attachmentId === "string"
+                ? body.attachmentId.trim()
+                : "";
+        if (!/^[a-z0-9]+$/.test(attachmentId)) {
+            return json(400, {
+                error: { message: "缺少要读取的附件" },
+            });
+        }
+
+        const record = await fetchStoredRecord(attachmentId, auth.token);
+        if (!record.ok) return record.response;
+        const data = await fetchStoredFile(
+            attachmentId,
+            record.file,
+            auth.token,
+        );
+        if (!data.ok) return data.response;
+
+        try {
+            if (typeof body.pages === "string" && body.pages.trim() !== "") {
+                const file = await extractPdfPageImages(
+                    record.name,
+                    data.bytes,
+                    body.pages,
+                );
+                return json(200, { ok: true, ...file });
+            }
+            const requestedImages = Number(body.pageImageLimit ?? 0);
+            const pageImageLimit =
+                Number.isFinite(requestedImages) && requestedImages > 0
+                    ? Math.floor(requestedImages)
+                    : 0;
+            const file = await extractUploadedFile(record.name, data.bytes, {
+                pageImageLimit,
+            });
+            return json(200, { ok: true, ...file });
+        } catch (error) {
+            if (error instanceof FileReadError) {
+                return json(error.status, {
+                    error: { message: error.message },
+                });
+            }
+            console.error("[ai-relay] attachment read failed", error);
+            return json(500, {
+                error: { message: "文件读取失败，再试一次" },
+            });
+        }
+    }
+
+    /** The attachment record, read with the caller's token (view rule scopes). */
+    async function fetchStoredRecord(
+        attachmentId: string,
+        token: string,
+    ): Promise<
+        | { ok: true; name: string; file: string }
+        | { ok: false; response: Response }
+    > {
+        let res: Response;
+        try {
+            res = await fetchImpl(
+                `${deps.pbBaseUrl}/api/collections/chat_attachments/records/${attachmentId}`,
+                {
+                    headers: { Authorization: token },
+                    signal: AbortSignal.timeout(5_000),
+                },
+            );
+        } catch {
+            return { ok: false, response: serviceUnavailable() };
+        }
+        if (res.status === 404 || res.status === 403) {
+            return {
+                ok: false,
+                response: json(404, {
+                    error: { message: "找不到这个附件，可能已经被删了" },
+                }),
+            };
+        }
+        if (!res.ok) return { ok: false, response: serviceUnavailable() };
+        try {
+            const payload = (await res.json()) as {
+                name?: unknown;
+                file?: unknown;
+            };
+            if (
+                typeof payload.name !== "string" ||
+                typeof payload.file !== "string"
+            ) {
+                return {
+                    ok: false,
+                    response: json(404, {
+                        error: { message: "找不到这个附件，可能已经被删了" },
+                    }),
+                };
+            }
+            return { ok: true, name: payload.name, file: payload.file };
+        } catch {
+            return { ok: false, response: serviceUnavailable() };
+        }
+    }
+
+    /** The stored bytes, via a short-lived PocketBase file token. */
+    async function fetchStoredFile(
+        attachmentId: string,
+        filename: string,
+        authToken: string,
+    ): Promise<
+        { ok: true; bytes: Uint8Array } | { ok: false; response: Response }
+    > {
+        let fileToken = "";
+        try {
+            const res = await fetchImpl(`${deps.pbBaseUrl}/api/files/token`, {
+                method: "POST",
+                headers: { Authorization: authToken },
+                signal: AbortSignal.timeout(5_000),
+            });
+            if (res.ok) {
+                const payload = (await res.json()) as { token?: unknown };
+                if (typeof payload.token === "string") {
+                    fileToken = payload.token;
+                }
+            }
+        } catch {
+            // Fall back to the auth token itself, which PocketBase also
+            // accepts for protected files.
+        }
+
+        const url = `${deps.pbBaseUrl}/api/files/chat_attachments/${attachmentId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(fileToken || authToken)}`;
+        let res: Response;
+        try {
+            res = await fetchImpl(url, {
+                signal: AbortSignal.timeout(30_000),
+            });
+        } catch {
+            return { ok: false, response: serviceUnavailable() };
+        }
+        if (res.status === 404 || res.status === 403) {
+            return {
+                ok: false,
+                response: json(404, {
+                    error: { message: "找不到这个附件，可能已经被删了" },
+                }),
+            };
+        }
+        if (!res.ok) return { ok: false, response: serviceUnavailable() };
+        try {
+            return {
+                ok: true,
+                bytes: new Uint8Array(await res.arrayBuffer()),
+            };
+        } catch {
+            return { ok: false, response: serviceUnavailable() };
+        }
+    }
+
     async function sandbox(req: Request): Promise<Response> {
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
@@ -758,7 +970,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         }
 
         if (url.pathname === AI_FILES_PATH && req.method === "POST") {
-            return uploadFile(req);
+            return readFileAttachment(req);
         }
 
         if (TOOL_PATHS.has(url.pathname) && req.method === "POST") {

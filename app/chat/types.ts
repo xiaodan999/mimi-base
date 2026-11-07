@@ -30,6 +30,12 @@ export type ChatToolCallPart = {
     argsText: string;
     result?: unknown;
     isError?: boolean;
+    /**
+     * Page images a `read_attachment` call rendered. Tool content is
+     * string-only on the wire, so `prompt.ts` re-sends these as a synthetic
+     * user message right after the tool result.
+     */
+    resultImages?: string[];
 };
 
 export type ChatTextPart = { type: "text"; text: string };
@@ -71,12 +77,38 @@ export type ChatArtifactPart =
           caption?: string;
       };
 
+/**
+ * A file the user attached to a message, stored in `chat_attachments`
+ * (owner-scoped, protected file). The original bytes live on the server so
+ * `read_attachment` can re-read them for follow-up questions; the extracted
+ * text and inline page images ride inside this part (and only the newest
+ * attachment turn re-sends them upstream — see `prompt.ts`).
+ */
+export type ChatAttachmentPart = {
+    type: "attachment";
+    attachmentId: string;
+    collectionId: string;
+    file: string;
+    name: string;
+    mime: string;
+    size: number;
+    kind: "pdf" | "text";
+    /** PDF page count, when known. */
+    pageCount?: number;
+    truncated: boolean;
+    /** Server-extracted text; empty for a scanned PDF. */
+    extracted: string;
+    /** Inline page images (JPEG data URLs) for vision models. */
+    pageImages: string[];
+};
+
 export type ChatPart =
     | ChatTextPart
     | ChatReasoningPart
     | ChatImagePart
     | ChatToolCallPart
-    | ChatArtifactPart;
+    | ChatArtifactPart
+    | ChatAttachmentPart;
 
 export type ChatMessageStatus = "complete" | "stopped" | "error";
 

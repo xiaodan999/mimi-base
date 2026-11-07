@@ -5,11 +5,14 @@
  * Text-ish files are decoded as UTF-8. PDFs are parsed with pdf.js on the
  * server, using the CMaps and standard fonts bundled in node_modules: without
  * them Chinese PDFs extract as an empty string, which used to send a blank
- * attachment. A PDF with no text layer (a phone scan) is rendered to JPEG
- * pages instead, for the vision models.
+ * attachment. Vision-capable callers also get the first pages rendered to
+ * JPEG (text extraction flattens tables and layout); a PDF with no text layer
+ * (a phone scan) is page images only.
  *
- * Everything stays in memory: the relay does not persist uploads. Limits are
- * enforced here and by the caller (see `AI_FILES_PATH` in ai-relay.ts).
+ * The bytes themselves are persisted by the client in `chat_attachments`
+ * (owner-scoped, protected file); the relay reads that stored copy for both
+ * the first extraction and later `read_attachment` calls. Limits are enforced
+ * here and by the caller (see `AI_FILES_PATH` in ai-relay.ts).
  */
 
 import { createRequire } from "node:module";
@@ -25,6 +28,7 @@ import {
     isAllowedFileSize,
     isPdfFileName,
     isSupportedFileName,
+    parsePageSpec,
     sanitizeFileName,
 } from "../lib/chat-files";
 
@@ -41,7 +45,15 @@ export type ExtractedFile = {
     kind: "text" | "pdf";
     content: string;
     truncated: boolean;
-    /** JPEG data URLs for a PDF without a text layer. */
+    /** Total PDF pages, so the client can show 尺寸 and offer the rest. */
+    numPages?: number;
+    /** 1-based page numbers of `images`, set by the pages-mode read. */
+    pages?: number[];
+    /**
+     * JPEG data URLs for rendered pages. Vision models get the first pages of
+     * every PDF (tables and layout survive what text extraction mangles);
+     * text-only callers ask for none.
+     */
     images?: string[];
 };
 
@@ -114,19 +126,14 @@ function extractText(name: string, data: Uint8Array): ExtractedFile {
     };
 }
 
-async function extractPdf(
-    name: string,
-    data: Uint8Array,
-    pageImageLimit: number,
-): Promise<ExtractedFile> {
+/** Open a PDF with the shared error mapping; caller destroys the doc. */
+async function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
     if (!hasPdfHeader(data)) {
         throw new FileReadError("这个文件不是有效的 PDF");
     }
-
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    let doc;
     try {
-        doc = await pdfjs.getDocument({
+        return await pdfjs.getDocument({
             data,
             cMapUrl: CMAP_URL,
             cMapPacked: true,
@@ -145,7 +152,14 @@ async function extractPdf(
         }
         throw new FileReadError("这个 PDF 打不开，可能文件损坏了");
     }
+}
 
+async function extractPdf(
+    name: string,
+    data: Uint8Array,
+    pageImageLimit: number,
+): Promise<ExtractedFile> {
+    const doc = await openPdf(data);
     const deadline = Date.now() + MAX_PDF_MS;
     try {
         if (doc.numPages === 0) throw new FileReadError("这个 PDF 没有页面");
@@ -169,42 +183,92 @@ async function extractPdf(
         }
 
         text = text.replace(/[ \t]+/g, " ").trim();
-        if (text !== "") {
-            return {
-                name,
-                kind: "pdf",
-                content: text.slice(0, MAX_FILE_CHARS),
-                truncated:
-                    timedOut ||
-                    text.length > MAX_FILE_CHARS ||
-                    doc.numPages > pages,
-            };
-        }
-        if (timedOut) {
+        if (text === "" && timedOut) {
             throw new FileReadError(
                 "这个 PDF 有点大，读取超时了；试试只发前几页",
             );
         }
 
+        // Vision-first: a vision-capable caller (pageImageLimit > 0) gets the
+        // first pages as images alongside the text — text extraction flattens
+        // tables and layout, the page bitmap does not. Text-only callers get
+        // text alone; a scan (no text layer) still requires images.
         const limit = Math.max(
             0,
             Math.min(MAX_PAGE_IMAGES, Math.floor(pageImageLimit)),
         );
-        if (limit === 0) {
-            throw new FileReadError(
-                "这个 PDF 没有文字层（可能是扫描件），需要发送图片才能读；换个支持图片的模型或移除几张图片再试",
+        let images: string[] = [];
+        if (limit > 0) {
+            images = await renderPdfPages(
+                doc,
+                rangePages(1, Math.min(doc.numPages, limit)),
+                deadline,
             );
         }
-
-        const images = await renderPdfPages(doc, limit, deadline);
-        if (images.length === 0) {
+        if (text === "" && images.length === 0) {
+            if (limit === 0) {
+                throw new FileReadError(
+                    "这个 PDF 没有文字层（可能是扫描件），需要发送图片才能读；换个支持图片的模型或移除几张图片再试",
+                );
+            }
             throw new FileReadError("这个 PDF 读不出内容（可能是扫描件）");
+        }
+
+        return {
+            name,
+            kind: "pdf",
+            content: text.slice(0, MAX_FILE_CHARS),
+            truncated:
+                timedOut ||
+                text.length > MAX_FILE_CHARS ||
+                doc.numPages > pages ||
+                doc.numPages > images.length,
+            numPages: doc.numPages,
+            ...(images.length > 0 ? { images } : {}),
+        };
+    } finally {
+        void doc.destroy();
+    }
+}
+
+/**
+ * Render specific pages of a stored PDF (`read_attachment` mode=pages). Page
+ * numbers come from the model, so they are clamped through `parsePageSpec`
+ * before anything is rendered.
+ */
+export async function extractPdfPageImages(
+    rawName: string,
+    data: Uint8Array,
+    spec: string,
+): Promise<ExtractedFile> {
+    const name = sanitizeFileName(rawName);
+    if (!isPdfFileName(name)) {
+        throw new FileReadError("只有 PDF 才能按页读取");
+    }
+    if (!isAllowedFileSize(data.byteLength)) {
+        throw new FileReadError("文件太大了，读不了", 413);
+    }
+    const doc = await openPdf(data);
+    const deadline = Date.now() + MAX_PDF_MS;
+    try {
+        if (doc.numPages === 0) throw new FileReadError("这个 PDF 没有页面");
+        const pages = parsePageSpec(spec, doc.numPages);
+        if (pages.length === 0) {
+            throw new FileReadError(
+                `页码不对；这个 PDF 共 ${doc.numPages} 页，用 1-${doc.numPages} 之间的页码`,
+            );
+        }
+        const images = await renderPdfPages(doc, pages, deadline);
+        if (images.length === 0) {
+            throw new FileReadError("这几页渲染不出来，换几页试试");
         }
         return {
             name,
             kind: "pdf",
             content: "",
-            truncated: doc.numPages > images.length,
+            truncated: false,
+            numPages: doc.numPages,
+            pages: pages.slice(0, images.length),
             images,
         };
     } finally {
@@ -212,9 +276,15 @@ async function extractPdf(
     }
 }
 
+function rangePages(from: number, to: number): number[] {
+    const pages: number[] = [];
+    for (let page = from; page <= to; page++) pages.push(page);
+    return pages;
+}
+
 async function renderPdfPages(
     doc: PDFDocumentProxy,
-    limit: number,
+    pages: readonly number[],
     deadline: number,
 ): Promise<string[]> {
     let createCanvas: typeof import("@napi-rs/canvas").createCanvas;
@@ -230,10 +300,9 @@ async function renderPdfPages(
     }
 
     const images: string[] = [];
-    const pages = Math.min(doc.numPages, limit);
-    for (let index = 1; index <= pages; index++) {
+    for (const pageNumber of pages) {
         if (Date.now() > deadline) break;
-        const page = await doc.getPage(index);
+        const page = await doc.getPage(pageNumber);
         const base = page.getViewport({ scale: 1 });
         const scale = Math.min(
             2,

@@ -190,7 +190,7 @@ describe("request forwarding", () => {
         const { relay } = harness();
         const big = JSON.stringify({
             messages: [],
-            padding: "x".repeat(4 * 1024 * 1024 + 1),
+            padding: "x".repeat(16 * 1024 * 1024 + 1),
         });
         const res = await relay(
             request(AI_CHAT_PATH, {
@@ -384,5 +384,120 @@ describe("attachments", () => {
             }),
         );
         expect(res?.status).toBe(413);
+    });
+});
+
+describe("stored attachments (JSON reads)", () => {
+    const fixtures = path.join(import.meta.dir, "__fixtures__/chat-files");
+    const RECORD_URL = `${PB_BASE}/api/collections/chat_attachments/records/att1`;
+    const FILE_URL = `${PB_BASE}/api/files/chat_attachments/att1/contract.pdf`;
+
+    /** Relay whose PocketBase serves one stored attachment record. */
+    function storedHarness(overrides: { recordStatus?: number } = {}) {
+        const calls: Call[] = [];
+        const fetchImpl = (async (
+            input: RequestInfo | URL,
+            init?: RequestInit,
+        ) => {
+            const url = String(input);
+            calls.push({ url, init });
+            if (url === `${PB_BASE}/api/collections/users/auth-refresh`) {
+                return authHeader(init) === "good-token"
+                    ? json({ record: { id: "user-1" } })
+                    : json({ message: "invalid" }, 401);
+            }
+            if (url === RECORD_URL) {
+                const status = overrides.recordStatus ?? 200;
+                if (status !== 200) return json({}, status);
+                return json({ name: "订货合同.pdf", file: "contract.pdf" });
+            }
+            if (url === `${PB_BASE}/api/files/token`) {
+                return json({ token: "file-token" });
+            }
+            if (url.startsWith(FILE_URL)) {
+                return new Response(
+                    readFileSync(path.join(fixtures, "cjk-text.pdf")),
+                    { status: 200 },
+                );
+            }
+            return json({});
+        }) as typeof fetch;
+        const relay = createAiRelay({
+            pbBaseUrl: PB_BASE,
+            apiKey: "server-key",
+            model: "deepseek-v4.1-flash",
+            dailyLimit: 0,
+            fetch: fetchImpl,
+        });
+        return { relay, calls };
+    }
+
+    function storedRead(body: Record<string, unknown>): Request {
+        return request(AI_FILES_PATH, {
+            method: "POST",
+            headers: {
+                Authorization: "good-token",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        });
+    }
+
+    test("extracts the stored copy instead of taking raw bytes", async () => {
+        const { relay, calls } = storedHarness();
+        const res = await relay(storedRead({ attachmentId: "att1" }));
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as { content?: string; ok?: boolean };
+        expect(body.ok).toBe(true);
+        expect(body.content).toContain("你好");
+        // Record fetched with the caller's token (view rule scopes it); the
+        // file comes through the file-token URL.
+        const recordCall = calls.find((call) => call.url === RECORD_URL);
+        expect(authHeader(recordCall?.init)).toBe("good-token");
+        expect(calls.some((call) => call.url.includes("files/token"))).toBe(
+            true,
+        );
+    });
+
+    test("a missing record is 404 and readable", async () => {
+        const { relay } = storedHarness({ recordStatus: 404 });
+        const res = await relay(storedRead({ attachmentId: "att1" }));
+        expect(res?.status).toBe(404);
+        expect(await res!.json()).toMatchObject({
+            error: { message: "找不到这个附件，可能已经被删了" },
+        });
+    });
+
+    test("pages mode renders the requested pages", async () => {
+        const { relay } = storedHarness();
+        const res = await relay(
+            storedRead({ attachmentId: "att1", pages: "1" }),
+        );
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            pages?: number[];
+            images?: string[];
+        };
+        expect(body.pages).toEqual([1]);
+        expect(body.images?.[0]).toStartWith("data:image/jpeg;base64,");
+    });
+
+    test("garbage bodies are rejected", async () => {
+        const { relay } = storedHarness();
+        const res = await relay(
+            request(AI_FILES_PATH, {
+                method: "POST",
+                headers: {
+                    Authorization: "good-token",
+                    "Content-Type": "application/json",
+                },
+                body: "not-json",
+            }),
+        );
+        expect(res?.status).toBe(400);
+        const missing = await relay(
+            storedRead({ attachmentId: "../etc/passwd" }),
+        );
+        expect(missing?.status).toBe(400);
     });
 });

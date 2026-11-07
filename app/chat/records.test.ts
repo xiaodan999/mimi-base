@@ -8,6 +8,7 @@ import {
     toChatConversation,
     toChatMessage,
 } from "./records";
+import type { ChatAttachmentPart } from "./types";
 
 describe("normalizeParts", () => {
     test("keeps valid text, reasoning, image and tool parts", () => {
@@ -58,6 +59,86 @@ describe("normalizeParts", () => {
             },
         ]);
         expect(parts[0]).toMatchObject({ toolCallId: "call-0" });
+    });
+});
+
+describe("attachment parts", () => {
+    const valid: ChatAttachmentPart = {
+        type: "attachment",
+        attachmentId: "att1",
+        collectionId: "col1",
+        file: "contract_abc.pdf",
+        name: "订货合同.pdf",
+        mime: "application/pdf",
+        size: 2048,
+        kind: "pdf",
+        pageCount: 12,
+        truncated: false,
+        extracted: "第一条",
+        pageImages: ["data:image/jpeg;base64,AA"],
+    };
+
+    test("keeps a well-formed attachment part", () => {
+        expect(normalizeParts([valid])).toEqual([valid]);
+    });
+
+    test("drops parts without a record reference or name", () => {
+        expect(
+            normalizeParts([
+                { ...valid, attachmentId: "" },
+                { ...valid, file: "" },
+                { ...valid, name: "" },
+            ]),
+        ).toEqual([]);
+    });
+
+    test("filters junk page images, defaults mime, bounds fields", () => {
+        const parts = normalizeParts([
+            {
+                ...valid,
+                mime: "",
+                size: -5,
+                pageCount: 1.5,
+                pageImages: ["https://evil.example/x.jpg", "nope"],
+                extracted: "x".repeat(60_000),
+            },
+        ]);
+        expect(parts).toHaveLength(1);
+        const part = parts[0] as {
+            mime: string;
+            size: number;
+            pageCount?: number;
+            pageImages: string[];
+            extracted: string;
+        };
+        expect(part.mime).toBe("application/pdf");
+        expect(part.size).toBe(0);
+        expect(part.pageCount).toBeUndefined();
+        expect(part.pageImages).toEqual([]);
+        expect(part.extracted).toHaveLength(50_000);
+    });
+
+    test("tool calls keep validated resultImages", () => {
+        const parts = normalizeParts([
+            {
+                type: "tool-call",
+                toolCallId: "call_1",
+                toolName: "read_attachment",
+                argsText: "{}",
+                result: { ok: true },
+                resultImages: [
+                    "data:image/jpeg;base64,AA",
+                    "data:image/jpeg;base64,BB",
+                    "junk",
+                ],
+            },
+        ]);
+        expect(parts[0]).toMatchObject({
+            resultImages: [
+                "data:image/jpeg;base64,AA",
+                "data:image/jpeg;base64,BB",
+            ],
+        });
     });
 });
 

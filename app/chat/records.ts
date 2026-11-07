@@ -1,3 +1,4 @@
+import { MAX_FILE_CHARS, MAX_PAGE_IMAGES } from "@/lib/chat-files";
 import {
     MAX_ARTIFACT_BYTES,
     normalizeSandboxPath,
@@ -6,6 +7,7 @@ import {
 import { textArtifactInfo } from "./artifacts";
 import type {
     ChatArtifactPart,
+    ChatAttachmentPart,
     ChatConversation,
     ChatMemory,
     ChatMessage,
@@ -71,6 +73,20 @@ export type ChatArtifactRecord = {
     mime: string;
     size?: number;
     caption?: string;
+    file?: string;
+    created: string;
+};
+
+export type ChatAttachmentRecord = {
+    id: string;
+    collectionId?: string;
+    owner?: string;
+    conversation: string;
+    message?: string;
+    name: string;
+    mime: string;
+    size?: number;
+    kind: string;
     file?: string;
     created: string;
 };
@@ -186,6 +202,16 @@ function normalizeToolCall(
     const toolCallId =
         asString(raw.toolCallId ?? raw.tool_call_id ?? raw.id, 120) ||
         `call-${index}`;
+    // read_attachment page images: keep only real data URLs, capped.
+    const resultImages = (
+        Array.isArray(raw.resultImages) ? raw.resultImages : []
+    )
+        .filter(
+            (image): image is string =>
+                typeof image === "string" &&
+                image.startsWith("data:image/jpeg;base64,"),
+        )
+        .slice(0, MAX_PAGE_IMAGES);
     return {
         type: "tool-call",
         toolCallId,
@@ -193,6 +219,51 @@ function normalizeToolCall(
         argsText: asString(raw.argsText ?? raw.arguments, 100_000),
         ...(raw.result !== undefined ? { result: raw.result } : {}),
         ...(raw.isError === true ? { isError: true } : {}),
+        ...(resultImages.length > 0 ? { resultImages } : {}),
+    };
+}
+
+/** Bounded rebuild of a stored attachment part (junk in, part dropped). */
+function normalizeAttachment(
+    raw: Record<string, unknown>,
+): ChatAttachmentPart | null {
+    const attachmentId = asString(raw.attachmentId, 64);
+    const file = asString(raw.file, 255);
+    const name = asString(raw.name, 200);
+    if (!attachmentId || !file || !name) return null;
+    const kind = raw.kind === "pdf" ? "pdf" : "text";
+    const size =
+        typeof raw.size === "number" && Number.isFinite(raw.size)
+            ? Math.max(0, Math.round(raw.size))
+            : 0;
+    const pageCount =
+        typeof raw.pageCount === "number" &&
+        Number.isInteger(raw.pageCount) &&
+        raw.pageCount > 0
+            ? raw.pageCount
+            : undefined;
+    const pageImages = (Array.isArray(raw.pageImages) ? raw.pageImages : [])
+        .filter(
+            (image): image is string =>
+                typeof image === "string" &&
+                image.startsWith("data:image/jpeg;base64,"),
+        )
+        .slice(0, MAX_PAGE_IMAGES);
+    return {
+        type: "attachment",
+        attachmentId,
+        collectionId: asString(raw.collectionId, 64),
+        file,
+        name,
+        mime:
+            asString(raw.mime, 80) ||
+            (kind === "pdf" ? "application/pdf" : "text/plain"),
+        size,
+        kind,
+        ...(pageCount !== undefined ? { pageCount } : {}),
+        truncated: raw.truncated === true,
+        extracted: asString(raw.extracted, MAX_FILE_CHARS),
+        pageImages,
     };
 }
 
@@ -229,6 +300,11 @@ export function normalizeParts(value: unknown): ChatPart[] {
             case "artifact": {
                 const artifact = normalizeArtifact(part);
                 if (artifact) parts.push(artifact);
+                break;
+            }
+            case "attachment": {
+                const attachment = normalizeAttachment(part);
+                if (attachment) parts.push(attachment);
                 break;
             }
             case "tool-call": {

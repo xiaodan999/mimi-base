@@ -1,12 +1,17 @@
 /**
- * Chat attachments are read by the relay (`POST /ai/files`), not in the
- * browser: pdf.js needs CMaps/standard fonts for Chinese PDFs, and shipping
- * those to a phone made the feature fail exactly where it was used. The
- * server returns the extracted text, or JPEG pages for a scanned PDF, and the
- * client appends that to the message like a normal part.
+ * Chat attachments live in `chat_attachments` (the original bytes are stored
+ * server-side, protected and owner-scoped). The browser never runs pdf.js:
+ * it creates the record (`useChatActions().createAttachment`), then asks the
+ * relay to read the stored copy. The relay returns the extracted text plus,
+ * for vision models, the first pages as JPEG data URLs. A `read_attachment`
+ * tool call goes through the same endpoint for more pages or the full text,
+ * which is what keeps follow-up questions from being capped by the inline
+ * excerpt.
  */
 
-import { MAX_FILE_BYTES, MAX_PAGE_IMAGES } from "@/lib/chat-files";
+import { MAX_PAGE_IMAGES } from "@/lib/chat-files";
+
+import type { ChatAttachmentPart } from "./types";
 
 export { FILE_ACCEPT, MAX_ATTACHMENTS } from "@/lib/chat-files";
 
@@ -15,45 +20,54 @@ export type ExtractedFile = {
     kind: "text" | "pdf";
     content: string;
     truncated: boolean;
-    /** Server-rendered pages of a scanned PDF; sent as image parts. */
+    numPages?: number;
+    /** Server-rendered page images (JPEG data URLs). */
     pageImages?: string[];
+    /** 1-based page numbers of `pageImages` (pages-mode reads only). */
+    pages?: number[];
 };
 
-export async function extractFileText(
-    file: File,
-    options: { pageImageLimit?: number } = {},
-): Promise<ExtractedFile> {
-    if (file.size === 0) throw new Error("文件是空的");
-    if (file.size > MAX_FILE_BYTES) {
-        throw new Error(
-            `文件太大了（最大 ${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB）`,
-        );
-    }
+/** The `chat_attachments` row the client needs to build a part and file URL. */
+export type AttachmentRecord = {
+    id: string;
+    collectionId: string;
+    file: string;
+    name: string;
+    mime: string;
+    size: number;
+    kind: "pdf" | "text";
+};
 
+/** A composer chip: the stored record plus its (possibly pending) extraction. */
+export type PendingAttachment = {
+    part: ChatAttachmentPart;
+    reading: boolean;
+};
+
+/** Ask the relay to read a stored attachment (text, or pages on a vision model). */
+export async function extractAttachment(
+    attachmentId: string,
+    options: { pageImageLimit?: number; pages?: string } = {},
+): Promise<ExtractedFile> {
     // Dynamic import keeps `lib/pb` (and its env check) out of unit tests.
     const { aiUrl, chatHeaders, readChatError } = await import("./api");
     const pageImageLimit = Math.max(
         0,
         Math.min(MAX_PAGE_IMAGES, Math.floor(options.pageImageLimit ?? 0)),
     );
-    const headers: Record<string, string> = {
-        ...chatHeaders(),
-        "Content-Type": file.type || "application/octet-stream",
-        "x-file-name": encodeURIComponent(file.name),
-    };
-    if (pageImageLimit > 0) {
-        headers["x-file-images"] = String(pageImageLimit);
-    }
-
     let res: Response;
     try {
         res = await fetch(aiUrl("/files"), {
             method: "POST",
-            headers,
-            body: file,
+            headers: { ...chatHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+                attachmentId,
+                ...(pageImageLimit > 0 ? { pageImageLimit } : {}),
+                ...(options.pages ? { pages: options.pages } : {}),
+            }),
         });
     } catch {
-        throw new Error("文件上传失败，检查网络后再试");
+        throw new Error("附件读取失败，检查网络后再试");
     }
     if (!res.ok) throw await readChatError(res);
 
@@ -63,7 +77,7 @@ export async function extractFileText(
     } catch {
         throw new Error("文件读取失败，再试一次");
     }
-    return parseUploadedFileResponse(payload, file.name);
+    return parseUploadedFileResponse(payload, "");
 }
 
 /** Validate the relay's JSON before it becomes message content. */
@@ -90,6 +104,21 @@ export function parseUploadedFileResponse(
               )
               .slice(0, MAX_PAGE_IMAGES)
         : [];
+    const numPages =
+        typeof value.numPages === "number" &&
+        Number.isFinite(value.numPages) &&
+        value.numPages > 0
+            ? Math.round(value.numPages)
+            : undefined;
+    // Pages pair with the rendered images (pages[i] is the page of images[i]).
+    const pages = Array.isArray(value.pages)
+        ? value.pages
+              .filter(
+                  (page): page is number =>
+                      typeof page === "number" && Number.isInteger(page),
+              )
+              .slice(0, images.length)
+        : undefined;
     return {
         name:
             typeof value.name === "string" && value.name !== ""
@@ -98,15 +127,42 @@ export function parseUploadedFileResponse(
         kind: value.kind,
         content: value.content,
         truncated: value.truncated === true,
+        ...(numPages !== undefined ? { numPages } : {}),
         ...(images.length > 0 ? { pageImages: images } : {}),
+        ...(pages !== undefined && pages.length > 0 ? { pages } : {}),
     };
 }
 
-/** The fenced block appended to the message text for one attachment. */
-export function attachmentToMessageText(file: ExtractedFile): string {
-    if (file.pageImages && file.pageImages.length > 0) {
-        return `[附件 ${file.name}（扫描件，已转成 ${file.pageImages.length} 页图片发送）]`;
-    }
-    const header = `[附件 ${file.name}${file.truncated ? "（内容过长，已截断）" : ""}]`;
-    return `${header}\n\`\`\`\n${file.content}\n\`\`\``;
+/** The message part referencing the stored record, pre-extraction. */
+export function attachmentPartFromRecord(
+    record: AttachmentRecord,
+): ChatAttachmentPart {
+    return {
+        type: "attachment",
+        attachmentId: record.id,
+        collectionId: record.collectionId,
+        file: record.file,
+        name: record.name,
+        mime: record.mime,
+        size: record.size,
+        kind: record.kind,
+        truncated: false,
+        extracted: "",
+        pageImages: [],
+    };
+}
+
+/** Fold an extraction result into a part (mutates a copy, for the composer). */
+export function withExtracted(
+    part: ChatAttachmentPart,
+    file: ExtractedFile,
+): ChatAttachmentPart {
+    return {
+        ...part,
+        name: part.name || file.name,
+        truncated: file.truncated,
+        ...(file.numPages !== undefined ? { pageCount: file.numPages } : {}),
+        extracted: file.content,
+        pageImages: file.pageImages ?? [],
+    };
 }

@@ -52,6 +52,9 @@
 - 新增 `send_file` 工具与 `sandbox.download(url, path)`：模型可以把沙箱里的 HTML/Markdown/CSV/JSON/SVG/文本/代码发给用户（渲染为可预览、可下载的 artifact 卡片），也能把公网图片写入沙箱后随本轮响应交付；图片在生成时自动发送，无需再调用 `send_file`。
 - 新增全屏工件预览（`-artifact-viewer.tsx`）：HTML/SVG 在 `<iframe sandbox="">`（opaque origin、无脚本）中打开，并注入 `default-src 'none'` 的 CSP、剥掉 `meta refresh` / `<base>`；Markdown 用静态渲染，JSON 美化，其他文本等宽显示；图片复用动态的 `ImageViewer`（缩放 / 滑动 / 下拉关闭）。
 - 聊天消息新增 artifact parts：`records.ts` 校验 sandbox/upload 两种来源，`-chat-runtime.tsx` 映射成 assistant-ui 的 data part，消息内渲染缩略图/文件卡；工具卡同时列出本次新增或修改的文件 chips；`export.ts` 导出为 `[文件 …]` / `[图片 …]` 占位；`prompt.ts` 不把工件回传给模型。
+- 聊天附件改为先落库：新增 `chat_attachments` 集合（迁移 `1795500000_add_chat_attachments.js`，owner/conversation 关联 + 级联删除，文件字段 protected、上限 30MB），发消息前把原文件存进去，删除对话会连未发送的附件一起清理。`POST /ai/files` 改为接收 `{ attachmentId, pageImageLimit?, pages? }` 读取存储副本（JSON Content-Type 分流；旧的 raw-bytes 路径保留，兼容先于服务端发版的 SPA）：中转用调用者令牌取记录（view rule 兜底归属校验），再经 `/api/files/token` 领短时文件令牌取字节解析。
+- PDF 提取改为 vision-first：`extractUploadedFile` 在 `pageImageLimit > 0`（仅视觉模型会带）时同时返回文字与前 N 页 JPEG，表格/盖章/版式不再被文本抽取挤平（此前只在无文字层的扫描件上渲染）；`MAX_PAGE_IMAGES` 4 → 10，且与消息相册图片的 4 张预算分离；`ExtractedFile` 增加 `numPages` / `pages`。
+- 新增 `read_attachment` 聊天工具：`mode=text` 重读附件完整提取文字（`toolResultText` 对该工具按 `MAX_FILE_CHARS` 放宽，默认 12k 会截断），`mode=pages` 把指定页渲染成图片——页码经 `parsePageSpec`（`lib/chat-files.ts`）解析/去重/截断，单次最多 10 页、页号 ≤ 200。页图无法走 `role:"tool"` 的字符串内容：`ChatToolCallPart.resultImages` 存数据 URL，`buildApiMessages` 在 tool 结果后合成一条带 `image_url` 的 user 消息；`ToolHooks.visionEnabled`（会话传入 `model.vision`）对非视觉模型关闭 pages 模式，避免中转按图片 part 拒绝整条请求。
 
 ### 修复
 
@@ -71,6 +74,9 @@
 - 系统提示词补充：调用工具后等结果返回再向用户确认成败，工具失败时如实说明，不要在结果回来前就说已经做好（修复截图里「写入文件失败」却抢答「已经做好了」的问题）。
 - 修复 `render_ui` 表格在手机上挡住页面滚动：`overflow-x-auto` 会把 `overflow-y` 一并算成滚动容器，`overscroll-contain` 又禁止手势链回聊天线程，落在表格上的上下滑动全部被吞掉。改为 `overscroll-x-contain`（`-ui-card.tsx`）：横向滑动仍留在表格内，上下滑动交还给页面。
 - AI 不再把文件卡片的位置说反：每轮工具调用是一条独立消息，`send_file` 的卡片渲染在调用处，模型随后补写的总结文字都排在卡片下面，而模型以为卡片会出现在整条回复末尾，于是说「文件发送在下面了」。系统提示词与 `send_file` 工具描述补充卡片渲染位置（`app/chat/prompt.ts`、`app/chat/tools.ts`）：想先说明后卡片，就在同一条回复里先写完说明再调用；已经调用过，之后指位置要说「见上」。
+- 长对话不再反复重发附件全文与页图：`buildApiMessages` 只让最新一条带附件的用户消息完整携带提取文字与页面图片，更早的折叠成指向 `read_attachment` 的占位标注（此前 80 条窗口内每轮原样重发最多 50k 字 × 3 附件 + 页图 data URL，迟早撞上 4MB 请求体上限）。聊天中转 `MAX_BODY_BYTES` 相应 4MB → 16MB，容纳单轮工具循环内的多组页图。
+- 带附件的消息编辑重发不再丢附件：`editUserMessage` 现在同时保留 attachment parts（此前只保留 image parts，附件全文被静默丢弃）。
+- 用户消息里的附件渲染为文件卡片（名称 + 页数/大小，点按以短时令牌打开原文件，protected URL 每次渲染重建），不再把提取文字整段铺在气泡里；`read_attachment` 补充 `TOOL_TITLES` 条目，Markdown 导出为 `[附件 …]` 占位。
 
 ### 变更
 

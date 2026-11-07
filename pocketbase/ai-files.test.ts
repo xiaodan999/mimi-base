@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { MAX_FILE_CHARS } from "../lib/chat-files";
-import { FileReadError, extractUploadedFile } from "./ai-files";
+import {
+    FileReadError,
+    extractPdfPageImages,
+    extractUploadedFile,
+} from "./ai-files";
 
 const fixtures = path.join(import.meta.dir, "__fixtures__/chat-files");
 const pdf = (name: string) =>
@@ -64,6 +68,20 @@ describe("extractUploadedFile", () => {
         expect(file.images).toBeUndefined();
     });
 
+    test("a vision caller gets text AND page images from a text PDF", async () => {
+        const file = await extractUploadedFile(
+            "cjk-text.pdf",
+            pdf("cjk-text.pdf"),
+            { pageImageLimit: 3 },
+        );
+        expect(file.content).toContain("你好");
+        expect(file.numPages).toBeGreaterThanOrEqual(1);
+        expect(file.images?.length).toBeGreaterThanOrEqual(1);
+        expect(file.images?.[0]).toStartWith("data:image/jpeg;base64,");
+        // Only the first `limit` pages render inline.
+        expect(file.images!.length).toBeLessThanOrEqual(3);
+    });
+
     test("refuses a scanned PDF when images are not allowed", async () => {
         await expect(
             extractUploadedFile("scan.pdf", pdf("scan.pdf")),
@@ -93,5 +111,31 @@ describe("extractUploadedFile", () => {
             expect(error).toBeInstanceOf(FileReadError);
             expect((error as FileReadError).status).toBe(400);
         }
+    });
+});
+
+describe("extractPdfPageImages", () => {
+    test("renders the requested pages of a stored PDF", async () => {
+        const file = await extractPdfPageImages(
+            "cjk-text.pdf",
+            pdf("cjk-text.pdf"),
+            "1",
+        );
+        expect(file.kind).toBe("pdf");
+        expect(file.pages).toEqual([1]);
+        expect(file.images).toHaveLength(1);
+        expect(file.numPages).toBeGreaterThanOrEqual(1);
+    });
+
+    test("rejects non-PDFs and impossible page specs", async () => {
+        await expect(
+            extractPdfPageImages("notes.md", text("hello"), "1"),
+        ).rejects.toThrow("只有 PDF");
+        await expect(
+            extractPdfPageImages("cjk-text.pdf", pdf("cjk-text.pdf"), "999"),
+        ).rejects.toThrow("页码不对");
+        await expect(
+            extractPdfPageImages("cjk-text.pdf", pdf("cjk-text.pdf"), "abc"),
+        ).rejects.toThrow("页码不对");
     });
 });

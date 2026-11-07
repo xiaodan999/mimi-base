@@ -31,6 +31,9 @@ function toThreadPart(part: ChatPart): unknown {
             // assistant-ui renders `data` parts through the `data.by_name`
             // slot; the artifact card is registered under the name below.
             return { type: "data", name: "artifact", data: part };
+        case "attachment":
+            // Same slot: the user-message file card (name, size, open).
+            return { type: "data", name: "attachment", data: part };
         case "tool-call": {
             let args: Record<string, unknown> | undefined;
             try {
