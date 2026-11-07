@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { AiProvider } from "@/app/ai/AiContext";
+import { abortAllChatRuns } from "@/app/chat/run-store";
 import NavButtons from "@/components/NavButtons";
 import OfflineBanner from "@/components/OfflineBanner";
 import { RouteError } from "@/components/RouteError";
@@ -11,6 +13,10 @@ export const Route = createFileRoute("/_protected/_main")({
 });
 
 function Layout() {
+    // Chat runs outlive the conversation route on purpose; leaving the app
+    // shell (logout) is the one place they must not keep running.
+    useEffect(() => abortAllChatRuns, []);
+
     return (
         <AiProvider>
             <div className="flex h-full flex-col bg-background">

@@ -17,6 +17,8 @@ import type {
 
 /** Side effects and injected writes the caller (session hook) provides. */
 export type ToolHooks = {
+    /** Conversation that owns the run; scopes any user question to it. */
+    conversationId?: string;
     /**
      * Creates the confirmed expense row. Owned by the chat data layer
      * (`useChatActions`), which also invalidates the 记账 queries.

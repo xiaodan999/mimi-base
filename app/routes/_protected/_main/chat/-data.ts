@@ -321,13 +321,27 @@ export function useChatActions() {
                         : {}),
                     ...(input.usage ? { usage: input.usage } : {}),
                 });
+            const message = toChatMessage(record);
+            // Write through to the query cache: a run that continues while the
+            // thread is unmounted must leave the returning page with the same
+            // rows the run already wrote, not a stale snapshot.
+            queryClient.setQueryData<ChatMessage[]>(
+                qk.chat.messages(user.id, input.conversationId),
+                (previous) => {
+                    if (!previous) return previous;
+                    if (previous.some((row) => row.id === message.id)) {
+                        return previous;
+                    }
+                    return [...previous, message].sort((a, b) => a.seq - b.seq);
+                },
+            );
             // Don't await the refetch: the caller swaps the live draft for
             // the optimistic row immediately, and waiting here let a refetch
             // render both copies for a frame (a visible jump on mobile).
             void queryClient.invalidateQueries({
                 queryKey: qk.chat.messages(user.id, input.conversationId),
             });
-            return toChatMessage(record);
+            return message;
         },
         [queryClient, user.id],
     );
@@ -344,13 +358,27 @@ export function useChatActions() {
                 usage?: ChatUsage;
             },
         ) => {
-            await pb.collection("chat_messages").update(messageId, {
-                parts: patch.parts,
-                content: patch.content,
-                status: patch.status,
-                ...(patch.error ? { error: patch.error.slice(0, 300) } : {}),
-                ...(patch.usage ? { usage: patch.usage } : {}),
-            });
+            const record = await pb
+                .collection("chat_messages")
+                .update<ChatMessageRecord>(messageId, {
+                    parts: patch.parts,
+                    content: patch.content,
+                    status: patch.status,
+                    ...(patch.error
+                        ? { error: patch.error.slice(0, 300) }
+                        : {}),
+                    ...(patch.usage ? { usage: patch.usage } : {}),
+                });
+            const message = toChatMessage(record);
+            queryClient.setQueryData<ChatMessage[]>(
+                qk.chat.messages(user.id, conversationId),
+                (previous) =>
+                    previous
+                        ? previous.map((row) =>
+                              row.id === messageId ? message : row,
+                          )
+                        : previous,
+            );
             await queryClient.invalidateQueries({
                 queryKey: qk.chat.messages(user.id, conversationId),
             });
@@ -377,6 +405,13 @@ export function useChatActions() {
                 rows.map((row) =>
                     pb.collection("chat_messages").delete(row.id),
                 ),
+            );
+            queryClient.setQueryData<ChatMessage[]>(
+                qk.chat.messages(user.id, conversationId),
+                (previous) =>
+                    previous
+                        ? previous.filter((row) => row.seq <= seq)
+                        : previous,
             );
             await queryClient.invalidateQueries({
                 queryKey: qk.chat.messages(user.id, conversationId),

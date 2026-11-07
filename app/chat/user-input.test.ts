@@ -3,7 +3,9 @@ import { describe, expect, test } from "bun:test";
 import {
     answerUserInput,
     cancelUserInput,
+    cancelUserInputFor,
     getPendingUserInput,
+    hasPendingUserInput,
     requestUserInput,
 } from "./user-input";
 
@@ -55,5 +57,27 @@ describe("user input store", () => {
     test("answering without a pending request is a no-op", () => {
         expect(() => answerUserInput({ ok: true, answer: "x" })).not.toThrow();
         expect(getPendingUserInput()).toBeNull();
+    });
+
+    test("a question belongs to its conversation", async () => {
+        const promise = requestUserInput({
+            question: "继续吗？",
+            kind: "confirm",
+            conversationId: "conv-a",
+        });
+        expect(hasPendingUserInput("conv-a")).toBe(true);
+        expect(hasPendingUserInput("conv-b")).toBe(false);
+        expect(hasPendingUserInput()).toBe(true);
+
+        // Cancelling another conversation must leave this question waiting.
+        cancelUserInputFor("conv-b", "别的对话停止了");
+        expect(getPendingUserInput()?.question).toBe("继续吗？");
+
+        cancelUserInputFor("conv-a", "用户停止了生成");
+        await expect(promise).resolves.toEqual({
+            ok: false,
+            error: "用户停止了生成",
+        });
+        expect(hasPendingUserInput("conv-a")).toBe(false);
     });
 });

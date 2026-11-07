@@ -328,6 +328,7 @@ function ThreadEmpty({
 }
 
 export type ChatThreadProps = {
+    conversationId: string;
     messages: readonly ChatMessage[];
     live: LiveReply | null;
     running: boolean;
@@ -368,6 +369,7 @@ function ComposerSeed({ draft }: { draft: string }) {
  * cleared right after, so they never leak into the next message.
  */
 export function ChatThread({
+    conversationId,
     messages,
     live,
     running,
@@ -537,7 +539,7 @@ export function ChatThread({
         [messages.length, live],
     );
     const contextUsed = useMemo(() => latestPromptTokens(messages), [messages]);
-    const pendingInput = usePendingUserInput();
+    const pendingInput = usePendingUserInput(conversationId);
 
     // Our own scroll-down affordance: assistant-ui's built-in button reports
     // "not at bottom" before the first scroll event and floats over the
@@ -617,7 +619,7 @@ export function ChatThread({
                         )}
                     </ThreadPrimitive.Root>
 
-                    <UserInputPanel />
+                    <UserInputPanel conversationId={conversationId} />
 
                     <ChatComposer
                         images={images}

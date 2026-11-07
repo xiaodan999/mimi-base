@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 /**
  * Inline card for an `ask_user` tool call. It pauses the model's tool loop
  * until the user answers; answering resolves the tool call and the model
- * continues in the same run.
+ * continues in the same run. The question is scoped to its conversation so a
+ * run left waiting in the background reappears only where it was asked.
  */
-export function UserInputPanel() {
-    const request = usePendingUserInput();
+export function UserInputPanel({ conversationId }: { conversationId: string }) {
+    const request = usePendingUserInput(conversationId);
     const [text, setText] = useState("");
     const [error, setError] = useState("");
     const [locating, setLocating] = useState(false);

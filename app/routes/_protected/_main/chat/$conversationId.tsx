@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
 import { findPersona, resolvePersona } from "@/app/chat/personas";
 import { previewText } from "@/app/chat/records";
+import { stopChatRun } from "@/app/chat/run-store";
 import type { ChatConversation, ChatMessage } from "@/app/chat/types";
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
@@ -274,6 +275,9 @@ function ChatConversationView({
                     });
                 }}
                 onDelete={async () => {
+                    // Stop the background run before its conversation goes
+                    // away; otherwise it keeps writing to a deleted row.
+                    stopChatRun(conversation.id);
                     await actions.deleteConversation(conversation.id);
                     await navigate({ to: "/chat", replace: true });
                 }}
@@ -298,6 +302,7 @@ function ChatConversationView({
             />
             <div className="min-h-0 flex-1">
                 <ChatThread
+                    conversationId={conversation.id}
                     messages={session.messages}
                     live={session.live}
                     running={session.running}

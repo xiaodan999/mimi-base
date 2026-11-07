@@ -348,7 +348,10 @@ export async function executeChatTool(
                 isError: true,
             };
         }
-        const answer = await requestUserInput(request);
+        const answer = await requestUserInput({
+            ...request,
+            conversationId: hooks.conversationId,
+        });
         const resolved = await resolveInteractiveToolResult(
             name,
             args,
@@ -551,7 +554,10 @@ export async function executeChatTool(
         }
         // The write always goes through the confirm card; the user taps
         // 「记下」 before the record exists.
-        const answer = await requestUserInput(request);
+        const answer = await requestUserInput({
+            ...request,
+            conversationId: hooks.conversationId,
+        });
         const resolved = await resolveInteractiveToolResult(
             name,
             args,

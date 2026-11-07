@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 import type { BrowserLocation } from "./location";
 
@@ -14,6 +14,11 @@ export type UserInputExpense = {
 export type UserInputRequest = {
     question: string;
     kind: UserInputKind;
+    /**
+     * The conversation whose run asked. A run keeps waiting when the user
+     * navigates away, so the panel only shows in that conversation.
+     */
+    conversationId?: string;
     /** For kind="choice". */
     options?: string[];
     placeholder?: string;
@@ -82,6 +87,28 @@ export function cancelUserInput(error = "用户取消了请求"): void {
 }
 
 /**
+ * Cancel only the question owned by one conversation. A run in another
+ * conversation keeps waiting (and its panel reappears when the user returns).
+ */
+export function cancelUserInputFor(
+    conversationId: string,
+    error = "用户取消了请求",
+): void {
+    const current = pending;
+    if (!current || current.request.conversationId !== conversationId) return;
+    answerUserInput({ ok: false, error });
+}
+
+export function hasPendingUserInput(conversationId?: string): boolean {
+    const current = pending;
+    if (!current) return false;
+    return (
+        conversationId === undefined ||
+        current.request.conversationId === conversationId
+    );
+}
+
+/**
  * Cancel reasons produced by navigation or stopping rather than an explicit
  * user answer. The reload-resume path treats these as "leave the question
  * open" instead of persisting a failure, so an accidental back-swipe does not
@@ -97,10 +124,16 @@ export function isTransientCancelReason(error: string): boolean {
 }
 
 /** Subscribe in the panel; it re-renders when a request appears/clears. */
-export function usePendingUserInput(): UserInputRequest | null {
-    return useSyncExternalStore(
-        subscribeUserInput,
-        getPendingUserInput,
-        getPendingUserInput,
-    );
+export function usePendingUserInput(
+    conversationId?: string,
+): UserInputRequest | null {
+    const read = useCallback(() => {
+        const request = getPendingUserInput();
+        if (!request) return null;
+        if (conversationId && request.conversationId !== conversationId) {
+            return null;
+        }
+        return request;
+    }, [conversationId]);
+    return useSyncExternalStore(subscribeUserInput, read, read);
 }

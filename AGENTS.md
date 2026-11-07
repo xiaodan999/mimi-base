@@ -365,8 +365,15 @@ before your first commit.
 - General chat (`app/chat/`, `/chat`): assistant-ui primitives +
   `useExternalStoreRuntime`; messages persist in `chat_messages` as content
   parts. A run loops up to 6 model rounds while it calls `sandbox_*` tools.
-  The sandbox runs **Python or JavaScript on the server** in a Docker
-  container (one image per language, selected by `sandbox_run.language`):
+  Run state (running / live draft / optimistic rows / `AbortController` /
+  sandbox files / watchers) lives in `app/chat/run-store.ts`, keyed by
+  conversation id — **not** in `useChatSession` component state. Leaving the
+  thread (back gesture, bottom nav) keeps the loop and tool calls going;
+  re-entering re-attaches and refuses a second send until the run ends. A
+  pending `ask_user` carries its `conversationId` and survives navigation, so
+  only stop/logout cancels it. The sandbox runs **Python or JavaScript on the
+  server** in a Docker container (one image per language, selected by
+  `sandbox_run.language`):
   read-only root, non-root user, all capabilities dropped, PID/memory/CPU
   limits, 20s wall clock, JSON on stdin (no code in argv), and the dedicated
   `mimi-sandbox` network whose egress firewall allows only public

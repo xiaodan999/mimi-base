@@ -1,9 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { AppendMessage } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { buildApiMessages } from "@/app/chat/prompt";
 import { messageText, previewText } from "@/app/chat/records";
+import {
+    appendChatRunMessage,
+    beginChatRun,
+    endChatRun,
+    getChatRunFiles,
+    isChatRunActive,
+    pruneChatRunOptimistic,
+    setChatRunFiles,
+    setChatRunLive,
+    stopChatRun,
+    updateChatRunOptimistic,
+    useChatRun,
+    watchChatRun,
+    type ChatRunOutcome,
+} from "@/app/chat/run-store";
 import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
 import {
@@ -20,13 +36,12 @@ import type {
     ChatModel,
     ChatPart,
     ChatToolCallPart,
-    SandboxFiles,
 } from "@/app/chat/types";
 import {
-    cancelUserInput,
-    getPendingUserInput,
+    hasPendingUserInput,
     isTransientCancelReason,
     requestUserInput,
+    usePendingUserInput,
     type UserInputRequest,
 } from "@/app/chat/user-input";
 import { useCurrentUser } from "@/lib/auth";
@@ -35,13 +50,10 @@ import { qk } from "@/lib/query-keys";
 import { appendMessageParts } from "./-components/-chat-runtime";
 import { chatMemoriesQueryOptions, useChatActions } from "./-data";
 
+export type { LiveReply } from "@/app/chat/run-store";
+
 /** One assistant turn may call tools several times; stop runaway loops. */
 const MAX_TOOL_ROUNDS = 6;
-
-export type LiveReply = {
-    id: string;
-    parts: ChatPart[];
-};
 
 function snapshotParts(snapshot: StreamSnapshot): ChatPart[] {
     const parts: ChatPart[] = [];
@@ -74,15 +86,34 @@ function uniqueCallId(
     return call.id || `call_${round}_${index}_${Date.now().toString(36)}`;
 }
 
+/** Surfaces a non-model failure (persistence/network) in the thread view. */
+function toastRunFailure(conversationId: string, error: unknown) {
+    toast.error("回复失败", {
+        id: `chat-run-${conversationId}`,
+        description:
+            error instanceof Error && error.message !== ""
+                ? error.message
+                : "再试一次吧",
+    });
+}
+
 function mergeById(
     stored: readonly ChatMessage[],
     optimistic: readonly ChatMessage[],
 ): ChatMessage[] {
-    const seen = new Set(stored.map((message) => message.id));
-    return [
-        ...stored,
-        ...optimistic.filter((message) => !seen.has(message.id)),
-    ].sort((a, b) => a.seq - b.seq);
+    // The run's copy is the freshest while it is alive (the stored row can
+    // still be the pre-tool version), so it wins per id.
+    const optimisticById = new Map(
+        optimistic.map((message) => [message.id, message]),
+    );
+    const merged = stored.map(
+        (message) => optimisticById.get(message.id) ?? message,
+    );
+    const storedIds = new Set(stored.map((message) => message.id));
+    for (const message of optimistic) {
+        if (!storedIds.has(message.id)) merged.push(message);
+    }
+    return merged.sort((a, b) => a.seq - b.seq);
 }
 
 export type UseChatSessionArgs = {
@@ -96,9 +127,12 @@ export type UseChatSessionArgs = {
 /**
  * Owns one conversation's send / tool loop / persistence.
  *
- * A run is not aborted when the route unmounts: the async task keeps going
- * and writes its message, so switching tabs mid-answer does not lose it.
- * `stop()` is the explicit abort, and it persists the partial reply.
+ * The run itself is not tied to this component: its state lives in
+ * `app/chat/run-store.ts`, so swiping back to another page keeps the model
+ * loop and tool calls going. Re-entering the conversation re-attaches to the
+ * same live draft and running state, and a second send is refused until the
+ * first run ends. `stop()` is the explicit abort and persists the partial
+ * reply.
  */
 export function useChatSession({
     conversation,
@@ -108,51 +142,39 @@ export function useChatSession({
     const actions = useChatActions();
     const queryClient = useQueryClient();
     const user = useCurrentUser();
-    const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
-    const [live, setLive] = useState<LiveReply | null>(null);
-    const [running, setRunning] = useState(false);
+    const run = useChatRun(conversation.id);
 
     const conversationRef = useRef(conversation);
     conversationRef.current = conversation;
-    const filesRef = useRef<SandboxFiles>(conversation.sandboxFiles);
-    const abortRef = useRef<AbortController | null>(null);
-    const runningRef = useRef(false);
     /** Conversation id whose stored messages were already resume-scanned. */
     const scannedConversationRef = useRef<string | null>(null);
 
+    // Mark this page as watching so a background finish does not toast here.
+    useEffect(() => watchChatRun(conversation.id), [conversation.id]);
+
     const messages = useMemo(
-        () => mergeById(storedMessages, optimistic),
-        [storedMessages, optimistic],
+        () => mergeById(storedMessages, run.optimistic),
+        [storedMessages, run.optimistic],
     );
     const messagesRef = useRef<ChatMessage[]>(messages);
     messagesRef.current = messages;
 
-    // Drop optimistic copies once the query has the real rows.
+    // Drop optimistic copies once the run has finished and the query has the
+    // real rows. While the run is alive the optimistic row is the one the tool
+    // loop keeps patching (call parts, results), so pruning it earlier would
+    // freeze the tool cards until the round is persisted.
     useEffect(() => {
-        if (optimistic.length === 0) return;
-        const storedIds = new Set(storedMessages.map((message) => message.id));
-        if (optimistic.every((message) => storedIds.has(message.id))) {
-            setOptimistic([]);
-        }
-    }, [storedMessages, optimistic]);
+        if (run.running || run.optimistic.length === 0) return;
+        pruneChatRunOptimistic(
+            conversation.id,
+            new Set(storedMessages.map((message) => message.id)),
+        );
+    }, [conversation.id, run.optimistic, run.running, storedMessages]);
 
-    // A pending ask_user request cannot survive leaving the page.
+    // Different conversation: allow the mount scan to run again. The old
+    // conversation's run (and its pending question) keeps going in the store.
     useEffect(() => {
-        return () => cancelUserInput("用户离开了当前页面");
-    }, []);
-
-    // Different conversation: reset local state and the sandbox snapshot.
-    useEffect(() => {
-        setOptimistic([]);
-        setLive(null);
-        setRunning(false);
-        runningRef.current = false;
-        cancelUserInput("对话已切换");
-        abortRef.current?.abort();
-        abortRef.current = null;
-        filesRef.current = conversation.sandboxFiles;
         scannedConversationRef.current = null;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [conversation.id]);
 
     /** Saved memories are read once per run and injected into the prompt. */
@@ -173,16 +195,21 @@ export function useChatSession({
             modelInfo: ChatModel,
             startSeq: number,
             controller: AbortController,
-        ) => {
+        ): Promise<ChatRunOutcome> => {
             const conversationId = conversationRef.current.id;
             let history = baseHistory;
             let seq = startSeq;
+            let outcome: ChatRunOutcome = "done";
             const memories = await fetchMemories();
+            let files = getChatRunFiles(conversationId) ?? {};
 
             for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-                if (controller.signal.aborted) break;
+                if (controller.signal.aborted) {
+                    outcome = "stopped";
+                    break;
+                }
                 const liveId = `live-${round}-${Date.now().toString(36)}`;
-                setLive({ id: liveId, parts: [] });
+                setChatRunLive(conversationId, { id: liveId, parts: [] });
 
                 let result;
                 let partial: StreamSnapshot = {
@@ -207,7 +234,7 @@ export function useChatSession({
                         signal: controller.signal,
                         onDelta: (snapshot) => {
                             partial = snapshot;
-                            setLive({
+                            setChatRunLive(conversationId, {
                                 id: liveId,
                                 parts: snapshotParts(snapshot),
                             });
@@ -231,13 +258,12 @@ export function useChatSession({
                             error: message,
                         })
                         .catch(() => null);
-                    if (saved) {
-                        setOptimistic((previous) => [...previous, saved]);
-                    }
+                    if (saved) appendChatRunMessage(conversationId, saved);
                     // Drop the live draft only after the persisted row (or the
                     // optimistic copy) is in the list. Clearing it first made
                     // the answer disappear for a frame on mobile.
-                    setLive(null);
+                    setChatRunLive(conversationId, null);
+                    outcome = controller.signal.aborted ? "stopped" : "error";
                     break;
                 }
 
@@ -261,9 +287,15 @@ export function useChatSession({
                         : {}),
                     ...(result.usage ? { usage: result.usage } : {}),
                 });
-                setOptimistic((previous) => [...previous, saved]);
-                setLive(null);
+                appendChatRunMessage(conversationId, saved);
+                setChatRunLive(conversationId, null);
                 history = [...history, saved];
+
+                if (result.aborted) {
+                    outcome = "stopped";
+                } else if (!hasBody) {
+                    outcome = "error";
+                }
 
                 if (result.aborted || result.toolCalls.length === 0) {
                     if (content !== "") {
@@ -286,7 +318,7 @@ export function useChatSession({
                 );
                 const baseParts = withoutToolCalls(parts);
                 const executed: ChatToolCallPart[] = [];
-                setOptimistic((previous) =>
+                updateChatRunOptimistic(conversationId, (previous) =>
                     previous.map((message) =>
                         message.id === saved.id
                             ? {
@@ -298,6 +330,7 @@ export function useChatSession({
                 );
 
                 const toolHooks: ToolHooks = {
+                    conversationId,
                     createExpense: actions.createExpense,
                     onMemoryChanged: () => {
                         void queryClient.invalidateQueries({
@@ -307,19 +340,20 @@ export function useChatSession({
                 };
                 for (const call of callParts) {
                     if (controller.signal.aborted) break;
-                    const outcome = await executeChatTool(
+                    const toolOutcome = await executeChatTool(
                         call.toolName,
                         call.argsText,
-                        filesRef.current,
+                        files,
                         toolHooks,
                     );
-                    filesRef.current = outcome.files;
+                    files = toolOutcome.files;
+                    setChatRunFiles(conversationId, files);
                     executed.push({
                         ...call,
-                        result: outcome.result,
-                        isError: outcome.isError,
+                        result: toolOutcome.result,
+                        isError: toolOutcome.isError,
                     });
-                    setOptimistic((previous) =>
+                    updateChatRunOptimistic(conversationId, (previous) =>
                         previous.map((message) =>
                             message.id === saved.id
                                 ? {
@@ -346,85 +380,95 @@ export function useChatSession({
                     .catch(() => {});
                 await actions
                     .updateConversation(conversationId, {
-                        sandboxFiles: filesRef.current,
+                        sandboxFiles: files,
                     })
                     .catch(() => {});
-                if (controller.signal.aborted) break;
+                if (controller.signal.aborted) {
+                    outcome = "stopped";
+                    break;
+                }
 
                 history = [
                     ...history.slice(0, -1),
                     { ...saved, parts: finalParts },
                 ];
             }
+            return outcome;
         },
         [actions, fetchMemories, queryClient, user.id],
     );
 
     const send = useCallback(
         async (parts: ChatPart[]) => {
-            if (runningRef.current) return;
             const current = conversationRef.current;
+            if (
+                isChatRunActive(current.id) ||
+                hasPendingUserInput(current.id)
+            ) {
+                return;
+            }
             const userContent = messageText(parts);
             // Only the untouched default title is replaced: a rename made
             // before the first send (or a still-loading history) must win.
             const firstMessage =
                 messagesRef.current.length === 0 && current.title === "新对话";
+            const title = firstMessage
+                ? deriveConversationTitle(userContent)
+                : current.title;
             const modelInfo = model;
-            const seq = await actions.nextSeq(current.id);
+            const controller = new AbortController();
+            beginChatRun(current.id, controller, current.sandboxFiles);
+            let outcome: ChatRunOutcome = "error";
 
-            const userMessage = await actions.createMessage({
-                conversationId: current.id,
-                role: "user",
-                parts,
-                content: userContent,
-                model: modelInfo?.id ?? current.model,
-                seq,
-                status: "complete",
-            });
-            setOptimistic((previous) => [...previous, userMessage]);
+            try {
+                const seq = await actions.nextSeq(current.id);
 
-            await actions
-                .updateConversation(current.id, {
-                    lastMessage: previewText(userContent),
-                    ...(firstMessage
-                        ? { title: deriveConversationTitle(userContent) }
-                        : {}),
-                })
-                .catch(() => {});
+                const userMessage = await actions.createMessage({
+                    conversationId: current.id,
+                    role: "user",
+                    parts,
+                    content: userContent,
+                    model: modelInfo?.id ?? current.model,
+                    seq,
+                    status: "complete",
+                });
+                appendChatRunMessage(current.id, userMessage);
 
-            if (!modelInfo) {
                 await actions
-                    .createMessage({
-                        conversationId: current.id,
-                        role: "assistant",
-                        parts: [],
-                        content: "",
-                        model: current.model,
-                        seq: seq + 1,
-                        status: "error",
-                        error: "站点没有可用的聊天模型，请联系管理员",
+                    .updateConversation(current.id, {
+                        lastMessage: previewText(userContent),
+                        ...(firstMessage ? { title } : {}),
                     })
                     .catch(() => {});
-                return;
-            }
 
-            const controller = new AbortController();
-            abortRef.current = controller;
-            runningRef.current = true;
-            setRunning(true);
-            try {
-                await runAssistant(
+                if (!modelInfo) {
+                    const saved = await actions
+                        .createMessage({
+                            conversationId: current.id,
+                            role: "assistant",
+                            parts: [],
+                            content: "",
+                            model: current.model,
+                            seq: seq + 1,
+                            status: "error",
+                            error: "站点没有可用的聊天模型，请联系管理员",
+                        })
+                        .catch(() => null);
+                    if (saved) appendChatRunMessage(current.id, saved);
+                    return;
+                }
+
+                outcome = await runAssistant(
                     [...messagesRef.current, userMessage],
                     modelInfo,
                     seq + 1,
                     controller,
                 );
+            } catch (error) {
+                outcome = "error";
+                toastRunFailure(current.id, error);
             } finally {
-                cancelUserInput("生成已结束");
-                runningRef.current = false;
-                setRunning(false);
-                setLive(null);
-                abortRef.current = null;
+                endChatRun(current.id, outcome, title);
             }
         },
         [actions, model, runAssistant],
@@ -439,7 +483,13 @@ export function useChatSession({
      */
     const regenerate = useCallback(
         async (parentId: string, opts?: { model: ChatModel }) => {
-            if (runningRef.current || getPendingUserInput()) return;
+            const current = conversationRef.current;
+            if (
+                isChatRunActive(current.id) ||
+                hasPendingUserInput(current.id)
+            ) {
+                return;
+            }
             const list = messagesRef.current;
             const anchor = list.find((message) => message.id === parentId);
             const parent =
@@ -459,33 +509,27 @@ export function useChatSession({
             if (!parent) return;
             if (!model) return;
             const runModel = opts?.model ?? model;
-
             const history = list.filter((message) => message.seq <= parent.seq);
-            setOptimistic((previous) =>
-                previous.filter((message) => message.seq <= parent.seq),
-            );
-            await actions.deleteMessagesAfter(
-                conversationRef.current.id,
-                parent.seq,
-            );
 
             const controller = new AbortController();
-            abortRef.current = controller;
-            runningRef.current = true;
-            setRunning(true);
+            beginChatRun(current.id, controller, current.sandboxFiles);
+            let outcome: ChatRunOutcome = "error";
             try {
-                await runAssistant(
+                updateChatRunOptimistic(current.id, (previous) =>
+                    previous.filter((message) => message.seq <= parent.seq),
+                );
+                await actions.deleteMessagesAfter(current.id, parent.seq);
+                outcome = await runAssistant(
                     history,
                     runModel,
                     parent.seq + 1,
                     controller,
                 );
+            } catch (error) {
+                outcome = "error";
+                toastRunFailure(current.id, error);
             } finally {
-                cancelUserInput("生成已结束");
-                runningRef.current = false;
-                setRunning(false);
-                setLive(null);
-                abortRef.current = null;
+                endChatRun(current.id, outcome, current.title);
             }
         },
         [actions, model, runAssistant],
@@ -499,8 +543,13 @@ export function useChatSession({
      */
     const editUserMessage = useCallback(
         async (message: AppendMessage) => {
-            if (runningRef.current || getPendingUserInput()) return;
             const current = conversationRef.current;
+            if (
+                isChatRunActive(current.id) ||
+                hasPendingUserInput(current.id)
+            ) {
+                return;
+            }
             if (!model) return;
             const list = messagesRef.current;
             const parentSeq = message.parentId
@@ -531,9 +580,8 @@ export function useChatSession({
             );
 
             const controller = new AbortController();
-            abortRef.current = controller;
-            runningRef.current = true;
-            setRunning(true);
+            beginChatRun(current.id, controller, current.sandboxFiles);
+            let outcome: ChatRunOutcome = "error";
             try {
                 await actions
                     .updateMessage(target.id, current.id, {
@@ -546,13 +594,17 @@ export function useChatSession({
                 const history = list
                     .filter((row) => row.seq < target.seq)
                     .concat({ ...target, parts, content });
-                await runAssistant(history, model, target.seq + 1, controller);
+                outcome = await runAssistant(
+                    history,
+                    model,
+                    target.seq + 1,
+                    controller,
+                );
+            } catch (error) {
+                outcome = "error";
+                toastRunFailure(current.id, error);
             } finally {
-                cancelUserInput("生成已结束");
-                runningRef.current = false;
-                setRunning(false);
-                setLive(null);
-                abortRef.current = null;
+                endChatRun(current.id, outcome, current.title);
                 void queryClient.invalidateQueries({ queryKey: messagesKey });
             }
         },
@@ -568,6 +620,9 @@ export function useChatSession({
      * nothing showed the panel again. This re-asks through the pending
      * store, writes the answer into the part (guarded so a second tab
      * cannot double-answer), and re-enters the tool loop from that message.
+     *
+     * The run is claimed before waiting for the answer: a pending question
+     * now survives navigation, and a remount must not start a second copy.
      */
     const resumeInterruptedTurn = useCallback(
         async (
@@ -577,115 +632,135 @@ export function useChatSession({
         ) => {
             const current = conversationRef.current;
             const modelInfo = model;
-            if (!modelInfo) return;
+            if (!modelInfo || isChatRunActive(current.id)) return;
 
-            const answer = await requestUserInput(request);
-            if (!answer.ok && isTransientCancelReason(answer.error)) {
-                // Navigation or stop: leave the question open for the next
-                // visit instead of burning it.
-                return;
-            }
-
-            // Double-answer guard: another tab may have answered already.
-            const messagesKey = qk.chat.messages(user.id, current.id);
-            const fresh = await actions.getMessage(message.id);
-            const freshCall = fresh?.parts.find(
-                (part): part is ChatToolCallPart =>
-                    part.type === "tool-call" &&
-                    part.toolCallId === call.toolCallId,
-            );
-            if (!fresh || !freshCall || freshCall.result !== undefined) {
-                void queryClient.invalidateQueries({ queryKey: messagesKey });
-                return;
-            }
-
-            let args: Record<string, unknown> = {};
+            const controller = new AbortController();
+            beginChatRun(current.id, controller, current.sandboxFiles);
+            let outcome: ChatRunOutcome = "error";
             try {
-                const parsed = JSON.parse(call.argsText) as unknown;
+                const answer = await requestUserInput({
+                    ...request,
+                    conversationId: current.id,
+                });
                 if (
-                    typeof parsed === "object" &&
-                    parsed !== null &&
-                    !Array.isArray(parsed)
+                    !answer.ok &&
+                    (isTransientCancelReason(answer.error) ||
+                        hasPendingUserInput())
                 ) {
-                    args = parsed as Record<string, unknown>;
+                    // Navigation, stop, or another conversation's question is
+                    // already waiting: leave this one open for later instead
+                    // of burning it with an error.
+                    outcome = "stopped";
+                    return;
                 }
-            } catch {
-                // resolveInteractiveToolResult reports the bad args
-            }
-            const resolved = await resolveInteractiveToolResult(
-                call.toolName,
-                args,
-                answer,
-                {
-                    createExpense: actions.createExpense,
-                    onMemoryChanged: () => {
-                        void queryClient.invalidateQueries({
-                            queryKey: qk.chat.memories(user.id),
-                        });
-                    },
-                },
-            );
 
-            // Fill the answered call and mark sibling calls that never ran
-            // (the loop executes sequentially, so a reload orphans them too).
-            const updatedParts: ChatPart[] = fresh.parts.map((part) => {
-                if (part.type !== "tool-call" || part.result !== undefined) {
-                    return part;
+                // Double-answer guard: another tab may have answered already.
+                const messagesKey = qk.chat.messages(user.id, current.id);
+                const fresh = await actions.getMessage(message.id);
+                const freshCall = fresh?.parts.find(
+                    (part): part is ChatToolCallPart =>
+                        part.type === "tool-call" &&
+                        part.toolCallId === call.toolCallId,
+                );
+                if (!fresh || !freshCall || freshCall.result !== undefined) {
+                    void queryClient.invalidateQueries({
+                        queryKey: messagesKey,
+                    });
+                    outcome = "done";
+                    return;
                 }
-                if (part.toolCallId === call.toolCallId) {
+
+                let args: Record<string, unknown> = {};
+                try {
+                    const parsed = JSON.parse(call.argsText) as unknown;
+                    if (
+                        typeof parsed === "object" &&
+                        parsed !== null &&
+                        !Array.isArray(parsed)
+                    ) {
+                        args = parsed as Record<string, unknown>;
+                    }
+                } catch {
+                    // resolveInteractiveToolResult reports the bad args
+                }
+                const resolved = await resolveInteractiveToolResult(
+                    call.toolName,
+                    args,
+                    answer,
+                    {
+                        createExpense: actions.createExpense,
+                        onMemoryChanged: () => {
+                            void queryClient.invalidateQueries({
+                                queryKey: qk.chat.memories(user.id),
+                            });
+                        },
+                    },
+                );
+
+                // Fill the answered call and mark sibling calls that never ran
+                // (the loop executes sequentially, so a reload orphans them too).
+                const updatedParts: ChatPart[] = fresh.parts.map((part) => {
+                    if (
+                        part.type !== "tool-call" ||
+                        part.result !== undefined
+                    ) {
+                        return part;
+                    }
+                    if (part.toolCallId === call.toolCallId) {
+                        return {
+                            ...part,
+                            result: resolved.result,
+                            isError: resolved.isError,
+                        };
+                    }
                     return {
                         ...part,
-                        result: resolved.result,
-                        isError: resolved.isError,
+                        result: { ok: false, error: "页面刷新中断了这次执行" },
+                        isError: true,
                     };
+                });
+
+                queryClient.setQueryData<ChatMessage[]>(
+                    messagesKey,
+                    (previous) =>
+                        (previous ?? []).map((row) =>
+                            row.id === message.id
+                                ? { ...row, parts: updatedParts }
+                                : row,
+                        ),
+                );
+                await actions
+                    .updateMessage(message.id, current.id, {
+                        parts: updatedParts,
+                        content: fresh.content,
+                        status: fresh.status,
+                    })
+                    .catch(() => {});
+
+                if (resolved.isError || !isInteractiveTool(call.toolName)) {
+                    outcome = resolved.isError ? "error" : "done";
+                    return;
                 }
-                return {
-                    ...part,
-                    result: { ok: false, error: "页面刷新中断了这次执行" },
-                    isError: true,
-                };
-            });
 
-            queryClient.setQueryData<ChatMessage[]>(messagesKey, (previous) =>
-                (previous ?? []).map((row) =>
-                    row.id === message.id
-                        ? { ...row, parts: updatedParts }
-                        : row,
-                ),
-            );
-            await actions
-                .updateMessage(message.id, current.id, {
-                    parts: updatedParts,
-                    content: fresh.content,
-                    status: fresh.status,
-                })
-                .catch(() => {});
-
-            if (resolved.isError || !isInteractiveTool(call.toolName)) return;
-
-            // Re-enter the tool loop: the model reads the answered result and
-            // continues the same turn as a new assistant message.
-            const history = messagesRef.current
-                .filter((row) => row.seq < message.seq)
-                .concat({ ...fresh, parts: updatedParts });
-            const controller = new AbortController();
-            abortRef.current = controller;
-            runningRef.current = true;
-            setRunning(true);
-            try {
-                await runAssistant(
+                // Re-enter the tool loop: the model reads the answered result
+                // and continues the same turn as a new assistant message.
+                const history = messagesRef.current
+                    .filter((row) => row.seq < message.seq)
+                    .concat({ ...fresh, parts: updatedParts });
+                outcome = await runAssistant(
                     history,
                     modelInfo,
                     message.seq + 1,
                     controller,
                 );
+            } catch (error) {
+                outcome = "error";
+                toastRunFailure(current.id, error);
             } finally {
-                cancelUserInput("生成已结束");
-                runningRef.current = false;
-                setRunning(false);
-                setLive(null);
-                abortRef.current = null;
-                void queryClient.invalidateQueries({ queryKey: messagesKey });
+                endChatRun(current.id, outcome, current.title);
+                void queryClient.invalidateQueries({
+                    queryKey: qk.chat.messages(user.id, current.id),
+                });
             }
         },
         [actions, model, queryClient, runAssistant, user.id],
@@ -693,8 +768,14 @@ export function useChatSession({
 
     // Scan once per conversation: revive an unanswered question, or mark
     // orphaned sandbox calls as interrupted so they don't spin forever.
+    // A run that is still alive in the store is skipped: its calls are not
+    // orphaned, and resuming them would start a second run. While any
+    // question is pending (even in another conversation) the global pending
+    // slot is taken, so wait for it to clear and try again.
+    const isRunning = run.running;
+    const pendingInput = usePendingUserInput();
     useEffect(() => {
-        if (running || !model) return;
+        if (isRunning || !model || pendingInput) return;
         if (scannedConversationRef.current === conversation.id) return;
         scannedConversationRef.current = conversation.id;
 
@@ -731,6 +812,7 @@ export function useChatSession({
         void (async () => {
             const fresh = await actions.getMessage(last.id);
             if (!fresh) return;
+            if (isChatRunActive(conversation.id)) return;
             if (
                 !fresh.parts.some(
                     (part) =>
@@ -762,26 +844,26 @@ export function useChatSession({
     }, [
         actions,
         conversation.id,
+        isRunning,
         model,
+        pendingInput,
         resumeInterruptedTurn,
-        running,
         storedMessages,
     ]);
 
     const stop = useCallback(() => {
-        cancelUserInput("用户停止了生成");
-        abortRef.current?.abort();
+        stopChatRun(conversationRef.current.id);
     }, []);
 
     return {
         messages,
-        live,
-        running,
+        live: run.live,
+        running: run.running,
         send,
         stop,
         regenerate,
         editUserMessage,
         /** Sandbox files as of the latest tool run (for the header sheet). */
-        sandboxFiles: filesRef.current,
+        sandboxFiles: run.sandboxFiles ?? conversation.sandboxFiles,
     };
 }

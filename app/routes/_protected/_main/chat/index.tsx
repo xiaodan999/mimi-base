@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { stopChatRun } from "@/app/chat/run-store";
 import type { ChatPersona } from "@/app/chat/types";
 
 import { ConversationList } from "./-components/-conversation-list";
@@ -71,6 +72,9 @@ function ChatListPage() {
                     await actions.updateConversation(id, { title });
                 }}
                 onDelete={async (id) => {
+                    // A run may still be going in a conversation the user is
+                    // not looking at; stop it before the row disappears.
+                    stopChatRun(id);
                     await actions.deleteConversation(id);
                 }}
                 onTogglePin={async (id, pinned) => {
