@@ -19,6 +19,8 @@ export type ChatChunk = {
     reasoning?: string;
     toolCalls: RawToolCallDelta[];
     usage?: ChatUsage;
+    /** OpenAI `finish_reason` (`stop` / `length` / `tool_calls`, ...). */
+    finishReason?: string;
     error?: string;
 };
 
@@ -137,6 +139,9 @@ export function parseChatChunk(data: string): ChatChunk | null {
               }
             : {}),
         toolCalls: toolCallsOf(delta?.tool_calls),
+        ...(textOf(first?.finish_reason)
+            ? { finishReason: textOf(first?.finish_reason) }
+            : {}),
         ...(usageOf(payload.usage) ? { usage: usageOf(payload.usage) } : {}),
     };
 }
@@ -151,6 +156,8 @@ export type StreamAccumulator = {
     content: string;
     reasoning: string;
     toolCalls: AccumulatedToolCall[];
+    /** Last non-null `finish_reason` seen; `length` means the output was cut. */
+    finishReason?: string;
 };
 
 export function createStreamAccumulator(): StreamAccumulator {
@@ -173,6 +180,7 @@ export function applyChatChunk(
 } {
     if (chunk.content) acc.content += chunk.content;
     if (chunk.reasoning) acc.reasoning += chunk.reasoning;
+    if (chunk.finishReason) acc.finishReason = chunk.finishReason;
 
     let toolCallsChanged = false;
     let fallbackIndex = acc.toolCalls.length;

@@ -47,6 +47,15 @@ describe("parseChatChunk", () => {
         expect(chunk?.error).toBe("额度没了");
     });
 
+    test("reads finish_reason from the final chunk", () => {
+        const chunk = parseChatChunk(
+            JSON.stringify({
+                choices: [{ delta: {}, finish_reason: "length" }],
+            }),
+        );
+        expect(chunk?.finishReason).toBe("length");
+    });
+
     test("garbage is ignored instead of throwing", () => {
         expect(parseChatChunk("not json")).toBeNull();
         expect(parseChatChunk("")).toBeNull();
@@ -69,6 +78,18 @@ describe("applyChatChunk", () => {
         });
         expect(acc.content).toBe("你好");
         expect(acc.reasoning).toBe("先想");
+    });
+
+    test("keeps the last finish_reason seen", () => {
+        const acc = createStreamAccumulator();
+        applyChatChunk(acc, { done: false, toolCalls: [] });
+        expect(acc.finishReason).toBeUndefined();
+        applyChatChunk(acc, {
+            done: false,
+            finishReason: "length",
+            toolCalls: [],
+        });
+        expect(acc.finishReason).toBe("length");
     });
 
     test("assembles streamed tool-call arguments by index", () => {

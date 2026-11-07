@@ -3,6 +3,7 @@ import {
     type SandboxArtifact,
 } from "@/lib/sandbox-protocol";
 
+import { parseToolArgs } from "./tool-args";
 import type { ChatArtifactPart } from "./types";
 import type {
     UserInputAnswer,
@@ -133,20 +134,8 @@ export function pendingRequestFromToolCall(
     toolName: string,
     argsText: string,
 ): UserInputRequest | null {
-    let args: Record<string, unknown>;
-    try {
-        const parsed = JSON.parse(argsText) as unknown;
-        if (
-            typeof parsed !== "object" ||
-            parsed === null ||
-            Array.isArray(parsed)
-        ) {
-            return null;
-        }
-        args = parsed as Record<string, unknown>;
-    } catch {
-        return null;
-    }
+    const args = parseToolArgs(argsText);
+    if (!args) return null;
     if (toolName === "ask_user") return askUserRequestFromArgs(args);
     if (toolName === "log_expense") return expenseRequestFromArgs(args);
     return null;

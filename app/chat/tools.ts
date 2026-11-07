@@ -7,6 +7,7 @@ import {
 import { CHART_LEGENDS, CHART_PALETTES, normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
+import { parseToolArgs } from "./tool-args";
 import {
     askUserRequestFromArgs,
     expenseRequestFromArgs,
@@ -378,38 +379,45 @@ export type ChatToolOutcome = {
     result: unknown;
     files: SandboxFiles;
     isError: boolean;
+    /** Canonical arguments JSON; the raw model text may not parse. */
+    argsText?: string;
     /** Artifact cards produced by this call; appended to the message. */
     artifacts?: ChatArtifactPart[];
 };
-
-function parseArgs(argsText: string): Record<string, unknown> | null {
-    try {
-        const parsed = JSON.parse(argsText) as unknown;
-        return typeof parsed === "object" &&
-            parsed !== null &&
-            !Array.isArray(parsed)
-            ? (parsed as Record<string, unknown>)
-            : null;
-    } catch {
-        return null;
-    }
-}
 
 export async function executeChatTool(
     name: string,
     argsText: string,
     files: SandboxFiles,
     hooks: ToolHooks = {},
+    opts: { truncated?: boolean } = {},
 ): Promise<ChatToolOutcome> {
-    const args = parseArgs(argsText);
+    const args = parseToolArgs(argsText, { closeTail: !opts.truncated });
     if (!args) {
         return {
-            result: { ok: false, error: "工具参数不是合法的 JSON" },
+            result: {
+                ok: false,
+                error: opts.truncated
+                    ? "输出达到长度上限被截断了：把要写的内容缩短，或分几次写入"
+                    : "工具参数不是合法的 JSON",
+            },
             files,
             isError: true,
         };
     }
+    // Persist the canonical form so later rounds (and reloads) replay valid
+    // JSON to the provider even when the streamed text was malformed.
+    const canonicalArgsText = JSON.stringify(args);
+    const outcome = await runChatTool(name, args, files, hooks);
+    return { ...outcome, argsText: canonicalArgsText };
+}
 
+async function runChatTool(
+    name: string,
+    args: Record<string, unknown>,
+    files: SandboxFiles,
+    hooks: ToolHooks,
+): Promise<Omit<ChatToolOutcome, "argsText">> {
     if (name === "ask_user") {
         const request = askUserRequestFromArgs(args);
         if (!request) {

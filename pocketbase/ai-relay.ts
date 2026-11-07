@@ -42,7 +42,8 @@ export const AI_HEALTH_PATH = "/ai/health";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
-const MAX_OUTPUT_TOKENS = 4096;
+/** Tool calls carry whole files in their arguments; 4k truncated them. */
+const MAX_OUTPUT_TOKENS = 8192;
 const MAX_SANDBOX_BODY_BYTES = 1024 * 1024;
 const SANDBOX_DAILY_LIMIT = 200;
 const SANDBOX_MAX_IN_FLIGHT = 4;

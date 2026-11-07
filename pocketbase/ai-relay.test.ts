@@ -172,7 +172,7 @@ describe("request forwarding", () => {
             String(upstreamCall(calls).init?.body),
         ) as Record<string, unknown>;
         expect(body.model).toBe("deepseek-v4.1-flash");
-        expect(body.max_tokens).toBe(4096);
+        expect(body.max_tokens).toBe(8192);
     });
 
     test("missing server key is 503", async () => {

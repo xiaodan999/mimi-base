@@ -22,6 +22,7 @@ import {
 } from "@/app/chat/run-store";
 import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
+import { parseToolArgs } from "@/app/chat/tool-args";
 import {
     executeChatTool,
     isInteractiveTool,
@@ -349,6 +350,7 @@ export function useChatSession({
                     },
                 };
                 const artifactParts: ChatArtifactPart[] = [];
+                const truncated = result.finishReason === "length";
                 for (const call of callParts) {
                     if (controller.signal.aborted) break;
                     const toolOutcome = await executeChatTool(
@@ -356,11 +358,20 @@ export function useChatSession({
                         call.argsText,
                         files,
                         toolHooks,
+                        // The output was cut short: never rescue a half
+                        // written file; report the cap so the model retries
+                        // with less content.
+                        { truncated },
                     );
                     files = toolOutcome.files;
                     setChatRunFiles(conversationId, files);
                     executed.push({
                         ...call,
+                        // Canonical JSON: the raw streamed text may not parse,
+                        // and later rounds replay it as tool_calls arguments.
+                        ...(toolOutcome.argsText
+                            ? { argsText: toolOutcome.argsText }
+                            : {}),
                         result: toolOutcome.result,
                         isError: toolOutcome.isError,
                     });
@@ -689,19 +700,9 @@ export function useChatSession({
                     return;
                 }
 
-                let args: Record<string, unknown> = {};
-                try {
-                    const parsed = JSON.parse(call.argsText) as unknown;
-                    if (
-                        typeof parsed === "object" &&
-                        parsed !== null &&
-                        !Array.isArray(parsed)
-                    ) {
-                        args = parsed as Record<string, unknown>;
-                    }
-                } catch {
-                    // resolveInteractiveToolResult reports the bad args
-                }
+                const args =
+                    parseToolArgs(call.argsText) ??
+                    ({} as Record<string, unknown>);
                 const resolved = await resolveInteractiveToolResult(
                     call.toolName,
                     args,

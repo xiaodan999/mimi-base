@@ -12,7 +12,8 @@ import type { ChatUsage } from "./types";
 const CONNECT_TIMEOUT_MS = 60_000;
 /** Long answers can pause between tokens; only silence counts as a timeout. */
 const IDLE_TIMEOUT_MS = 120_000;
-const MAX_TOKENS = 4096;
+/** Tool calls carry whole files in their arguments; 4k truncated them. */
+const MAX_TOKENS = 8192;
 
 export type ChatToolDefinition = {
     type: "function";
@@ -44,6 +45,8 @@ export type StreamChatOptions = {
 
 export type StreamChatResult = StreamSnapshot & {
     usage?: ChatUsage;
+    /** OpenAI `finish_reason`; `length` means the output hit the token cap. */
+    finishReason?: string;
     /** True when the caller cancelled; partial content is still returned. */
     aborted: boolean;
 };
@@ -92,6 +95,7 @@ export async function streamChatCompletion(
         content: acc.content,
         reasoning: acc.reasoning,
         toolCalls: acc.toolCalls.filter((call) => call.name !== ""),
+        ...(acc.finishReason ? { finishReason: acc.finishReason } : {}),
         ...(usage ? { usage } : {}),
         aborted,
     });
