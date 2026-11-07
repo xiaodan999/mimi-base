@@ -132,6 +132,7 @@ function UserMessage() {
                         <textarea
                             rows={3}
                             autoFocus
+                            aria-label="编辑这条消息"
                             className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none"
                         />
                     </ComposerPrimitive.Input>
