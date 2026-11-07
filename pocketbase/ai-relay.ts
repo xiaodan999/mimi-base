@@ -27,7 +27,7 @@ import {
     createAiToolsService,
     type AiToolsCall,
 } from "./ai-tools";
-import { MAX_FILE_BYTES } from "../lib/chat-files";
+import { MAX_FILE_BYTES, isRecordId } from "../lib/chat-files";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
     createIpCityLookup,
@@ -471,7 +471,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             typeof body.attachmentId === "string"
                 ? body.attachmentId.trim()
                 : "";
-        if (!/^[a-z0-9]+$/.test(attachmentId)) {
+        if (!isRecordId(attachmentId)) {
             return json(400, {
                 error: { message: "缺少要读取的附件" },
             });

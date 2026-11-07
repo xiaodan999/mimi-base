@@ -1,3 +1,5 @@
+import { isRecordId } from "@/lib/chat-files";
+
 import {
     changedPaths,
     isBinaryArtifactPath,
@@ -615,6 +617,19 @@ async function runChatTool(
         if (attachmentId === "") {
             return {
                 result: { ok: false, error: "缺少附件的 attachmentId" },
+                files,
+                isError: true,
+            };
+        }
+        // A file name here means the model guessed instead of copying the
+        // 附件标注. Fail fast with a corrective message so the next round
+        // retries with the id.
+        if (!isRecordId(attachmentId)) {
+            return {
+                result: {
+                    ok: false,
+                    error: "attachmentId 不是文件名：请复制消息里附件标注中的记录 id（形如 x7k2m9q4p1n8r3s）再调用",
+                },
                 files,
                 isError: true,
             };

@@ -5,6 +5,7 @@ import {
     MAX_FILE_BYTES,
     isAllowedFileSize,
     isPdfFileName,
+    isRecordId,
     isSupportedFileName,
     parsePageSpec,
     sanitizeFileName,
@@ -67,5 +68,19 @@ describe("parsePageSpec", () => {
     test("caps the number of pages per request", () => {
         expect(parsePageSpec("1-30", 200)).toHaveLength(10);
         expect(parsePageSpec("1-30", 3)).toEqual([1, 2, 3]);
+    });
+});
+
+describe("isRecordId", () => {
+    test("accepts PocketBase record ids", () => {
+        expect(isRecordId("x7k2m9q4p1n8r3s")).toBe(true);
+        expect(isRecordId("att1")).toBe(true);
+    });
+
+    test("rejects file names and paths — the read_attachment guess trap", () => {
+        expect(isRecordId("索尼耳机WH-1000XM5.pdf")).toBe(false);
+        expect(isRecordId("contract.pdf")).toBe(false);
+        expect(isRecordId("../etc/passwd")).toBe(false);
+        expect(isRecordId("")).toBe(false);
     });
 });

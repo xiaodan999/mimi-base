@@ -95,10 +95,13 @@ function attachmentText(
     part: ChatAttachmentPart,
     mode: "full" | "stub",
 ): string {
+    // The id lives in both variants: the model can only re-read an attachment
+    // (or fetch later pages) through read_attachment, and guessing from the
+    // file name fails — it must copy this id.
     if (mode === "stub") {
         return `[附件 ${part.name}（${attachmentLabel(part)}）——为节省上下文，原文与页面图片已省略；需要时用 read_attachment 工具读取，attachmentId: ${part.attachmentId}]`;
     }
-    const header = `[附件 ${part.name}（${attachmentLabel(part)}）${part.truncated ? "（内容过长，已截断）" : ""}]`;
+    const header = `[附件 ${part.name}（${attachmentLabel(part)}，attachmentId: ${part.attachmentId}）${part.truncated ? "（内容过长，已截断）" : ""}]`;
     const body =
         part.extracted.trim() !== ""
             ? `\n\`\`\`\n${part.extracted}\n\`\`\``
@@ -107,11 +110,11 @@ function attachmentText(
         part.kind === "pdf" &&
         part.extracted.trim() === "" &&
         part.pageImages.length > 0
-            ? `\n（这份 PDF 没有文字层，上面是转成图片的前 ${part.pageImages.length} 页）`
+            ? `\n（这份 PDF 没有文字层，上面是转成图片的前 ${part.pageImages.length} 页；要看其他页用 read_attachment，mode=pages）`
             : part.kind === "pdf" &&
                 part.pageImages.length > 0 &&
                 (part.pageCount ?? 0) > part.pageImages.length
-              ? `\n（前 ${part.pageImages.length} 页已转为图片附在本消息后；其余页用 read_attachment 的 mode=pages 查看）`
+              ? `\n（前 ${part.pageImages.length} 页已转为图片附在本消息后；其余页用 read_attachment 查看，attachmentId 见上面标注）`
               : "";
     return `${header}${body}${morePages}`;
 }

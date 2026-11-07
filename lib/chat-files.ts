@@ -59,6 +59,16 @@ export function isSupportedFileName(name: string): boolean {
     return FILE_EXTENSIONS.includes(lowerExtension(name));
 }
 
+/**
+ * PocketBase record id shape. `read_attachment` args must carry one — a file
+ * name there means the model guessed instead of copying the 附件标注, and the
+ * relay would 400 the read. Checked on the client (fail fast, corrective
+ * error), in the relay (defense in depth) and by callers validating parts.
+ */
+export function isRecordId(value: string): boolean {
+    return /^[a-z0-9]+$/.test(value);
+}
+
 /** Strip any path part and control characters before using a client name. */
 export function sanitizeFileName(raw: string): string {
     const base = raw.split(/[\\/]/).pop() ?? "";

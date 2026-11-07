@@ -225,7 +225,12 @@ describe("buildApiMessages with attachments", () => {
         expect(user.role).toBe("user");
         expect(user.content[0]).toMatchObject({ type: "text" });
         const text = (user.content[0] as { text: string }).text;
-        expect(text).toContain("[附件 订货合同.pdf（PDF，共 12 页）]");
+        expect(text).toContain(
+            "[附件 订货合同.pdf（PDF，共 12 页，attachmentId: att1）]",
+        );
+        // The model can only re-read via read_attachment; the id must be
+        // present in the full note too, not just collapsed stubs.
+        expect(text).toContain("attachmentId: att1");
         expect(text).toContain("第一条 甲方……");
         expect(user.content[1]).toMatchObject({
             type: "image_url",
