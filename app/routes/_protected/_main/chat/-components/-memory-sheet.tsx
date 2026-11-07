@@ -50,8 +50,11 @@ export function MemorySheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="max-h-[70dvh] px-4 pb-6">
-                <SheetHeader className="pb-1 text-left">
+            <SheetContent
+                side="bottom"
+                className="flex max-h-[70dvh] flex-col gap-2 px-4 pb-6"
+            >
+                <SheetHeader className="shrink-0 text-left">
                     <SheetTitle className="flex items-center gap-1.5">
                         <Brain className="size-4 text-primary" aria-hidden />
                         AI 的长期记忆
@@ -61,7 +64,7 @@ export function MemorySheet({
                         记住的事都会出现在这里，之后每次对话都带着它们；不需要的可以删掉。
                     </SheetDescription>
                 </SheetHeader>
-                <div className="min-h-24 overflow-y-auto pt-1">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {loading && (
                         <p className="py-8 text-center text-sm text-muted-foreground">
                             加载中…

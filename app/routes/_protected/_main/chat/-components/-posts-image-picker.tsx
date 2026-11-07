@@ -82,11 +82,14 @@ export function PostsImagePicker({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="max-h-[70dvh] px-4 pb-6">
-                <SheetHeader className="pb-1 text-left">
+            <SheetContent
+                side="bottom"
+                className="flex max-h-[70dvh] flex-col gap-2 px-4 pb-6"
+            >
+                <SheetHeader className="shrink-0 text-left">
                     <SheetTitle>从动态选择图片</SheetTitle>
                 </SheetHeader>
-                <div className="min-h-24 overflow-y-auto pt-1">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                     {postsQuery.isLoading && (
                         <div className="flex items-center justify-center py-8 text-muted-foreground">
                             <Loader2 className="size-5 animate-spin" />

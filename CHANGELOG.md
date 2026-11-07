@@ -54,6 +54,7 @@
 - 聊天 run 不再随对话页面卸载而丢失 UI 状态：`running`、流式草稿、乐观消息、`AbortController`、沙箱文件快照与页面 watcher 全部移到 `app/chat/run-store.ts`（按 conversation id 保存）。离开对话后模型循环和工具调用继续跑，回来会重新挂上同一条流并显示「运行中」；`isChatRunActive` 阻止重复发送（此前重新进入后必填状态为空，再次发送会撞上服务端每用户 1 个沙箱的并发限制，显示「沙箱正忙」）。挂载时的恢复扫描在 run 仍存活时跳过，不再把后台工具调用标成「页面刷新中断了这次执行」。`createMessage` / `updateMessage` / `deleteMessagesAfter` 同时写穿 React Query 的消息缓存，避免回来时读到工具执行前的旧行。没有页面在看该对话时，run 结束会弹出「回复完成 / 回复失败」toast。
 - `ask_user` / `log_expense` 的待回答问题带上 `conversationId`：导航离开不再取消（后台 run 继续等待），面板只在该对话显示；只有停止生成、切换对话或登出才会取消。`_main` 卸载时 `abortAllChatRuns` 中止全部 run 与提问；删除对话前先 `stopChatRun`，避免后台 run 继续写已删除的会话。
 - 打开有历史的对话时先闪一下「空对话」的人格推荐页：消息查询还没返回时 `messages` 为空，`ChatThread` 因此短暂渲染 `ThreadEmpty`。现在 `$conversationId` 路由同时等待对话与消息两个查询（都命中缓存时仍立即渲染），就绪后再挂载会话视图；`useChatSession` 随之去掉 `messagesLoading` 参数。
+- 手机上「从动态选择图片」和「AI 的长期记忆」面板无法上下滑动：底部 Sheet 只用 `max-h-[70dvh]` 限高，内部滚动区高度是 auto，会被内容撑开并溢出到屏幕外，`overflow-y-auto` 因此永远不会生效。两个面板改为 flex 列 + 头部 `shrink-0` + 内容区 `min-h-0 flex-1 overflow-y-auto overscroll-contain`，超出部分现在在面板内滚动。
 
 ### 变更
 
