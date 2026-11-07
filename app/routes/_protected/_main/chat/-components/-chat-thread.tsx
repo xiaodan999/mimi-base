@@ -1,13 +1,33 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import {
     ActionBarPrimitive,
     AssistantRuntimeProvider,
+    ComposerPrimitive,
     MessagePrimitive,
     ThreadPrimitive,
+    useAuiState,
+    type AppendMessage,
     type EmptyMessagePartProps,
     type ImageMessagePartProps,
 } from "@assistant-ui/react";
-import { ArrowDown, Copy, RotateCcw, Sparkles } from "lucide-react";
+import {
+    ArrowDown,
+    Check,
+    Copy,
+    GitFork,
+    Pencil,
+    RotateCcw,
+    Sparkles,
+    Repeat2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { imagesToDataUrls } from "@/app/ai/image";
@@ -15,6 +35,13 @@ import { latestPromptTokens } from "@/app/chat/context";
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 import { usePendingUserInput } from "@/app/chat/user-input";
 import { Button } from "@/components/ui/button";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 import type { LiveReply } from "../-use-chat-session";
 import { ChatComposer } from "./-chat-composer";
@@ -29,6 +56,17 @@ import {
 import { UserInputPanel } from "./-user-input-panel";
 
 const MAX_IMAGES = 4;
+
+type ThreadActions = {
+    onFork: (messageId: string) => void;
+    onRetryModel: (messageId: string) => void;
+};
+
+/** Lets per-message action bars reach the route-level fork/retry handlers. */
+const ThreadActionsContext = createContext<ThreadActions>({
+    onFork: () => {},
+    onRetryModel: () => {},
+});
 
 function UserText({ text }: { text: string }) {
     return (
@@ -56,14 +94,85 @@ function AssistantEmpty({ status }: EmptyMessagePartProps) {
     );
 }
 
+/** Per-message fork action; the id comes from the message scope. */
+function ForkButton() {
+    const { onFork } = useContext(ThreadActionsContext);
+    const messageId = useAuiState((state) => state.message.id);
+    return (
+        <button
+            type="button"
+            aria-label="从这里分叉新对话"
+            title="从这里分叉新对话"
+            onClick={() => onFork(messageId)}
+            className="grid size-7 place-items-center rounded-lg text-muted-foreground active:bg-accent"
+        >
+            <GitFork className="size-3.5" />
+        </button>
+    );
+}
+
 function UserMessage() {
     return (
-        <MessagePrimitive.Root className="mb-5 flex justify-end">
-            <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
-                <MessagePrimitive.Parts
-                    components={{ Text: UserText, Image: UserImage }}
-                />
-            </div>
+        <MessagePrimitive.Root className="group/message mb-5 flex flex-col items-end">
+            <ComposerPrimitive.If editing>
+                <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-sm">
+                    <ComposerPrimitive.Input asChild>
+                        <textarea
+                            rows={3}
+                            autoFocus
+                            className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none"
+                        />
+                    </ComposerPrimitive.Input>
+                    <div className="mt-1 flex justify-end gap-1.5">
+                        <ComposerPrimitive.Cancel asChild>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 rounded-lg text-muted-foreground"
+                            >
+                                取消
+                            </Button>
+                        </ComposerPrimitive.Cancel>
+                        <ComposerPrimitive.Send asChild>
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 rounded-lg"
+                            >
+                                <Check className="mr-1 size-3.5" />
+                                保存并重发
+                            </Button>
+                        </ComposerPrimitive.Send>
+                    </div>
+                </div>
+            </ComposerPrimitive.If>
+            <ComposerPrimitive.If editing={false}>
+                <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
+                    <MessagePrimitive.Parts
+                        components={{ Text: UserText, Image: UserImage }}
+                    />
+                </div>
+                <div className="mt-1 flex min-h-7 items-center gap-0.5 opacity-60 transition-opacity group-hover/message:opacity-100">
+                    <ActionBarPrimitive.Root
+                        hideWhenRunning
+                        className="flex items-center gap-0.5"
+                    >
+                        <ActionBarPrimitive.Edit asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="编辑这条消息并重新回答"
+                                title="编辑并重发"
+                                className="size-7 rounded-lg text-muted-foreground"
+                            >
+                                <Pencil className="size-3.5" />
+                            </Button>
+                        </ActionBarPrimitive.Edit>
+                    </ActionBarPrimitive.Root>
+                    <ForkButton />
+                </div>
+            </ComposerPrimitive.If>
         </MessagePrimitive.Root>
     );
 }
@@ -105,6 +214,7 @@ function AssistantMessage() {
                                 <Copy className="size-3.5" />
                             </Button>
                         </ActionBarPrimitive.Copy>
+                        <ForkButton />
                         <MessagePrimitive.If last>
                             <ActionBarPrimitive.Reload asChild>
                                 <Button
@@ -117,11 +227,30 @@ function AssistantMessage() {
                                     <RotateCcw className="size-3.5" />
                                 </Button>
                             </ActionBarPrimitive.Reload>
+                            <RetryModelButton />
                         </MessagePrimitive.If>
                     </ActionBarPrimitive.Root>
                 </div>
             </div>
         </MessagePrimitive.Root>
+    );
+}
+
+/** Opens the 换模型重试 sheet for this reply. */
+function RetryModelButton() {
+    const { onRetryModel } = useContext(ThreadActionsContext);
+    const messageId = useAuiState((state) => state.message.id);
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            aria-label="换个模型重新生成"
+            title="换个模型重新生成"
+            onClick={() => onRetryModel(messageId)}
+            className="size-7 rounded-lg text-muted-foreground"
+        >
+            <Repeat2 className="size-3.5" />
+        </Button>
     );
 }
 
@@ -144,10 +273,16 @@ export type ChatThreadProps = {
     live: LiveReply | null;
     running: boolean;
     model: ChatModel | undefined;
+    models: readonly ChatModel[];
     personaName: string;
     onSend: (parts: ChatPart[]) => Promise<void>;
     onStop: () => void;
-    onRegenerate: (parentId: string) => Promise<void>;
+    onRegenerate: (
+        parentId: string,
+        opts?: { model: ChatModel },
+    ) => Promise<void>;
+    onEdit: (message: AppendMessage) => Promise<void>;
+    onFork: (messageId: string) => void;
 };
 
 /**
@@ -160,18 +295,27 @@ export function ChatThread({
     live,
     running,
     model,
+    models,
     personaName,
     onSend,
     onStop,
     onRegenerate,
+    onEdit,
+    onFork,
 }: ChatThreadProps) {
     const [images, setImages] = useState<string[]>([]);
     const [addingImages, setAddingImages] = useState(false);
+    const [retryTarget, setRetryTarget] = useState<string | null>(null);
     const imagesRef = useRef<string[]>([]);
     imagesRef.current = images;
 
     const visionEnabled = model?.vision === true;
     const disabled = !model;
+
+    const threadActions = useMemo(
+        () => ({ onFork, onRetryModel: setRetryTarget }),
+        [onFork],
+    );
 
     // Switching to a text-only model must not leave images queued for a
     // request the relay would reject.
@@ -203,6 +347,7 @@ export function ChatThread({
         onSend: sendWithImages,
         onStop,
         onRegenerate,
+        onEdit,
     });
 
     const handleAddImages = useCallback(
@@ -285,61 +430,108 @@ export function ChatThread({
 
     return (
         <AssistantRuntimeProvider runtime={runtime}>
-            <div className="flex h-full min-h-0 flex-col">
-                <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col">
-                    <ThreadPrimitive.Viewport
-                        ref={viewportRef}
-                        onScroll={updateScroll}
-                        className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-4"
-                    >
-                        {empty ? (
-                            <ThreadEmpty personaName={personaName} />
-                        ) : (
-                            <ThreadPrimitive.Messages
-                                components={{
-                                    UserMessage,
-                                    AssistantMessage,
-                                }}
-                            />
-                        )}
-                    </ThreadPrimitive.Viewport>
-                    {showScrollDown && (
-                        <button
-                            type="button"
-                            aria-label="滚动到最新消息"
-                            onClick={() => {
-                                const element = viewportRef.current;
-                                if (!element) return;
-                                element.scrollTo({
-                                    top: element.scrollHeight,
-                                    behavior: "smooth",
-                                });
-                            }}
-                            className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-lg active:bg-accent"
+            <ThreadActionsContext.Provider value={threadActions}>
+                <div className="flex h-full min-h-0 flex-col">
+                    <ThreadPrimitive.Root className="relative flex min-h-0 flex-1 flex-col">
+                        <ThreadPrimitive.Viewport
+                            ref={viewportRef}
+                            onScroll={updateScroll}
+                            className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-4"
                         >
-                            <ArrowDown className="size-4" />
-                        </button>
-                    )}
-                </ThreadPrimitive.Root>
+                            {empty ? (
+                                <ThreadEmpty personaName={personaName} />
+                            ) : (
+                                <ThreadPrimitive.Messages
+                                    components={{
+                                        UserMessage,
+                                        AssistantMessage,
+                                    }}
+                                />
+                            )}
+                        </ThreadPrimitive.Viewport>
+                        {showScrollDown && (
+                            <button
+                                type="button"
+                                aria-label="滚动到最新消息"
+                                onClick={() => {
+                                    const element = viewportRef.current;
+                                    if (!element) return;
+                                    element.scrollTo({
+                                        top: element.scrollHeight,
+                                        behavior: "smooth",
+                                    });
+                                }}
+                                className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-lg active:bg-accent"
+                            >
+                                <ArrowDown className="size-4" />
+                            </button>
+                        )}
+                    </ThreadPrimitive.Root>
 
-                <UserInputPanel />
+                    <UserInputPanel />
 
-                <ChatComposer
-                    images={images}
-                    addingImages={addingImages}
-                    visionEnabled={visionEnabled}
-                    disabled={disabled}
-                    inputPending={pendingInput !== null}
-                    running={running}
-                    contextUsage={{
-                        used: contextUsed,
-                        total: model?.contextWindow ?? 0,
+                    <ChatComposer
+                        images={images}
+                        addingImages={addingImages}
+                        visionEnabled={visionEnabled}
+                        disabled={disabled}
+                        inputPending={pendingInput !== null}
+                        running={running}
+                        contextUsage={{
+                            used: contextUsed,
+                            total: model?.contextWindow ?? 0,
+                        }}
+                        onAddImages={handleAddImages}
+                        onRemoveImage={removeImage}
+                        onStop={onStop}
+                    />
+                </div>
+
+                <Sheet
+                    open={retryTarget !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setRetryTarget(null);
                     }}
-                    onAddImages={handleAddImages}
-                    onRemoveImage={removeImage}
-                    onStop={onStop}
-                />
-            </div>
+                >
+                    <SheetContent side="bottom" className="px-4 pb-6">
+                        <SheetHeader className="pb-1 text-left">
+                            <SheetTitle>换个模型重新生成</SheetTitle>
+                        </SheetHeader>
+                        <div className="space-y-1.5 pt-1">
+                            {models.map((candidate) => (
+                                <button
+                                    key={candidate.id}
+                                    type="button"
+                                    disabled={running}
+                                    onClick={() => {
+                                        const target = retryTarget;
+                                        setRetryTarget(null);
+                                        if (!target) return;
+                                        void onRegenerate(target, {
+                                            model: candidate,
+                                        });
+                                    }}
+                                    className={cn(
+                                        "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm active:bg-accent",
+                                        candidate.id === model?.id
+                                            ? "border-primary/40 bg-primary/5"
+                                            : "border-border/70 bg-card",
+                                    )}
+                                >
+                                    <span className="font-medium">
+                                        {candidate.label}
+                                    </span>
+                                    {candidate.id === model?.id && (
+                                        <span className="text-[11px] text-primary">
+                                            当前模型
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            </ThreadActionsContext.Provider>
         </AssistantRuntimeProvider>
     );
 }

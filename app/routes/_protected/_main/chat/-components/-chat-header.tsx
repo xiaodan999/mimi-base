@@ -3,8 +3,11 @@ import { Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
     Check,
+    Download,
     MoreHorizontal,
     Pencil,
+    Pin,
+    PinOff,
     Trash2,
     X,
 } from "lucide-react";
@@ -41,6 +44,8 @@ export type ChatHeaderProps = {
     onRename: (title: string) => Promise<void>;
     onDelete: () => Promise<void>;
     onClearSandbox: () => Promise<void>;
+    onTogglePin: () => Promise<void>;
+    onExport: () => void;
 };
 
 /**
@@ -58,6 +63,8 @@ export function ChatHeader({
     onRename,
     onDelete,
     onClearSandbox,
+    onTogglePin,
+    onExport,
 }: ChatHeaderProps) {
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -126,6 +133,32 @@ export function ChatHeader({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => {
+                                void toastPromise(onTogglePin(), {
+                                    loading: "处理中…",
+                                    success: conversation.pinned
+                                        ? "已取消置顶"
+                                        : "已置顶",
+                                    error: "操作失败",
+                                }).catch(() => {});
+                            }}
+                        >
+                            {conversation.pinned ? (
+                                <PinOff className="mr-2 size-4" />
+                            ) : (
+                                <Pin className="mr-2 size-4" />
+                            )}
+                            {conversation.pinned ? "取消置顶" : "置顶"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={onExport}
+                        >
+                            <Download className="mr-2 size-4" />
+                            导出 Markdown
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                             className="cursor-pointer"
                             onClick={() => {

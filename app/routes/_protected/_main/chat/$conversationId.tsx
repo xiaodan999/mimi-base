@@ -1,10 +1,15 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertCircle, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
+import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
+import { findPersona } from "@/app/chat/personas";
+import { previewText } from "@/app/chat/records";
 import type { ChatConversation } from "@/app/chat/types";
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
+import { toastPromise } from "@/lib/toast-promise";
 
 import { ChatHeader } from "./-components/-chat-header";
 import { ChatThread } from "./-components/-chat-thread";
@@ -13,6 +18,7 @@ import {
     useChatConversation,
     useChatMessages,
     useChatModels,
+    useChatPersonas,
 } from "./-data";
 import { useChatSession } from "./-use-chat-session";
 
@@ -59,6 +65,7 @@ function ChatConversationView({
     const navigate = useNavigate();
     const actions = useChatActions();
     const modelsQuery = useChatModels();
+    const personasQuery = useChatPersonas();
     const messagesQuery = useChatMessages(conversation.id);
 
     const models = modelsQuery.data?.models ?? [];
@@ -99,6 +106,117 @@ function ChatConversationView({
         model,
     });
 
+    /** Copy everything up to and including a message into a new conversation. */
+    const handleFork = useCallback(
+        async (messageId: string) => {
+            const target = session.messages.find(
+                (message) => message.id === messageId,
+            );
+            if (!target) return;
+            const persona = findPersona(
+                conversation.personaId,
+                personasQuery.data ?? [],
+            ) ?? {
+                id: conversation.personaId,
+                name: conversation.personaName || "通用助手",
+                icon: "💬",
+                description: "",
+                prompt: conversation.personaPrompt,
+                builtin: false,
+            };
+            const upto = session.messages.filter(
+                (message) => message.seq <= target.seq,
+            );
+            const lastCopied = upto.at(-1);
+            try {
+                const created = await toastPromise(
+                    (async () => {
+                        const copy = await actions.createConversation({
+                            title: `${conversation.title}（分支）`,
+                            model: conversation.model,
+                            thinking: conversation.thinking,
+                            persona,
+                        });
+                        for (const message of upto) {
+                            await actions.createMessage({
+                                conversationId: copy.id,
+                                role: message.role,
+                                parts: message.parts,
+                                content: message.content,
+                                model: message.model,
+                                seq: message.seq,
+                                status: message.status,
+                                ...(message.usage
+                                    ? { usage: message.usage }
+                                    : {}),
+                            });
+                        }
+                        await actions.updateConversation(copy.id, {
+                            lastMessage: previewText(lastCopied?.content ?? ""),
+                            sandboxFiles: conversation.sandboxFiles,
+                        });
+                        return copy;
+                    })(),
+                    {
+                        loading: "正在分叉…",
+                        success: "已创建分支对话",
+                        error: "分叉失败",
+                    },
+                );
+                await navigate({
+                    to: "/chat/$conversationId",
+                    params: { conversationId: created.id },
+                });
+            } catch {
+                // toast already shown
+            }
+        },
+        [
+            actions,
+            conversation.model,
+            conversation.personaId,
+            conversation.personaName,
+            conversation.personaPrompt,
+            conversation.sandboxFiles,
+            conversation.thinking,
+            conversation.title,
+            navigate,
+            personasQuery.data,
+            session.messages,
+        ],
+    );
+
+    /** Share as a .md file when the platform allows it, else copy. */
+    const handleExport = useCallback(() => {
+        const markdown = conversationToMarkdown(conversation, session.messages);
+        const filename = markdownFilename(conversation.title);
+        const file = new File([markdown], filename, {
+            type: "text/markdown",
+        });
+        if (
+            typeof navigator.share === "function" &&
+            navigator.canShare?.({ files: [file] })
+        ) {
+            void navigator
+                .share({ files: [file], title: conversation.title })
+                .catch(() => {});
+            return;
+        }
+        void navigator.clipboard
+            .writeText(markdown)
+            .then(() => toast.success("已复制为 Markdown"))
+            .catch(() => {
+                const url = URL.createObjectURL(
+                    new Blob([markdown], { type: "text/markdown" }),
+                );
+                const anchor = document.createElement("a");
+                anchor.href = url;
+                anchor.download = filename;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            });
+    }, [conversation, session.messages]);
+
     return (
         <div className="flex h-full min-h-0 flex-col">
             <ChatHeader
@@ -135,6 +253,12 @@ function ChatConversationView({
                         sandboxFiles: {},
                     });
                 }}
+                onTogglePin={async () => {
+                    await actions.updateConversation(conversation.id, {
+                        pinned: !conversation.pinned,
+                    });
+                }}
+                onExport={handleExport}
             />
             <div className="min-h-0 flex-1">
                 <ChatThread
@@ -142,10 +266,13 @@ function ChatConversationView({
                     live={session.live}
                     running={session.running}
                     model={model}
+                    models={models}
                     personaName={conversation.personaName || "通用助手"}
                     onSend={session.send}
                     onStop={session.stop}
                     onRegenerate={session.regenerate}
+                    onEdit={session.editUserMessage}
+                    onFork={(messageId) => void handleFork(messageId)}
                 />
             </div>
         </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AppendMessage } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { buildApiMessages } from "@/app/chat/prompt";
@@ -22,6 +23,7 @@ import { cancelUserInput } from "@/app/chat/user-input";
 import { useCurrentUser } from "@/lib/auth";
 import { qk } from "@/lib/query-keys";
 
+import { appendMessageParts } from "./-components/-chat-runtime";
 import { chatMemoriesQueryOptions, useChatActions } from "./-data";
 
 /** One assistant turn may call tools several times; stop runaway loops. */
@@ -420,22 +422,34 @@ export function useChatSession({
     );
 
     /**
-     * Regenerate the reply that follows `parentId` (the user message). The UI
-     * only offers this on the last assistant message, so dropping everything
-     * after that point cannot delete a later turn.
+     * Regenerate the reply that follows `parentId`. `parentId` may be the user
+     * message itself (assistant-ui's Reload) or the assistant reply to redo
+     * (the 换模型重试 sheet) — both resolve to the same anchor user message.
+     * `opts.model` retries with another allowlisted model without changing the
+     * conversation's default.
      */
     const regenerate = useCallback(
-        async (parentId: string) => {
+        async (parentId: string, opts?: { model: ChatModel }) => {
             if (runningRef.current) return;
             const list = messagesRef.current;
+            const anchor = list.find((message) => message.id === parentId);
             const parent =
-                list.find(
-                    (message) =>
-                        message.id === parentId && message.role === "user",
-                ) ??
-                [...list].reverse().find((message) => message.role === "user");
+                anchor?.role === "user"
+                    ? anchor
+                    : anchor
+                      ? [...list]
+                            .reverse()
+                            .find(
+                                (message) =>
+                                    message.role === "user" &&
+                                    message.seq < anchor.seq,
+                            )
+                      : [...list]
+                            .reverse()
+                            .find((message) => message.role === "user");
             if (!parent) return;
             if (!model) return;
+            const runModel = opts?.model ?? model;
 
             const history = list.filter((message) => message.seq <= parent.seq);
             setOptimistic((previous) =>
@@ -451,7 +465,12 @@ export function useChatSession({
             runningRef.current = true;
             setRunning(true);
             try {
-                await runAssistant(history, model, parent.seq + 1, controller);
+                await runAssistant(
+                    history,
+                    runModel,
+                    parent.seq + 1,
+                    controller,
+                );
             } finally {
                 cancelUserInput("生成已结束");
                 runningRef.current = false;
@@ -461,6 +480,74 @@ export function useChatSession({
             }
         },
         [actions, model, runAssistant],
+    );
+
+    /**
+     * Edit a sent user message and rerun from it. assistant-ui hands us an
+     * AppendMessage whose `parentId` is the edited message's parent; the
+     * edited message is the first user message after that point. Images on
+     * the original message are kept (only text is editable).
+     */
+    const editUserMessage = useCallback(
+        async (message: AppendMessage) => {
+            if (runningRef.current) return;
+            const current = conversationRef.current;
+            if (!model) return;
+            const list = messagesRef.current;
+            const parentSeq = message.parentId
+                ? (list.find((row) => row.id === message.parentId)?.seq ?? 0)
+                : 0;
+            const target = list.find(
+                (row) => row.seq > parentSeq && row.role === "user",
+            );
+            if (!target) return;
+
+            const textParts = appendMessageParts(message);
+            const keptImages = target.parts.filter(
+                (part) => part.type === "image",
+            );
+            const parts: ChatPart[] = [...textParts, ...keptImages];
+            if (parts.length === 0) return;
+            const content = messageText(parts);
+
+            // The stored query wins over the optimistic list, so patch the
+            // cache directly for an instant edit, then persist + rerun.
+            const messagesKey = qk.chat.messages(user.id, current.id);
+            queryClient.setQueryData<ChatMessage[]>(messagesKey, (previous) =>
+                (previous ?? [])
+                    .filter((row) => row.seq <= target.seq)
+                    .map((row) =>
+                        row.id === target.id ? { ...row, parts, content } : row,
+                    ),
+            );
+
+            const controller = new AbortController();
+            abortRef.current = controller;
+            runningRef.current = true;
+            setRunning(true);
+            try {
+                await actions
+                    .updateMessage(target.id, current.id, {
+                        parts,
+                        content,
+                        status: "complete",
+                    })
+                    .catch(() => {});
+                await actions.deleteMessagesAfter(current.id, target.seq);
+                const history = list
+                    .filter((row) => row.seq < target.seq)
+                    .concat({ ...target, parts, content });
+                await runAssistant(history, model, target.seq + 1, controller);
+            } finally {
+                cancelUserInput("生成已结束");
+                runningRef.current = false;
+                setRunning(false);
+                setLive(null);
+                abortRef.current = null;
+                void queryClient.invalidateQueries({ queryKey: messagesKey });
+            }
+        },
+        [actions, model, queryClient, runAssistant, user.id],
     );
 
     const stop = useCallback(() => {
@@ -475,6 +562,7 @@ export function useChatSession({
         send,
         stop,
         regenerate,
+        editUserMessage,
         /** Sandbox files as of the latest tool run (for the header sheet). */
         sandboxFiles: filesRef.current,
     };

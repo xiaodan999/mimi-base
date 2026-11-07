@@ -73,6 +73,9 @@ function ChatListPage() {
                 onDelete={async (id) => {
                     await actions.deleteConversation(id);
                 }}
+                onTogglePin={async (id, pinned) => {
+                    await actions.updateConversation(id, { pinned });
+                }}
             />
 
             <NewChatSheet

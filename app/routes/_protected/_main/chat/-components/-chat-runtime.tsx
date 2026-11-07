@@ -6,7 +6,7 @@ import {
     type ThreadMessageLike,
 } from "@assistant-ui/react";
 
-import type { ChatMessage, ChatPart } from "@/app/chat/types";
+import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 
 import type { LiveReply } from "../-use-chat-session";
 
@@ -142,7 +142,11 @@ export type UseChatRuntimeArgs = {
     running: boolean;
     onSend: (parts: ChatPart[]) => Promise<void>;
     onStop: () => void;
-    onRegenerate: (parentId: string) => Promise<void>;
+    onRegenerate: (
+        parentId: string,
+        opts?: { model: ChatModel },
+    ) => Promise<void>;
+    onEdit?: (message: AppendMessage) => Promise<void>;
 };
 
 /**
@@ -157,6 +161,7 @@ export function useChatRuntime({
     onSend,
     onStop,
     onRegenerate,
+    onEdit,
 }: UseChatRuntimeArgs) {
     const threadMessages = useMemo(() => {
         const list = messages.map(toThreadMessage);
@@ -180,6 +185,11 @@ export function useChatRuntime({
             if (!parentId) return;
             await onRegenerate(parentId);
         },
+        // Providing onEdit is what turns the Edit button on; omitting it
+        // keeps the button auto-disabled.
+        ...(onEdit
+            ? { onEdit: async (message: AppendMessage) => onEdit(message) }
+            : {}),
         adapters: {},
     });
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
@@ -6,10 +6,17 @@ import {
     MessageCircle,
     MoreHorizontal,
     Pencil,
+    Pin,
+    PinOff,
     Plus,
+    Search,
     Trash2,
 } from "lucide-react";
 
+import {
+    filterConversations,
+    listPersonaChips,
+} from "@/app/chat/conversations";
 import { findPersona } from "@/app/chat/personas";
 import type { ChatConversation, ChatPersona } from "@/app/chat/types";
 import { Button } from "@/components/ui/button";
@@ -31,6 +38,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 function relativeTime(value: string): string {
     const date = new Date(value.replace(" ", "T"));
@@ -45,6 +53,34 @@ function relativeTime(value: string): string {
     }
 }
 
+function FilterChip({
+    active,
+    label,
+    count,
+    onClick,
+}: {
+    active: boolean;
+    label: string;
+    count: number;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "shrink-0 rounded-full border px-2.5 py-1 text-xs transition-colors active:bg-accent",
+                active
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border/70 bg-card text-muted-foreground",
+            )}
+        >
+            {label}
+            <span className="ml-1 tabular-nums opacity-70">{count}</span>
+        </button>
+    );
+}
+
 export type ConversationListProps = {
     conversations: readonly ChatConversation[];
     personas: readonly ChatPersona[];
@@ -52,6 +88,7 @@ export type ConversationListProps = {
     onNewChat: () => void;
     onRename: (id: string, title: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    onTogglePin: (id: string, pinned: boolean) => Promise<void>;
 };
 
 export function ConversationList({
@@ -61,6 +98,7 @@ export function ConversationList({
     onNewChat,
     onRename,
     onDelete,
+    onTogglePin,
 }: ConversationListProps) {
     const [renameTarget, setRenameTarget] = useState<ChatConversation | null>(
         null,
@@ -70,6 +108,17 @@ export function ConversationList({
     );
     const [titleDraft, setTitleDraft] = useState("");
     const [busy, setBusy] = useState(false);
+    const [query, setQuery] = useState("");
+    const [personaFilter, setPersonaFilter] = useState("all");
+
+    const visible = useMemo(
+        () => filterConversations(conversations, query, personaFilter),
+        [conversations, query, personaFilter],
+    );
+    const chips = useMemo(
+        () => listPersonaChips(conversations, personas),
+        [conversations, personas],
+    );
 
     return (
         <>
@@ -92,6 +141,37 @@ export function ConversationList({
                         新对话
                     </Button>
                 </div>
+                {conversations.length > 0 && (
+                    <div className="relative mt-3">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            placeholder="搜索对话…"
+                            aria-label="搜索对话"
+                            className="h-10 rounded-xl bg-card pl-9"
+                        />
+                    </div>
+                )}
+                {chips.length > 1 && (
+                    <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <FilterChip
+                            active={personaFilter === "all"}
+                            label="全部"
+                            count={conversations.length}
+                            onClick={() => setPersonaFilter("all")}
+                        />
+                        {chips.map((chip) => (
+                            <FilterChip
+                                key={chip.id}
+                                active={personaFilter === chip.id}
+                                label={`${chip.icon} ${chip.name}`}
+                                count={chip.count}
+                                onClick={() => setPersonaFilter(chip.id)}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="space-y-2 px-3 pb-24">
@@ -117,7 +197,15 @@ export function ConversationList({
                     </div>
                 )}
 
-                {conversations.map((conversation) => {
+                {!loading &&
+                    conversations.length > 0 &&
+                    visible.length === 0 && (
+                        <p className="px-6 py-12 text-center text-sm text-muted-foreground">
+                            没有匹配「{query}」的对话。
+                        </p>
+                    )}
+
+                {visible.map((conversation) => {
                     const persona = findPersona(
                         conversation.personaId,
                         personas,
@@ -133,6 +221,12 @@ export function ConversationList({
                                 className="min-w-0 flex-1"
                             >
                                 <div className="flex items-center gap-1.5">
+                                    {conversation.pinned && (
+                                        <Pin
+                                            className="size-3 shrink-0 text-primary"
+                                            aria-label="已置顶"
+                                        />
+                                    )}
                                     <span className="text-sm" aria-hidden>
                                         {persona?.icon ?? "💬"}
                                     </span>
@@ -160,6 +254,33 @@ export function ConversationList({
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        className="cursor-pointer"
+                                        onClick={() => {
+                                            void toastPromise(
+                                                onTogglePin(
+                                                    conversation.id,
+                                                    !conversation.pinned,
+                                                ),
+                                                {
+                                                    loading: "处理中…",
+                                                    success: conversation.pinned
+                                                        ? "已取消置顶"
+                                                        : "已置顶",
+                                                    error: "操作失败",
+                                                },
+                                            ).catch(() => {});
+                                        }}
+                                    >
+                                        {conversation.pinned ? (
+                                            <PinOff className="mr-2 size-4" />
+                                        ) : (
+                                            <Pin className="mr-2 size-4" />
+                                        )}
+                                        {conversation.pinned
+                                            ? "取消置顶"
+                                            : "置顶"}
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                         className="cursor-pointer"
                                         onClick={() => {

@@ -26,6 +26,7 @@ import {
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { TOOL_TITLES } from "@/app/chat/tool-labels";
 import { cn } from "@/lib/utils";
 
 import { ChartCard } from "./-chart-card";
@@ -235,20 +236,6 @@ export function ReasoningPart({ text, status }: ReasoningMessagePartProps) {
 }
 
 /* ------------------------------ tool calls ------------------------------ */
-
-const TOOL_TITLES: Record<string, string> = {
-    ask_user: "向你提问",
-    sandbox_run: "运行代码",
-    sandbox_read: "读取文件",
-    sandbox_write: "写入文件",
-    sandbox_list: "列出文件",
-    show_chart: "生成图表",
-    memory: "记忆",
-    read_url: "读网页",
-    get_expenses: "查账本",
-    search_posts: "搜动态",
-    log_expense: "记账",
-};
 
 const TOOL_ICONS: Record<string, typeof Terminal> = {
     ask_user: HelpCircle,

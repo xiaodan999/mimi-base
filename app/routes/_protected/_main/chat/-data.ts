@@ -164,6 +164,7 @@ export type ConversationPatch = {
     thinking?: string;
     lastMessage?: string;
     sandboxFiles?: SandboxFiles;
+    pinned?: boolean;
 };
 
 export type PersonaInput = {
@@ -242,6 +243,7 @@ export function useChatActions() {
                         ? patch.sandboxFiles
                         : null;
             }
+            if (patch.pinned !== undefined) body.pinned = patch.pinned;
             if (Object.keys(body).length === 0) return;
             const record = await pb
                 .collection("chat_conversations")

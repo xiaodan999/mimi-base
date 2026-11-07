@@ -29,6 +29,9 @@
 - 新增聊天工具：`show_chart`（客户端 SVG 图表卡，`-chart-card.tsx`，柱/折/饼三种，数据经 `app/chat/chart.ts` 规范化）、`memory`（走 `/ai/tools/memory`，保存后失效 `qk.chat.memories`）、`read_url`、`get_expenses`（带 `tz` 时区参数）、`search_posts`。
 - 新增 `log_expense` 记账工具：`user-input.ts` 扩展 `expense` 请求类型，确认卡片（品名/金额/分类）点「记下」后由客户端直接创建 `ji_zhang_biao`（PB 规则绑定 `user_id`），成功后失效记账查询；取消不写入。
 - `buildSystemPrompt` / `buildApiMessages` 支持注入长期记忆（每次 run 前 `fetchQuery`，上限 30 条）。
+- 对话列表：搜索（标题/最后一条/人格名，`app/chat/conversations.ts` 纯函数）、人格筛选 chips、置顶（`chat_conversations.pinned`，置顶优先排序）。
+- 消息级操作：用户消息可编辑重发（外部存储运行时的 `onEdit` 回调 + `ComposerPrimitive.If editing` 行内编辑器，图片保留、后续消息删除后重跑）；任何消息可「从此分叉」复制为新对话（含沙箱文件快照）；最后一条回复可「换个模型重新生成」（`regenerate(parentId, { model })` 一次性覆盖，不改对话默认模型）。
+- 新增 `app/chat/export.ts`：对话导出 Markdown（文本原文、工具调用一行摘要、图片占位、不含思考过程），优先 `navigator.share` 文件分享，回退剪贴板/下载。
 
 ### 修复
 
