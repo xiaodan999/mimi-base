@@ -1026,11 +1026,17 @@ async function dbSync(): Promise<Response> {
         // @napi-rs/canvas for chat attachments), so a deploy must install
         // them before PB is restarted. --production skips the frontend
         // toolchain; --frozen-lockfile fails the deploy instead of silently
-        // rewriting the committed lockfile.
-        execSync("bun install --frozen-lockfile --production", {
-            cwd: repo,
-            stdio: "inherit",
-        });
+        // rewriting the committed lockfile. Call the running Bun binary:
+        // a detached supervisor's PATH does not include ~/.bun/bin, so a bare
+        // "bun" exits 127.
+        execFileSync(
+            process.execPath,
+            ["install", "--frozen-lockfile", "--production"],
+            {
+                cwd: repo,
+                stdio: "inherit",
+            },
+        );
         // If snapshotData() throws, restartPB rejects WITHOUT starting PB, so
         // migrations never apply without a verified backup (#13).
         await restartPB(() => {
