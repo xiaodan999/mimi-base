@@ -3,6 +3,10 @@ import type { AppendMessage } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import {
+    detectInterruptedRun,
+    INTERRUPTED_TOOL_ERROR,
+} from "@/app/chat/interrupted";
 import { buildApiMessages } from "@/app/chat/prompt";
 import { messageText, previewText } from "@/app/chat/records";
 import {
@@ -887,7 +891,7 @@ export function useChatSession({
                           ...part,
                           result: {
                               ok: false,
-                              error: "页面刷新中断了这次执行",
+                              error: INTERRUPTED_TOOL_ERROR,
                           },
                           isError: true,
                       }
@@ -911,6 +915,54 @@ export function useChatSession({
         storedMessages,
     ]);
 
+    /**
+     * A page kill (Android freezing the backgrounded tab) leaves the loop
+     * dead between persisted rows. Same guards as the mount scan: while a
+     * run is alive or a question is pending there is nothing to resume, and
+     * without a model there is nothing to continue with.
+     */
+    const interrupted = useMemo(() => {
+        if (run.running || pendingInput || !model) return null;
+        return detectInterruptedRun(messages);
+    }, [run.running, pendingInput, model, messages]);
+
+    /** Continue the run a page kill interrupted, from the persisted rows. */
+    const resumeInterrupted = useCallback(async () => {
+        const current = conversationRef.current;
+        const modelInfo = model;
+        const detected = detectInterruptedRun(messagesRef.current);
+        if (!detected || !modelInfo) return;
+        if (isChatRunActive(current.id) || hasPendingUserInput(current.id)) {
+            return;
+        }
+        if (detected.kind === "no-reply") {
+            // The reply never landed; re-run from the anchor user message.
+            await regenerate(detected.anchorId);
+            return;
+        }
+        // kind "tools": the history is complete through the interrupted tool
+        // round (scan-marked failures included), so the model reads what
+        // happened and carries on. Nothing re-executes.
+        const controller = new AbortController();
+        beginChatRun(current.id, controller, current.sandboxFiles);
+        let outcome: ChatRunOutcome = "error";
+        try {
+            const lastRow = messagesRef.current.at(-1);
+            if (!lastRow) return;
+            outcome = await runAssistant(
+                messagesRef.current,
+                modelInfo,
+                lastRow.seq + 1,
+                controller,
+            );
+        } catch (error) {
+            outcome = "error";
+            toastRunFailure(current.id, error);
+        } finally {
+            endChatRun(current.id, outcome, current.title);
+        }
+    }, [model, regenerate, runAssistant]);
+
     const stop = useCallback(() => {
         stopChatRun(conversationRef.current.id);
     }, []);
@@ -919,8 +971,10 @@ export function useChatSession({
         messages,
         live: run.live,
         running: run.running,
+        interrupted,
         send,
         stop,
+        resumeInterrupted,
         regenerate,
         editUserMessage,
         /** Sandbox files as of the latest tool run (for the header sheet). */

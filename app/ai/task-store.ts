@@ -1,6 +1,19 @@
 import { aiErrorText, isAiCanceled } from "./client";
+import {
+    clearInterruptibleTask,
+    recordInterruptibleTask,
+    type InterruptedTaskEntry,
+    type ResumePayload,
+} from "./interrupted";
+import { createResumeRun } from "./resume-run";
 
-export type AiTaskStatus = "running" | "done" | "error" | "canceled";
+/**
+ * `interrupted` 不是真的运行状态：它只存在于恢复出来的任务行上 ——
+ * 页面被杀时任务来不及善终，下次启动从本地台账里还原成这个状态，
+ * 等用户决定续跑还是清掉。
+ */
+export type AiTaskStatus =
+    "running" | "done" | "error" | "canceled" | "interrupted";
 
 export type AiTaskKind = "stream" | "text" | "json";
 
@@ -29,6 +42,8 @@ export type AiTask = {
     error?: string;
     /** 完成时用户是否正看着对应页面（看得到就不再弹通知） */
     seen: boolean;
+    /** 恢复出来的「被中断」行是否带得上可续跑的 prompt */
+    resumable?: boolean;
 };
 
 export type AiTaskRunContext = {
@@ -52,11 +67,19 @@ export type StartAiTaskOptions<T> = {
     force?: boolean;
     summarize?: (value: T) => string;
     run: (context: AiTaskRunContext) => Promise<T>;
+    /**
+     * 可复现的 prompt：任务开跑时写进本地台账，页面被杀后下次启动
+     * 能在任务中心原样续跑。json 任务的结果要靠功能侧解析，不带这个
+     * 字段，恢复后回原页面重新发起。
+     */
+    resume?: ResumePayload;
 };
 
 export type AiTaskStoreDeps = {
     saveCache?: (key: string, value: unknown) => void;
     now?: () => number;
+    /** 续跑实现；测试注入假跑，避免真的发请求 */
+    resumeRun?: typeof createResumeRun;
 };
 
 export type AiTaskStore = ReturnType<typeof createAiTaskStore>;
@@ -69,6 +92,8 @@ type InternalTask = AiTask & {
     settled: boolean;
     /** 保存启动参数，供任务中心的「重试」原样再跑一次 */
     options: StartAiTaskOptions<unknown>;
+    /** 台账恢复的行在这里拿到续跑参数 */
+    resume?: ResumePayload;
 };
 
 const MAX_FINISHED = 20;
@@ -82,6 +107,7 @@ const PROGRESS_DELAY = 120;
  */
 export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
     const now = deps.now ?? (() => Date.now());
+    const resumeRun = deps.resumeRun ?? createResumeRun;
     const tasks = new Map<string, InternalTask>();
     /** 只在任务运行期间存在的 key -> id 索引，用于去重 */
     const runningByKey = new Map<string, string>();
@@ -109,6 +135,8 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
         summary: task.summary,
         error: task.error,
         seen: task.seen,
+        resumable:
+            task.status === "interrupted" && task.resume?.messages != null,
     });
 
     const emit = () => {
@@ -154,6 +182,8 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
         if (runningByKey.get(task.key) === task.id) {
             runningByKey.delete(task.key);
         }
+        // 任务自己跑完了：台账里这条「怕被杀」的记录可以撤了
+        clearInterruptibleTask(task.id);
         prune();
         emit();
     };
@@ -201,10 +231,23 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             promise: Promise.resolve(),
             settled: false,
             options: options as unknown as StartAiTaskOptions<unknown>,
+            resume: options.resume,
         };
         tasks.set(id, task);
         runningByKey.set(options.key, id);
         emit();
+        recordInterruptibleTask({
+            id,
+            key: task.key,
+            group: task.group,
+            cacheKey: options.cacheKey,
+            title: task.title,
+            subtitle: options.subtitle,
+            href: task.href,
+            kind: task.kind,
+            createdAt: task.createdAt,
+            resume: options.resume,
+        });
 
         const promise = (async () => {
             try {
@@ -278,14 +321,49 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             const task = tasks.get(id);
             if (!task || task.status === "running") return;
             tasks.delete(id);
+            clearInterruptibleTask(id);
             emit();
         },
         /** 用原来的参数强制重跑一个失败/取消的任务（任务中心的「重试」）。 */
         retry(idOrKey: string) {
-            const task =
+            let task: InternalTask | undefined =
                 tasks.get(idOrKey) ??
                 tasks.get(runningByKey.get(idOrKey) ?? "");
+            if (!task) {
+                // 按 key 找：恢复出来的 interrupted 行没有 running 索引
+                for (const candidate of tasks.values()) {
+                    if (
+                        candidate.key === idOrKey &&
+                        (!task || candidate.seq > task.seq)
+                    ) {
+                        task = candidate;
+                    }
+                }
+            }
             if (!task || task.status === "running") return;
+            if (task.status === "interrupted") {
+                if (!task.resume?.messages) return;
+                const payload = task.resume;
+                const kind = task.kind === "stream" ? "stream" : "text";
+                tasks.delete(task.id);
+                clearInterruptibleTask(task.id);
+                return start({
+                    key: task.key,
+                    group: task.group,
+                    cacheKey: task.cacheKey,
+                    title: task.title,
+                    subtitle: task.subtitle,
+                    href: task.href,
+                    kind: task.kind,
+                    force: true,
+                    resume: payload,
+                    summarize: (value) =>
+                        payload.history || typeof value !== "string"
+                            ? "AI 回复已生成"
+                            : value.slice(0, 60),
+                    run: resumeRun(payload, kind),
+                });
+            }
             const options = task.options;
             tasks.delete(task.id);
             return start({ ...options, force: true });
@@ -295,6 +373,7 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             for (const [id, task] of tasks) {
                 if (task.status !== "running") {
                     tasks.delete(id);
+                    clearInterruptibleTask(id);
                     changed = true;
                 }
             }
@@ -305,13 +384,73 @@ export function createAiTaskStore(deps: AiTaskStoreDeps = {}) {
             for (const task of tasks.values()) {
                 if (
                     !task.seen &&
-                    (task.status === "done" || task.status === "error")
+                    (task.status === "done" ||
+                        task.status === "error" ||
+                        task.status === "interrupted")
                 ) {
                     task.seen = true;
                     changed = true;
                 }
             }
             if (changed) emit();
+        },
+        /**
+         * 从本地台账恢复上次被页面死亡打断的任务。返回恢复的条数。
+         * 已在跑/已有同 key 任务的条目视为过时，顺手从台账清掉。
+         */
+        restoreInterrupted(entries: readonly InterruptedTaskEntry[]): number {
+            let restored = 0;
+            for (const entry of entries) {
+                if (runningByKey.has(entry.key)) {
+                    clearInterruptibleTask(entry.id);
+                    continue;
+                }
+                let keyTaken = false;
+                for (const existing of tasks.values()) {
+                    if (existing.key === entry.key) {
+                        keyTaken = true;
+                        break;
+                    }
+                }
+                if (keyTaken) {
+                    clearInterruptibleTask(entry.id);
+                    continue;
+                }
+                if (tasks.has(entry.id)) continue;
+
+                seq += 1;
+                const task: InternalTask = {
+                    id: entry.id,
+                    key: entry.key,
+                    group: entry.group,
+                    cacheKey: entry.cacheKey,
+                    title: entry.title,
+                    subtitle: entry.subtitle,
+                    href: entry.href ?? "/home",
+                    kind: entry.kind,
+                    status: "interrupted",
+                    createdAt: entry.createdAt,
+                    seen: false,
+                    seq,
+                    controller: new AbortController(),
+                    promise: Promise.resolve(),
+                    settled: true,
+                    options: {
+                        key: entry.key,
+                        title: entry.title,
+                        // 只兜底：interrupted 行的重试走 resume 分支，用不到它
+                        run: () => Promise.reject(new Error("任务已被中断")),
+                    },
+                    resume: entry.resume,
+                };
+                tasks.set(entry.id, task);
+                restored += 1;
+            }
+            if (restored > 0) {
+                prune();
+                emit();
+            }
+            return restored;
         },
         find(key: string) {
             let found: InternalTask | undefined;

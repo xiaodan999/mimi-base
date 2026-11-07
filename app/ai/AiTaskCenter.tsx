@@ -6,6 +6,7 @@ import {
     CheckCircle2,
     ChevronDown,
     ChevronUp,
+    CloudOff,
     Copy,
     Loader2,
     RotateCw,
@@ -193,8 +194,11 @@ export function AiTaskCenter({
                                                         : task.status ===
                                                             "canceled"
                                                           ? "已取消"
-                                                          : task.summary ||
-                                                            "已完成"}
+                                                          : task.status ===
+                                                              "interrupted"
+                                                            ? "上次被中断了"
+                                                            : task.summary ||
+                                                              "已完成"}
                                                 </div>
                                                 <div className="mt-0.5 text-[10.5px] text-muted-foreground">
                                                     {timeLabel(
@@ -276,7 +280,10 @@ export function AiTaskCenter({
                                         )}
 
                                         <div className="mt-2 flex flex-wrap gap-2">
-                                            {task.status === "error" && (
+                                            {(task.status === "error" ||
+                                                (task.status ===
+                                                    "interrupted" &&
+                                                    task.resumable)) && (
                                                 <button
                                                     type="button"
                                                     onClick={() =>
@@ -288,7 +295,10 @@ export function AiTaskCenter({
                                                         className="size-3"
                                                         aria-hidden="true"
                                                     />
-                                                    重试
+                                                    {task.status ===
+                                                    "interrupted"
+                                                        ? "继续"
+                                                        : "重试"}
                                                 </button>
                                             )}
                                             {href && (
@@ -302,7 +312,11 @@ export function AiTaskCenter({
                                                     }}
                                                     className="rounded-full bg-primary px-3 py-1 text-[11px] font-bold text-primary-foreground"
                                                 >
-                                                    去查看
+                                                    {task.status ===
+                                                        "interrupted" &&
+                                                    !task.resumable
+                                                        ? "去重跑"
+                                                        : "去查看"}
                                                 </button>
                                             )}
                                         </div>
@@ -326,7 +340,7 @@ export function AiTaskCenter({
                     {daily.tokens} tokens
                 </p>
                 <p className="st-tiny pt-1 text-center">
-                    结果只保存在这台设备 · 关闭 App 会中断进行中的任务
+                    结果只保存在这台设备 · 任务被中断时，能在任务中心继续
                 </p>
             </div>
         </AiSheet>
@@ -345,6 +359,14 @@ function StatusIcon({ status }: { status: AiTask["status"] }) {
     if (status === "error") {
         return (
             <AlertCircle
+                className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                aria-hidden="true"
+            />
+        );
+    }
+    if (status === "interrupted") {
+        return (
+            <CloudOff
                 className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
                 aria-hidden="true"
             />

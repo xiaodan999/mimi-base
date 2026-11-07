@@ -6,6 +6,8 @@
 
 ### 新增
 
+- 聊天对话页新增「继续生成」横幅（`app/chat/interrupted.ts` 的 `detectInterruptedRun`）：页面被杀（如安卓后台冻结后回收）留下的 run 从持久化消息里识别出来——历史止于用户消息（首轮流式没落库），或最后一条 assistant 行是 complete 且带 tool-call part（工具轮之后没等到下一轮）。续跑复用 `regenerate`（无回复场景）或直接以持久化行为历史重入 tool loop；被标记中断的工具结果原样进历史，不自动重执行（延续 reload-resume 的立场）。
+- AI 任务新增中断台账 `mimi:ai-interrupted:v1`（`app/ai/interrupted.ts`）：`start()` 时记账（描述 + 可复现 prompt）、settle/dismiss/clearFinished 撤账；下次启动 `restoreInterrupted` 恢复成新的 `interrupted` 状态行并提示一次。stream/text 任务带 `resume: { messages, history? }`（AiPanel、年度小结、今日小结、去年今天），任务中心一键续跑（`app/ai/resume-run.ts` 原样重发 prompt，AiPanel 的 turns 结果由存的 history 重建）；json 任务的解析依赖功能侧上下文（批改/变式/计划/补全分类/记账解析/配文），不带 prompt，恢复行提供「去重跑」跳回原页面。`decideAiRestore` 对 `interrupted` 透明（有缓存显示缓存，否则落 none 让面板照常重跑）。
 - 新增通用聊天：底部第 6 个标签「聊天」，支持多对话、从第一条消息自动起标题、改名和删除；历史存 PocketBase，按 `owner` 隔离，只有本人能读写。
 - 新增 `chat_conversations` / `chat_messages` / `chat_personas` 三个集合及迁移：消息以 assistant-ui 的 content parts 存 JSON，`seq` 保证顺序；自定义人格存 PB，对话创建时快照人格名称与设定。
 - 聊天使用 assistant-ui 的外部存储运行时（`useExternalStoreRuntime`），接入自己的流式请求和持久化；正文、思考过程、工具调用都以增量渲染。

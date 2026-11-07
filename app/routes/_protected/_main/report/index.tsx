@@ -367,6 +367,7 @@ function ReportLetter({
             setError("");
             if (force) setLetter("");
             try {
+                const messages = reportLetterMessages(input);
                 const value = await runTask<string>({
                     key,
                     group: key,
@@ -377,12 +378,9 @@ function ReportLetter({
                     kind: "text",
                     force,
                     summarize: () => "写好了",
+                    resume: { messages },
                     run: async ({ signal }) => {
-                        const text = await chatText(
-                            settings,
-                            reportLetterMessages(input),
-                            signal,
-                        );
+                        const text = await chatText(settings, messages, signal);
                         const trimmed = text.trim();
                         if (!trimmed) {
                             throw new AiError("AI 没写出内容，再试一次");

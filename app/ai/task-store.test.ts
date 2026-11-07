@@ -1,6 +1,23 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 
+import {
+    clearInterruptibleTask,
+    readInterruptibleTasks,
+    type InterruptedTaskEntry,
+} from "./interrupted";
 import { createAiTaskStore } from "./task-store";
+
+let ledger: Map<string, string>;
+
+beforeEach(() => {
+    ledger = new Map<string, string>();
+    (globalThis as unknown as { localStorage: unknown }).localStorage = {
+        getItem: (key: string) => ledger.get(key) ?? null,
+        setItem: (key: string, value: string) => ledger.set(key, String(value)),
+        removeItem: (key: string) => ledger.delete(key),
+        clear: () => ledger.clear(),
+    };
+});
 
 function deferred<T>() {
     let resolve!: (value: T) => void;
@@ -273,5 +290,162 @@ describe("AI task store", () => {
             false,
         );
         expect(store.getSnapshot()[0].status).toBe("done");
+    });
+
+    test("running tasks are recorded in the ledger, settled ones removed", async () => {
+        const store = createAiTaskStore();
+        const running = store.start({
+            key: "ledgered",
+            title: "年度小结",
+            href: "/report",
+            kind: "text",
+            cacheKey: "report-cache",
+            resume: { messages: [{ role: "user", content: "hi" }] },
+            run: ({ signal }) => abortable<string>(signal),
+        });
+
+        const entry = readInterruptibleTasks().find(
+            (item) => item.key === "ledgered",
+        );
+        expect(entry).toBeDefined();
+        expect(entry?.resume?.messages).toEqual([
+            { role: "user", content: "hi" },
+        ]);
+
+        store.cancel("ledgered");
+        await expect(running).rejects.toMatchObject({ name: "AbortError" });
+        expect(
+            readInterruptibleTasks().find((item) => item.key === "ledgered"),
+        ).toBeUndefined();
+    });
+
+    test("restoreInterrupted revives ledger rows as interrupted tasks", async () => {
+        const store = createAiTaskStore();
+        const entries: InterruptedTaskEntry[] = [
+            {
+                id: "ai-1-1",
+                key: "killed",
+                group: "killed",
+                title: "被杀的任务",
+                href: "/report",
+                kind: "stream",
+                createdAt: 1000,
+                resume: { messages: [{ role: "user", content: "写年报" }] },
+            },
+            {
+                id: "ai-1-2",
+                key: "killed-json",
+                group: "killed-json",
+                title: "没有 prompt 的",
+                kind: "json",
+                createdAt: 1001,
+            },
+        ];
+
+        expect(store.restoreInterrupted(entries)).toBe(2);
+        const byId = new Map(
+            store.getSnapshot().map((task) => [task.id, task]),
+        );
+        const first = byId.get("ai-1-1")!;
+        const second = byId.get("ai-1-2")!;
+        expect(first.status).toBe("interrupted");
+        expect(first.resumable).toBe(true);
+        expect(first.seen).toBe(false);
+        expect(second.status).toBe("interrupted");
+        expect(second.resumable).toBe(false);
+
+        // 再恢复一次不会出现重复行
+        expect(store.restoreInterrupted(entries)).toBe(0);
+        expect(store.getSnapshot()).toHaveLength(2);
+
+        store.markAllSeen();
+        expect(store.getSnapshot().every((task) => task.seen)).toBe(true);
+
+        store.dismiss(first.id);
+        expect(
+            readInterruptibleTasks().find((item) => item.id === "ai-1-1"),
+        ).toBeUndefined();
+    });
+
+    test("restore skips entries whose key is already taken", async () => {
+        const store = createAiTaskStore();
+        const running = store.start({
+            key: "taken",
+            title: "已在跑",
+            run: ({ signal }) => abortable<string>(signal),
+        });
+
+        expect(
+            store.restoreInterrupted([
+                {
+                    id: "ai-9-9",
+                    key: "taken",
+                    group: "taken",
+                    title: "过时台账",
+                    kind: "text",
+                    createdAt: 1000,
+                },
+            ]),
+        ).toBe(0);
+        expect(store.getSnapshot()).toHaveLength(1);
+        // 过时的那条台账被清掉，但正在跑的任务自己的记录还在
+        expect(
+            readInterruptibleTasks().find((item) => item.id === "ai-9-9"),
+        ).toBeUndefined();
+
+        store.cancel("taken");
+        await expect(running).rejects.toMatchObject({ name: "AbortError" });
+    });
+
+    test("retry on a resumable interrupted task re-runs the stored prompt", async () => {
+        const store = createAiTaskStore({
+            resumeRun: (payload) => async () =>
+                payload.history
+                    ? [...payload.history, { role: "assistant", content: "x" }]
+                    : "模拟续跑文本",
+        });
+        store.restoreInterrupted([
+            {
+                id: "ai-2-1",
+                key: "resumable",
+                group: "resumable",
+                title: "年度小结",
+                href: "/report",
+                kind: "text",
+                createdAt: 1000,
+                resume: { messages: [{ role: "user", content: "写年报" }] },
+            },
+        ]);
+
+        const retried = store.retry("resumable");
+        expect(retried).toBeDefined();
+        await expect(retried!).resolves.toBe("模拟续跑文本");
+
+        const done = store.getSnapshot()[0];
+        expect(done.status).toBe("done");
+        expect(done.text).toBe("模拟续跑文本");
+        expect(done.summary).toBe("模拟续跑文本");
+        // 续跑出来的任务再次记入台账，直到跑完被撤下
+        expect(
+            readInterruptibleTasks().find((item) => item.key === "resumable"),
+        ).toBeUndefined();
+    });
+
+    test("retry on a non-resumable interrupted task does nothing", () => {
+        const store = createAiTaskStore();
+        store.restoreInterrupted([
+            {
+                id: "ai-3-1",
+                key: "json-task",
+                group: "json-task",
+                title: "AI 批改",
+                kind: "json",
+                createdAt: 1000,
+            },
+        ]);
+        expect(store.retry("json-task")).toBeUndefined();
+        expect(store.getSnapshot()).toHaveLength(1);
+        expect(store.getSnapshot()[0].status).toBe("interrupted");
+        clearInterruptibleTask("ai-3-1");
     });
 });

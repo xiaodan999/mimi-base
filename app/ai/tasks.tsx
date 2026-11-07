@@ -12,6 +12,10 @@ import { toast } from "sonner";
 
 import { AiTaskCenter, AiTaskPill } from "./AiTaskCenter";
 import { writeAiCache } from "./cache";
+import {
+    markInterruptibleRestored,
+    readInterruptibleTasks,
+} from "./interrupted";
 import { showSystemNotification } from "./notify";
 import {
     createAiTaskStore,
@@ -63,6 +67,22 @@ export function AiTasksProvider({
     useEffect(() => {
         if (sheetOpen) store.markAllSeen();
     }, [sheetOpen, tasks, store]);
+
+    // 上次页面被杀（Android 把后台标签回收）时没跑完的任务：从本地台账
+    // 恢复成「被中断」的行，能续跑的一键继续。只提醒一次。
+    useEffect(() => {
+        const entries = readInterruptibleTasks();
+        const count = store.restoreInterrupted(entries);
+        if (count === 0) return;
+        const fresh = entries.some((entry) => entry.restoredAt == null);
+        markInterruptibleRestored(entries.map((entry) => entry.id));
+        if (!fresh) return;
+        toast(`上次有 ${count} 个任务没跑完`, {
+            description: "到任务中心看看，能续跑的可以直接继续",
+            duration: 8000,
+            action: { label: "查看", onClick: () => setSheetOpen(true) },
+        });
+    }, [store]);
 
     useEffect(() => {
         if (sheetOpen) return;
@@ -134,7 +154,10 @@ export function AiTasksProvider({
     const running = tasks.filter((task) => task.status === "running").length;
     const unseen = tasks.filter(
         (task) =>
-            !task.seen && (task.status === "done" || task.status === "error"),
+            !task.seen &&
+            (task.status === "done" ||
+                task.status === "error" ||
+                task.status === "interrupted"),
     ).length;
 
     return (

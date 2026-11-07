@@ -98,4 +98,18 @@ describe("decideAiRestore", () => {
         });
         expect(decideAiRestore({})).toEqual({ kind: "none" });
     });
+
+    test("an interrupted (restored) task never blocks a panel from re-running", () => {
+        // 恢复出来的「被中断」行对面板是透明的：有缓存就显示缓存，
+        // 没有就落到 none，让面板按原有逻辑重新发起。
+        expect(
+            decideAiRestore({
+                task: { status: "interrupted" },
+                local: ["local"],
+            }),
+        ).toEqual({ kind: "ready", value: ["local"], source: "local" });
+        expect(decideAiRestore({ task: { status: "interrupted" } })).toEqual({
+            kind: "none",
+        });
+    });
 });

@@ -62,6 +62,13 @@ export default function DailyLine({
 
         // running / none：runTask 会接上同 key 的后台任务或开一个新的，
         // 不再自己建 AbortController、也不在 unmount 时 abort。
+        const messages = dailyLineMessages({
+            greeting,
+            postsToday: stats.postsToday,
+            monthSpend: stats.monthSpend,
+            monthEntries: stats.monthEntries,
+            streak,
+        });
         void runTask<string>({
             key,
             group,
@@ -69,18 +76,9 @@ export default function DailyLine({
             title: "今日小结",
             href: "/home",
             kind: "text",
+            resume: { messages },
             run: async ({ signal }) => {
-                const text = await chatText(
-                    settings,
-                    dailyLineMessages({
-                        greeting,
-                        postsToday: stats.postsToday,
-                        monthSpend: stats.monthSpend,
-                        monthEntries: stats.monthEntries,
-                        streak,
-                    }),
-                    signal,
-                );
+                const text = await chatText(settings, messages, signal);
                 const value = text.trim();
                 if (!value) throw new AiError("AI 没写出内容");
                 return value;

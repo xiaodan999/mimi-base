@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Link,
     createFileRoute,
@@ -19,6 +19,7 @@ import { toastPromise } from "@/lib/toast-promise";
 
 import { ChatHeader } from "./-components/-chat-header";
 import { ChatThread } from "./-components/-chat-thread";
+import { ResumeBanner } from "./-components/-resume-banner";
 import {
     useChatActions,
     useChatConversation,
@@ -125,6 +126,11 @@ function ChatConversationView({
         storedMessages,
         model,
     });
+
+    // The interrupted banner is dismissible for as long as this page stays
+    // mounted; a new page load detects the interruption again.
+    const [resumeDismissed, setResumeDismissed] = useState(false);
+    const showResumeBanner = session.interrupted !== null && !resumeDismissed;
 
     const personaStarters = resolvePersona(
         conversation.personaId,
@@ -288,6 +294,12 @@ function ChatConversationView({
                 }}
                 onExport={handleExport}
             />
+            {showResumeBanner && (
+                <ResumeBanner
+                    onResume={() => void session.resumeInterrupted()}
+                    onDismiss={() => setResumeDismissed(true)}
+                />
+            )}
             <div className="min-h-0 flex-1">
                 <ChatThread
                     conversationId={conversation.id}

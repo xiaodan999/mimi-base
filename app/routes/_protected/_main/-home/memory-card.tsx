@@ -51,6 +51,15 @@ export default function MemoryCard() {
         if (decision.kind === "error" || decision.kind === "canceled") return;
 
         // running / none：runTask 后台跑，不再自己 abort
+        const messages = memoryMessages({
+            dateLabel: format(new Date(), "M月d日"),
+            texts: data
+                .filter((post) => post.text.trim())
+                .map((post) => ({
+                    yearsAgo: post.yearsAgo,
+                    text: post.text,
+                })),
+        });
         void runTask<string>({
             key,
             group,
@@ -58,20 +67,9 @@ export default function MemoryCard() {
             title: "去年今天",
             href: "/home",
             kind: "text",
+            resume: { messages },
             run: async ({ signal }) => {
-                const text = await chatText(
-                    settings,
-                    memoryMessages({
-                        dateLabel: format(new Date(), "M月d日"),
-                        texts: data
-                            .filter((post) => post.text.trim())
-                            .map((post) => ({
-                                yearsAgo: post.yearsAgo,
-                                text: post.text,
-                            })),
-                    }),
-                    signal,
-                );
+                const text = await chatText(settings, messages, signal);
                 const value = text.trim();
                 if (!value) throw new AiError("AI 没写出内容");
                 return value;

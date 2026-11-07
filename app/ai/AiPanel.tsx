@@ -98,6 +98,8 @@ export default function AiPanel({
                     kind: "stream",
                     force: options?.force,
                     summarize: () => "AI 回复已生成",
+                    // 记入中断台账：页面被杀后任务中心能原样续跑这一问
+                    resume: { messages: requestMessages, history },
                     run: async ({ signal, report }) => {
                         for await (const delta of streamChat(
                             settings,
