@@ -332,6 +332,11 @@ def run(request: dict) -> dict:
                 raise ValueError("文件路径不合法")
             if not isinstance(content, str):
                 raise ValueError("文件内容必须是字符串")
+            # append lets a long file be written in chunks (the model's
+            # output per round is capped); a missing file is created.
+            existing = files.get(path)
+            if request.get("append") is True and isinstance(existing, str):
+                content = existing + content
             if len(content) > MAX_FILE_CHARS:
                 raise ValueError(f"单个文件最多 {MAX_FILE_CHARS} 个字符")
             next_files = dict(files)

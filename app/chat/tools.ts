@@ -96,14 +96,19 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_write",
             description:
-                "把一段文本写入本次对话沙箱里的文件（会覆盖同名文件）。",
+                "把一段文本写入本次对话沙箱里的文件（默认覆盖同名文件）。写很长的文件（如整份 HTML 手册）不要一次写完：先写入第一段，之后每次带 append=true 在文件末尾续写下一段，最后再用 send_file 发送。",
             parameters: {
                 type: "object",
                 properties: {
                     path: { type: "string", description: "相对路径" },
                     content: {
                         type: "string",
-                        description: "完整的文件内容",
+                        description: "这一段的内容；append=false 时是完整内容",
+                    },
+                    append: {
+                        type: "boolean",
+                        description:
+                            "true 时在文件末尾续写而不是覆盖（分多次写长文件用）",
                     },
                 },
                 required: ["path", "content"],
@@ -437,7 +442,9 @@ export async function executeChatTool(
             result: {
                 ok: false,
                 error: opts.truncated
-                    ? "输出达到长度上限被截断了：把要写的内容缩短，或分几次写入"
+                    ? name === "sandbox_write"
+                        ? "输出达到长度上限被截断了，这次没有写入：把内容拆成几段，第一段用 sandbox_write，之后每段带 append=true 续写到同一个文件，写完再 send_file"
+                        : "输出达到长度上限被截断了：把要写的内容缩短，或分几次调用"
                     : "工具参数不是合法的 JSON",
             },
             files,
@@ -898,6 +905,7 @@ async function runChatTool(
                 op: "write",
                 path: typeof args.path === "string" ? args.path : "",
                 content: typeof args.content === "string" ? args.content : "",
+                append: args.append === true,
                 files,
             });
             break;

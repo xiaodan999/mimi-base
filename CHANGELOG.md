@@ -74,6 +74,7 @@
 - 系统提示词补充：调用工具后等结果返回再向用户确认成败，工具失败时如实说明，不要在结果回来前就说已经做好（修复截图里「写入文件失败」却抢答「已经做好了」的问题）。
 - 修复 `render_ui` 表格在手机上挡住页面滚动：`overflow-x-auto` 会把 `overflow-y` 一并算成滚动容器，`overscroll-contain` 又禁止手势链回聊天线程，落在表格上的上下滑动全部被吞掉。改为 `overscroll-x-contain`（`-ui-card.tsx`）：横向滑动仍留在表格内，上下滑动交还给页面。
 - AI 不再把文件卡片的位置说反：每轮工具调用是一条独立消息，`send_file` 的卡片渲染在调用处，模型随后补写的总结文字都排在卡片下面，而模型以为卡片会出现在整条回复末尾，于是说「文件发送在下面了」。系统提示词与 `send_file` 工具描述补充卡片渲染位置（`app/chat/prompt.ts`、`app/chat/tools.ts`）：想先说明后卡片，就在同一条回复里先写完说明再调用；已经调用过，之后指位置要说「见上」。
+- `sandbox_write` 支持 `append`：`SandboxRequest` 增加 `append?: boolean`，两个 runner（`runner.mjs` / `runner.py`）在 `append=true` 时把内容接到现有文件末尾（文件不存在则创建，合并后仍受 `MAX_FILE_CHARS` / 总量上限约束）。此前写入只能整文件覆盖，而模型单轮输出被 `MAX_OUTPUT_TOKENS` 截断时，工具错误只说「分几次写入」却没有任何分段手段——让 AI 把 140 页手册整理成单页 HTML 的请求在第一步就卡死。工具描述与截断错误提示现在都给出可执行的分段策略（第一段 `sandbox_write`，之后每段 `append=true`，写完 `send_file`）；新增 runner 级测试（两个语言各覆盖创建→续写、无文件时 append、合并后超限、默认覆盖）。
 - 修复追问附件细节时 `read_attachment` 必然失败：模型的 `attachmentId` 只写在「被折叠的旧附件标注」里，而最新一条附件消息永远是完整展开（不含 id），模型只能拿文件名当 id 传，被中转 400（如把「索尼耳机WH-1000XM5.pdf」当 attachmentId）。现在完整展开的附件标注同样携带 `attachmentId`，`prompt.ts` 的翻页提示也指回标注；工具执行器在客户端先用 `isRecordId`（`lib/chat-files.ts`，中转同源正则）校验，非记录 id 直接返回纠错性错误（提示复制标注里的 id），省一次中转往返。
 - 长对话不再反复重发附件全文与页图：`buildApiMessages` 只让最新一条带附件的用户消息完整携带提取文字与页面图片，更早的折叠成指向 `read_attachment` 的占位标注（此前 80 条窗口内每轮原样重发最多 50k 字 × 3 附件 + 页图 data URL，迟早撞上 4MB 请求体上限）。聊天中转 `MAX_BODY_BYTES` 相应 4MB → 16MB，容纳单轮工具循环内的多组页图。
 - 带附件的消息编辑重发不再丢附件：`editUserMessage` 现在同时保留 attachment parts（此前只保留 image parts，附件全文被静默丢弃）。

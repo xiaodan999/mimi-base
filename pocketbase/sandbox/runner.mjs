@@ -362,10 +362,17 @@ async function run(request) {
             if (typeof request.content !== "string") {
                 throw new Error("文件内容必须是字符串");
             }
-            if (request.content.length > MAX_FILE_CHARS) {
+            // append lets a long file be written in chunks (the model's
+            // output per round is capped); a missing file is created.
+            const existing = files[target];
+            const content =
+                request.append === true && typeof existing === "string"
+                    ? existing + request.content
+                    : request.content;
+            if (content.length > MAX_FILE_CHARS) {
                 throw new Error(`单个文件最多 ${MAX_FILE_CHARS} 个字符`);
             }
-            const next = { ...files, [target]: request.content };
+            const next = { ...files, [target]: content };
             if (
                 Object.keys(next).length > MAX_FILES ||
                 Object.values(next).reduce(
@@ -376,7 +383,7 @@ async function run(request) {
                 throw new Error("沙箱文件总量超出上限");
             }
             response.ok = true;
-            response.result = { path: target, size: request.content.length };
+            response.result = { path: target, size: content.length };
             response.files = next;
         } else if (op === "run") {
             const code = request.code;

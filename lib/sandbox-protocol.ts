@@ -57,6 +57,8 @@ export type SandboxRequest = {
     code?: string;
     path?: string;
     content?: string;
+    /** write only: extend the existing file instead of replacing it. */
+    append?: boolean;
     /** Snapshot from the conversation, path -> text. */
     files?: unknown;
 };
