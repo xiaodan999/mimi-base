@@ -22,6 +22,7 @@ export type ChatConversationRecord = {
     persona_prompt?: string;
     sandbox_files?: unknown;
     last_message?: string;
+    pinned?: boolean;
     created: string;
     updated: string;
 };
@@ -209,6 +210,7 @@ export function toChatConversation(
         personaPrompt: asString(record.persona_prompt),
         sandboxFiles: normalizeSandboxFiles(record.sandbox_files),
         lastMessage: asString(record.last_message, 200),
+        pinned: record.pinned === true,
         createdAt: record.created,
         updatedAt: record.updated,
     };

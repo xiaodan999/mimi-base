@@ -81,6 +81,7 @@ export type ChatConversation = {
     personaPrompt: string;
     sandboxFiles: SandboxFiles;
     lastMessage: string;
+    pinned: boolean;
     createdAt: string;
     updatedAt: string;
 };
@@ -93,4 +94,6 @@ export type ChatPersona = {
     description: string;
     prompt: string;
     builtin: boolean;
+    /** Short prompts offered on the empty thread; built-ins only. */
+    starters?: readonly string[];
 };
