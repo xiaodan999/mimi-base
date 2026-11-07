@@ -96,6 +96,14 @@ The general chat (`/chat`) uses two more routes:
   model without `vision`. Legacy features keep using
   `/ai/opencode/v1/chat/completions`, where the relay still forces one model.
 
+- `POST /ai/tools/{expenses,posts,memory,url}` (authenticated) backs the
+  chat's data tools (`pocketbase/ai-tools.ts`). They have their own
+  30/min + 200/day per-user limits. The ledger and feed are read
+  **shared-scope** on purpose (same as the app's screens); `chat_memories`
+  is owner-only with PB rules as the backstop. `read_url` resolves DNS,
+  refuses private/reserved addresses and redirects into them, and strips
+  HTML to text (300KB fetch cap, 12k-char output).
+
 - **Key**: `OPENCODE_API_KEY` in `.env.prod` (prod) or `.env` (dev). It is
   never sent to PocketBase, returned to the client, or logged.
 - **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The legacy

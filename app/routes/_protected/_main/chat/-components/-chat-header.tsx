@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
+    Brain,
     Check,
     Download,
     MoreHorizontal,
@@ -46,6 +47,7 @@ export type ChatHeaderProps = {
     onClearSandbox: () => Promise<void>;
     onTogglePin: () => Promise<void>;
     onExport: () => void;
+    onOpenMemories: () => void;
 };
 
 /**
@@ -65,6 +67,7 @@ export function ChatHeader({
     onClearSandbox,
     onTogglePin,
     onExport,
+    onOpenMemories,
 }: ChatHeaderProps) {
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -158,6 +161,13 @@ export function ChatHeader({
                         >
                             <Download className="mr-2 size-4" />
                             导出 Markdown
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={onOpenMemories}
+                        >
+                            <Brain className="mr-2 size-4" />
+                            AI 的记忆
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="cursor-pointer"

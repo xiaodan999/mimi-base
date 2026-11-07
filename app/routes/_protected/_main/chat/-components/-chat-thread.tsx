@@ -288,7 +288,15 @@ function RetryModelButton() {
     );
 }
 
-function ThreadEmpty({ personaName }: { personaName: string }) {
+function ThreadEmpty({
+    personaName,
+    starters,
+    onSend,
+}: {
+    personaName: string;
+    starters?: readonly string[];
+    onSend: (parts: ChatPart[]) => Promise<void>;
+}) {
     return (
         <div className="flex h-full flex-col items-center justify-center px-6 py-16 text-center">
             <div className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -298,6 +306,22 @@ function ThreadEmpty({ personaName }: { personaName: string }) {
             <p className="mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">
                 想聊什么都可以。可以让我算数、写代码、整理文字，或者单纯聊聊。
             </p>
+            {starters && starters.length > 0 && (
+                <div className="mt-5 flex w-full max-w-xs flex-col gap-1.5">
+                    {starters.map((starter) => (
+                        <button
+                            key={starter}
+                            type="button"
+                            onClick={() =>
+                                void onSend([{ type: "text", text: starter }])
+                            }
+                            className="rounded-xl border border-border/70 bg-card px-3 py-2 text-left text-[13px] leading-snug text-foreground/90 shadow-sm active:bg-accent"
+                        >
+                            {starter}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -309,6 +333,8 @@ export type ChatThreadProps = {
     model: ChatModel | undefined;
     models: readonly ChatModel[];
     personaName: string;
+    /** Empty-thread quick prompts from the persona snapshot. */
+    starters?: readonly string[];
     /** One-shot composer prefill (PWA share target). */
     initialDraft?: string;
     onSend: (parts: ChatPart[]) => Promise<void>;
@@ -347,6 +373,7 @@ export function ChatThread({
     model,
     models,
     personaName,
+    starters,
     initialDraft,
     onSend,
     onStop,
@@ -556,7 +583,11 @@ export function ChatThread({
                             className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-4"
                         >
                             {empty ? (
-                                <ThreadEmpty personaName={personaName} />
+                                <ThreadEmpty
+                                    personaName={personaName}
+                                    starters={starters}
+                                    onSend={onSend}
+                                />
                             ) : (
                                 <ThreadPrimitive.Messages
                                     components={{

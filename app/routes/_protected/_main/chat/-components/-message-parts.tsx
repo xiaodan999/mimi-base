@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type {
     ReasoningMessagePartProps,
     ToolCallMessagePartProps,
@@ -26,6 +26,7 @@ import {
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { highlightCode, isHighlightableLanguage } from "@/app/chat/highlighter";
 import { TOOL_TITLES } from "@/app/chat/tool-labels";
 import { cn } from "@/lib/utils";
 
@@ -103,10 +104,47 @@ function CodeBlock({
                     {copied ? "已复制" : "复制"}
                 </button>
             </div>
+            <CodeBody code={raw} language={language}>
+                {children}
+            </CodeBody>
+        </div>
+    );
+}
+
+/** Plain text until Shiki (lazy-loaded chunk) delivers highlighted HTML. */
+function CodeBody({
+    code,
+    language,
+    children,
+}: {
+    code: string;
+    language: string;
+    children?: ReactNode;
+}) {
+    const [html, setHtml] = useState<string | null>(null);
+    useEffect(() => {
+        if (!isHighlightableLanguage(language)) return undefined;
+        let alive = true;
+        void highlightCode(code, language).then((result) => {
+            if (alive && result !== null) setHtml(result);
+        });
+        return () => {
+            alive = false;
+        };
+    }, [code, language]);
+
+    if (html === null) {
+        return (
             <pre className="overflow-x-auto p-3 text-[12.5px] leading-relaxed">
                 {children}
             </pre>
-        </div>
+        );
+    }
+    return (
+        <div
+            className="shiki-host overflow-x-auto p-3 text-[12.5px] leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: html }}
+        />
     );
 }
 

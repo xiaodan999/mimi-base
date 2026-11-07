@@ -225,7 +225,8 @@ before your first commit.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
   `post_likes`, `comment_likes` (schema only, unused by the UI),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
-  `chat_conversations`, `chat_messages`, `chat_personas`; `tu_pian_xin_xi` is
+  `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`;
+  `tu_pian_xin_xi` is
   legacy (its rows were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. **This is deliberate, not a leak.** The product has exactly two
@@ -376,10 +377,35 @@ before your first commit.
   host mounts, `--network host`, a Docker socket, or secrets to the container
   without re-evaluating prompt injection against the AI key and `pb_data`.
   `ask_user` is client-side: it pauses the tool loop, shows the inline panel
-  (text/choice/confirm/location), and resolves the tool result so the same
-  run continues. Location only ever comes from `navigator.geolocation`, so
-  the browser permission prompt is the consent boundary; never infer it from
-  IP or the server.
+  (text/choice/confirm/location/expense), and resolves the tool result so the
+  same run continues. Location only ever comes from `navigator.geolocation`,
+  so the browser permission prompt is the consent boundary; never infer it
+  from IP or the server. `log_expense` uses the same pause: the model's draft
+  is only written after the user taps 「记下」, and the create still goes
+  through the owner-bound PB rule.
+- Chat data tools (`/ai/tools/{expenses,posts,memory,url}` in
+  `pocketbase/ai-tools.ts`) are the only way the model reads site data, and
+  **the server, not the persona prompt, is the security boundary**: the relay
+  authenticates, rate-limits (30/min) and quotas (200/day) them, scopes rows
+  with explicit PB filters (ledger/posts are shared-scope on purpose — they
+  match the app's screens; `chat_memories` is owner-only with PB rules as the
+  backstop), and `read_url` resolves DNS and refuses private/reserved hosts
+  and redirects. The system prompt tells the model tool output is data, not
+  instructions — keep that line when editing `app/chat/prompt.ts`. Memories
+  (`chat_memories`) are injected into every run's system prompt (top 30) and
+  managed in the chat header's 「AI 的记忆」 sheet.
+- Built-in personas (`app/chat/personas.ts`) are 通用助手 / 写作助手 /
+  英语老师 / 基地管家, each with `starters` for the empty thread. A
+  conversation snapshots persona name+prompt at creation, so removing or
+  editing a built-in never rewrites old chats. Personas are prompts only —
+  never gate real capabilities on them.
+- Other chat affordances: conversation search/filter/pin on the list page,
+  per-message edit-and-resend (`onEdit`), fork-into-new-conversation,
+  one-off retry with another model, Markdown export (header), document
+  attachments (`app/chat/attachments.ts`, pdf.js lazy chunk), pick-images-
+  from-posts, PWA share target (`/share`, GET params → composer draft), and
+  read-aloud via the browser speech adapter. Code blocks highlight with a
+  lazy Shiki chunk (`app/chat/highlighter.ts`, JS regex engine, no wasm).
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (daily line, 去年今天 inline
   in the feed), Study (wrong-answer overview, targeted drill, sprint plan),

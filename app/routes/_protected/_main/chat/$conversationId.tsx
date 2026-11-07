@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Link,
     createFileRoute,
@@ -9,7 +9,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
-import { findPersona } from "@/app/chat/personas";
+import { findPersona, resolvePersona } from "@/app/chat/personas";
 import { previewText } from "@/app/chat/records";
 import type { ChatConversation } from "@/app/chat/types";
 import LoadingPage from "@/components/LoadingPage";
@@ -18,9 +18,11 @@ import { toastPromise } from "@/lib/toast-promise";
 
 import { ChatHeader } from "./-components/-chat-header";
 import { ChatThread } from "./-components/-chat-thread";
+import { MemorySheet } from "./-components/-memory-sheet";
 import {
     useChatActions,
     useChatConversation,
+    useChatMemories,
     useChatMessages,
     useChatModels,
     useChatPersonas,
@@ -74,6 +76,9 @@ function ChatConversationView({
     const personasQuery = useChatPersonas();
     const messagesQuery = useChatMessages(conversation.id);
 
+    const [memoriesOpen, setMemoriesOpen] = useState(false);
+    const memoriesQuery = useChatMemories();
+
     // One-shot composer prefill from the PWA share target (/share).
     const initialDraft =
         typeof location.state?.draft === "string"
@@ -117,6 +122,11 @@ function ChatConversationView({
         storedMessages: messagesQuery.data ?? [],
         model,
     });
+
+    const personaStarters = resolvePersona(
+        conversation.personaId,
+        personasQuery.data ?? [],
+    ).starters;
 
     /** Copy everything up to and including a message into a new conversation. */
     const handleFork = useCallback(
@@ -271,6 +281,13 @@ function ChatConversationView({
                     });
                 }}
                 onExport={handleExport}
+                onOpenMemories={() => setMemoriesOpen(true)}
+            />
+            <MemorySheet
+                open={memoriesOpen}
+                onOpenChange={setMemoriesOpen}
+                memories={memoriesQuery.data ?? []}
+                loading={memoriesQuery.isLoading}
             />
             <div className="min-h-0 flex-1">
                 <ChatThread
@@ -281,6 +298,7 @@ function ChatConversationView({
                     models={models}
                     personaName={conversation.personaName || "通用助手"}
                     initialDraft={initialDraft}
+                    starters={personaStarters}
                     onSend={session.send}
                     onStop={session.stop}
                     onRegenerate={session.regenerate}
