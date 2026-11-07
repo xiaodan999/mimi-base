@@ -69,6 +69,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import { createAiRelay } from "./ai-relay";
+import { createIpCityLookup } from "./geo-ip";
 import { resolveChatModels } from "./chat-models";
 import { createSandboxExecutor } from "./sandbox-exec";
 
@@ -637,6 +638,7 @@ const SUPERVISOR_MODULES = [
     "ai-relay.ts",
     "ai-files.ts",
     "ai-tools.ts",
+    "geo-ip.ts",
     "chat-models.ts",
     "sandbox-exec.ts",
     "../lib/chat-files.ts",
@@ -1102,6 +1104,9 @@ function startHttpServer() {
             process.env.OPENCODE_CHAT_MODEL_DEFAULT?.trim() || undefined,
         dailyLimit,
         sandbox,
+        // Dev shares one home network, so private/loopback callers (Vite
+        // proxy, localhost) may fall back to this machine's egress IP.
+        geoLookup: createIpCityLookup({ devEgress: !isProd }),
     });
 
     const serve = () => {
@@ -1111,11 +1116,14 @@ function startHttpServer() {
             // Bun defaults to 10s. SSE can pause longer between chunks, and
             // closing the socket would look like a failed answer.
             idleTimeout: 120,
-            async fetch(req) {
+            async fetch(req, server) {
                 const url = new URL(req.url);
                 const pathname = url.pathname;
 
-                const ai = await aiRelay(req);
+                const ai = await aiRelay(
+                    req,
+                    server.requestIP(req)?.address ?? "",
+                );
                 if (ai) return ai;
 
                 // No deploy secret: deploy endpoints stay off, but the AI

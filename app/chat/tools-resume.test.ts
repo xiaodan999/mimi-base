@@ -125,12 +125,14 @@ describe("resolveInteractiveToolResult", () => {
         const location = await resolveInteractiveToolResult(
             "ask_user",
             { kind: "location" },
-            {
-                ok: true,
-                location: { latitude: 31.23, longitude: 121.47, accuracy: 0 },
-            },
+            { ok: true, location: { city: "上海市", region: "上海" } },
         );
-        expect(location.result).toMatchObject({ ok: true, kind: "location" });
+        expect(location.result).toEqual({
+            ok: true,
+            kind: "location",
+            city: "上海市",
+            region: "上海",
+        });
     });
 
     test("maps failures", async () => {

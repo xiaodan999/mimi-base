@@ -25,6 +25,11 @@ import {
 import { MAX_FILE_BYTES } from "../lib/chat-files";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
+    createIpCityLookup,
+    resolveClientIp,
+    type IpCityLookup,
+} from "./geo-ip";
+import {
     findChatModel,
     hasImagePart,
     normalizeModelId,
@@ -41,6 +46,8 @@ export const AI_CHAT_COMPLETIONS_PATH = "/ai/chat/completions";
 export const AI_MODELS_PATH = "/ai/models";
 export const AI_SANDBOX_PATH = "/ai/sandbox";
 export const AI_HEALTH_PATH = "/ai/health";
+/** Chat location feature: caller IP -> city estimate (see geo-ip.ts). */
+export const AI_GEO_IP_PATH = "/ai/geo/ip";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -92,6 +99,12 @@ export type AiRelayDeps = {
     dailyLimit: number;
     /** Server-side code sandbox; omitted in focused tests. */
     sandbox?: SandboxService;
+    /**
+     * IP -> city resolver for /ai/geo/ip. Built on first use (without the
+     * dev egress fallback) when omitted; server.ts injects the real one so
+     * dev can resolve loopback callers.
+     */
+    geoLookup?: IpCityLookup;
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
@@ -103,12 +116,20 @@ type AuthFail = { ok: false; response: Response };
 type MinuteBucket = { start: number; count: number };
 type DayBucket = { day: string; count: number };
 
-export type AiRelay = (req: Request) => Promise<Response | null>;
+/**
+ * `socketIp` is the TCP peer address from the supervisor (`server.requestIP`),
+ * used when no proxy header is present.
+ */
+export type AiRelay = (
+    req: Request,
+    socketIp?: string,
+) => Promise<Response | null>;
 
 /** Build a handler with its own auth cache and rate-limit buckets. */
 export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const fetchImpl = deps.fetch ?? fetch;
     const now = deps.now ?? Date.now;
+    let geoLookup: IpCityLookup | null = null;
     const chatModels =
         deps.chatModels && deps.chatModels.length > 0
             ? deps.chatModels
@@ -669,7 +690,35 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         });
     }
 
-    async function handle(req: Request): Promise<Response | null> {
+    /**
+     * City estimate for the chat location feature. The user taps the button
+     * in the panel and confirms the result, so this is not a silent lookup;
+     * the answer is city-level and carries no coordinates. Cheap offline
+     * lookup, so requests share the data tools' minute budget but not the
+     * daily quota.
+     */
+    async function geoIp(req: Request, socketIp: string): Promise<Response> {
+        const auth = await authenticate(req);
+        if (!auth.ok) return auth.response;
+
+        const limited = checkToolsRate(auth.uid);
+        if (limited) return limited;
+
+        const lookup =
+            deps.geoLookup ??
+            (geoLookup ??= createIpCityLookup({ fetch: fetchImpl }));
+        const info = await lookup(resolveClientIp(req, socketIp));
+        return json(200, {
+            city: info?.city ?? "",
+            region: info?.region ?? "",
+            country: info?.country ?? "",
+        });
+    }
+
+    async function handle(
+        req: Request,
+        socketIp = "",
+    ): Promise<Response | null> {
         const url = new URL(req.url);
         if (
             url.pathname !== AI_RELAY_PREFIX &&
@@ -688,6 +737,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 keyConfigured: Boolean(deps.apiKey.trim()),
                 model: deps.model,
             });
+        }
+
+        if (url.pathname === AI_GEO_IP_PATH && req.method === "GET") {
+            return geoIp(req, socketIp);
         }
 
         if (url.pathname === AI_MODELS_PATH && req.method === "GET") {

@@ -129,6 +129,21 @@ The general chat (`/chat`) uses these routes:
   refuses private/reserved addresses and redirects into them, and strips
   HTML to text (300KB fetch cap, 12k-char output).
 
+- `GET /ai/geo/ip` (authenticated) backs the chat's location question: it
+  resolves the caller's public IP to a city with the `ip2region` package
+  (`pocketbase/geo-ip.ts`), whose bundled v4+v6 xdb data ships in
+  `node_modules` like the pdf.js CMaps — nothing is downloaded at runtime or
+  committed. The answer is city-level only (`{city, region, country}`, empty
+  strings when the IP is unknown) and carries no coordinates; the panel asks
+  the user to confirm the estimate before it reaches the model. It shares the
+  data tools' 30/min budget but not their daily quota. The client IP is the
+  **rightmost `X-Forwarded-For` entry** (spoof-resistant behind the single
+  trusted proxy), falling back to the socket peer, so the proxy must set the
+  header — the nginx snippet below does; Caddy does by default. In dev,
+  private/loopback callers (Vite proxy, localhost) fall back to the server's
+  own public egress IP, because dev phone and server share the home network;
+  prod never does this.
+
 - **Key**: `OPENCODE_API_KEY` in `.env.prod` (prod) or `.env` (dev). It is
   never sent to PocketBase, returned to the client, or logged.
 - **Model**: `OPENCODE_MODEL` (default `deepseek-v4.1-flash`). The legacy
@@ -153,6 +168,8 @@ The general chat (`/chat`) uses these routes:
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
+        # /ai/geo/ip resolves the caller's real address (rightmost XFF entry).
+        proxy_set_header X-Forwarded-For $remote_addr;
         # Chat attachments upload raw bytes (/ai/files, 30MB cap).
         client_max_body_size 32m;
     }

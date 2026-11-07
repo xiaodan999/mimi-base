@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-import type { BrowserLocation } from "./location";
+import type { IpLocation } from "./location";
 
 export type UserInputKind =
     "text" | "choice" | "confirm" | "location" | "expense";
@@ -30,7 +30,8 @@ export type UserInputAnswer =
     | {
           ok: true;
           answer?: string;
-          location?: BrowserLocation;
+          /** For kind="location": the user-confirmed city estimate. */
+          location?: IpLocation;
       }
     | { ok: false; error: string };
 

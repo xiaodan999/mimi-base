@@ -146,8 +146,11 @@ export default defineConfig(({ mode }) => {
                     ws: true,
                 },
                 // Streaming AI relay (Bun supervisor), same-origin in dev.
+                // xfwd forwards the phone's address so /ai/geo/ip can tell
+                // the Vite proxy hop from the actual caller.
                 "/ai": {
                     target: `http://127.0.0.1:${supervisorPort}`,
+                    xfwd: true,
                 },
             },
         },

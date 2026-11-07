@@ -6,6 +6,7 @@
       "name": "mimi-base-server",
       "dependencies": {
         "@napi-rs/canvas": "^0.1.100",
+        "ip2region": "^4.0.1",
         "pdfjs-dist": "^4",
       },
     },
@@ -34,6 +35,8 @@
     "@napi-rs/canvas-win32-arm64-msvc": ["@napi-rs/canvas-win32-arm64-msvc@0.1.100", "https://registry.npmmirror.com/@napi-rs/canvas-win32-arm64-msvc/-/canvas-win32-arm64-msvc-0.1.100.tgz", { "os": "win32", "cpu": "arm64" }, "sha512-DZFFT1wIAg37LJw37yhMRFfjATd3vTQzjZ1Yki8u2vhO6Hi5VE6BVaGQ1aaDu7xb4iMErz+9EOwjpS7xcxFeBw=="],
 
     "@napi-rs/canvas-win32-x64-msvc": ["@napi-rs/canvas-win32-x64-msvc@0.1.100", "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-0.1.100.tgz", { "os": "win32", "cpu": "x64" }, "sha512-MyT1j3mHC2+Lu4pBi9mKyMJhtP6U7k7EldY7sj/uS5gJA65gTXt8MefJQXLJo5d/vZbuWmfxzkEUNc/urV3pHA=="],
+
+    "ip2region": ["ip2region@4.0.1", "https://registry.npmmirror.com/ip2region/-/ip2region-4.0.1.tgz", {}, "sha512-Tt0hl/UQhhgE9HFdm9IO5WPjLPHpmgqcV94+WWGTHOR5OB2lLda4Hb/PqFaq1+j1Fg+AYaOvoQUycFfXXuezKw=="],
 
     "pdfjs-dist": ["pdfjs-dist@4.10.38", "https://registry.npmmirror.com/pdfjs-dist/-/pdfjs-dist-4.10.38.tgz", { "optionalDependencies": { "@napi-rs/canvas": "^0.1.65" } }, "sha512-/Y3fcFrXEAsMjJXeL9J8+ZG9U01LbuWaYypvDW2ycW1jL269L3js3DVBjDJ0Up9Np1uqDXsDrRihHANhZOlwdQ=="],
   }

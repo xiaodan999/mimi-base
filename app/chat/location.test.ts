@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { getBrowserLocation, reverseGeocode } from "./location";
+import { getIpCity } from "./location";
+
+const request = {
+    url: "http://relay.test/ai/geo/ip",
+    headers: { Authorization: "token" },
+};
 
 function response(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
@@ -9,66 +14,43 @@ function response(body: unknown, status = 200): Response {
     });
 }
 
-describe("reverseGeocode", () => {
-    test("maps BigDataCloud's fields", async () => {
-        const fetchImpl = (async () =>
-            response({
-                city: "上海市",
-                locality: "浦东",
-                principalSubdivision: "上海",
-                countryName: "中国",
-            })) as unknown as typeof fetch;
-        await expect(reverseGeocode(31.23, 121.47, fetchImpl)).resolves.toEqual(
-            {
-                city: "上海市",
-                region: "上海",
-                country: "中国",
-            },
-        );
-    });
+/** Bun's transpiler dislikes a multi-line arrow followed by `as`; wrap it. */
+function asFetch(fn: () => Promise<Response>): typeof fetch {
+    return fn as unknown as typeof fetch;
+}
 
-    test("falls back to locality when city is empty", async () => {
-        const fetchImpl = (async () =>
-            response({
-                city: "",
-                locality: "浦东",
-            })) as unknown as typeof fetch;
-        await expect(reverseGeocode(31.23, 121.47, fetchImpl)).resolves.toEqual(
-            {
-                city: "浦东",
-            },
+describe("getIpCity", () => {
+    test("maps the relay payload", async () => {
+        const fetchImpl = asFetch(async () =>
+            response({ city: "杭州市", region: "浙江省", country: "中国" }),
         );
-    });
-
-    test("a failed lookup is not fatal", async () => {
-        const failing = (async () =>
-            response({}, 500)) as unknown as typeof fetch;
-        await expect(reverseGeocode(31.23, 121.47, failing)).resolves.toEqual(
-            {},
-        );
-        const throwing = (async () => {
-            throw new Error("offline");
-        }) as unknown as typeof fetch;
-        await expect(reverseGeocode(31.23, 121.47, throwing)).resolves.toEqual(
-            {},
-        );
-    });
-});
-
-describe("getBrowserLocation", () => {
-    test("rejects when the browser has no geolocation API", async () => {
-        const original = navigator.geolocation;
-        Object.defineProperty(navigator, "geolocation", {
-            configurable: true,
-            value: undefined,
+        await expect(getIpCity(request, fetchImpl)).resolves.toEqual({
+            city: "杭州市",
+            region: "浙江省",
+            country: "中国",
         });
-        try {
-            await expect(getBrowserLocation()).rejects.toThrow("不支持");
-        } finally {
-            Object.defineProperty(navigator, "geolocation", {
-                configurable: true,
-                value: original,
-            });
-        }
+    });
+
+    test("omits empty region/country", async () => {
+        const fetchImpl = asFetch(async () =>
+            response({ city: "杭州市", region: "", country: "" }),
+        );
+        await expect(getIpCity(request, fetchImpl)).resolves.toEqual({
+            city: "杭州市",
+        });
+    });
+
+    test("rejects when the server cannot resolve a city", async () => {
+        const fetchImpl = asFetch(async () => response({ city: "" }));
+        await expect(getIpCity(request, fetchImpl)).rejects.toThrow("识别");
+    });
+
+    test("rejects on relay errors and network failures", async () => {
+        const failing = asFetch(async () => response({}, 401));
+        await expect(getIpCity(request, failing)).rejects.toThrow("识别");
+        const throwing = asFetch(async () => {
+            throw new Error("offline");
+        });
+        await expect(getIpCity(request, throwing)).rejects.toThrow("网络");
     });
 });

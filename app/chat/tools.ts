@@ -147,7 +147,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "ask_user",
             description:
-                "向用户发起一个交互式请求并等待回答。缺少必要信息（城市、偏好、单位等）或需要用户授权（定位）时使用；一次只问一件事，不要问对话里已经有的信息。kind=text 让用户输入文字，choice 让用户从 options 里选，confirm 让用户确认，location 请求浏览器定位（会弹出授权）。",
+                "向用户发起一个交互式请求并等待回答。缺少必要信息（城市、偏好、单位等）时使用；一次只问一件事，不要问对话里已经有的信息。kind=text 让用户输入文字，choice 让用户从 options 里选，confirm 让用户确认，location 根据网络 IP 估计用户所在城市（用户会先确认，返回 city/region/country，没有坐标）。",
             parameters: {
                 type: "object",
                 properties: {

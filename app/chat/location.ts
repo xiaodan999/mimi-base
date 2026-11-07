@@ -1,28 +1,13 @@
-export type BrowserLocation = {
-    latitude: number;
-    longitude: number;
-    /** Metres. */
-    accuracy: number;
-    city?: string;
+export type IpLocation = {
+    city: string;
     region?: string;
     country?: string;
 };
 
-export class LocationError extends Error {
-    code: number;
-
-    constructor(message: string, code: number) {
-        super(message);
-        this.name = "LocationError";
-        this.code = code;
-    }
-}
-
-type ReverseGeocodeResponse = {
+type GeoIpResponse = {
     city?: unknown;
-    locality?: unknown;
-    principalSubdivision?: unknown;
-    countryName?: unknown;
+    region?: unknown;
+    country?: unknown;
 };
 
 function textOf(value: unknown): string | undefined {
@@ -32,83 +17,39 @@ function textOf(value: unknown): string | undefined {
 }
 
 /**
- * Coordinates -> a readable place. BigDataCloud's reverse endpoint is
- * CORS-friendly and needs no key. A failure is not fatal: the coordinates
- * are still useful for weather APIs.
+ * City estimate for the chat location feature. `GET /ai/geo/ip` resolves the
+ * caller's public IP to a city on the server (see pocketbase/geo-ip.ts) —
+ * there are no coordinates, and the panel asks the user to confirm the
+ * estimate before it reaches the model. An empty city or a failed request
+ * rejects; the panel then offers manual input.
+ *
+ * The caller supplies the relay URL and auth headers (aiUrl + chatHeaders),
+ * so this module stays free of the pb import graph like the other chat
+ * logic under test.
  */
-export async function reverseGeocode(
-    latitude: number,
-    longitude: number,
+export async function getIpCity(
+    request: { url: string; headers: Record<string, string> },
     fetchImpl: typeof fetch = fetch,
-): Promise<Pick<BrowserLocation, "city" | "region" | "country">> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6_000);
+): Promise<IpLocation> {
+    let response: Response;
     try {
-        const url =
-            "https://api.bigdatacloud.net/data/reverse-geocode-client" +
-            `?latitude=${encodeURIComponent(latitude)}` +
-            `&longitude=${encodeURIComponent(longitude)}` +
-            "&localityLanguage=zh";
-        const response = await fetchImpl(url, {
-            headers: { Accept: "application/json" },
-            signal: controller.signal,
+        response = await fetchImpl(request.url, {
+            headers: request.headers,
         });
-        if (!response.ok) return {};
-        const data = (await response.json()) as ReverseGeocodeResponse;
-        return {
-            ...((textOf(data.city) ?? textOf(data.locality))
-                ? { city: textOf(data.city) ?? textOf(data.locality) }
-                : {}),
-            ...(textOf(data.principalSubdivision)
-                ? { region: textOf(data.principalSubdivision) }
-                : {}),
-            ...(textOf(data.countryName)
-                ? { country: textOf(data.countryName) }
-                : {}),
-        };
     } catch {
-        return {};
-    } finally {
-        clearTimeout(timer);
+        throw new Error("网络不给力，没能识别你所在的城市");
     }
-}
-
-function messageFor(code: number): string {
-    if (code === 1) return "用户拒绝了定位权限";
-    if (code === 2) return "暂时无法获取位置";
-    if (code === 3) return "获取位置超时";
-    return "获取位置失败";
-}
-
-/**
- * Asks the browser for the current position. This shows the browser's own
- * permission prompt; it never runs without the user's consent.
- */
-export function getBrowserLocation(
-    timeoutMs = 15_000,
-): Promise<BrowserLocation> {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-        return Promise.reject(new LocationError("当前浏览器不支持定位", 0));
+    if (!response.ok) {
+        throw new Error("没能识别你所在的城市");
     }
-    return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const base = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                };
-                void reverseGeocode(base.latitude, base.longitude).then(
-                    (place) => resolve({ ...base, ...place }),
-                );
-            },
-            (error) =>
-                reject(new LocationError(messageFor(error.code), error.code)),
-            {
-                enableHighAccuracy: false,
-                timeout: timeoutMs,
-                maximumAge: 60_000,
-            },
-        );
-    });
+    const data = (await response.json()) as GeoIpResponse;
+    const city = textOf(data.city);
+    if (!city) {
+        throw new Error("没能识别你所在的城市，手动输入一个吧");
+    }
+    return {
+        city,
+        ...(textOf(data.region) ? { region: textOf(data.region) } : {}),
+        ...(textOf(data.country) ? { country: textOf(data.country) } : {}),
+    };
 }

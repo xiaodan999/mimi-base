@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { HelpCircle, Loader2, MapPin } from "lucide-react";
 
-import { getBrowserLocation, LocationError } from "@/app/chat/location";
+import { aiUrl, chatHeaders } from "@/app/chat/api";
+import { getIpCity, type IpLocation } from "@/app/chat/location";
 import { answerUserInput, usePendingUserInput } from "@/app/chat/user-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,13 +17,17 @@ export function UserInputPanel({ conversationId }: { conversationId: string }) {
     const request = usePendingUserInput(conversationId);
     const [text, setText] = useState("");
     const [error, setError] = useState("");
-    const [locating, setLocating] = useState(false);
+    const [detecting, setDetecting] = useState(false);
+    const [estimate, setEstimate] = useState<IpLocation | null>(null);
+    const [manualCity, setManualCity] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setText("");
         setError("");
-        setLocating(false);
+        setDetecting(false);
+        setEstimate(null);
+        setManualCity(false);
         if (request?.kind === "text") {
             // Let the card mount before focusing (mobile keyboards).
             const timer = setTimeout(() => inputRef.current?.focus(), 80);
@@ -39,19 +44,23 @@ export function UserInputPanel({ conversationId }: { conversationId: string }) {
         answerUserInput({ ok: true, answer: value });
     };
 
-    const allowLocation = async () => {
+    const detectCity = async () => {
         setError("");
-        setLocating(true);
+        setDetecting(true);
         try {
-            const location = await getBrowserLocation();
-            answerUserInput({ ok: true, location });
+            const location = await getIpCity({
+                url: aiUrl("/geo/ip"),
+                headers: chatHeaders(),
+            });
+            setEstimate(location);
         } catch (caught) {
             setError(
-                caught instanceof LocationError
+                caught instanceof Error
                     ? caught.message
-                    : "获取位置失败，换一种方式试试",
+                    : "没能识别你所在的城市",
             );
-            setLocating(false);
+        } finally {
+            setDetecting(false);
         }
     };
 
@@ -190,40 +199,103 @@ export function UserInputPanel({ conversationId }: { conversationId: string }) {
             {request.kind === "location" && (
                 <div className="mt-2">
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        浏览器会请求定位权限。坐标只用于这次回答，并保存在你自己的聊天记录里。
+                        将根据网络 IP 估计你所在的城市，确认后才会告诉
+                        AI。只用于这次回答。
                     </p>
-                    <div className="mt-2 flex gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            className="h-9 rounded-xl"
-                            disabled={locating}
-                            onClick={() => void allowLocation()}
-                        >
-                            {locating ? (
-                                <Loader2 className="mr-1 size-4 animate-spin" />
-                            ) : (
-                                <MapPin className="mr-1 size-4" />
-                            )}
-                            {locating ? "定位中…" : "允许定位"}
-                        </Button>
-                        {error !== "" && (
+                    {estimate ? (
+                        <div className="mt-2">
+                            <p className="text-[13px] leading-relaxed">
+                                估计你在
+                                <span className="font-medium">
+                                    {estimate.city}
+                                </span>
+                                {estimate.region
+                                    ? `（${estimate.region}）`
+                                    : ""}
+                                ？
+                            </p>
+                            <div className="mt-2 flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-9 rounded-xl"
+                                    onClick={() =>
+                                        answerUserInput({
+                                            ok: true,
+                                            location: estimate,
+                                        })
+                                    }
+                                >
+                                    就用这个
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 rounded-xl bg-background"
+                                    onClick={() => {
+                                        setEstimate(null);
+                                        setManualCity(true);
+                                    }}
+                                >
+                                    不是，手动输入
+                                </Button>
+                            </div>
+                        </div>
+                    ) : manualCity ? (
+                        <div className="mt-2 flex items-center gap-2">
+                            <Input
+                                value={text}
+                                onChange={(event) =>
+                                    setText(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                        event.preventDefault();
+                                        submitText();
+                                    }
+                                }}
+                                placeholder="输入城市名，如 杭州"
+                                maxLength={100}
+                                className="h-10 flex-1 rounded-xl bg-background"
+                            />
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="h-10 rounded-xl px-4"
+                                disabled={text.trim() === ""}
+                                onClick={submitText}
+                            >
+                                回答
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="mt-2 flex gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="h-9 rounded-xl"
+                                disabled={detecting}
+                                onClick={() => void detectCity()}
+                            >
+                                {detecting ? (
+                                    <Loader2 className="mr-1 size-4 animate-spin" />
+                                ) : (
+                                    <MapPin className="mr-1 size-4" />
+                                )}
+                                {detecting ? "识别中…" : "自动识别城市"}
+                            </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 className="h-9 rounded-xl bg-background"
-                                onClick={() =>
-                                    answerUserInput({
-                                        ok: false,
-                                        error: "用户无法或不愿提供定位",
-                                    })
-                                }
+                                onClick={() => setManualCity(true)}
                             >
-                                改用手动输入
+                                手动输入城市
                             </Button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                     {error !== "" && (
                         <p className="mt-1.5 text-[11px] text-destructive">
                             {error}

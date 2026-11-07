@@ -392,11 +392,14 @@ before your first commit.
   without re-evaluating prompt injection against the AI key and `pb_data`.
   `ask_user` is client-side: it pauses the tool loop, shows the inline panel
   (text/choice/confirm/location/expense), and resolves the tool result so the
-  same run continues. Location only ever comes from `navigator.geolocation`,
-  so the browser permission prompt is the consent boundary; never infer it
-  from IP or the server. `log_expense` uses the same pause: the model's draft
-  is only written after the user taps 「记下」, and the create still goes
-  through the owner-bound PB rule.
+  same run continues. Location is a **city-only IP estimate**: the panel calls
+  `GET /ai/geo/ip` (`pocketbase/geo-ip.ts`, bundled `ip2region` data) only
+  after the user taps 自动识别城市, and the estimate is shown for confirmation
+  before it reaches the model. Never resolve coordinates, never geolocate a
+  request without that explicit tap, and never inject IP-derived location
+  silently. `log_expense` uses the same pause: the model's draft is only
+  written after the user taps 「记下」, and the create still goes through the
+  owner-bound PB rule.
 - Gen UI (`show_chart` + `render_ui`) is client-side and data-only.
   `show_chart` draws one bar/line/pie with a validated `style`
   (`palette` / `donut` / `legend` / `showValues`) using the `--chart-1..6`

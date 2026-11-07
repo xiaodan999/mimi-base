@@ -5,6 +5,7 @@
     "packageManager": "bun@1.4.4",
     "dependencies": {
         "@napi-rs/canvas": "^0.1.100",
+        "ip2region": "^4.0.1",
         "pdfjs-dist": "^4"
     }
 }
