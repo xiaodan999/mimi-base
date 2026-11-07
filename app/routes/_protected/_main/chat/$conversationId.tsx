@@ -120,6 +120,7 @@ function ChatConversationView({
     const session = useChatSession({
         conversation,
         storedMessages: messagesQuery.data ?? [],
+        messagesLoading: messagesQuery.isLoading,
         model,
     });
 

@@ -8,6 +8,9 @@ import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
 import {
     executeChatTool,
+    isInteractiveTool,
+    pendingRequestFromToolCall,
+    resolveInteractiveToolResult,
     toolsForModel,
     type ToolHooks,
 } from "@/app/chat/tools";
@@ -19,7 +22,13 @@ import type {
     ChatToolCallPart,
     SandboxFiles,
 } from "@/app/chat/types";
-import { cancelUserInput } from "@/app/chat/user-input";
+import {
+    cancelUserInput,
+    getPendingUserInput,
+    isTransientCancelReason,
+    requestUserInput,
+    type UserInputRequest,
+} from "@/app/chat/user-input";
 import { useCurrentUser } from "@/lib/auth";
 import { qk } from "@/lib/query-keys";
 
@@ -79,6 +88,8 @@ function mergeById(
 export type UseChatSessionArgs = {
     conversation: ChatConversation;
     storedMessages: readonly ChatMessage[];
+    /** True while the message query is loading; resume waits for it. */
+    messagesLoading: boolean;
     /** Resolved allowlisted model; undefined while the allowlist loads. */
     model: ChatModel | undefined;
 };
@@ -93,6 +104,7 @@ export type UseChatSessionArgs = {
 export function useChatSession({
     conversation,
     storedMessages,
+    messagesLoading,
     model,
 }: UseChatSessionArgs) {
     const actions = useChatActions();
@@ -107,6 +119,8 @@ export function useChatSession({
     const filesRef = useRef<SandboxFiles>(conversation.sandboxFiles);
     const abortRef = useRef<AbortController | null>(null);
     const runningRef = useRef(false);
+    /** Conversation id whose stored messages were already resume-scanned. */
+    const scannedConversationRef = useRef<string | null>(null);
 
     const messages = useMemo(
         () => mergeById(storedMessages, optimistic),
@@ -139,6 +153,7 @@ export function useChatSession({
         abortRef.current?.abort();
         abortRef.current = null;
         filesRef.current = conversation.sandboxFiles;
+        scannedConversationRef.current = null;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [conversation.id]);
 
@@ -430,7 +445,7 @@ export function useChatSession({
      */
     const regenerate = useCallback(
         async (parentId: string, opts?: { model: ChatModel }) => {
-            if (runningRef.current) return;
+            if (runningRef.current || getPendingUserInput()) return;
             const list = messagesRef.current;
             const anchor = list.find((message) => message.id === parentId);
             const parent =
@@ -490,7 +505,7 @@ export function useChatSession({
      */
     const editUserMessage = useCallback(
         async (message: AppendMessage) => {
-            if (runningRef.current) return;
+            if (runningRef.current || getPendingUserInput()) return;
             const current = conversationRef.current;
             if (!model) return;
             const list = messagesRef.current;
@@ -549,6 +564,220 @@ export function useChatSession({
         },
         [actions, model, queryClient, runAssistant, user.id],
     );
+
+    /**
+     * Continue a turn that a reload interrupted mid-question.
+     *
+     * A reload kills the in-memory tool loop, so an `ask_user` /
+     * `log_expense` call that was waiting for an answer used to stay dead:
+     * the question is persisted (its args live in the tool-call part) but
+     * nothing showed the panel again. This re-asks through the pending
+     * store, writes the answer into the part (guarded so a second tab
+     * cannot double-answer), and re-enters the tool loop from that message.
+     */
+    const resumeInterruptedTurn = useCallback(
+        async (
+            message: ChatMessage,
+            call: ChatToolCallPart,
+            request: UserInputRequest,
+        ) => {
+            const current = conversationRef.current;
+            const modelInfo = model;
+            if (!modelInfo) return;
+
+            const answer = await requestUserInput(request);
+            if (!answer.ok && isTransientCancelReason(answer.error)) {
+                // Navigation or stop: leave the question open for the next
+                // visit instead of burning it.
+                return;
+            }
+
+            // Double-answer guard: another tab may have answered already.
+            const messagesKey = qk.chat.messages(user.id, current.id);
+            const fresh = await actions.getMessage(message.id);
+            const freshCall = fresh?.parts.find(
+                (part): part is ChatToolCallPart =>
+                    part.type === "tool-call" &&
+                    part.toolCallId === call.toolCallId,
+            );
+            if (!fresh || !freshCall || freshCall.result !== undefined) {
+                void queryClient.invalidateQueries({ queryKey: messagesKey });
+                return;
+            }
+
+            let args: Record<string, unknown> = {};
+            try {
+                const parsed = JSON.parse(call.argsText) as unknown;
+                if (
+                    typeof parsed === "object" &&
+                    parsed !== null &&
+                    !Array.isArray(parsed)
+                ) {
+                    args = parsed as Record<string, unknown>;
+                }
+            } catch {
+                // resolveInteractiveToolResult reports the bad args
+            }
+            const resolved = await resolveInteractiveToolResult(
+                call.toolName,
+                args,
+                answer,
+                {
+                    onExpenseSaved: () => {
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.jiZhang.all,
+                        });
+                    },
+                    onMemoryChanged: () => {
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.chat.memories(user.id),
+                        });
+                    },
+                },
+            );
+
+            // Fill the answered call and mark sibling calls that never ran
+            // (the loop executes sequentially, so a reload orphans them too).
+            const updatedParts: ChatPart[] = fresh.parts.map((part) => {
+                if (part.type !== "tool-call" || part.result !== undefined) {
+                    return part;
+                }
+                if (part.toolCallId === call.toolCallId) {
+                    return {
+                        ...part,
+                        result: resolved.result,
+                        isError: resolved.isError,
+                    };
+                }
+                return {
+                    ...part,
+                    result: { ok: false, error: "页面刷新中断了这次执行" },
+                    isError: true,
+                };
+            });
+
+            queryClient.setQueryData<ChatMessage[]>(messagesKey, (previous) =>
+                (previous ?? []).map((row) =>
+                    row.id === message.id
+                        ? { ...row, parts: updatedParts }
+                        : row,
+                ),
+            );
+            await actions
+                .updateMessage(message.id, current.id, {
+                    parts: updatedParts,
+                    content: fresh.content,
+                    status: fresh.status,
+                })
+                .catch(() => {});
+
+            if (resolved.isError || !isInteractiveTool(call.toolName)) return;
+
+            // Re-enter the tool loop: the model reads the answered result and
+            // continues the same turn as a new assistant message.
+            const history = messagesRef.current
+                .filter((row) => row.seq < message.seq)
+                .concat({ ...fresh, parts: updatedParts });
+            const controller = new AbortController();
+            abortRef.current = controller;
+            runningRef.current = true;
+            setRunning(true);
+            try {
+                await runAssistant(
+                    history,
+                    modelInfo,
+                    message.seq + 1,
+                    controller,
+                );
+            } finally {
+                cancelUserInput("生成已结束");
+                runningRef.current = false;
+                setRunning(false);
+                setLive(null);
+                abortRef.current = null;
+                void queryClient.invalidateQueries({ queryKey: messagesKey });
+            }
+        },
+        [actions, model, queryClient, runAssistant, user.id],
+    );
+
+    // Scan once per conversation: revive an unanswered question, or mark
+    // orphaned sandbox calls as interrupted so they don't spin forever.
+    useEffect(() => {
+        if (messagesLoading || running || !model) return;
+        if (scannedConversationRef.current === conversation.id) return;
+        scannedConversationRef.current = conversation.id;
+
+        const last = [...storedMessages]
+            .reverse()
+            .find((message) => message.role === "assistant");
+        if (!last) return;
+        const hasUnresolved = last.parts.some(
+            (part) => part.type === "tool-call" && part.result === undefined,
+        );
+        if (!hasUnresolved) return;
+
+        const interactive = last.parts.find(
+            (part): part is ChatToolCallPart =>
+                part.type === "tool-call" &&
+                part.result === undefined &&
+                pendingRequestFromToolCall(part.toolName, part.argsText) !==
+                    null,
+        );
+        if (interactive) {
+            const request = pendingRequestFromToolCall(
+                interactive.toolName,
+                interactive.argsText,
+            );
+            if (request) {
+                void resumeInterruptedTurn(last, interactive, request);
+                return;
+            }
+        }
+
+        // No question to re-ask (sandbox calls never finished): persist an
+        // interrupted marker instead. No auto-continuation — code must not
+        // re-execute just because the page reloaded.
+        void (async () => {
+            const fresh = await actions.getMessage(last.id);
+            if (!fresh) return;
+            if (
+                !fresh.parts.some(
+                    (part) =>
+                        part.type === "tool-call" && part.result === undefined,
+                )
+            ) {
+                return;
+            }
+            const marked = fresh.parts.map((part) =>
+                part.type === "tool-call" && part.result === undefined
+                    ? {
+                          ...part,
+                          result: {
+                              ok: false,
+                              error: "页面刷新中断了这次执行",
+                          },
+                          isError: true,
+                      }
+                    : part,
+            );
+            await actions
+                .updateMessage(last.id, conversation.id, {
+                    parts: marked,
+                    content: fresh.content,
+                    status: fresh.status,
+                })
+                .catch(() => {});
+        })();
+    }, [
+        actions,
+        conversation.id,
+        messagesLoading,
+        model,
+        resumeInterruptedTurn,
+        running,
+        storedMessages,
+    ]);
 
     const stop = useCallback(() => {
         cancelUserInput("用户停止了生成");

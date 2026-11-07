@@ -81,6 +81,21 @@ export function cancelUserInput(error = "用户取消了请求"): void {
     answerUserInput({ ok: false, error });
 }
 
+/**
+ * Cancel reasons produced by navigation or stopping rather than an explicit
+ * user answer. The reload-resume path treats these as "leave the question
+ * open" instead of persisting a failure, so an accidental back-swipe does not
+ * burn the question.
+ */
+export function isTransientCancelReason(error: string): boolean {
+    return (
+        error === "用户离开了当前页面" ||
+        error === "对话已切换" ||
+        error === "生成已结束" ||
+        error === "用户停止了生成"
+    );
+}
+
 /** Subscribe in the panel; it re-renders when a request appears/clears. */
 export function usePendingUserInput(): UserInputRequest | null {
     return useSyncExternalStore(

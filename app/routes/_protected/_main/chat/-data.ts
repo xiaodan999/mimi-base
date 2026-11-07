@@ -262,6 +262,22 @@ export function useChatActions() {
         [invalidate],
     );
 
+    /** Fresh read of one message — the double-answer guard for resume. */
+    const getMessage = useCallback(
+        async (messageId: string): Promise<ChatMessage | null> => {
+            try {
+                return toChatMessage(
+                    await pb
+                        .collection("chat_messages")
+                        .getOne<ChatMessageRecord>(messageId),
+                );
+            } catch {
+                return null;
+            }
+        },
+        [],
+    );
+
     const createMessage = useCallback(
         async (input: CreateMessageInput): Promise<ChatMessage> => {
             const record = await pb
@@ -390,6 +406,7 @@ export function useChatActions() {
         createConversation,
         updateConversation,
         deleteConversation,
+        getMessage,
         createMessage,
         updateMessage,
         deleteMessagesAfter,
