@@ -6,21 +6,29 @@ import type {
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import {
     AlertTriangle,
+    BarChart3,
+    Brain,
     BrainCircuit,
     Check,
     ChevronDown,
     Copy,
     FileText,
     FolderOpen,
+    Globe,
     HelpCircle,
     Loader2,
+    Newspaper,
+    Receipt,
     SquarePen,
     Terminal,
+    Wallet,
 } from "lucide-react";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
+
+import { ChartCard } from "./-chart-card";
 
 /* -------------------------------- code --------------------------------- */
 
@@ -234,6 +242,12 @@ const TOOL_TITLES: Record<string, string> = {
     sandbox_read: "读取文件",
     sandbox_write: "写入文件",
     sandbox_list: "列出文件",
+    show_chart: "生成图表",
+    memory: "记忆",
+    read_url: "读网页",
+    get_expenses: "查账本",
+    search_posts: "搜动态",
+    log_expense: "记账",
 };
 
 const TOOL_ICONS: Record<string, typeof Terminal> = {
@@ -242,6 +256,12 @@ const TOOL_ICONS: Record<string, typeof Terminal> = {
     sandbox_read: FileText,
     sandbox_write: SquarePen,
     sandbox_list: FolderOpen,
+    show_chart: BarChart3,
+    memory: Brain,
+    read_url: Globe,
+    get_expenses: Wallet,
+    search_posts: Newspaper,
+    log_expense: Receipt,
 };
 
 function pretty(value: unknown, max = 4000): string {
@@ -303,6 +323,26 @@ export function ToolCallPart({
             : failed
               ? "执行失败"
               : "";
+
+    if (toolName === "show_chart") {
+        // The chart itself renders while args stream in and from the
+        // persisted result after a reload; expandable card only for failures.
+        return (
+            <div className="my-2">
+                <ChartCard data={result ?? args} />
+                {failed && (
+                    <details className="mt-1 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        <summary className="cursor-pointer font-medium">
+                            图表数据有问题
+                        </summary>
+                        <pre className="mt-1.5 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px]">
+                            {pretty(args ?? argsText, 1500)}
+                        </pre>
+                    </details>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div

@@ -97,3 +97,10 @@ export type ChatPersona = {
     /** Short prompts offered on the empty thread; built-ins only. */
     starters?: readonly string[];
 };
+
+/** A durable fact the model saved about the user (`memory` tool). */
+export type ChatMemory = {
+    id: string;
+    content: string;
+    createdAt: string;
+};

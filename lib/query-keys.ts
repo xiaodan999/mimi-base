@@ -59,6 +59,7 @@ export const qk = {
         messages: (userId: string, conversationId: string) =>
             ["chat", "messages", userId, conversationId] as const,
         personas: (userId: string) => ["chat", "personas", userId] as const,
+        memories: (userId: string) => ["chat", "memories", userId] as const,
         models: () => ["chat", "models"] as const,
     },
     /**

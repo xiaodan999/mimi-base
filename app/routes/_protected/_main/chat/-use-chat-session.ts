@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { buildApiMessages } from "@/app/chat/prompt";
 import { messageText, previewText } from "@/app/chat/records";
 import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
-import { executeChatTool, toolsForModel } from "@/app/chat/tools";
+import {
+    executeChatTool,
+    toolsForModel,
+    type ToolHooks,
+} from "@/app/chat/tools";
 import type {
     ChatConversation,
     ChatMessage,
@@ -14,8 +19,10 @@ import type {
     SandboxFiles,
 } from "@/app/chat/types";
 import { cancelUserInput } from "@/app/chat/user-input";
+import { useCurrentUser } from "@/lib/auth";
+import { qk } from "@/lib/query-keys";
 
-import { useChatActions } from "./-data";
+import { chatMemoriesQueryOptions, useChatActions } from "./-data";
 
 /** One assistant turn may call tools several times; stop runaway loops. */
 const MAX_TOOL_ROUNDS = 6;
@@ -87,6 +94,8 @@ export function useChatSession({
     model,
 }: UseChatSessionArgs) {
     const actions = useChatActions();
+    const queryClient = useQueryClient();
+    const user = useCurrentUser();
     const [optimistic, setOptimistic] = useState<ChatMessage[]>([]);
     const [live, setLive] = useState<LiveReply | null>(null);
     const [running, setRunning] = useState(false);
@@ -131,6 +140,18 @@ export function useChatSession({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [conversation.id]);
 
+    /** Saved memories are read once per run and injected into the prompt. */
+    const fetchMemories = useCallback(async (): Promise<string[]> => {
+        try {
+            const rows = await queryClient.fetchQuery(
+                chatMemoriesQueryOptions(user.id),
+            );
+            return rows.map((row) => row.content);
+        } catch {
+            return [];
+        }
+    }, [queryClient, user.id]);
+
     const runAssistant = useCallback(
         async (
             baseHistory: ChatMessage[],
@@ -141,6 +162,7 @@ export function useChatSession({
             const conversationId = conversationRef.current.id;
             let history = baseHistory;
             let seq = startSeq;
+            const memories = await fetchMemories();
 
             for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
                 if (controller.signal.aborted) break;
@@ -159,6 +181,7 @@ export function useChatSession({
                         messages: buildApiMessages(
                             history,
                             conversationRef.current.personaPrompt,
+                            { memories },
                         ),
                         reasoningEffort: modelInfo.thinkingLevels.includes(
                             conversationRef.current.thinking,
@@ -259,12 +282,25 @@ export function useChatSession({
                     ),
                 );
 
+                const toolHooks: ToolHooks = {
+                    onExpenseSaved: () => {
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.jiZhang.all,
+                        });
+                    },
+                    onMemoryChanged: () => {
+                        void queryClient.invalidateQueries({
+                            queryKey: qk.chat.memories(user.id),
+                        });
+                    },
+                };
                 for (const call of callParts) {
                     if (controller.signal.aborted) break;
                     const outcome = await executeChatTool(
                         call.toolName,
                         call.argsText,
                         filesRef.current,
+                        toolHooks,
                     );
                     filesRef.current = outcome.files;
                     executed.push({
@@ -310,7 +346,7 @@ export function useChatSession({
                 ];
             }
         },
-        [actions],
+        [actions, fetchMemories, queryClient, user.id],
     );
 
     const send = useCallback(

@@ -2,7 +2,14 @@ import { useSyncExternalStore } from "react";
 
 import type { BrowserLocation } from "./location";
 
-export type UserInputKind = "text" | "choice" | "confirm" | "location";
+export type UserInputKind =
+    "text" | "choice" | "confirm" | "location" | "expense";
+
+export type UserInputExpense = {
+    item: string;
+    price: number;
+    category: string;
+};
 
 export type UserInputRequest = {
     question: string;
@@ -10,6 +17,8 @@ export type UserInputRequest = {
     /** For kind="choice". */
     options?: string[];
     placeholder?: string;
+    /** For kind="expense": the draft row the user is asked to confirm. */
+    expense?: UserInputExpense;
 };
 
 export type UserInputAnswer =

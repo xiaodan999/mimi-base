@@ -1,12 +1,31 @@
+import pb from "@/lib/pb";
+
+import { normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
+import {
+    postTool,
+    timezoneOffsetMinutes,
+    type ExpensesToolResult,
+    type MemoryToolResult,
+    type PostsToolResult,
+    type ReadUrlToolResult,
+} from "./tools-server";
 import type { SandboxFiles } from "./types";
 import { requestUserInput, type UserInputKind } from "./user-input";
 
+/** Side effects the caller (session hook) wires up after a tool succeeds. */
+export type ToolHooks = {
+    /** A confirmed `log_expense` row was created; refresh 记账 queries. */
+    onExpenseSaved?: () => void;
+    /** The `memory` tool changed saved memories; refresh the injected set. */
+    onMemoryChanged?: () => void;
+};
+
 /**
- * Tools the chat model may call. All of them run inside the server-side
- * Docker sandbox; the conversation's file snapshot is the only shared state.
- * Network access is limited to public HTTP(S) by the container network.
+ * Tools the chat model may call. Code runs in the server-side Docker sandbox
+ * (public HTTP(S) only); data tools hit `/ai/tools/*`, where the server
+ * enforces auth, scoping and limits — the browser just forwards arguments.
  */
 export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
     {
@@ -116,6 +135,162 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
             },
         },
     },
+    {
+        type: "function",
+        function: {
+            name: "show_chart",
+            description:
+                "把一组数据画成图表显示给用户（柱状图/折线图/饼图）。用户想看趋势、对比或占比时使用；labels 和 values 必须一一对应（最多 30 项），不要用它显示表格类数据。一次只画一张图。",
+            parameters: {
+                type: "object",
+                properties: {
+                    type: {
+                        type: "string",
+                        enum: ["bar", "line", "pie"],
+                        description:
+                            "bar=柱状图（对比），line=折线图（趋势），pie=饼图（占比）",
+                    },
+                    title: {
+                        type: "string",
+                        description: "图表标题，简短",
+                    },
+                    labels: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "每个数据点的名称（如分类名、日期）",
+                    },
+                    values: {
+                        type: "array",
+                        items: { type: "number" },
+                        description: "与 labels 一一对应的数值",
+                    },
+                    unit: {
+                        type: "string",
+                        description: "数值单位（如 元、次），可省略",
+                    },
+                },
+                required: ["type", "title", "labels", "values"],
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "memory",
+            description:
+                "记住或查询用户的长期信息（忌口、习惯、称呼、偏好等），之后每次聊天都会带上。action=save 保存一条（content 一句话，50 字内最好）；action=list 查看已有哪些；action=delete 删除某条（要 id，通常先 list）。用户说「记住…」时用它；琐碎或一次性的信息不要存。",
+            parameters: {
+                type: "object",
+                properties: {
+                    action: {
+                        type: "string",
+                        enum: ["save", "list", "delete"],
+                    },
+                    content: {
+                        type: "string",
+                        description: "action=save 时要记的内容",
+                    },
+                    id: {
+                        type: "string",
+                        description: "action=delete 时要删除的记忆 id",
+                    },
+                },
+                required: ["action"],
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "read_url",
+            description:
+                "读取一个网页链接的正文（自动剥离 HTML）。用户贴了链接、或回答需要引用某个具体网页时使用；只能读公网 http/https 文本页面。",
+            parameters: {
+                type: "object",
+                properties: {
+                    url: {
+                        type: "string",
+                        description: "完整的网页地址",
+                    },
+                },
+                required: ["url"],
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "get_expenses",
+            description:
+                "查询共享账本的流水和分类汇总（两个人的账都在里面）。from/to 是 YYYY-MM-DD，省略时默认本月。适合「这个月花了多少」「最近吃饭花了多少」这类问题；要把结果画出来就用 show_chart。",
+            parameters: {
+                type: "object",
+                properties: {
+                    from: {
+                        type: "string",
+                        description: "开始日期 YYYY-MM-DD（含）",
+                    },
+                    to: {
+                        type: "string",
+                        description: "结束日期 YYYY-MM-DD（含）",
+                    },
+                },
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "search_posts",
+            description:
+                "搜索或浏览共享动态（两个人发的帖子都在里面）。query 是关键词（可省略=最近发布）；适合「我们去过哪里」「之前说过什么」这类回忆型问题。",
+            parameters: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "关键词，可省略",
+                    },
+                    limit: {
+                        type: "number",
+                        description: "条数（1-30，默认 20）",
+                    },
+                },
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "log_expense",
+            description:
+                "帮用户记一笔账。必须先和用户确认品名和金额；调用后会弹出确认卡片，用户点「记下」才真正写入，取消则不记。category 可省略。",
+            parameters: {
+                type: "object",
+                properties: {
+                    item: {
+                        type: "string",
+                        description: "品名，如 午饭、电影票",
+                    },
+                    price: {
+                        type: "number",
+                        description: "金额（正数）",
+                    },
+                    category: {
+                        type: "string",
+                        description: "分类，可省略",
+                    },
+                },
+                required: ["item", "price"],
+                additionalProperties: false,
+            },
+        },
+    },
 ];
 
 export function toolsForModel(model: { tools: boolean }): ChatToolDefinition[] {
@@ -146,6 +321,7 @@ export async function executeChatTool(
     name: string,
     argsText: string,
     files: SandboxFiles,
+    hooks: ToolHooks = {},
 ): Promise<ChatToolOutcome> {
     const args = parseArgs(argsText);
     if (!args) {
@@ -223,6 +399,260 @@ export async function executeChatTool(
             files,
             isError: false,
         };
+    }
+
+    if (name === "show_chart") {
+        const spec = normalizeChartSpec(args);
+        if (!spec) {
+            return {
+                result: {
+                    ok: false,
+                    error: "图表数据不对：labels 和 values 必须一一对应（1-30 项）",
+                },
+                files,
+                isError: true,
+            };
+        }
+        // The card renders from the normalized spec (args or result survive a
+        // reload); the result mirrors it so the model sees what was drawn.
+        return { result: { ok: true, ...spec }, files, isError: false };
+    }
+
+    if (name === "memory") {
+        const action = args.action;
+        const body: Record<string, unknown> = { action };
+        if (typeof args.content === "string") {
+            body.content = args.content.trim().slice(0, 500);
+        }
+        if (typeof args.id === "string") body.id = args.id.trim();
+        if (
+            (action === "save" &&
+                (typeof body.content !== "string" || body.content === "")) ||
+            (action === "delete" && typeof body.id !== "string")
+        ) {
+            return {
+                result: { ok: false, error: "缺少记忆内容或要删除的 id" },
+                files,
+                isError: true,
+            };
+        }
+        try {
+            const data = await postTool<MemoryToolResult>(
+                "/tools/memory",
+                body,
+            );
+            if (!data.ok) {
+                return {
+                    result: { ok: false, error: data.error ?? "记忆操作失败" },
+                    files,
+                    isError: true,
+                };
+            }
+            hooks.onMemoryChanged?.();
+            return {
+                result: data.items
+                    ? {
+                          ok: true,
+                          action,
+                          memories: data.items,
+                      }
+                    : { ...data, action },
+                files,
+                isError: false,
+            };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "记忆工具请求失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "read_url") {
+        const url = typeof args.url === "string" ? args.url.trim() : "";
+        if (url === "") {
+            return {
+                result: { ok: false, error: "缺少要读取的网址" },
+                files,
+                isError: true,
+            };
+        }
+        try {
+            const data = await postTool<ReadUrlToolResult>("/tools/url", {
+                url,
+            });
+            if (!data.ok) {
+                return {
+                    result: {
+                        ok: false,
+                        url,
+                        error: data.error ?? "网页读不了",
+                    },
+                    files,
+                    isError: true,
+                };
+            }
+            return { result: data, files, isError: false };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    url,
+                    error:
+                        error instanceof Error ? error.message : "网页读取失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "get_expenses") {
+        try {
+            const data = await postTool<ExpensesToolResult>("/tools/expenses", {
+                ...(typeof args.from === "string"
+                    ? { from: args.from.trim() }
+                    : {}),
+                ...(typeof args.to === "string" ? { to: args.to.trim() } : {}),
+                tz: timezoneOffsetMinutes(),
+            });
+            if (!data.ok) {
+                return {
+                    result: { ok: false, error: data.error ?? "账本读不了" },
+                    files,
+                    isError: true,
+                };
+            }
+            return { result: data, files, isError: false };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "账本工具请求失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "search_posts") {
+        try {
+            const data = await postTool<PostsToolResult>("/tools/posts", {
+                ...(typeof args.query === "string" && args.query.trim() !== ""
+                    ? { query: args.query.trim().slice(0, 80) }
+                    : {}),
+                ...(typeof args.limit === "number" &&
+                Number.isFinite(args.limit)
+                    ? { limit: args.limit }
+                    : {}),
+            });
+            if (!data.ok) {
+                return {
+                    result: { ok: false, error: data.error ?? "动态读不了" },
+                    files,
+                    isError: true,
+                };
+            }
+            return { result: data, files, isError: false };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "动态工具请求失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "log_expense") {
+        const item = typeof args.item === "string" ? args.item.trim() : "";
+        const price =
+            typeof args.price === "number" && Number.isFinite(args.price)
+                ? Math.round(args.price * 100) / 100
+                : Number.NaN;
+        const category =
+            typeof args.category === "string"
+                ? args.category.trim().slice(0, 40)
+                : "";
+        if (item === "" || item.length > 50) {
+            return {
+                result: { ok: false, error: "品名不对（1-50 字）" },
+                files,
+                isError: true,
+            };
+        }
+        if (!Number.isFinite(price) || price <= 0 || price > 10_000_000) {
+            return {
+                result: { ok: false, error: "金额要是一个正数" },
+                files,
+                isError: true,
+            };
+        }
+        // The write always goes through the confirm card; the user taps
+        // 「记下」 before the record exists.
+        const answer = await requestUserInput({
+            question: "记下这一笔？",
+            kind: "expense",
+            expense: { item, price, category },
+        });
+        if (!answer.ok) {
+            return {
+                result: { ok: false, error: answer.error },
+                files,
+                isError: true,
+            };
+        }
+        const userId = pb.authStore.record?.id;
+        if (!userId) {
+            return {
+                result: { ok: false, error: "登录状态失效，无法记账" },
+                files,
+                isError: true,
+            };
+        }
+        try {
+            const record = await pb.collection("ji_zhang_biao").create({
+                user_id: userId,
+                item_name: item,
+                price,
+                ...(category !== "" ? { category } : {}),
+            });
+            hooks.onExpenseSaved?.();
+            return {
+                result: {
+                    ok: true,
+                    saved: true,
+                    id: record.id,
+                    item,
+                    price,
+                    category,
+                },
+                files,
+                isError: false,
+            };
+        } catch {
+            return {
+                result: { ok: false, error: "记账写入失败，请重试" },
+                files,
+                isError: true,
+            };
+        }
     }
 
     let response;

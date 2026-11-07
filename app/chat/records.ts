@@ -1,5 +1,6 @@
 import type {
     ChatConversation,
+    ChatMemory,
     ChatMessage,
     ChatMessageStatus,
     ChatPart,
@@ -49,6 +50,15 @@ export type ChatPersonaRecord = {
     prompt: string;
     icon?: string;
     description?: string;
+    created: string;
+    updated: string;
+};
+
+export type ChatMemoryRecord = {
+    id: string;
+    owner?: string;
+    content: string;
+    source_conversation?: string;
     created: string;
     updated: string;
 };
@@ -245,6 +255,14 @@ export function toChatPersona(record: ChatPersonaRecord): ChatPersona {
         description: asString(record.description, 120),
         prompt: asString(record.prompt),
         builtin: false,
+    };
+}
+
+export function toChatMemory(record: ChatMemoryRecord): ChatMemory {
+    return {
+        id: record.id,
+        content: asString(record.content, 500),
+        createdAt: record.created,
     };
 }
 

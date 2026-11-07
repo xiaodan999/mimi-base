@@ -4,14 +4,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchChatModels } from "@/app/chat/api";
 import {
     toChatConversation,
+    toChatMemory,
     toChatMessage,
     toChatPersona,
     type ChatConversationRecord,
+    type ChatMemoryRecord,
     type ChatMessageRecord,
     type ChatPersonaRecord,
 } from "@/app/chat/records";
 import type {
     ChatConversation,
+    ChatMemory,
     ChatMessage,
     ChatMessageStatus,
     ChatPart,
@@ -102,6 +105,36 @@ export function useChatPersonas() {
                     })
             ).map(toChatPersona),
     });
+}
+
+export type ChatMemoriesQueryOptions = {
+    queryKey: readonly unknown[];
+    queryFn: () => Promise<ChatMemory[]>;
+};
+
+/** Durable facts the model saved; injected into every run's system prompt. */
+export function chatMemoriesQueryOptions(
+    userId: string,
+): ChatMemoriesQueryOptions {
+    return {
+        queryKey: qk.chat.memories(userId),
+        queryFn: async () =>
+            (
+                await pb
+                    .collection("chat_memories")
+                    .getFullList<ChatMemoryRecord>({
+                        filter: pb.filter("owner = {:owner}", {
+                            owner: userId,
+                        }),
+                        sort: "-updated",
+                    })
+            ).map(toChatMemory),
+    };
+}
+
+export function useChatMemories() {
+    const user = useCurrentUser();
+    return useQuery(chatMemoriesQueryOptions(user.id));
 }
 
 /* ------------------------------- mutations ------------------------------ */

@@ -104,12 +104,13 @@ export function toolResultText(result: unknown, maxChars = 12_000): string {
 /**
  * Build the request messages. `maxHistory` keeps long chats inside a sane
  * context: older messages are dropped together with their tool calls, and a
- * leading `tool` message is never left orphaned.
+ * leading `tool` message is never left orphaned. `memories` are the user's
+ * saved long-term facts, injected into the system prompt.
  */
 export function buildApiMessages(
     messages: readonly ChatMessage[],
     personaPrompt: string,
-    options: { maxHistory?: number } = {},
+    options: { maxHistory?: number; memories?: readonly string[] } = {},
 ): ChatApiMessage[] {
     const maxHistory = options.maxHistory ?? 80;
     const window =
@@ -122,7 +123,10 @@ export function buildApiMessages(
     const trimmed = firstUser > 0 ? window.slice(firstUser) : window;
 
     const result: ChatApiMessage[] = [
-        { role: "system", content: buildSystemPrompt(personaPrompt) },
+        {
+            role: "system",
+            content: buildSystemPrompt(personaPrompt, options.memories ?? []),
+        },
     ];
 
     for (const message of trimmed) {

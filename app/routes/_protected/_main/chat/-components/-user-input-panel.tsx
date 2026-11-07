@@ -141,6 +141,51 @@ export function UserInputPanel() {
                 </div>
             )}
 
+            {request.kind === "expense" && request.expense && (
+                <div className="mt-2">
+                    <div className="rounded-xl border border-border/60 bg-background px-3 py-2.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-[15px] font-medium">
+                                {request.expense.item}
+                            </span>
+                            <span className="shrink-0 text-[15px] font-semibold tabular-nums">
+                                ¥{request.expense.price}
+                            </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                            {request.expense.category !== ""
+                                ? `分类：${request.expense.category}`
+                                : "分类留空，之后可以补"}
+                            {" · 记入共享账本"}
+                        </p>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="h-9 rounded-xl"
+                            onClick={() => answerUserInput({ ok: true })}
+                        >
+                            记下
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-xl bg-background"
+                            onClick={() =>
+                                answerUserInput({
+                                    ok: false,
+                                    error: "用户没有确认这笔账",
+                                })
+                            }
+                        >
+                            先不记
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {request.kind === "location" && (
                 <div className="mt-2">
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
