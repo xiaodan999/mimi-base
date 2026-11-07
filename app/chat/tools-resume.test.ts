@@ -1,13 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
-import {
+// tools.ts imports lib/pb, whose env validation runs at module load; CI has
+// no .env, so the var must exist before the module is evaluated. Static
+// imports hoist above plain statements, hence the dynamic imports below.
+process.env.VITE_POCKETBASE_URL ??= "http://127.0.0.1:8090";
+
+const {
     askUserRequestFromArgs,
     expenseRequestFromArgs,
     isInteractiveTool,
     pendingRequestFromToolCall,
     resolveInteractiveToolResult,
-} from "./tools";
-import { isTransientCancelReason } from "./user-input";
+} = await import("./tools");
+const { isTransientCancelReason } = await import("./user-input");
 
 describe("askUserRequestFromArgs", () => {
     test("builds a valid request", () => {
