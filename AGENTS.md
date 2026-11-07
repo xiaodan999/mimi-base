@@ -30,8 +30,9 @@ Chinese; keep that style when adding user-facing text.
 - `components/` — app components (`NavButtons`, `TouXiang`, `LoadingPage`).
 - `app/chat/` — general-chat domain logic: `api.ts` (relay URLs and allowlist
   fetch), `stream.ts` and `sse.ts` (streaming/tool-call parsing), `prompt.ts`,
-  `personas.ts`, `title.ts`, `records.ts`, and `tools.ts` (the server-side
-  sandbox itself lives in `pocketbase/sandbox/`).
+  `personas.ts`, `title.ts`, `records.ts`, `chart.ts` / `ui-spec.ts` (gen-UI
+  payload validation), and `tools.ts` (the server-side sandbox itself lives in
+  `pocketbase/sandbox/`).
 - `app/feed/` — 动态 domain: `data.ts` (infinite query and post mutations),
   `utils.ts`, `comments.ts`, and `components/` (post, composer, comment sheet,
   image viewer, find sheet). Home renders the feed through the lazy chunk
@@ -390,6 +391,16 @@ before your first commit.
   from IP or the server. `log_expense` uses the same pause: the model's draft
   is only written after the user taps 「记下」, and the create still goes
   through the owner-bound PB rule.
+- Gen UI (`show_chart` + `render_ui`) is client-side and data-only.
+  `show_chart` draws one bar/line/pie with a validated `style`
+  (`palette` / `donut` / `legend` / `showValues`) using the `--chart-1..6`
+  theme tokens. `render_ui` composes a **display-only** card from a whitelist
+  of blocks (`app/chat/ui-spec.ts`: text / metrics / list / table / progress /
+  badges / chart / divider; max 12 blocks and a 12k serialized spec). There is
+  no HTML/CSS/JS, no remote URLs, and no buttons/forms/links. Both renderers
+  map enum values to fixed literal theme-token classes (`-chart-card.tsx`,
+  `-ui-card.tsx`) so Tailwind emits them and dark mode works. Never accept
+  free-form Tailwind classes, event handlers or external content on this path.
 - Chat data tools (`/ai/tools/{expenses,posts,memory,url}` in
   `pocketbase/ai-tools.ts`) are the only way the model reads site data, and
   **the server, not the persona prompt, is the security boundary**: the relay

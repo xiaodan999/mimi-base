@@ -16,6 +16,7 @@ import {
     Globe,
     HelpCircle,
     Image as ImageIcon,
+    LayoutDashboard,
     Loader2,
     Newspaper,
     Paperclip,
@@ -32,6 +33,7 @@ import { cn } from "@/lib/utils";
 
 import { useArtifactActions, useSandboxFiles } from "./-artifact-viewer";
 import { ChartCard } from "./-chart-card";
+import { UiCard } from "./-ui-card";
 
 // The markdown renderer (and its lazy Shiki code blocks) lives in its own
 // module so the full-screen artifact preview can use it without a cycle.
@@ -80,6 +82,7 @@ const TOOL_ICONS: Record<string, typeof Terminal> = {
     sandbox_list: FolderOpen,
     send_file: Paperclip,
     show_chart: BarChart3,
+    render_ui: LayoutDashboard,
     memory: Brain,
     read_url: Globe,
     get_expenses: Wallet,
@@ -160,16 +163,21 @@ export function ToolCallPart({
             ? String(payload.artifact_error)
             : "";
 
-    if (toolName === "show_chart") {
-        // The chart itself renders while args stream in and from the
-        // persisted result after a reload; expandable card only for failures.
+    if (toolName === "show_chart" || toolName === "render_ui") {
+        // Both render while args stream in and from the persisted result after
+        // a reload; the expandable card only shows up for failures.
+        const isChart = toolName === "show_chart";
         return (
             <div className="my-2">
-                <ChartCard data={result ?? args} />
+                {isChart ? (
+                    <ChartCard data={result ?? args} />
+                ) : (
+                    <UiCard data={result ?? args} />
+                )}
                 {failed && (
                     <details className="mt-1 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                         <summary className="cursor-pointer font-medium">
-                            图表数据有问题
+                            {isChart ? "图表数据有问题" : "卡片内容有问题"}
                         </summary>
                         <pre className="mt-1.5 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px]">
                             {pretty(args ?? argsText, 1500)}

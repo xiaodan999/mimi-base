@@ -7,6 +7,7 @@ export const TOOL_TITLES: Record<string, string> = {
     sandbox_list: "列出文件",
     send_file: "发送文件",
     show_chart: "生成图表",
+    render_ui: "生成卡片",
     memory: "记忆",
     read_url: "读网页",
     get_expenses: "查账本",

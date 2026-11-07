@@ -87,6 +87,33 @@ describe("conversationToMarkdown", () => {
         expect(markdown).not.toContain("thinking");
     });
 
+    test("includes a render_ui card title and tolerates partial args", () => {
+        const markdown = conversationToMarkdown(conversation(), [
+            message({
+                role: "assistant",
+                parts: [
+                    {
+                        type: "tool-call",
+                        toolCallId: "t1",
+                        toolName: "render_ui",
+                        argsText: JSON.stringify({
+                            title: " 本月小结 ",
+                            blocks: [{ type: "divider" }],
+                        }),
+                    },
+                    {
+                        type: "tool-call",
+                        toolCallId: "t2",
+                        toolName: "render_ui",
+                        argsText: '{"title":"还没写完',
+                    },
+                ],
+            }),
+        ]);
+        expect(markdown).toContain("> 生成卡片：本月小结");
+        expect(markdown).toContain("> 生成卡片\n");
+    });
+
     test("sanitizes filenames", () => {
         expect(markdownFilename('周末/计划: v2?"')).toBe("周末计划 v2.md");
         expect(markdownFilename("")).toBe("对话.md");

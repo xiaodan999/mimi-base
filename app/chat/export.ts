@@ -14,6 +14,20 @@ function dateLabel(value: string): string {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/** Keep the card's headline in the export; args may be partial, so be lenient. */
+function renderUiTitle(argsText: string): string {
+    try {
+        const args = JSON.parse(argsText) as unknown;
+        if (typeof args === "object" && args !== null && !Array.isArray(args)) {
+            const title = (args as Record<string, unknown>).title;
+            if (typeof title === "string") return title.trim().slice(0, 60);
+        }
+    } catch {
+        // incomplete args: fall back to the plain tool title
+    }
+    return "";
+}
+
 function messageLines(message: ChatMessage): string[] {
     const lines: string[] = [];
     const speaker = message.role === "user" ? "我" : "AI";
@@ -37,6 +51,11 @@ function messageLines(message: ChatMessage): string[] {
                 const title = TOOL_TITLES[part.toolName] ?? part.toolName;
                 if (part.isError) {
                     lines.push(`> ${title}：失败`);
+                } else if (part.toolName === "render_ui") {
+                    const cardTitle = renderUiTitle(part.argsText);
+                    lines.push(
+                        cardTitle ? `> ${title}：${cardTitle}` : `> ${title}`,
+                    );
                 } else {
                     lines.push(`> ${title}`);
                 }

@@ -341,6 +341,17 @@ function PieChart({ spec }: { spec: ChartSpec }) {
     );
 }
 
+/** The chart itself, without the outer card, so `render_ui` can embed it. */
+export function ChartView({ spec }: { spec: ChartSpec }) {
+    return (
+        <>
+            {spec.type === "bar" && <BarChart spec={spec} />}
+            {spec.type === "line" && <LineChart spec={spec} />}
+            {spec.type === "pie" && <PieChart spec={spec} />}
+        </>
+    );
+}
+
 /**
  * Renders a `show_chart` tool call as a chart card. Returns null for invalid
  * payloads — the generic tool card still shows the raw JSON in that case.
@@ -375,9 +386,7 @@ export function ChartCard({
                 )}
             </div>
             <div className="px-2 py-2">
-                {spec.type === "bar" && <BarChart spec={spec} />}
-                {spec.type === "line" && <LineChart spec={spec} />}
-                {spec.type === "pie" && <PieChart spec={spec} />}
+                <ChartView spec={spec} />
             </div>
         </div>
     );

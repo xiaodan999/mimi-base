@@ -27,6 +27,8 @@
 - 新增 `chat_conversations.pinned` 与 `chat_memories` 集合（迁移 `1795300000_add_chat_pinned_memories.js`），并把 `sandbox/Dockerfile.node`、`sandbox/runner.mjs` 补进 `SUPERVISOR_MODULES`（此前 Node 沙箱文件变更不会触发 respawn）。
 - 内置人格调整：移除 编程搭档 / 翻译润色 / 脑洞搭子（旧对话因快照不受影响），新增「基地管家」（懂 App 功能与数据工具，含安全规则）；内置人格增加 `starters` 空会话快捷提问。
 - 新增聊天工具：`show_chart`（客户端 SVG 图表卡，`-chart-card.tsx`，柱/折/饼三种，数据经 `app/chat/chart.ts` 规范化）、`memory`（走 `/ai/tools/memory`，保存后失效 `qk.chat.memories`）、`read_url`、`get_expenses`（带 `tz` 时区参数）、`search_posts`。
+- `show_chart` 增加可选 `style`（`palette=theme/multi`、`donut`、`legend=right/bottom/none`、`showValues`）；新增 `--chart-1..6` 主题色 token 与 Tailwind `chart` 色阶，饼图可切环形/多色，图例可放到底部。
+- 新增 `render_ui` 声明式卡片工具：`app/chat/ui-spec.ts` 校验 8 种只读区块（`text` / `metrics` / `list` / `table` / `progress` / `badges` / `chart` / `divider`，最多 12 块、序列化 12k），`-ui-card.tsx` 用固定主题 token 渲染；没有 HTML、表单、链接、图片或外部 URL，结果随消息持久化；`-message-parts.tsx`、`tools.ts`、`tool-labels.ts` 和 Markdown 导出摘要同步。
 - 新增 `log_expense` 记账工具：`user-input.ts` 扩展 `expense` 请求类型，确认卡片（品名/金额/分类）点「记下」后由客户端直接创建 `ji_zhang_biao`（PB 规则绑定 `user_id`），成功后失效记账查询；取消不写入。
 - `buildSystemPrompt` / `buildApiMessages` 支持注入长期记忆（每次 run 前 `fetchQuery`，上限 30 条）。
 - 对话列表：搜索（标题/最后一条/人格名，`app/chat/conversations.ts` 纯函数）、人格筛选 chips、置顶（`chat_conversations.pinned`，置顶优先排序）。
@@ -54,6 +56,7 @@
 - 消息操作栏里的「分叉」按钮容易和复制 / 编辑的小图标一起被误点，而点中会立刻复制整个对话并跳转。现在用户消息和 AI 回复都把「从这里分叉新对话」收进 `⋯` 更多菜单（`DropdownMenuItem`），朗读 / 停止朗读与换模型重试也一并收起，行内只保留复制、编辑和重新生成；用户消息的菜单额外提供「复制这条消息」。
 - 小票/订单截图不再被拆成多条账目：记账提示词区分「同一笔订单」和「多笔消费」，商品、打包费、配送费、随单购买的券包、红包/满减合并为一条，金额取实付（`app/ai/expense.ts`）；`PROMPT_VERSION` 升到 `2026-11-v3`，旧的解析缓存随之失效。
 - 优化记账名称：默认记商品名而不是品牌（瑞幸记「葡萄鲜切柠檬茶」而不是「瑞幸咖啡」），但麻辣烫、火锅、快餐套餐、肯德基这类现做的一餐记店名/餐厅名，不逐项列食材；用户自己说出的名字保持不变（`app/ai/expense.ts`）。`PROMPT_VERSION` 升到 `2026-11-v4`。
+- 修复手机端饼图右侧被裁掉：饼图圆心不再右移 8 个单位，新增 `pieGeometry` 保证圆和 1.5px 描边都在 viewBox 内；饼图宽度改为可缩放，图例数值列可收缩，窄屏不再挤出卡片。
 - 聊天 run 不再随对话页面卸载而丢失 UI 状态：`running`、流式草稿、乐观消息、`AbortController`、沙箱文件快照与页面 watcher 全部移到 `app/chat/run-store.ts`（按 conversation id 保存）。离开对话后模型循环和工具调用继续跑，回来会重新挂上同一条流并显示「运行中」；`isChatRunActive` 阻止重复发送（此前重新进入后必填状态为空，再次发送会撞上服务端每用户 1 个沙箱的并发限制，显示「沙箱正忙」）。挂载时的恢复扫描在 run 仍存活时跳过，不再把后台工具调用标成「页面刷新中断了这次执行」。`createMessage` / `updateMessage` / `deleteMessagesAfter` 同时写穿 React Query 的消息缓存，避免回来时读到工具执行前的旧行。没有页面在看该对话时，run 结束会弹出「回复完成 / 回复失败」toast。
 - `ask_user` / `log_expense` 的待回答问题带上 `conversationId`：导航离开不再取消（后台 run 继续等待），面板只在该对话显示；只有停止生成、切换对话或登出才会取消。`_main` 卸载时 `abortAllChatRuns` 中止全部 run 与提问；删除对话前先 `stopChatRun`，避免后台 run 继续写已删除的会话。
 - 打开有历史的对话时先闪一下「空对话」的人格推荐页：消息查询还没返回时 `messages` 为空，`ChatThread` 因此短暂渲染 `ThreadEmpty`。现在 `$conversationId` 路由同时等待对话与消息两个查询（都命中缓存时仍立即渲染），就绪后再挂载会话视图；`useChatSession` 随之去掉 `messagesLoading` 参数。

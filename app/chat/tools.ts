@@ -4,11 +4,7 @@ import {
     sandboxArtifactPart,
     textArtifactInfo,
 } from "./artifacts";
-import {
-    CHART_LEGENDS,
-    CHART_PALETTES,
-    normalizeChartSpec,
-} from "./chart";
+import { CHART_LEGENDS, CHART_PALETTES, normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
 import {
@@ -27,6 +23,7 @@ import {
     type ReadUrlToolResult,
 } from "./tools-server";
 import type { ChatArtifactPart, SandboxFiles } from "./types";
+import { normalizeUiSpec, UI_SPEC_SCHEMA } from "./ui-spec";
 import { requestUserInput } from "./user-input";
 
 // The pausable-tool logic lives in ./tool-inputs (pure, unit-testable);
@@ -247,6 +244,15 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
     {
         type: "function",
         function: {
+            name: "render_ui",
+            description:
+                "把信息组合成一张只读的展示卡片（标题、指标、文字、列表、表格、进度、标签、图表）。需要一张结构化的小卡片时用；单一图表用 show_chart，长解释用 Markdown。卡片只能展示，不要放按钮、表单、链接、图片，也不要生成仿系统/登录/支付的界面。一次只生成一张卡片，正文不要重复卡片里的数据。",
+            parameters: UI_SPEC_SCHEMA,
+        },
+    },
+    {
+        type: "function",
+        function: {
             name: "memory",
             description:
                 "记住或查询用户的长期信息（忌口、习惯、称呼、偏好等），之后每次聊天都会带上。action=save 保存一条（content 一句话，50 字内最好）；action=list 查看已有哪些；action=delete 删除某条（要 id，通常先 list）。用户说「记住…」时用它；琐碎或一次性的信息不要存。",
@@ -440,6 +446,21 @@ export async function executeChatTool(
         }
         // The card renders from the normalized spec (args or result survive a
         // reload); the result mirrors it so the model sees what was drawn.
+        return { result: { ok: true, ...spec }, files, isError: false };
+    }
+
+    if (name === "render_ui") {
+        const spec = normalizeUiSpec(args);
+        if (!spec) {
+            return {
+                result: {
+                    ok: false,
+                    error: "卡片内容不对：blocks 需要 1-12 个有效区块，内容别太长",
+                },
+                files,
+                isError: true,
+            };
+        }
         return { result: { ok: true, ...spec }, files, isError: false };
     }
 
