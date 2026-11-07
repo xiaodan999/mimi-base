@@ -9,7 +9,7 @@ import {
     createAiRelay,
     type AiRelayDeps,
 } from "./ai-relay";
-import { MAX_FILE_BYTES } from "../lib/chat-files";
+import { MAX_FILE_BYTES, PDF_NO_TEXT_LAYER_CODE } from "../lib/chat-files";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UPSTREAM = "https://opencode.ai/zen/go/v1/chat/completions";
@@ -393,7 +393,13 @@ describe("stored attachments (JSON reads)", () => {
     const FILE_URL = `${PB_BASE}/api/files/chat_attachments/att1/contract.pdf`;
 
     /** Relay whose PocketBase serves one stored attachment record. */
-    function storedHarness(overrides: { recordStatus?: number } = {}) {
+    function storedHarness(
+        overrides: {
+            recordStatus?: number;
+            /** Which fixture the stored file serves; default cjk-text.pdf. */
+            fileFixture?: string;
+        } = {},
+    ) {
         const calls: Call[] = [];
         const fetchImpl = (async (
             input: RequestInfo | URL,
@@ -416,7 +422,12 @@ describe("stored attachments (JSON reads)", () => {
             }
             if (url.startsWith(FILE_URL)) {
                 return new Response(
-                    readFileSync(path.join(fixtures, "cjk-text.pdf")),
+                    readFileSync(
+                        path.join(
+                            fixtures,
+                            overrides.fileFixture ?? "cjk-text.pdf",
+                        ),
+                    ),
                     { status: 200 },
                 );
             }
@@ -479,6 +490,29 @@ describe("stored attachments (JSON reads)", () => {
             images?: string[];
         };
         expect(body.pages).toEqual([1]);
+        expect(body.images?.[0]).toStartWith("data:image/jpeg;base64,");
+    });
+
+    test("a text-mode scan read fails with the retryable code", async () => {
+        const { relay } = storedHarness({ fileFixture: "scan.pdf" });
+        const res = await relay(storedRead({ attachmentId: "att1" }));
+        expect(res?.status).toBe(400);
+        expect(await res!.json()).toMatchObject({
+            error: {
+                message: expect.stringContaining("没有文字层"),
+                code: PDF_NO_TEXT_LAYER_CODE,
+            },
+        });
+    });
+
+    test("a scan read with page images succeeds", async () => {
+        const { relay } = storedHarness({ fileFixture: "scan.pdf" });
+        const res = await relay(
+            storedRead({ attachmentId: "att1", pageImageLimit: 10 }),
+        );
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as { images?: string[] };
+        expect(body.images?.length).toBeGreaterThan(0);
         expect(body.images?.[0]).toStartWith("data:image/jpeg;base64,");
     });
 

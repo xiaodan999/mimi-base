@@ -58,6 +58,7 @@
 
 ### 修复
 
+- 修复视觉模型读扫描件 PDF 时 `read_attachment` mode=text 误报「换个支持图片的模型或移除几张图片再试」：无文字层的 PDF 在纯文本读取（不带 `pageImageLimit`）下必然失败，而这条报错假定调用方不支持图片。现在 `FileReadError` 带机器可读 `code`（`pdf_no_text_layer`，常量在 `lib/chat-files.ts`），`/ai/files` 的错误 JSON 透传（`pocketbase/ai-relay.ts`），`readChatError` 解析到 `ChatApiError.code`；客户端 `readAttachmentText`（`app/chat/attachments.ts`）在模型支持视觉时自动带 `pageImageLimit` 重试一次，渲染出的页图经 `resultImages` 通道交给模型（与 mode=pages 同路径），工具调用不再出现红色失败卡。纯文本模型维持报错，文案改为「换一个支持视觉的模型再试」。
 - 聊天工具循环跑满 6 轮后不再静默结束（表现为回复停在一张工具卡片上、没有任何正文和报错）：循环改为 `round <= MAX_TOOL_ROUNDS`，第 7 轮不提供 `tools` 并在 system prompt 附加 `WRAP_UP_SYSTEM_PROMPT`，要求模型根据已有工具结果用文字作答；该轮若幻觉出 tool calls 会被丢弃不执行，空内容仍走原有的「AI 没有返回内容」错误路径。
 - 思考模型在 `finish_reason=length` 且只有 reasoning（思考耗尽了 8192 输出上限）、没有正文和工具调用时，不再以 `complete` 落库成一条只有思考过程的「完整」回复；现在按 `error` 保存并提示「思考太长被截断了，请重试一次」，run 结算为 error（`-use-chat-session.ts` 的 `cutBeforeAnswer`）。
 - 修复 `/db/sync` 安装依赖时找不到 bun：detached supervisor 的 `PATH` 只有系统目录（不含 `~/.bun/bin`），`execSync("bun install ...")` 以 127 退出并让部署失败（PB 未重启）。改用 `execFileSync(process.execPath, ["install", ...])`，直接调用当前运行的 Bun 二进制。

@@ -6,6 +6,7 @@ import {
     sandboxArtifactPart,
     textArtifactInfo,
 } from "./artifacts";
+import { readAttachmentText } from "./attachments";
 import { CHART_LEGENDS, CHART_PALETTES, normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
@@ -21,7 +22,6 @@ import {
     postTool,
     timezoneOffsetMinutes,
     type AttachmentPagesResult,
-    type AttachmentTextResult,
     type ExpensesToolResult,
     type MemoryToolResult,
     type PostsToolResult,
@@ -311,7 +311,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "read_attachment",
             description:
-                "重新读取用户发过的附件（原文存在服务器上）。mode=text 返回提取的完整文字；mode=pages 把指定页渲染成图片（表格、盖章、版式都在图里，一次最多 10 页）。当附件内容在消息里被省略、被截断，或用户问的细节不在已发送的内容里时使用。",
+                "重新读取用户发过的附件（原文存在服务器上）。mode=text 返回提取的完整文字；扫描件没有文字层，会自动改为返回开头几页的图片。mode=pages 把指定页渲染成图片（表格、盖章、版式都在图里，一次最多 10 页）。当附件内容在消息里被省略、被截断，或用户问的细节不在已发送的内容里时使用。",
             parameters: {
                 type: "object",
                 properties: {
@@ -701,21 +701,19 @@ async function runChatTool(
                     ...(resultImages.length > 0 ? { resultImages } : {}),
                 };
             }
-            const data = await postTool<AttachmentTextResult>("/files", {
+            // Text read, with the scan fallback: on a vision model a PDF
+            // without a text layer comes back as rendered pages instead of
+            // an error (the helper never throws, it reports via result.ok).
+            const outcome = await readAttachmentText(
+                postTool,
                 attachmentId,
-            });
-            if (!data.ok) {
-                return {
-                    result: {
-                        ok: false,
-                        attachmentId,
-                        error: data.error ?? "附件读不了",
-                    },
-                    files,
-                    isError: true,
-                };
-            }
-            return { result: data, files, isError: false };
+                hooks.visionEnabled === true,
+            );
+            return {
+                ...outcome,
+                files,
+                isError: outcome.result.ok !== true,
+            };
         } catch (error) {
             return {
                 result: {

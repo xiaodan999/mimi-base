@@ -18,6 +18,12 @@ export const MAX_PDF_PAGES = 20;
 export const MAX_PAGE_IMAGES = 10;
 /** Highest page number the page-image renderer will address in one PDF. */
 export const MAX_PDF_RENDER_PAGE = 200;
+/**
+ * `FileReadError.code` for a PDF with no text layer (a scan) read in text
+ * mode: the `read_attachment` tool recognizes it and retries with page
+ * images when the model is vision-capable (see `readAttachmentText`).
+ */
+export const PDF_NO_TEXT_LAYER_CODE = "pdf_no_text_layer";
 
 export const FILE_EXTENSIONS = [
     ".txt",

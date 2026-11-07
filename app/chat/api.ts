@@ -23,22 +23,30 @@ export function chatHeaders(): Record<string, string> {
 
 export class ChatApiError extends Error {
     status: number;
+    /**
+     * Machine-readable kind from the relay (`{ error: { message, code } }`),
+     * when it sends one — e.g. `pdf_no_text_layer`, which the
+     * `read_attachment` tool retries with page images.
+     */
+    code?: string;
 
-    constructor(message: string, status = 0) {
+    constructor(message: string, status = 0, code?: string) {
         super(message);
         this.name = "ChatApiError";
         this.status = status;
+        this.code = code;
     }
 }
 
 /** Read a relay error body without ever showing raw provider details. */
 export async function readChatError(res: Response): Promise<ChatApiError> {
     let detail = "";
+    let code: string | undefined;
     try {
         const text = await res.text();
         try {
             const json = JSON.parse(text) as {
-                error?: { message?: unknown } | string;
+                error?: { message?: unknown; code?: unknown } | string;
                 message?: unknown;
             };
             const raw =
@@ -46,6 +54,13 @@ export async function readChatError(res: Response): Promise<ChatApiError> {
                     ? json.error
                     : (json.error?.message ?? json.message);
             if (typeof raw === "string") detail = raw;
+            if (
+                typeof json.error === "object" &&
+                json.error !== null &&
+                typeof json.error.code === "string"
+            ) {
+                code = json.error.code;
+            }
         } catch {
             // proxy HTML pages stay hidden
         }
@@ -63,7 +78,7 @@ export async function readChatError(res: Response): Promise<ChatApiError> {
             detail = `请求失败（HTTP ${res.status}）`;
         }
     }
-    return new ChatApiError(detail.slice(0, 200), res.status);
+    return new ChatApiError(detail.slice(0, 200), res.status, code);
 }
 
 function isChatModel(value: unknown): value is ChatModel {

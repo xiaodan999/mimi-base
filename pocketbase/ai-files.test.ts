@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { MAX_FILE_CHARS } from "../lib/chat-files";
+import { MAX_FILE_CHARS, PDF_NO_TEXT_LAYER_CODE } from "../lib/chat-files";
 import {
     FileReadError,
     extractPdfPageImages,
@@ -83,9 +83,18 @@ describe("extractUploadedFile", () => {
     });
 
     test("refuses a scanned PDF when images are not allowed", async () => {
-        await expect(
-            extractUploadedFile("scan.pdf", pdf("scan.pdf")),
-        ).rejects.toThrow("没有文字层");
+        try {
+            await extractUploadedFile("scan.pdf", pdf("scan.pdf"));
+            throw new Error("expected a rejection");
+        } catch (error) {
+            expect(error).toBeInstanceOf(FileReadError);
+            const fileError = error as FileReadError;
+            expect(fileError.message).toContain("没有文字层");
+            // The client retries this one with page images when the model
+            // takes images, so it must be recognizable as this exact case.
+            expect(fileError.code).toBe(PDF_NO_TEXT_LAYER_CODE);
+            expect(fileError.status).toBe(400);
+        }
     });
 
     test("renders a scanned PDF to JPEG pages", async () => {

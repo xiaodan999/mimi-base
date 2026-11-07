@@ -9,7 +9,7 @@
  * excerpt.
  */
 
-import { MAX_PAGE_IMAGES } from "@/lib/chat-files";
+import { MAX_PAGE_IMAGES, PDF_NO_TEXT_LAYER_CODE } from "@/lib/chat-files";
 
 import type { ChatAttachmentPart } from "./types";
 
@@ -164,5 +164,110 @@ export function withExtracted(
         ...(file.numPages !== undefined ? { pageCount: file.numPages } : {}),
         extracted: file.content,
         pageImages: file.pageImages ?? [],
+    };
+}
+
+/** The `postTool` call the tool loop uses; injected to keep this pure. */
+export type AttachmentReadPost = (
+    path: string,
+    body: Record<string, unknown>,
+) => Promise<unknown>;
+
+/** What `read_attachment` mode=text reports back to the model. */
+export type AttachmentTextOutcome = {
+    /** The relay's text result (`content` included) or the scan-fallback note. */
+    result:
+        | (Record<string, unknown> & { ok: true })
+        | { ok: false; attachmentId: string; error: string };
+    /** Scan fallback: rendered pages, sent as image parts outside the JSON. */
+    resultImages?: string[];
+};
+
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : "附件读取失败";
+}
+
+function errorOutcome(
+    attachmentId: string,
+    error: unknown,
+): AttachmentTextOutcome {
+    return { result: { ok: false, attachmentId, error: messageOf(error) } };
+}
+
+/**
+ * `read_attachment` mode=text: the stored attachment's extracted text.
+ *
+ * A scanned PDF has no text layer, so the relay refuses text-only reads
+ * (`PDF_NO_TEXT_LAYER_CODE`). On a vision-capable model that refusal is not
+ * an answer — retry once with the page-image budget and send the rendered
+ * pages back through `resultImages` (same channel as mode=pages). On a
+ * text-only model the error stands; it already tells the user to switch.
+ */
+export async function readAttachmentText(
+    post: AttachmentReadPost,
+    attachmentId: string,
+    visionEnabled: boolean,
+): Promise<AttachmentTextOutcome> {
+    let data: unknown;
+    try {
+        data = await post("/files", { attachmentId });
+    } catch (error) {
+        // Duck-typed: ChatApiError carries the relay's `error.code`, but
+        // importing ./api here would drag lib/pb into unit tests.
+        const code = (error as { code?: unknown } | null)?.code;
+        if (!(visionEnabled && code === PDF_NO_TEXT_LAYER_CODE)) {
+            return errorOutcome(attachmentId, error);
+        }
+        try {
+            data = await post("/files", {
+                attachmentId,
+                pageImageLimit: MAX_PAGE_IMAGES,
+            });
+        } catch (retryError) {
+            return errorOutcome(attachmentId, retryError);
+        }
+    }
+    if (typeof data !== "object" || data === null) {
+        return errorOutcome(attachmentId, new Error("附件读取失败，再试一次"));
+    }
+    const file = data as Record<string, unknown>;
+    const numPages =
+        typeof file.numPages === "number" &&
+        Number.isFinite(file.numPages) &&
+        file.numPages > 0
+            ? Math.round(file.numPages)
+            : undefined;
+    if (file.ok !== true) {
+        return errorOutcome(
+            attachmentId,
+            new Error(
+                typeof file.error === "string" ? file.error : "附件读不了",
+            ),
+        );
+    }
+    const images = (Array.isArray(file.images) ? file.images : []).filter(
+        (image): image is string =>
+            typeof image === "string" &&
+            image.startsWith("data:image/jpeg;base64,"),
+    );
+    if (images.length === 0) {
+        // Plain text read: pass the relay's result through unchanged — the
+        // extracted content rides back to the model exactly as before.
+        return { result: file as AttachmentTextOutcome["result"] };
+    }
+    // A scan: no text came out, the pages did — surface them like mode=pages.
+    return {
+        result: {
+            ok: true,
+            attachmentId,
+            name:
+                typeof file.name === "string" && file.name !== ""
+                    ? file.name
+                    : "附件",
+            ...(numPages !== undefined ? { numPages } : {}),
+            noTextLayer: true,
+            pagesRendered: images.length,
+        },
+        resultImages: images.slice(0, MAX_PAGE_IMAGES),
     };
 }

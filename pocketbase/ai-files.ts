@@ -25,6 +25,7 @@ import {
     MAX_FILE_CHARS,
     MAX_PDF_PAGES,
     MAX_PAGE_IMAGES,
+    PDF_NO_TEXT_LAYER_CODE,
     isAllowedFileSize,
     isPdfFileName,
     isSupportedFileName,
@@ -60,11 +61,18 @@ export type ExtractedFile = {
 /** A failure the upload endpoint can show to the user verbatim. */
 export class FileReadError extends Error {
     status: number;
+    /**
+     * Machine-readable kind, relayed to the client so it can react (the
+     * `read_attachment` tool retries a no-text-layer PDF with page images
+     * when the model is vision-capable) instead of matching on the copy.
+     */
+    code?: string;
 
-    constructor(message: string, status = 400) {
+    constructor(message: string, status = 400, code?: string) {
         super(message);
         this.name = "FileReadError";
         this.status = status;
+        this.code = code;
     }
 }
 
@@ -207,8 +215,14 @@ async function extractPdf(
         }
         if (text === "" && images.length === 0) {
             if (limit === 0) {
+                // The caller asked for text only, so this reads as "model
+                // can't take images" — but a vision-capable caller hits it
+                // too via read_attachment mode=text; the code lets the
+                // client retry with page images instead of blaming it.
                 throw new FileReadError(
-                    "这个 PDF 没有文字层（可能是扫描件），需要发送图片才能读；换个支持图片的模型或移除几张图片再试",
+                    "这个 PDF 没有文字层（可能是扫描件），读不出文字；换一个支持视觉的模型再试",
+                    400,
+                    PDF_NO_TEXT_LAYER_CODE,
                 );
             }
             throw new FileReadError("这个 PDF 读不出内容（可能是扫描件）");

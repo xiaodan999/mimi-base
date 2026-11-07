@@ -410,7 +410,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         } catch (error) {
             if (error instanceof FileReadError) {
                 return json(error.status, {
-                    error: { message: error.message },
+                    error: {
+                        message: error.message,
+                        ...(error.code ? { code: error.code } : {}),
+                    },
                 });
             }
             console.error("[ai-relay] attachment read failed", error);
@@ -507,7 +510,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         } catch (error) {
             if (error instanceof FileReadError) {
                 return json(error.status, {
-                    error: { message: error.message },
+                    error: {
+                        message: error.message,
+                        ...(error.code ? { code: error.code } : {}),
+                    },
                 });
             }
             console.error("[ai-relay] attachment read failed", error);
