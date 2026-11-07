@@ -40,9 +40,10 @@ Chinese; keep that style when adding user-facing text.
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
-- `pocketbase/` — server side: `server.ts` supervisor, `pb_migrations/`
-  (schema), `pb_hooks/` (JSVM counters). Read `pocketbase/README.md` before
-  touching deploys or the server.
+- `pocketbase/` — server side: `server.ts` supervisor, `ai-files.ts`
+  attachment reader, `package.json` / `bun.lock` (server-only pdf.js +
+  canvas), `pb_migrations/` (schema), `pb_hooks/` (JSVM counters). Read
+  `pocketbase/README.md` before touching deploys or the server.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
 - `scripts/server-setup.sh` — fresh-server bootstrap. `scripts/dev.ts` backs
   `bun run dev:all` on Linux, WSL2 and plain Windows. Under WSL it also runs
@@ -55,6 +56,7 @@ Chinese; keep that style when adding user-facing text.
 
 ```bash
 bun install
+bun run install:server   # pocketbase/ deps (pdf.js + canvas) for the supervisor
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
 bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
@@ -62,10 +64,10 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # skips busy ports (WSL + Windows) and reads
                           # VITE_PORT/PB_PORT from .env; one instance per
                           # worktree is safe to run side by side
-bun run build             # vite build + bun check
+bun run build             # vite build + bun check (app; no server deps needed)
 bun run test              # bun test (whole repo; pure logic, no server needed)
-bun run typecheck         # bun check (Bun built-in typechecker)
-bun run typecheck:tsc     # tsc --noEmit (typescript@^5.6.3, also in hook)
+bun run typecheck         # bun check for the app + pocketbase/
+bun run typecheck:tsc     # tsc --noEmit for both projects, also in hook
 bun run lint              # eslint (flat config)
 bun run format            # bun fmt
 bun run format:check      # bun fmt --check
@@ -88,6 +90,7 @@ cd <repo>
 git worktree add -b feat/<topic> ../mimi-base-<topic> master
 cd ../mimi-base-<topic>
 bun install
+bun run install:server
 cp .env.example .env
 bun run dev:all
 ```
@@ -201,12 +204,15 @@ start a new chat:
 git worktree add -b feat/<topic> ../mimi-base-<topic> master
 cd ../mimi-base-<topic>
 bun install --frozen-lockfile
+bun run install:server
 cp .env.example .env
 ```
 
 `--frozen-lockfile` stops the install from rewriting `bun.lock`; package
 contents come from the shared Bun cache, so it is fast and needs no network
-unless a dependency is actually new. Re-check `git rev-parse --show-toplevel`
+unless a dependency is actually new. `install:server` does the same for the
+supervisor's own `pocketbase/package.json` (pdf.js + canvas), which the app
+build deliberately does not install. Re-check `git rev-parse --show-toplevel`
 before your first commit.
 
 - Stop any dev server in the primary checkout before switching — otherwise it
@@ -425,9 +431,10 @@ before your first commit.
   Code blocks highlight with a lazy Shiki chunk (`app/chat/highlighter.ts`,
   JS regex engine, no wasm). Attachments are uploaded raw to
   `POST /ai/files` and read on the relay (`pocketbase/ai-files.ts`): pdf.js
-  runs **server-side** with the CMaps/standard fonts from `node_modules`
-  (without them Chinese PDFs extract as an empty string), text becomes a
-  fenced part, and a scanned PDF's first pages are rendered with
+  runs **server-side** with the CMaps/standard fonts from
+  `pocketbase/node_modules` (deps live in `pocketbase/package.json`, not the
+  app's; without the CMaps Chinese PDFs extract as an empty string), text
+  becomes a fenced part, and a scanned PDF's first pages are rendered with
   `@napi-rs/canvas` to JPEG image parts for a vision model. The phone never
   loads pdf.js or CMaps; uploads are not persisted. Caps live in
   `lib/chat-files.ts` (30MB, 50k chars, 20 text pages, 4 page images).
@@ -512,10 +519,13 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
 - Router context (`auth`, `queryClient`) is injected in `app/main.tsx`; add new
   root context keys in both the router and `__root.tsx`.
 - Two typecheckers, both run in the pre-commit hook: `bun run typecheck`
-  uses Bun's built-in `bun check` (bundled TypeScript, fast), while
+  uses Bun's built-in `bun check` (bundled TypeScript, fast) for the app and
+  again inside `pocketbase/` for the server project, while
   `bun run typecheck:tsc` runs the repo-pinned `typescript@^5.6.3`
-  `tsc --noEmit`. Keep `"types": ["bun"]` and no `baseUrl` in
-  `tsconfig.json`.
+  `tsc --noEmit` for the app plus `tsc -p pocketbase/tsconfig.json`. The root
+  `tsconfig.json` excludes `pocketbase/`, so `bun run build` on Vercel/CI
+  does not need the server's own deps. Keep `"types": ["bun"]` and no
+  `baseUrl` in `tsconfig.json`.
 - Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`,
   which runs `bun fmt --staged`, `bun check`, `bun run typecheck:tsc`,
   `bun run test`, `bun run lint`, and `bun run format:check`.
@@ -541,9 +551,9 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
   var crashes the app immediately.
 - Default branch is `master`. Pushing `pocketbase/**` to `master` triggers
   `.github/workflows/deploy-db.yml` → `/db/sync` (git pull,
-  `bun install --frozen-lockfile --production`, stop PB, snapshot
-  `pb_data` while it is down, restart; migrations apply on restart even with
-  automigrate off).
+  `bun install --frozen-lockfile --production` in `pocketbase/`, stop PB,
+  snapshot `pb_data` while it is down, restart; migrations apply on restart
+  even with automigrate off).
   Frontend paths trigger `.github/workflows/deploy-spa.yml`, which builds with
   `VITE_POCKETBASE_URL=same-origin` and POSTs the tarball to `/spa/publish`;
   PB serves it from `build/` with no restart (`build.old` keeps one

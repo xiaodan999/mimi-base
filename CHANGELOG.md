@@ -73,6 +73,7 @@
 
 ### 变更
 
+- 拆分服务端运行依赖：新增 `pocketbase/package.json` + `pocketbase/bun.lock`（`pdfjs-dist` + `@napi-rs/canvas`），`/db/sync`、`server-setup.sh` 和 `bun run install:server` 只在 `pocketbase/` 安装（约 70MB），不再为服务器装整个前端依赖树（约 429MB）。根 `package.json` / `bun.lock` 移除这两个包；根 `tsconfig.json` 不再检查 `pocketbase/`，服务端由 `pocketbase/tsconfig.json` 单独检查，因此 Vercel 与前端（deploy-spa）构建不再需要服务端依赖。CI 在 typecheck/test 前安装服务端依赖，pre-commit hook 也会自动安装。
 - 服务器部署自动安装运行依赖：`/db/sync` 在 `git pull` 后执行 `bun install --frozen-lockfile --production`，`scripts/server-setup.sh` 也会安装；聊天附件服务端解析用的 `pdfjs-dist` / `@napi-rs/canvas` 不再需要手动安装。`deploy-db` 的单次请求超时从 60 秒放宽到 300 秒。
 - 沙箱单次运行上限从 20 秒提高到 60 秒（`SANDBOX_TIMEOUT_MS`，Docker 的 kill 定时器和开发直跑子进程同步生效），PDF 附件解析上限也提高到 60 秒；超时提示按新上限显示。
 - `.env.example` 与 `pocketbase/README.md` 补充聊天模型白名单、思考强度与 `/ai` 新端点的说明。

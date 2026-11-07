@@ -14,6 +14,8 @@ everything lives inside the repo clone:
     │                            #   serves the AI relay + token-protected
     │                            #   deploy endpoints on :9001
     ├── ai-relay.ts              # streaming /ai relay using the site key
+    ├── ai-files.ts              # server-side chat attachment reader
+    ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
     ├── pb_hooks/                # JSVM hooks (post like/comment counters)
     ├── pb_data/                 # live data (gitignored — SQLite + uploaded files)
@@ -27,6 +29,11 @@ bun run dev:all            # both of the below, PB first (reuses a running PB)
 bun run db                 # serves on 127.0.0.1:8090, automigrate ON
 bun run dev                # frontend on :3000 (VITE_POCKETBASE_URL in .env)
 ```
+
+The supervisor's own deps live in `pocketbase/package.json` (pdf.js and
+`@napi-rs/canvas` for chat attachments). Install them once per worktree with
+`bun run install:server`; otherwise the server starts fine but PDF
+attachments cannot be read.
 
 When the binary is missing, `server.ts` copies the pinned one from another
 registered worktree, a sibling checkout, or
@@ -62,10 +69,11 @@ curl -s localhost:8090/api/health           # -> {"message":"API is healthy."}
 
 Run from the clone (or standalone — the script then clones into the
 current directory). The script installs bun if missing, runs
-`bun install --frozen-lockfile --production` for the supervisor's runtime
-dependencies, generates `.env.prod`, downloads the pinned PocketBase binary
-(v0.40.6), applies the committed schema and creates the superuser. It
-installs no cron entries or services — PB does not auto-start at boot.
+`bun install --frozen-lockfile --production` inside `pocketbase/` for the
+supervisor's runtime dependencies, generates `.env.prod`, downloads the pinned
+PocketBase binary (v0.40.6), applies the committed schema and creates the
+superuser. It installs no cron entries or services — PB does not auto-start
+at boot.
 
 It is idempotent: safe to re-run. A re-run refreshes the clone and
 re-upserts the superuser, but never rotates secrets (delete `.env.prod`
@@ -108,10 +116,10 @@ The general chat (`/chat`) uses these routes:
   seconds, and nothing is persisted: the extracted text (or page images)
   goes back in the response and the client appends it to the message.
   Uploads share the data tools' 30/min + 200/day budget. `@napi-rs/canvas`
-  is a regular dependency; `/db/sync` and `server-setup.sh` install it with
-  `bun install --frozen-lockfile --production`. It is imported lazily, so a
-  server that predates it still starts and only scanned PDFs fail with a
-  clear message.
+  lives in `pocketbase/package.json`; `/db/sync` and `server-setup.sh` install
+  it there with `bun install --frozen-lockfile --production`. It is imported
+  lazily, so a server that predates it still starts and only scanned PDFs
+  fail with a clear message.
 
 - `POST /ai/tools/{expenses,posts,memory,url}` (authenticated) backs the
   chat's data tools (`pocketbase/ai-tools.ts`). They have their own
@@ -190,9 +198,9 @@ for tests only and is **not** a security boundary; production never uses it.
 Push to `master` touching `pocketbase/**` → GitHub Actions calls the
 token-protected `/db/sync` endpoint (`DEPLOY_TOKEN` secret in the
 "Production" environment) → the server does `git pull --ff-only`, runs
-`bun install --frozen-lockfile --production` for the supervisor's runtime
-dependencies, stops PB, snapshots `pb_data` while it is down, starts PB and
-returns 200 only after `/api/health` passes. The snapshot has to happen with
+`bun install --frozen-lockfile --production` inside `pocketbase/` for the
+supervisor's runtime dependencies, stops PB, snapshots `pb_data` while it is
+down, starts PB and returns 200 only after `/api/health` passes. The snapshot has to happen with
 PB stopped: tarring a live SQLite database intermittently fails with `file
 changed as we read it` and stores an inconsistent copy. Archives are written
 as `.partial` and renamed on success, so `SNAPSHOT_KEEP` never counts a

@@ -20,6 +20,7 @@ ignorePatterns = [
     "app/routeTree.gen.ts",
     "components/ui/",
     "bun.lock",
+    "pocketbase/bun.lock",
     "pb_data_snapshots/",
     "pocketbase/pb_data/",
     "pocketbase/pocketbase",

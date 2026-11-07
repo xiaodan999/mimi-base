@@ -1022,18 +1022,18 @@ function scheduleRespawn(): void {
 async function dbSync(): Promise<Response> {
     try {
         execSync("git pull --ff-only", { cwd: repo, stdio: "inherit" });
-        // The supervisor itself now has runtime dependencies (pdf.js and
-        // @napi-rs/canvas for chat attachments), so a deploy must install
-        // them before PB is restarted. --production skips the frontend
-        // toolchain; --frozen-lockfile fails the deploy instead of silently
-        // rewriting the committed lockfile. Call the running Bun binary:
-        // a detached supervisor's PATH does not include ~/.bun/bin, so a bare
+        // The supervisor has its own package (`pocketbase/package.json`) with
+        // pdf.js and @napi-rs/canvas; install it in that directory so the
+        // server does not pull the frontend dependency tree. --production
+        // skips dev deps; --frozen-lockfile fails the deploy instead of
+        // silently rewriting the committed lockfile. Call the running Bun
+        // binary: a detached supervisor's PATH has no ~/.bun/bin, so a bare
         // "bun" exits 127.
         execFileSync(
             process.execPath,
             ["install", "--frozen-lockfile", "--production"],
             {
-                cwd: repo,
+                cwd: path.join(repo, "pocketbase"),
                 stdio: "inherit",
             },
         );

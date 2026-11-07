@@ -1,0 +1,10 @@
+{
+    "name": "mimi-base-server",
+    "private": true,
+    "type": "module",
+    "packageManager": "bun@1.4.4",
+    "dependencies": {
+        "@napi-rs/canvas": "^0.1.100",
+        "pdfjs-dist": "^4"
+    }
+}

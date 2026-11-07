@@ -26,7 +26,11 @@
 
     ```bash
     bun install
+    bun run install:server
     ```
+
+    `install:server` 只装服务端解析 PDF 用的两个包（`pocketbase/package.json`），
+    和前端构建分开；不跑也能启动，只是聊天里的文件附件会读不出来。
 
     建议再运行一次 `bun run setup:hooks`，这样每次提交前会自动
     整理格式并检查类型和测试。

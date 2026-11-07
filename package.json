@@ -11,13 +11,14 @@
         "dev:all": "bun scripts/dev.ts",
         "format": "bun fmt",
         "format:check": "bun fmt --check",
+        "install:server": "cd pocketbase && bun install --frozen-lockfile",
         "lint": "eslint .",
         "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
         "test": "bun test --path-ignore-patterns=\"tmp/**\"",
-        "typecheck": "bun check",
-        "typecheck:tsc": "tsc --noEmit"
+        "typecheck": "bun check && cd pocketbase && bun check",
+        "typecheck:tsc": "tsc --noEmit && tsc -p pocketbase/tsconfig.json --noEmit"
     },
     "browserslist": {
         "production": [
@@ -35,7 +36,6 @@
         "@assistant-ui/react": "0.15.32",
         "@assistant-ui/react-markdown": "0.14.24",
         "@hookform/resolvers": "^7.0.1",
-        "@napi-rs/canvas": "^0.1.100",
         "@radix-ui/react-avatar": "^1.1.1",
         "@radix-ui/react-context-menu": "^2.2.2",
         "@radix-ui/react-dialog": "^1.1.2",
@@ -56,7 +56,6 @@
         "compressorjs": "^1.2.1",
         "date-fns": "^2.30.0",
         "lucide-react": "^0.453.0",
-        "pdfjs-dist": "^4",
         "pocketbase": "^0.28.1",
         "react": "^18.3.1",
         "react-day-picker": "^8.7.1",
