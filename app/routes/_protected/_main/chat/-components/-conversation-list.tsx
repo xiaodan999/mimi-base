@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns/esm";
 import { zhCN } from "date-fns/locale";
 import {
+    Brain,
     MessageCircle,
     MoreHorizontal,
     Pencil,
@@ -86,6 +87,7 @@ export type ConversationListProps = {
     personas: readonly ChatPersona[];
     loading: boolean;
     onNewChat: () => void;
+    onOpenMemories: () => void;
     onRename: (id: string, title: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePin: (id: string, pinned: boolean) => Promise<void>;
@@ -96,6 +98,7 @@ export function ConversationList({
     personas,
     loading,
     onNewChat,
+    onOpenMemories,
     onRename,
     onDelete,
     onTogglePin,
@@ -123,24 +126,33 @@ export function ConversationList({
     return (
         <>
             <div className="px-4 pb-3 pt-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight">
-                            聊天
-                        </h1>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            和 AI 随便聊聊，记录只存在你的账号里
-                        </p>
+                <div className="flex items-center justify-between gap-2">
+                    <h1 className="min-w-0 text-xl font-bold tracking-tight">
+                        聊天
+                    </h1>
+                    <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-xl text-muted-foreground"
+                            onClick={onOpenMemories}
+                        >
+                            <Brain className="mr-1 size-4" />
+                            记忆
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={onNewChat}
+                        >
+                            <Plus className="mr-1 size-4" />
+                            新对话
+                        </Button>
                     </div>
-                    <Button
-                        size="sm"
-                        className="rounded-xl"
-                        onClick={onNewChat}
-                    >
-                        <Plus className="mr-1 size-4" />
-                        新对话
-                    </Button>
                 </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                    和 AI 随便聊聊，记录只存在你的账号里
+                </p>
                 {conversations.length > 0 && (
                     <div className="relative mt-3">
                         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

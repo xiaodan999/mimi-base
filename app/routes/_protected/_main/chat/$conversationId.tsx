@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import {
     Link,
     createFileRoute,
@@ -19,11 +19,9 @@ import { toastPromise } from "@/lib/toast-promise";
 
 import { ChatHeader } from "./-components/-chat-header";
 import { ChatThread } from "./-components/-chat-thread";
-import { MemorySheet } from "./-components/-memory-sheet";
 import {
     useChatActions,
     useChatConversation,
-    useChatMemories,
     useChatMessages,
     useChatModels,
     useChatPersonas,
@@ -83,9 +81,6 @@ function ChatConversationView({
     const actions = useChatActions();
     const modelsQuery = useChatModels();
     const personasQuery = useChatPersonas();
-
-    const [memoriesOpen, setMemoriesOpen] = useState(false);
-    const memoriesQuery = useChatMemories();
 
     // One-shot composer prefill from the PWA share target (/share).
     const initialDraft =
@@ -292,13 +287,6 @@ function ChatConversationView({
                     });
                 }}
                 onExport={handleExport}
-                onOpenMemories={() => setMemoriesOpen(true)}
-            />
-            <MemorySheet
-                open={memoriesOpen}
-                onOpenChange={setMemoriesOpen}
-                memories={memoriesQuery.data ?? []}
-                loading={memoriesQuery.isLoading}
             />
             <div className="min-h-0 flex-1">
                 <ChatThread

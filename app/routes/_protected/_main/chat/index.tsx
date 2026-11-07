@@ -6,10 +6,12 @@ import { stopChatRun } from "@/app/chat/run-store";
 import type { ChatPersona } from "@/app/chat/types";
 
 import { ConversationList } from "./-components/-conversation-list";
+import { MemorySheet } from "./-components/-memory-sheet";
 import { NewChatSheet } from "./-components/-new-chat-sheet";
 import {
     useChatActions,
     useChatConversations,
+    useChatMemories,
     useChatModels,
     useChatPersonas,
 } from "./-data";
@@ -25,6 +27,8 @@ function ChatListPage() {
     const personas = useChatPersonas();
     const actions = useChatActions();
     const [newOpen, setNewOpen] = useState(false);
+    const [memoriesOpen, setMemoriesOpen] = useState(false);
+    const memories = useChatMemories();
 
     const modelList = models.data?.models ?? [];
 
@@ -68,6 +72,7 @@ function ChatListPage() {
                 personas={personas.data ?? []}
                 loading={conversations.isLoading}
                 onNewChat={() => setNewOpen(true)}
+                onOpenMemories={() => setMemoriesOpen(true)}
                 onRename={async (id, title) => {
                     await actions.updateConversation(id, { title });
                 }}
@@ -80,6 +85,13 @@ function ChatListPage() {
                 onTogglePin={async (id, pinned) => {
                     await actions.updateConversation(id, { pinned });
                 }}
+            />
+
+            <MemorySheet
+                open={memoriesOpen}
+                onOpenChange={setMemoriesOpen}
+                memories={memories.data ?? []}
+                loading={memories.isLoading}
             />
 
             <NewChatSheet
