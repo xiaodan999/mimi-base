@@ -1,18 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-// tools.ts imports lib/pb, whose env validation runs at module load; CI has
-// no .env, so the var must exist before the module is evaluated. Static
-// imports hoist above plain statements, hence the dynamic imports below.
-process.env.VITE_POCKETBASE_URL ??= "http://127.0.0.1:8090";
-
-const {
+import {
     askUserRequestFromArgs,
     expenseRequestFromArgs,
     isInteractiveTool,
     pendingRequestFromToolCall,
     resolveInteractiveToolResult,
-} = await import("./tools");
-const { isTransientCancelReason } = await import("./user-input");
+    type ToolHooks,
+} from "./tool-inputs";
+import { isTransientCancelReason } from "./user-input";
 
 describe("askUserRequestFromArgs", () => {
     test("builds a valid request", () => {
@@ -127,16 +123,62 @@ describe("resolveInteractiveToolResult", () => {
         });
     });
 
-    test("log_expense without login fails cleanly", async () => {
+    test("log_expense writes through the injected createExpense", async () => {
+        const calls: Array<{ item: string; price: number; category: string }> =
+            [];
+        const hooks: ToolHooks = {
+            createExpense: async (input) => {
+                calls.push(input);
+                return { id: "fake-id" };
+            },
+        };
         const result = await resolveInteractiveToolResult(
             "log_expense",
-            {
+            { item: " 午饭 ", price: 20, category: "food" },
+            { ok: true },
+            hooks,
+        );
+        expect(result).toEqual({
+            result: {
+                ok: true,
+                saved: true,
+                id: "fake-id",
                 item: "午饭",
-                price: 10,
+                price: 20,
+                category: "food",
             },
+            isError: false,
+        });
+        expect(calls).toEqual([{ item: "午饭", price: 20, category: "food" }]);
+    });
+
+    test("log_expense reports a failed write", async () => {
+        const result = await resolveInteractiveToolResult(
+            "log_expense",
+            { item: "午饭", price: 20 },
+            { ok: true },
+            {
+                createExpense: async () => {
+                    throw new Error("network down");
+                },
+            },
+        );
+        expect(result).toEqual({
+            result: { ok: false, error: "记账写入失败，请重试" },
+            isError: true,
+        });
+    });
+
+    test("log_expense without a wired write fails cleanly", async () => {
+        const result = await resolveInteractiveToolResult(
+            "log_expense",
+            { item: "午饭", price: 20 },
             { ok: true },
         );
-        expect(result.isError).toBe(true);
+        expect(result).toEqual({
+            result: { ok: false, error: "记账功能不可用" },
+            isError: true,
+        });
     });
 });
 

@@ -300,11 +300,7 @@ export function useChatSession({
                 );
 
                 const toolHooks: ToolHooks = {
-                    onExpenseSaved: () => {
-                        void queryClient.invalidateQueries({
-                            queryKey: qk.jiZhang.all,
-                        });
-                    },
+                    createExpense: actions.createExpense,
                     onMemoryChanged: () => {
                         void queryClient.invalidateQueries({
                             queryKey: qk.chat.memories(user.id),
@@ -623,11 +619,7 @@ export function useChatSession({
                 args,
                 answer,
                 {
-                    onExpenseSaved: () => {
-                        void queryClient.invalidateQueries({
-                            queryKey: qk.jiZhang.all,
-                        });
-                    },
+                    createExpense: actions.createExpense,
                     onMemoryChanged: () => {
                         void queryClient.invalidateQueries({
                             queryKey: qk.chat.memories(user.id),

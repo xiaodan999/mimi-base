@@ -262,6 +262,31 @@ export function useChatActions() {
         [invalidate],
     );
 
+    /**
+     * The write behind the chat's `log_expense` tool. Only called after the
+     * user confirms the card; invalidating the ledger here keeps every caller
+     * consistent (live loop and reload-resume alike).
+     */
+    const createExpense = useCallback(
+        async (input: {
+            item: string;
+            price: number;
+            category: string;
+        }): Promise<{ id: string }> => {
+            const record = await pb.collection("ji_zhang_biao").create({
+                user_id: user.id,
+                item_name: input.item,
+                price: input.price,
+                ...(input.category !== "" ? { category: input.category } : {}),
+            });
+            await queryClient.invalidateQueries({
+                queryKey: qk.jiZhang.all,
+            });
+            return { id: record.id };
+        },
+        [queryClient, user.id],
+    );
+
     /** Fresh read of one message — the double-answer guard for resume. */
     const getMessage = useCallback(
         async (messageId: string): Promise<ChatMessage | null> => {
@@ -408,6 +433,7 @@ export function useChatActions() {
         deleteConversation,
         getMessage,
         createMessage,
+        createExpense,
         updateMessage,
         deleteMessagesAfter,
         createPersona,

@@ -1,8 +1,12 @@
-import pb from "@/lib/pb";
-
 import { normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
+import {
+    askUserRequestFromArgs,
+    expenseRequestFromArgs,
+    resolveInteractiveToolResult,
+    type ToolHooks,
+} from "./tool-inputs";
 import {
     postTool,
     timezoneOffsetMinutes,
@@ -12,20 +16,18 @@ import {
     type ReadUrlToolResult,
 } from "./tools-server";
 import type { SandboxFiles } from "./types";
-import {
-    requestUserInput,
-    type UserInputAnswer,
-    type UserInputKind,
-    type UserInputRequest,
-} from "./user-input";
+import { requestUserInput } from "./user-input";
 
-/** Side effects the caller (session hook) wires up after a tool succeeds. */
-export type ToolHooks = {
-    /** A confirmed `log_expense` row was created; refresh 记账 queries. */
-    onExpenseSaved?: () => void;
-    /** The `memory` tool changed saved memories; refresh the injected set. */
-    onMemoryChanged?: () => void;
-};
+// The pausable-tool logic lives in ./tool-inputs (pure, unit-testable);
+// re-exported here so the tool-loop API stays in one place.
+export {
+    askUserRequestFromArgs,
+    expenseRequestFromArgs,
+    isInteractiveTool,
+    pendingRequestFromToolCall,
+    resolveInteractiveToolResult,
+} from "./tool-inputs";
+export type { ToolHooks } from "./tool-inputs";
 
 /**
  * Tools the chat model may call. Code runs in the server-side Docker sandbox
@@ -308,175 +310,6 @@ export type ChatToolOutcome = {
     files: SandboxFiles;
     isError: boolean;
 };
-
-/* -------------------- pausable (user-input) tools ----------------------- */
-
-/** Validate streamed `ask_user` args into a panel request, or null. */
-export function askUserRequestFromArgs(
-    args: Record<string, unknown>,
-): UserInputRequest | null {
-    const question =
-        typeof args.question === "string" ? args.question.trim() : "";
-    const kind = args.kind as UserInputKind;
-    if (question === "") return null;
-    if (
-        kind !== "text" &&
-        kind !== "choice" &&
-        kind !== "confirm" &&
-        kind !== "location"
-    ) {
-        return null;
-    }
-    const options = Array.isArray(args.options)
-        ? args.options
-              .filter((option): option is string => typeof option === "string")
-              .map((option) => option.trim().slice(0, 80))
-              .filter((option) => option !== "")
-              .slice(0, 6)
-        : undefined;
-    if (kind === "choice" && (!options || options.length < 2)) return null;
-    return {
-        question: question.slice(0, 300),
-        kind,
-        ...(kind === "choice" ? { options } : {}),
-        ...(typeof args.placeholder === "string" &&
-        args.placeholder.trim() !== ""
-            ? { placeholder: args.placeholder.trim().slice(0, 80) }
-            : {}),
-    };
-}
-
-/** Validate streamed `log_expense` args into a confirm-card request, or null. */
-export function expenseRequestFromArgs(
-    args: Record<string, unknown>,
-): UserInputRequest | null {
-    const item = typeof args.item === "string" ? args.item.trim() : "";
-    const price =
-        typeof args.price === "number" && Number.isFinite(args.price)
-            ? Math.round(args.price * 100) / 100
-            : Number.NaN;
-    const category =
-        typeof args.category === "string"
-            ? args.category.trim().slice(0, 40)
-            : "";
-    if (item === "" || item.length > 50) return null;
-    if (!Number.isFinite(price) || price <= 0 || price > 10_000_000)
-        return null;
-    return {
-        question: "记下这一笔？",
-        kind: "expense",
-        expense: { item, price, category },
-    };
-}
-
-/**
- * Rebuild a panel request from a persisted tool-call part, so a question that
- * was waiting when the page reloaded can be asked again.
- */
-export function pendingRequestFromToolCall(
-    toolName: string,
-    argsText: string,
-): UserInputRequest | null {
-    let args: Record<string, unknown>;
-    try {
-        const parsed = JSON.parse(argsText) as unknown;
-        if (
-            typeof parsed !== "object" ||
-            parsed === null ||
-            Array.isArray(parsed)
-        ) {
-            return null;
-        }
-        args = parsed as Record<string, unknown>;
-    } catch {
-        return null;
-    }
-    if (toolName === "ask_user") return askUserRequestFromArgs(args);
-    if (toolName === "log_expense") return expenseRequestFromArgs(args);
-    return null;
-}
-
-/**
- * Map the user's answer to the tool result the model receives. Shared by the
- * live tool loop and the reload-resume path so both produce identical shapes.
- */
-export async function resolveInteractiveToolResult(
-    toolName: string,
-    args: Record<string, unknown>,
-    answer: UserInputAnswer,
-    hooks: ToolHooks = {},
-): Promise<{ result: unknown; isError: boolean }> {
-    if (!answer.ok) {
-        return { result: { ok: false, error: answer.error }, isError: true };
-    }
-
-    if (toolName === "ask_user") {
-        const kind = args.kind as UserInputKind;
-        if (kind === "location" && answer.location) {
-            return {
-                result: { ok: true, kind, ...answer.location },
-                isError: false,
-            };
-        }
-        return {
-            result: { ok: true, kind, answer: answer.answer ?? "" },
-            isError: false,
-        };
-    }
-
-    if (toolName === "log_expense") {
-        const request = expenseRequestFromArgs(args);
-        if (!request?.expense) {
-            return {
-                result: { ok: false, error: "账目参数不对" },
-                isError: true,
-            };
-        }
-        const { item, price, category } = request.expense;
-        const userId = pb.authStore.record?.id;
-        if (!userId) {
-            return {
-                result: { ok: false, error: "登录状态失效，无法记账" },
-                isError: true,
-            };
-        }
-        try {
-            const record = await pb.collection("ji_zhang_biao").create({
-                user_id: userId,
-                item_name: item,
-                price,
-                ...(category !== "" ? { category } : {}),
-            });
-            hooks.onExpenseSaved?.();
-            return {
-                result: {
-                    ok: true,
-                    saved: true,
-                    id: record.id,
-                    item,
-                    price,
-                    category,
-                },
-                isError: false,
-            };
-        } catch {
-            return {
-                result: { ok: false, error: "记账写入失败，请重试" },
-                isError: true,
-            };
-        }
-    }
-
-    return {
-        result: { ok: false, error: `未知工具：${toolName}` },
-        isError: true,
-    };
-}
-
-/** Tools that pause the loop waiting for user input (resume-able). */
-export function isInteractiveTool(toolName: string): boolean {
-    return toolName === "ask_user" || toolName === "log_expense";
-}
 
 function parseArgs(argsText: string): Record<string, unknown> | null {
     try {

@@ -37,8 +37,7 @@
 - `manifest.json` 增加 GET `share_target` → `/share`（`app/routes/_protected/share.tsx`）：系统分享的 title/text/url 组装为草稿，自动建对话并预填输入框；`vite-env.d.ts` 给 `@tanstack/history` 的 `HistoryState` 扩展了 `draft`。
 - `AGENTS.md` / `pocketbase/README.md`：刷新聊天章节（服务器沙箱现状、`/ai/tools/*` 数据工具与安全边界、记忆、人格清单）。
 
-### 修复
-
+- 重构：把 `ask_user` / `log_expense` 的参数校验与答案映射抽到纯模块 `app/chat/tool-inputs.ts`，记账写入改为注入的 `createExpense`（由 `useChatActions` 提供，内部失效记账查询）；`tools.ts` 不再直接依赖 PocketBase 单例，相关单测不再需要环境变量。
 - 修复 `ask_user` / `log_expense` 等待回答时刷新页面导致问题丢失的问题：进入对话时扫描最后一条助手消息里没有结果的交互工具调用，从持久化的参数重建提问面板；回答经双写保护（`getMessage` 新鲜读，防止第二个标签页重复回答）写回该 part 后从原消息继续工具循环。导航/停止类取消（`isTransientCancelReason`）不落库，问题留待下次访问；同一轮里未执行的兄弟调用标记「页面刷新中断了这次执行」而非永远转圈；`regenerate` / 编辑重发在有等待中的提问时禁用。`executeChatTool` 的提问参数校验与答案映射抽出为 `askUserRequestFromArgs` / `expenseRequestFromArgs` / `resolveInteractiveToolResult`，与恢复路径共用。
 - 更正 `deepseek-v4.1-flash` 的视觉能力：它支持图片输入，`chat-models.ts` 现在标记为 `vision: true`；GLM-5.3 Flash 与 MiMo 2.6 Flash 同样标记为多模态。
 - 修复手机端回复结束瞬间的闪动：live 草稿改到持久化消息就绪后再移除，`createMessage` 不再等待 refetch（避免同一回复短暂渲染两份），Markdown 关闭 smooth / defer，消息操作栏预留固定高度。
