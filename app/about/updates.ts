@@ -7,11 +7,32 @@
  * no file paths); `date` is also the "seen" marker on the profile page.
  * Pair every entry with a `CHANGELOG.md` bullet (see AGENTS.md → Update log).
  */
+/** In-app destinations an update entry can link to. */
+export type UpdatePath =
+    | "/home"
+    | "/posts"
+    | "/chat"
+    | "/jizhang"
+    | "/study"
+    | "/profile"
+    | "/report";
+
+export type UpdateLink = {
+    label: string;
+    to: UpdatePath;
+};
+
 export type Update = {
     /** `YYYY-MM-DD`; also identifies the entry for the unseen dot. */
     date: string;
     /** Optional short headline, e.g. 关于页上线. */
     title?: string;
+    /** One sentence shown under the title; keep it under 45 characters. */
+    summary?: string;
+    /** Marquee bullet copied verbatim from added/fixed/changed. */
+    highlight?: string;
+    /** Shortcuts into the app, shown under the entry. */
+    links?: UpdateLink[];
     added?: string[];
     fixed?: string[];
     changed?: string[];
@@ -21,6 +42,10 @@ export const UPDATES: Update[] = [
     {
         date: "2026-11-07",
         title: "聊天上线",
+        summary: "聊天、隔离代码运行，和一个会向你提问的 AI。",
+        highlight:
+            "AI 需要信息或授权时会直接问你：可以输入文字、选选项、确认，或允许浏览器定位；回答后它继续同一段回复。",
+        links: [{ label: "去聊天", to: "/chat" }],
         added: [
             "新增「聊天」标签页：和 AI 一对一聊天，可以开很多段对话，随时改名或删除。",
             "每段对话可以单独挑人格和模型；回复支持 Markdown、代码块和表格，能看思考过程、停止、重新生成和复制。",
@@ -44,11 +69,13 @@ export const UPDATES: Update[] = [
             "首页顶部更紧凑：今日动态、本月花费、连续学习收成一行，点击花费或学习可直接跳转。",
             "「去年今天」改为穿插在动态流里，翻到第二条动态后就能看到往年的记录。",
             "「年度报告」移到「我的」页；晚餐抽奖机收成首页右上角的小图标。",
+            "「关于」页的更新记录改成时间线：每条更新有一句话概要和重点条目，还能直接跳到对应功能。",
         ],
     },
     {
         date: "2026-11-06",
         title: "关于页上线",
+        summary: "更新记录终于有地方住了。",
         added: [
             "新增「关于」页：查看当前构建、检查更新，并浏览历次变化。",
             "首页底部和个人资料页都可以进入「关于」。",

@@ -69,6 +69,33 @@ describe("UPDATES", () => {
         }
     });
 
+    test("keeps summaries to one short line", () => {
+        for (const entry of UPDATES) {
+            if (entry.summary === undefined) continue;
+            const summary = entry.summary.trim();
+            expect(summary.length).toBeGreaterThan(0);
+            // Longer than this wraps past two lines in the collapsed card.
+            expect(summary.length).toBeLessThanOrEqual(45);
+        }
+    });
+
+    test("only highlights a real bullet", () => {
+        for (const entry of UPDATES) {
+            if (entry.highlight === undefined) continue;
+            expect(bullets(entry)).toContain(entry.highlight);
+        }
+    });
+
+    test("keeps links labelled and inside the app", () => {
+        for (const entry of UPDATES) {
+            for (const link of entry.links ?? []) {
+                expect(link.label.trim().length).toBeGreaterThan(0);
+                expect(link.to.startsWith("/")).toBe(true);
+                expect(link.to.startsWith("//")).toBe(false);
+            }
+        }
+    });
+
     test("gives every in-app date a CHANGELOG section", () => {
         const dated = new Set(
             [...changelog.matchAll(/^## (\d{4}-\d{2}-\d{2})$/gm)].map(

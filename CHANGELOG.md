@@ -44,6 +44,8 @@
 - 下拉刷新同时刷新首页统计（`qk.homeStats.all`），提交 / 编辑 / 删除动态仍会同时失效列表与统计缓存。
 - `post/new-poo` 的 `useNewPostMutation` 改从 `@/app/feed/data` 引入；AI 面板回归测试移除已删除的 `ask-sheet.tsx`。
 - AI 任务提示 pill 上移到搜索按钮之上（`app/ai/AiTaskCenter.tsx`），避免和动态流左下角的搜索按钮重叠。
+- 「关于」页的更新记录改为按月份分组的时间线：每条更新增加一句话概要、置顶的重点条目和新增/修复/调整计数，并支持「去聊天」等应用内直达入口；默认展开最新一条，可一键展开或收起全部。
+- `app/about/updates.ts` 增加 `summary` / `highlight` / `links` 字段与 `UpdatePath` 类型；`updates.test.ts` 校验概要长度、重点条目必须来自真实列表、链接必须是应用内路径；AGENTS.md 同步说明新写法，并明确更新记录不承载图片/GIF/视频。
 
 ## 2026-11-06
 

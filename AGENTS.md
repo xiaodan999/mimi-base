@@ -162,16 +162,29 @@ User-facing changes are recorded in two places **in the same commit**:
   (extend today's entry instead of adding a second), Chinese copy with no
   file paths or internal terms (`APP_SHA`, collection names, ...). Bullets go
   under `added` / `fixed` / `changed`.
+    - Fill `summary` for every new entry: one sentence (≤ 45 chars) shown
+      under the title. It is the collapsed card's only context, so write it
+      as a benefit, not a list of internals.
+    - Optionally add `highlight`: copy **one bullet verbatim** from the
+      groups. It renders above them as 这次的重点 and is removed from its
+      group, so don't write a paraphrased duplicate.
+    - Optionally add `links` (`{ label, to }`) to jump into the feature that
+      shipped (`/chat`, `/jizhang`, `/report`, ...). `to` is typed to the
+      main app routes and must stay in-app.
+    - Pages render as a timeline grouped by month; the newest entry opens by
+      default and the section has 展开全部 / 收起全部. Media (screenshots,
+      GIFs, video) is deliberately unsupported — keep it text-first.
 - `CHANGELOG.md` — the developer-facing record. Add a bullet under the
   matching `###` heading in today's dated section (`## YYYY-MM-DD`), creating
   it above older sections if needed. Include internal work users won't notice.
   Both files describe the same batch; keep them consistent.
 
 `app/about/updates.test.ts` checks the in-app log's shape (real dates,
-newest-first, at least one bullet) and that every in-app date has a matching
-`## YYYY-MM-DD` section in `CHANGELOG.md`. It cannot tell whether you logged a
-change at all — that part is on you. Never claim a feature the diff doesn't
-contain.
+newest-first, at least one bullet, summary length, `highlight` must match a
+real bullet, links must be labelled in-app paths) and that every in-app date
+has a matching `## YYYY-MM-DD` section in `CHANGELOG.md`. It cannot tell
+whether you logged a change at all — that part is on you. Never claim a
+feature the diff doesn't contain.
 
 ## Parallel sessions
 
