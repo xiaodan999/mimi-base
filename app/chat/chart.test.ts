@@ -1,6 +1,27 @@
 import { describe, expect, test } from "bun:test";
 
-import { MAX_CHART_POINTS, normalizeChartSpec } from "./chart";
+import { MAX_CHART_POINTS, normalizeChartSpec, pieGeometry } from "./chart";
+
+describe("pieGeometry", () => {
+    test("keeps the pie inside its viewBox, stroke included", () => {
+        for (const size of [120, 100, 72]) {
+            const { cx, cy, outerR } = pieGeometry(size);
+            const stroke = 1.5;
+            expect(cx - outerR - stroke / 2).toBeGreaterThanOrEqual(0);
+            expect(cx + outerR + stroke / 2).toBeLessThanOrEqual(size);
+            expect(cy - outerR - stroke / 2).toBeGreaterThanOrEqual(0);
+            expect(cy + outerR + stroke / 2).toBeLessThanOrEqual(size);
+        }
+    });
+
+    test("centers the pie and keeps the donut hole inside the ring", () => {
+        const geometry = pieGeometry(120);
+        expect(geometry.cx).toBe(60);
+        expect(geometry.cy).toBe(60);
+        expect(geometry.innerR).toBeLessThan(geometry.outerR);
+        expect(geometry.innerR).toBeGreaterThan(0);
+    });
+});
 
 describe("normalizeChartSpec", () => {
     test("accepts a valid bar spec and rounds values", () => {
@@ -18,7 +39,56 @@ describe("normalizeChartSpec", () => {
             labels: ["食", "行"],
             values: [100.11, 50],
             unit: "元",
+            style: {
+                palette: "theme",
+                donut: false,
+                legend: "right",
+                showValues: true,
+            },
         });
+    });
+
+    test("accepts style and falls back on unknown values", () => {
+        const styled = normalizeChartSpec({
+            type: "pie",
+            title: "x",
+            labels: ["a", "b"],
+            values: [1, 2],
+            style: {
+                palette: "multi",
+                donut: true,
+                legend: "bottom",
+                showValues: false,
+            },
+        });
+        expect(styled?.style).toEqual({
+            palette: "multi",
+            donut: true,
+            legend: "bottom",
+            showValues: false,
+        });
+
+        for (const style of [
+            { palette: "neon", donut: "yes", legend: "left", showValues: "no" },
+            "multi",
+            null,
+            [1],
+        ]) {
+            expect(
+                normalizeChartSpec({
+                    type: "pie",
+                    title: "x",
+                    labels: ["a"],
+                    values: [1],
+                    style,
+                })?.style,
+            ).toEqual({
+                palette: "theme",
+                donut: false,
+                legend: "right",
+                showValues: true,
+            });
+        }
     });
 
     test("rejects malformed payloads", () => {

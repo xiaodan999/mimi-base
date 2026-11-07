@@ -4,7 +4,11 @@ import {
     sandboxArtifactPart,
     textArtifactInfo,
 } from "./artifacts";
-import { normalizeChartSpec } from "./chart";
+import {
+    CHART_LEGENDS,
+    CHART_PALETTES,
+    normalizeChartSpec,
+} from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
 import {
@@ -204,6 +208,35 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
                     unit: {
                         type: "string",
                         description: "数值单位（如 元、次），可省略",
+                    },
+                    style: {
+                        type: "object",
+                        description:
+                            "可选外观。默认已经很好看，不要每张图都改；用户明确要求换风格时才用。",
+                        properties: {
+                            palette: {
+                                type: "string",
+                                enum: [...CHART_PALETTES],
+                                description:
+                                    "theme=主题单色（默认），multi=每个分类用不同颜色",
+                            },
+                            donut: {
+                                type: "boolean",
+                                description: "饼图是否做成环形图",
+                            },
+                            legend: {
+                                type: "string",
+                                enum: [...CHART_LEGENDS],
+                                description:
+                                    "饼图图例位置：right=右侧（默认），bottom=下方（分类多或名字长时更好），none=不显示",
+                            },
+                            showValues: {
+                                type: "boolean",
+                                description:
+                                    "柱状图/折线图是否标出数值；默认 true，点太多时会自动隐藏",
+                            },
+                        },
+                        additionalProperties: false,
                     },
                 },
                 required: ["type", "title", "labels", "values"],

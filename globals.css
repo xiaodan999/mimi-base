@@ -36,6 +36,14 @@
         --info: 199 70% 38%;
         --info-foreground: 0 0% 100%;
 
+        /* Chart-only palette: distinct hues that stay legible in both schemes. */
+        --chart-1: 161 42% 28%;
+        --chart-2: 152 35% 45%;
+        --chart-3: 38 65% 45%;
+        --chart-4: 199 55% 42%;
+        --chart-5: 12 55% 55%;
+        --chart-6: 265 30% 55%;
+
         --border: 150 14% 87%;
         --input: 150 14% 84%;
         --ring: 161 42% 38%;
@@ -81,6 +89,13 @@
         --warning-foreground: 160 30% 8%;
         --info: 199 60% 62%;
         --info-foreground: 160 30% 8%;
+
+        --chart-1: 152 45% 60%;
+        --chart-2: 150 35% 52%;
+        --chart-3: 38 70% 62%;
+        --chart-4: 199 60% 62%;
+        --chart-5: 12 65% 65%;
+        --chart-6: 265 40% 68%;
 
         --border: 160 8% 20%;
         --input: 160 8% 24%;

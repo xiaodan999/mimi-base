@@ -1,4 +1,10 @@
-import { normalizeChartSpec, type ChartSpec } from "@/app/chat/chart";
+import { useId } from "react";
+
+import {
+    normalizeChartSpec,
+    pieGeometry,
+    type ChartSpec,
+} from "@/app/chat/chart";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,6 +31,28 @@ function truncateLabel(label: string, max = 6): string {
 /** Slice opacity ramp for the pie; stays in one hue family. */
 const PIE_OPACITIES = [1, 0.72, 0.5, 0.34, 0.22, 0.14];
 
+/**
+ * Literal class names for the multi-color palette: Tailwind only emits classes
+ * it can see in source, so never build these with template strings.
+ */
+const CHART_FILLS = [
+    "fill-chart-1",
+    "fill-chart-2",
+    "fill-chart-3",
+    "fill-chart-4",
+    "fill-chart-5",
+    "fill-chart-6",
+] as const;
+
+const CHART_DOTS = [
+    "bg-chart-1",
+    "bg-chart-2",
+    "bg-chart-3",
+    "bg-chart-4",
+    "bg-chart-5",
+    "bg-chart-6",
+] as const;
+
 function pieSlice(
     cx: number,
     cy: number,
@@ -46,7 +74,8 @@ function BarChart({ spec }: { spec: ChartSpec }) {
     const plotH = H - PAD_BOTTOM - PAD_TOP;
     const slot = plotW / spec.labels.length;
     const barW = Math.min(slot * 0.62, 42);
-    const showValues = spec.labels.length <= 8;
+    const showValues = spec.style.showValues && spec.labels.length <= 8;
+    const multi = spec.style.palette === "multi";
 
     return (
         <svg
@@ -67,8 +96,12 @@ function BarChart({ spec }: { spec: ChartSpec }) {
                             width={barW}
                             height={height}
                             rx={4}
-                            className="fill-primary"
-                            opacity={0.85}
+                            className={
+                                multi
+                                    ? CHART_FILLS[index % CHART_FILLS.length]
+                                    : "fill-primary"
+                            }
+                            opacity={multi ? 1 : 0.85}
                         />
                         {showValues && (
                             <text
@@ -124,7 +157,7 @@ function LineChart({ spec }: { spec: ChartSpec }) {
         )
         .join(" ");
     const area = `${path} L ${points[points.length - 1]!.x.toFixed(1)} ${PAD_TOP + plotH} L ${points[0]!.x.toFixed(1)} ${PAD_TOP + plotH} Z`;
-    const showValues = spec.labels.length <= 8;
+    const showValues = spec.style.showValues && spec.labels.length <= 8;
 
     return (
         <svg
@@ -177,27 +210,50 @@ function LineChart({ spec }: { spec: ChartSpec }) {
 }
 
 function PieChart({ spec }: { spec: ChartSpec }) {
+    const maskId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
     const total = spec.values.reduce((sum, value) => sum + value, 0);
     if (total <= 0) return null;
     const size = 120;
-    const cx = size / 2 + 8;
-    const cy = size / 2;
-    const r = size / 2 - 4;
+    const { cx, cy, outerR: r, innerR } = pieGeometry(size);
+    const multi = spec.style.palette === "multi";
+    const donut = spec.style.donut;
+    const legend = spec.style.legend;
     let angle = -Math.PI / 2;
 
-    return (
-        <div className="flex items-center gap-3">
-            <svg
-                viewBox={`0 0 ${size} ${size}`}
-                className="size-[120px] shrink-0"
-                role="img"
-                aria-label={`${spec.title} 饼图`}
-            >
+    const chart = (
+        <svg
+            viewBox={`0 0 ${size} ${size}`}
+            className={cn(
+                "h-auto w-[120px] shrink-0",
+                legend === "right" ? "max-w-[45%]" : "max-w-full",
+            )}
+            role="img"
+            aria-label={`${spec.title} 饼图`}
+        >
+            {donut && (
+                <defs>
+                    <mask
+                        id={`pie-mask-${maskId}`}
+                        maskUnits="userSpaceOnUse"
+                        x={0}
+                        y={0}
+                        width={size}
+                        height={size}
+                    >
+                        <rect width={size} height={size} fill="white" />
+                        <circle cx={cx} cy={cy} r={innerR} fill="black" />
+                    </mask>
+                </defs>
+            )}
+            <g mask={donut ? `url(#pie-mask-${maskId})` : undefined}>
                 {spec.values.map((value, index) => {
                     const sweep = (value / total) * Math.PI * 2;
                     const start = angle;
                     const end = angle + sweep;
                     angle = end;
+                    const fill = multi
+                        ? CHART_FILLS[index % CHART_FILLS.length]
+                        : "fill-primary";
                     if (spec.values.length === 1) {
                         return (
                             <circle
@@ -205,7 +261,7 @@ function PieChart({ spec }: { spec: ChartSpec }) {
                                 cx={cx}
                                 cy={cy}
                                 r={r}
-                                className="fill-primary"
+                                className={fill}
                             />
                         );
                     }
@@ -213,39 +269,74 @@ function PieChart({ spec }: { spec: ChartSpec }) {
                         <path
                             key={index}
                             d={pieSlice(cx, cy, r, start, end)}
-                            className="fill-primary"
+                            className={fill}
                             opacity={
-                                PIE_OPACITIES[index % PIE_OPACITIES.length]
+                                multi
+                                    ? 1
+                                    : PIE_OPACITIES[
+                                          index % PIE_OPACITIES.length
+                                      ]
                             }
                             stroke="var(--card)"
                             strokeWidth={1.5}
                         />
                     );
                 })}
-            </svg>
-            <ul className="min-w-0 flex-1 space-y-1 text-xs">
-                {spec.labels.map((label, index) => (
-                    <li
-                        key={index}
-                        className="flex items-center gap-1.5 leading-snug"
-                    >
-                        <span
-                            className="size-2 shrink-0 rounded-full bg-primary"
-                            style={{
-                                opacity:
-                                    PIE_OPACITIES[index % PIE_OPACITIES.length],
-                            }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-foreground/90">
-                            {truncateLabel(label, 8)}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                            {formatValue(spec.values[index])}
-                            {spec.unit ? ` ${spec.unit}` : ""}
-                        </span>
-                    </li>
-                ))}
-            </ul>
+            </g>
+        </svg>
+    );
+
+    if (legend === "none") {
+        return <div className="flex justify-center">{chart}</div>;
+    }
+
+    const legendList = (
+        <ul
+            className={cn(
+                "min-w-0 space-y-1 text-xs",
+                legend === "right" ? "flex-1" : "w-full",
+            )}
+        >
+            {spec.labels.map((label, index) => (
+                <li
+                    key={index}
+                    className="flex items-center gap-1.5 leading-snug"
+                >
+                    <span
+                        className={cn(
+                            "size-2 shrink-0 rounded-full",
+                            multi
+                                ? CHART_DOTS[index % CHART_DOTS.length]
+                                : "bg-primary",
+                        )}
+                        style={{
+                            opacity: multi
+                                ? 1
+                                : PIE_OPACITIES[index % PIE_OPACITIES.length],
+                        }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-foreground/90">
+                        {truncateLabel(label, 8)}
+                    </span>
+                    <span className="min-w-0 max-w-[50%] shrink-0 truncate text-right tabular-nums text-muted-foreground">
+                        {formatValue(spec.values[index])}
+                        {spec.unit ? ` ${spec.unit}` : ""}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
+
+    return (
+        <div
+            className={cn(
+                legend === "right"
+                    ? "flex items-center gap-3"
+                    : "flex flex-col items-center gap-2",
+            )}
+        >
+            {chart}
+            {legendList}
         </div>
     );
 }
