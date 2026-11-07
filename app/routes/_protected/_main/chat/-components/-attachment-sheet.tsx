@@ -58,7 +58,7 @@ export function AttachmentSheet({
             key: "files",
             icon: <FileText className="size-4" />,
             label: "文件",
-            hint: "文本、代码或 PDF（转成文字发给 AI）",
+            hint: "文本、代码或 PDF（服务器读取后发给 AI）",
             enabled: true,
             action: onPickFiles,
         },

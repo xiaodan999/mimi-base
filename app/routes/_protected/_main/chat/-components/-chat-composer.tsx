@@ -9,6 +9,8 @@ export type PendingDoc = {
     name: string;
     kind: "text" | "pdf";
     truncated: boolean;
+    /** JPEG pages the server rendered for a scanned PDF. */
+    pageImages?: readonly string[];
 };
 
 export type ChatComposerProps = {
@@ -63,7 +65,11 @@ export function ChatComposer({
                             <FileText className="size-3 shrink-0" />
                             <span className="min-w-0 truncate">
                                 {doc.name}
-                                {doc.truncated ? "（已截断）" : ""}
+                                {doc.pageImages?.length
+                                    ? `（已转成 ${doc.pageImages.length} 页图片）`
+                                    : doc.truncated
+                                      ? "（已截断）"
+                                      : ""}
                             </span>
                             <button
                                 type="button"
@@ -75,6 +81,20 @@ export function ChatComposer({
                             </button>
                         </span>
                     ))}
+                </div>
+            )}
+            {docs.some((doc) => (doc.pageImages?.length ?? 0) > 0) && (
+                <div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">
+                    {docs.flatMap((doc, docIndex) =>
+                        (doc.pageImages ?? []).map((image, index) => (
+                            <img
+                                key={`${doc.name}-${docIndex}-${index}`}
+                                src={image}
+                                alt={`${doc.name} 第 ${index + 1} 页`}
+                                className="h-16 w-auto max-w-24 shrink-0 rounded-lg border border-border/70 object-cover"
+                            />
+                        )),
+                    )}
                 </div>
             )}
             {images.length > 0 && (

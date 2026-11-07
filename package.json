@@ -35,6 +35,7 @@
         "@assistant-ui/react": "0.15.32",
         "@assistant-ui/react-markdown": "0.14.24",
         "@hookform/resolvers": "^7.0.1",
+        "@napi-rs/canvas": "^0.1.100",
         "@radix-ui/react-avatar": "^1.1.1",
         "@radix-ui/react-context-menu": "^2.2.2",
         "@radix-ui/react-dialog": "^1.1.2",

@@ -635,9 +635,11 @@ const fileHash = async (p: string) =>
 const SUPERVISOR_MODULES = [
     "server.ts",
     "ai-relay.ts",
+    "ai-files.ts",
     "ai-tools.ts",
     "chat-models.ts",
     "sandbox-exec.ts",
+    "../lib/chat-files.ts",
     "sandbox/runner.py",
     "sandbox/runner.mjs",
     "sandbox/Dockerfile",

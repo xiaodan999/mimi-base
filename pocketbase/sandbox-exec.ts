@@ -9,7 +9,7 @@
  * - read-only root, tmpfs /tmp, non-root user, all capabilities dropped,
  *   no-new-privileges, PID/memory/CPU/file-descriptor limits
  * - the user's code arrives on stdin; it never appears in a command line
- * - a 20s wall-clock limit with an explicit `docker kill`
+ * - a 60s wall-clock limit with an explicit `docker kill`
  *
  * Development (no Docker inside WSL) falls back to a plain `python3`/`node`
  * subprocess with a temporary directory. That fallback is **not** a

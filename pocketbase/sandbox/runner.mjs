@@ -2,7 +2,7 @@
  * Trusted Node wrapper for the mimi-base sandbox.
  *
  * Runs inside the same hardened container as the Python runner (read-only
- * root, tmpfs /tmp, nobody, no capabilities, 20s, dedicated Docker network
+ * root, tmpfs /tmp, nobody, no capabilities, 60s, dedicated Docker network
  * with public-only egress). Reads one JSON request on stdin and prints one
  * JSON response on stdout.
  *

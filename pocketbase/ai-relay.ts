@@ -13,6 +13,7 @@
 
 import { createHash } from "node:crypto";
 
+import { AI_FILES_PATH, FileReadError, extractUploadedFile } from "./ai-files";
 import {
     AI_TOOLS_EXPENSES_PATH,
     AI_TOOLS_MEMORY_PATH,
@@ -21,6 +22,7 @@ import {
     createAiToolsService,
     type AiToolsCall,
 } from "./ai-tools";
+import { MAX_FILE_BYTES } from "../lib/chat-files";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
     findChatModel,
@@ -44,6 +46,8 @@ const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 /** Tool calls carry whole files in their arguments; 4k truncated them. */
 const MAX_OUTPUT_TOKENS = 8192;
+const MAX_UPLOAD_BYTES = MAX_FILE_BYTES;
+const MAX_UPLOAD_LABEL = `${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB`;
 const MAX_SANDBOX_BODY_BYTES = 1024 * 1024;
 const SANDBOX_DAILY_LIMIT = 200;
 const SANDBOX_MAX_IN_FLIGHT = 4;
@@ -61,7 +65,7 @@ const CORS_HEADERS: Record<string, string> = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers":
-        "Authorization, Content-Type, x-opencode-session, x-client",
+        "Authorization, Content-Type, x-opencode-session, x-client, x-file-name, x-file-images",
     "Access-Control-Max-Age": "600",
 };
 
@@ -312,6 +316,77 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         };
         const result = await tools(call);
         return json(result.status, result.body);
+    }
+
+    /**
+     * Reads one chat attachment. The file is parsed here, so the browser never
+     * loads pdf.js and Chinese/scanned PDFs behave the same on every device.
+     * Nothing is persisted: the client appends the returned text (or page
+     * images) to the message like any other attachment.
+     */
+    async function uploadFile(req: Request): Promise<Response> {
+        const auth = await authenticate(req);
+        if (!auth.ok) return auth.response;
+
+        // Uploads share the data-tool budget: they are user-triggered and
+        // parsing a PDF costs server CPU.
+        const limited = checkToolsRate(auth.uid);
+        if (limited) return limited;
+
+        const declared = Number(req.headers.get("content-length") ?? 0);
+        if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {
+            return json(413, {
+                error: { message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）` },
+            });
+        }
+
+        const quota = checkToolsQuota(auth.uid);
+        if (quota) return quota;
+
+        let data: Uint8Array;
+        try {
+            data = new Uint8Array(await req.arrayBuffer());
+        } catch {
+            return json(400, { error: { message: "文件读取失败，再试一次" } });
+        }
+        if (data.byteLength > MAX_UPLOAD_BYTES) {
+            return json(413, {
+                error: { message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）` },
+            });
+        }
+        if (data.byteLength === 0) {
+            return json(400, { error: { message: "文件是空的" } });
+        }
+
+        const headerName = req.headers.get("x-file-name") ?? "";
+        let name = headerName;
+        try {
+            name = decodeURIComponent(headerName);
+        } catch {
+            // Keep the raw header; sanitizeFileName handles the rest.
+        }
+        const requestedImages = Number(req.headers.get("x-file-images") ?? "0");
+        const pageImageLimit =
+            Number.isFinite(requestedImages) && requestedImages > 0
+                ? requestedImages
+                : 0;
+
+        try {
+            const file = await extractUploadedFile(name, data, {
+                pageImageLimit,
+            });
+            return json(200, { ok: true, ...file });
+        } catch (error) {
+            if (error instanceof FileReadError) {
+                return json(error.status, {
+                    error: { message: error.message },
+                });
+            }
+            console.error("[ai-relay] attachment read failed", error);
+            return json(500, {
+                error: { message: "文件读取失败，再试一次" },
+            });
+        }
     }
 
     async function sandbox(req: Request): Promise<Response> {
@@ -627,6 +702,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         if (url.pathname === AI_SANDBOX_PATH && req.method === "POST") {
             return sandbox(req);
+        }
+
+        if (url.pathname === AI_FILES_PATH && req.method === "POST") {
+            return uploadFile(req);
         }
 
         if (TOOL_PATHS.has(url.pathname) && req.method === "POST") {

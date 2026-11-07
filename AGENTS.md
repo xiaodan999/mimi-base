@@ -376,7 +376,7 @@ before your first commit.
   server** in a Docker container (one image per language, selected by
   `sandbox_run.language`):
   read-only root, non-root user, all capabilities dropped, PID/memory/CPU
-  limits, 20s wall clock, JSON on stdin (no code in argv), and the dedicated
+  limits, 60s wall clock, JSON on stdin (no code in argv), and the dedicated
   `mimi-sandbox` network whose egress firewall allows only public
   DNS/HTTP(S). It has no mounts, no host networking and no `pb_data` / env
   secrets. `pocketbase/sandbox/` owns the runner, Dockerfile and firewall.
@@ -420,10 +420,17 @@ before your first commit.
 - Other chat affordances: conversation search/filter/pin on the list page,
   per-message edit-and-resend (`onEdit`), fork-into-new-conversation,
   one-off retry with another model, Markdown export (header), document
-  attachments (`app/chat/attachments.ts`, pdf.js lazy chunk), pick-images-
-  from-posts, PWA share target (`/share`, GET params → composer draft), and
-  read-aloud via the browser speech adapter. Code blocks highlight with a
-  lazy Shiki chunk (`app/chat/highlighter.ts`, JS regex engine, no wasm).
+  attachments, pick-images-from-posts, PWA share target (`/share`, GET
+  params → composer draft), and read-aloud via the browser speech adapter.
+  Code blocks highlight with a lazy Shiki chunk (`app/chat/highlighter.ts`,
+  JS regex engine, no wasm). Attachments are uploaded raw to
+  `POST /ai/files` and read on the relay (`pocketbase/ai-files.ts`): pdf.js
+  runs **server-side** with the CMaps/standard fonts from `node_modules`
+  (without them Chinese PDFs extract as an empty string), text becomes a
+  fenced part, and a scanned PDF's first pages are rendered with
+  `@napi-rs/canvas` to JPEG image parts for a vision model. The phone never
+  loads pdf.js or CMaps; uploads are not persisted. Caps live in
+  `lib/chat-files.ts` (30MB, 50k chars, 20 text pages, 4 page images).
 - Chat artifacts (files the assistant hands the user): text files (HTML,
   Markdown, CSV, JSON, SVG, code) stay in `chat_conversations.sandbox_files`
   and an artifact part references the path; binary raster images come back

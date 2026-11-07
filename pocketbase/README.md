@@ -84,7 +84,7 @@ the Bun supervisor forwards the request to OpenCode Go with the server key,
 piping the SSE response back as it arrives. `GET /ai/health` reports
 `{ ok, keyConfigured, model }`.
 
-The general chat (`/chat`) uses two more routes:
+The general chat (`/chat`) uses these routes:
 
 - `GET /ai/models` (authenticated) returns the server-owned allowlist:
   `models` (each with `id`, `label`, `vision`, `tools`, `reasoning`), plus
@@ -95,6 +95,21 @@ The general chat (`/chat`) uses two more routes:
   strips `tools` for text-only models, and rejects image parts sent to a
   model without `vision`. Legacy features keep using
   `/ai/opencode/v1/chat/completions`, where the relay still forces one model.
+
+- `POST /ai/files` (authenticated) reads one chat attachment for the
+  browser: text/code files are decoded as UTF-8, and PDFs are parsed with
+  pdf.js on the supervisor using the CMaps and standard fonts bundled in
+  `node_modules`. Those files are required for Chinese PDFs — without them
+  pdf.js returns an empty string and the chat sends a blank attachment. A
+  PDF with no text layer (a phone scan) is rendered to up to four JPEG pages
+  with `@napi-rs/canvas` when the client asks for images (`x-file-images`),
+  for the vision models. The request body is capped at 30MB, parsing at 60
+  seconds, and nothing is persisted: the extracted text (or page images)
+  goes back in the response and the client appends it to the message.
+  Uploads share the data tools' 30/min + 200/day budget. `@napi-rs/canvas`
+  is a regular dependency (installed by `bun install`); it is imported
+  lazily, so a server that predates it still starts and only scanned PDFs
+  fail with a clear message.
 
 - `POST /ai/tools/{expenses,posts,memory,url}` (authenticated) backs the
   chat's data tools (`pocketbase/ai-tools.ts`). They have their own
@@ -128,6 +143,8 @@ The general chat (`/chat`) uses two more routes:
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
+        # Chat attachments upload raw bytes (/ai/files, 30MB cap).
+        client_max_body_size 32m;
     }
     ```
 
@@ -155,7 +172,7 @@ two Docker images:
   is dropped in `INPUT`.
 - Each run is a fresh container from the image for the requested language:
   read-only root, tmpfs `/tmp`, user 65534, `cap-drop ALL`,
-  `no-new-privileges`, 256 MB / 0.5 CPU / 64 PIDs, and a 20 s wall clock.
+  `no-new-privileges`, 256 MB / 0.5 CPU / 64 PIDs, and a 60 s wall clock.
   The request arrives as JSON on stdin, so user code never appears in a
   command line and no host path is mounted.
 - `POST /ai/sandbox` is the only entry point (PocketBase token auth). It

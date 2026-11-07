@@ -84,6 +84,14 @@ import { UserInputPanel } from "./-user-input-panel";
 
 const MAX_IMAGES = 4;
 
+/** Page images rendered from scanned PDFs count toward the image limit. */
+function docImageCount(docs: readonly ExtractedFile[]): number {
+    return docs.reduce(
+        (total, doc) => total + (doc.pageImages?.length ?? 0),
+        0,
+    );
+}
+
 type ThreadActions = {
     onFork: (messageId: string) => void;
     onRetryModel: (messageId: string) => void;
@@ -466,10 +474,16 @@ export function ChatThread({
     );
 
     // Switching to a text-only model must not leave images queued for a
-    // request the relay would reject.
+    // request the relay would reject. A scanned PDF is only page images, so
+    // it is dropped with them.
     useEffect(() => {
         if (visionEnabled) return;
         setImages((previous) => (previous.length > 0 ? [] : previous));
+        setDocs((previous) =>
+            previous.some((doc) => doc.pageImages)
+                ? previous.filter((doc) => !doc.pageImages)
+                : previous,
+        );
     }, [visionEnabled]);
 
     const sendWithAttachments = useCallback(
@@ -490,6 +504,12 @@ export function ChatThread({
                     type: "text" as const,
                     text: attachmentToMessageText(doc),
                 })),
+                ...pendingDocs.flatMap((doc) =>
+                    (doc.pageImages ?? []).map((image) => ({
+                        type: "image" as const,
+                        image,
+                    })),
+                ),
                 ...pendingImages.map((image) => ({
                     type: "image" as const,
                     image,
@@ -517,7 +537,10 @@ export function ChatThread({
                 toast.error("当前模型不支持图片，换一个支持视觉的模型");
                 return;
             }
-            const room = MAX_IMAGES - imagesRef.current.length;
+            const room =
+                MAX_IMAGES -
+                imagesRef.current.length -
+                docImageCount(docsRef.current);
             if (room <= 0) {
                 toast.error(`一条消息最多 ${MAX_IMAGES} 张图片`);
                 return;
@@ -547,36 +570,47 @@ export function ChatThread({
         );
     }, []);
 
-    const handleAddDocs = useCallback(async (files: FileList | null) => {
-        if (!files || files.length === 0) return;
-        const room = MAX_ATTACHMENTS - docsRef.current.length;
-        if (room <= 0) {
-            toast.error(`一条消息最多带 ${MAX_ATTACHMENTS} 个文件`);
-            return;
-        }
-        setAddingImages(true);
-        try {
-            const extracted: ExtractedFile[] = [];
-            for (const file of Array.from(files).slice(0, room)) {
-                try {
-                    extracted.push(await extractFileText(file));
-                } catch (error) {
-                    toast.error(
-                        error instanceof Error
-                            ? error.message
-                            : `${file.name} 读不出来`,
+    const handleAddDocs = useCallback(
+        async (files: FileList | null) => {
+            if (!files || files.length === 0) return;
+            const room = MAX_ATTACHMENTS - docsRef.current.length;
+            if (room <= 0) {
+                toast.error(`一条消息最多带 ${MAX_ATTACHMENTS} 个文件`);
+                return;
+            }
+            setAddingImages(true);
+            try {
+                const extracted: ExtractedFile[] = [];
+                let imageRoom =
+                    MAX_IMAGES -
+                    imagesRef.current.length -
+                    docImageCount(docsRef.current);
+                for (const file of Array.from(files).slice(0, room)) {
+                    try {
+                        const doc = await extractFileText(file, {
+                            pageImageLimit: visionEnabled ? imageRoom : 0,
+                        });
+                        imageRoom -= doc.pageImages?.length ?? 0;
+                        extracted.push(doc);
+                    } catch (error) {
+                        toast.error(
+                            error instanceof Error
+                                ? error.message
+                                : `${file.name} 读不出来`,
+                        );
+                    }
+                }
+                if (extracted.length > 0) {
+                    setDocs((previous) =>
+                        [...previous, ...extracted].slice(0, MAX_ATTACHMENTS),
                     );
                 }
+            } finally {
+                setAddingImages(false);
             }
-            if (extracted.length > 0) {
-                setDocs((previous) =>
-                    [...previous, ...extracted].slice(0, MAX_ATTACHMENTS),
-                );
-            }
-        } finally {
-            setAddingImages(false);
-        }
-    }, []);
+        },
+        [visionEnabled],
+    );
 
     const removeDoc = useCallback((index: number) => {
         setDocs((previous) =>
@@ -588,7 +622,10 @@ export function ChatThread({
         (dataUrl: string) => {
             if (!visionEnabled) return;
             setImages((previous) =>
-                [...previous, dataUrl].slice(0, MAX_IMAGES),
+                [...previous, dataUrl].slice(
+                    0,
+                    Math.max(0, MAX_IMAGES - docImageCount(docsRef.current)),
+                ),
             );
         },
         [visionEnabled],

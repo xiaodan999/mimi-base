@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
+import { AI_FILES_PATH } from "./ai-files";
 import {
     AI_CHAT_PATH,
     AI_HEALTH_PATH,
     createAiRelay,
     type AiRelayDeps,
 } from "./ai-relay";
+import { MAX_FILE_BYTES } from "../lib/chat-files";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UPSTREAM = "https://opencode.ai/zen/go/v1/chat/completions";
@@ -302,5 +306,83 @@ describe("streaming", () => {
         }
         expect(rest).toContain("data: two");
         expect(rest).toContain("[DONE]");
+    });
+});
+
+describe("attachments", () => {
+    const fixtures = path.join(import.meta.dir, "__fixtures__/chat-files");
+
+    function upload(
+        options: {
+            token?: string;
+            name?: string;
+            body?: BodyInit;
+            headers?: Record<string, string>;
+        } = {},
+    ): Request {
+        return request(AI_FILES_PATH, {
+            method: "POST",
+            headers: {
+                Authorization: options.token ?? "good-token",
+                "x-file-name": encodeURIComponent(options.name ?? "notes.md"),
+                ...options.headers,
+            },
+            body: options.body ?? "# 标题",
+        });
+    }
+
+    test("requires a PocketBase token", async () => {
+        const { relay } = harness();
+        const res = await relay(upload({ token: "bad-token" }));
+        expect(res?.status).toBe(401);
+    });
+
+    test("reads a text file on the server", async () => {
+        const { relay, calls } = harness();
+        const res = await relay(upload({ name: "note.md", body: "你好" }));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toMatchObject({
+            ok: true,
+            name: "note.md",
+            kind: "text",
+            content: "你好",
+            truncated: false,
+        });
+        // Extraction never goes through the model upstream.
+        expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
+    });
+
+    test("reads a Chinese PDF with the server CMaps", async () => {
+        const { relay } = harness();
+        const res = await relay(
+            upload({
+                name: "cjk-text.pdf",
+                body: new Uint8Array(
+                    readFileSync(path.join(fixtures, "cjk-text.pdf")),
+                ),
+            }),
+        );
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as { content?: string };
+        expect(body.content).toContain("你好");
+    });
+
+    test("rejects unsupported file types", async () => {
+        const { relay } = harness();
+        const res = await relay(upload({ name: "photo.jpg", body: "x" }));
+        expect(res?.status).toBe(400);
+        expect(await res!.json()).toMatchObject({
+            error: { message: "不支持这种文件类型" },
+        });
+    });
+
+    test("rejects a declared oversized body before reading it", async () => {
+        const { relay } = harness();
+        const res = await relay(
+            upload({
+                headers: { "content-length": String(MAX_FILE_BYTES + 1) },
+            }),
+        );
+        expect(res?.status).toBe(413);
     });
 });
