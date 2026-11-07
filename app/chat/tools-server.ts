@@ -27,9 +27,13 @@ export type ExpensesToolResult = {
     truncated?: boolean;
     total?: number;
     byCategory?: Record<string, number>;
-    /** Per-person totals over the range, biggest spender first. */
+    /** Per-person totals over the range, biggest spender first. `avatar` is
+     * the users.tou_xiang filename; the client renders profile chips from
+     * id + avatar with a tokened URL (same as the feed). */
     people?: Array<{
+        id: string;
         name: string;
+        avatar: string;
         mine: boolean;
         total: number;
         count: number;
@@ -57,6 +61,10 @@ export type PostsToolResult = {
         created: string;
         images: number;
         likes: number;
+        comments: number;
+        /** users record id + tou_xiang filename for the author chip. */
+        authorId: string;
+        avatar: string;
         /** Display name of the author (我 / 对方 fallback). */
         by: string;
         mine: boolean;

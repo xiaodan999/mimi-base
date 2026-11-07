@@ -28,7 +28,13 @@ import {
 
 import { formatBytes, textArtifactInfo } from "@/app/chat/artifacts";
 import { TOOL_TITLES } from "@/app/chat/tool-labels";
+import {
+    expensesPeople,
+    postAuthors,
+    type ToolPerson,
+} from "@/app/chat/tool-people";
 import type { ChatArtifactPart } from "@/app/chat/types";
+import { getUserAvatarUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
 import { useArtifactActions, useSandboxFiles } from "./-artifact-viewer";
@@ -113,6 +119,41 @@ type ToolResult = {
     error?: unknown;
 };
 
+/** Real profile chips (avatar + name + figure) for the shared-data tools,
+ * rendered from the persisted result so they survive reloads. */
+function PersonChip({ person }: { person: ToolPerson }) {
+    const avatarUrl = getUserAvatarUrl(
+        person.avatar !== "" && person.id !== ""
+            ? {
+                  id: person.id,
+                  collectionName: "users",
+                  tou_xiang: person.avatar,
+              }
+            : null,
+    );
+    return (
+        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 py-0.5 pl-1 pr-2 text-[11px]">
+            {avatarUrl !== "" ? (
+                <img
+                    src={avatarUrl}
+                    alt=""
+                    className="size-5 shrink-0 rounded-full object-cover"
+                />
+            ) : (
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                    {person.name.slice(0, 1)}
+                </span>
+            )}
+            <span className="max-w-[8rem] truncate font-medium">
+                {person.name}
+            </span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">
+                {person.detail}
+            </span>
+        </span>
+    );
+}
+
 /** A compact card for a sandbox tool call, expandable for args + output. */
 export function ToolCallPart({
     toolName,
@@ -162,6 +203,12 @@ export function ToolCallPart({
         payload?.artifact_error !== undefined
             ? String(payload.artifact_error)
             : "";
+    const people =
+        toolName === "get_expenses"
+            ? expensesPeople(payload?.result)
+            : toolName === "search_posts"
+              ? postAuthors(payload?.result)
+              : [];
 
     if (toolName === "show_chart" || toolName === "render_ui") {
         // Both render while args stream in and from the persisted result after
@@ -236,6 +283,20 @@ export function ToolCallPart({
                     )}
                 />
             </button>
+            {!running && !failed && people.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 border-t border-border/50 px-3 py-2">
+                    {people.map((person, index) => (
+                        <PersonChip
+                            key={
+                                person.id !== ""
+                                    ? person.id
+                                    : `${person.name}-${index}`
+                            }
+                            person={person}
+                        />
+                    ))}
+                </div>
+            )}
             {!failed && changed.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 border-t border-border/50 px-3 py-2">
                     {changed

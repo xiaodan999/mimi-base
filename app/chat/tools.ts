@@ -362,7 +362,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "search_posts",
             description:
-                "搜索或浏览共享动态（两个人发的帖子都在里面，每条带发布人 by）。query 是关键词（可省略=最近发布）；适合「我们去过哪里」「之前说过什么」「谁发的」这类问题。",
+                "搜索或浏览共享动态（两个人发的帖子都在里面，每条带发布人 by 和评论数 comments）。query 是关键词（可省略=最近发布）；适合「我们去过哪里」「之前说过什么」「谁发的」这类问题。",
             parameters: {
                 type: "object",
                 properties: {

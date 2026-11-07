@@ -232,7 +232,9 @@ describe("ai tools service", () => {
                         category: "food",
                         created: "2026-11-02 01:00:00.000Z",
                         user_id: "user-1",
-                        expand: { user_id: { user_name: "小红" } },
+                        expand: {
+                            user_id: { user_name: "小红", tou_xiang: "h1.png" },
+                        },
                     },
                     {
                         id: "b",
@@ -241,7 +243,9 @@ describe("ai tools service", () => {
                         category: "",
                         created: "2026-11-03 01:00:00.000Z",
                         user_id: "user-2",
-                        expand: { user_id: { user_name: "小黄" } },
+                        expand: {
+                            user_id: { user_name: "小黄", tou_xiang: "h2.png" },
+                        },
                     },
                     {
                         id: "c",
@@ -271,8 +275,22 @@ describe("ai tools service", () => {
             byCategory: { food: 20, other: 15.5, fun: 45 },
             count: 3,
             people: [
-                { name: "小黄", mine: false, total: 60.5, count: 2 },
-                { name: "小红", mine: true, total: 20, count: 1 },
+                {
+                    id: "user-2",
+                    name: "小黄",
+                    avatar: "h2.png",
+                    mine: false,
+                    total: 60.5,
+                    count: 2,
+                },
+                {
+                    id: "user-1",
+                    name: "小红",
+                    avatar: "h1.png",
+                    mine: true,
+                    total: 20,
+                    count: 1,
+                },
             ],
             items: [
                 { id: "a", by: "小红", mine: true },
@@ -352,14 +370,22 @@ describe("ai tools service", () => {
                         created: "2026-11-01 10:00:00.000Z",
                         images: ["a.jpg"],
                         like_count: 3,
+                        comment_count: 2,
                         author_id: "user-2",
-                        expand: { author_id: { user_name: "小黄" } },
+                        expand: {
+                            author_id: {
+                                id: "user-2",
+                                user_name: "小黄",
+                                tou_xiang: "h2.png",
+                            },
+                        },
                     },
                     {
                         id: "p2",
                         text: "我来发一条",
                         created: "2026-11-02 10:00:00.000Z",
                         like_count: 0,
+                        comment_count: 0,
                         author_id: "user-1",
                     },
                 ],
@@ -376,8 +402,22 @@ describe("ai tools service", () => {
             ok: true,
             count: 2,
             items: [
-                { id: "p1", by: "小黄", mine: false },
-                { id: "p2", by: "我", mine: true },
+                {
+                    id: "p1",
+                    by: "小黄",
+                    mine: false,
+                    comments: 2,
+                    authorId: "user-2",
+                    avatar: "h2.png",
+                },
+                {
+                    id: "p2",
+                    by: "我",
+                    mine: true,
+                    comments: 0,
+                    authorId: "user-1",
+                    avatar: "",
+                },
             ],
         });
     });

@@ -67,8 +67,15 @@ const toolFail = (error: string): AiToolsResult => ({
 
 /** Expanded `users` row. The display name lives in the custom `user_name`
  * field (what the whole app renders); `name` is only a belt-and-suspenders
- * fallback in case the built-in auth field ever exists again. */
-type ExpandUser = { user_name?: unknown; name?: unknown };
+ * fallback in case the built-in auth field ever exists again. `tou_xiang`
+ * is the protected avatar filename — the client turns id + filename into a
+ * tokened URL at render time (same as the feed). */
+type ExpandUser = {
+    id?: unknown;
+    user_name?: unknown;
+    name?: unknown;
+    tou_xiang?: unknown;
+};
 
 function displayName(user: ExpandUser | undefined, mine: boolean): string {
     const name =
@@ -78,6 +85,10 @@ function displayName(user: ExpandUser | undefined, mine: boolean): string {
               ? user.name.trim()
               : "";
     return name !== "" ? name : mine ? "我" : "对方";
+}
+
+function avatarFile(user: ExpandUser | undefined): string {
+    return typeof user?.tou_xiang === "string" ? user.tou_xiang : "";
 }
 
 /** Local (timezone-aware) day range to UTC ms. `tz` is the JS
@@ -195,6 +206,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
             const mine = ownerId === call.uid;
             return {
                 ownerId,
+                avatar: avatarFile(row.expand?.user_id),
                 entry: {
                     id: typeof row.id === "string" ? row.id : "",
                     item: text(row.item_name, MAX_ITEM_CHARS),
@@ -216,14 +228,24 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 Math.round(((byCategory[key] ?? 0) + item.price) * 100) / 100;
         }
         // Per-person totals, biggest spender first, so 「谁花得最多」 is a
-        // lookup instead of the model re-summing every row.
+        // lookup instead of the model re-summing every row. id + avatar let
+        // the client render real profile chips without another request.
         const byPerson = new Map<
             string,
-            { name: string; mine: boolean; total: number; count: number }
+            {
+                id: string;
+                name: string;
+                avatar: string;
+                mine: boolean;
+                total: number;
+                count: number;
+            }
         >();
         for (const row of rows) {
             const entry = byPerson.get(row.ownerId) ?? {
+                id: row.ownerId,
                 name: row.entry.by,
+                avatar: row.avatar,
                 mine: row.entry.mine,
                 total: 0,
                 count: 0,
@@ -279,6 +301,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 created?: unknown;
                 images?: unknown;
                 like_count?: unknown;
+                comment_count?: unknown;
                 author_id?: unknown;
                 expand?: { author_id?: ExpandUser };
             }>;
@@ -291,6 +314,12 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                 created: typeof row.created === "string" ? row.created : "",
                 images: Array.isArray(row.images) ? row.images.length : 0,
                 likes: Number(row.like_count) || 0,
+                comments: Number(row.comment_count) || 0,
+                // id + avatar filename let the client render the author's
+                // real profile chip (tokened URL built at render time).
+                authorId:
+                    typeof row.author_id === "string" ? row.author_id : "",
+                avatar: avatarFile(row.expand?.author_id),
                 by: displayName(row.expand?.author_id, mine),
                 mine,
             };

@@ -59,6 +59,7 @@
 - 新增 `read_attachment` 聊天工具：`mode=text` 重读附件完整提取文字（`toolResultText` 对该工具按 `MAX_FILE_CHARS` 放宽，默认 12k 会截断），`mode=pages` 把指定页渲染成图片——页码经 `parsePageSpec`（`lib/chat-files.ts`）解析/去重/截断，单次最多 10 页、页号 ≤ 200。页图无法走 `role:"tool"` 的字符串内容：`ChatToolCallPart.resultImages` 存数据 URL，`buildApiMessages` 在 tool 结果后合成一条带 `image_url` 的 user 消息；`ToolHooks.visionEnabled`（会话传入 `model.vision`）对非视觉模型关闭 pages 模式，避免中转按图片 part 拒绝整条请求。
 - 对话列表新增运行中指示：后台还在生成回复的对话显示转圈和「正在生成回复…」预览。`app/chat/run-store.ts` 新增 `useRunningConversationIds`（`useSyncExternalStore` 快照为成员稳定的 `ReadonlySet`，流式 token publish 不会触发列表重渲染）。
 - 对话列表支持批量删除：头部新增多选按钮进入选择模式，点行勾选（role=checkbox）、全选/取消全选，确认后先 `stopChatRun` 再 `Promise.allSettled` 批量删除，部分失败时抛错提示；确认对话框复用单个删除的样式。
+- 数据工具结果卡片显示真实人物头像条（`app/chat/tool-people.ts` + `-message-parts.tsx` PersonChip）：`get_expenses` 的 `people[]` 增加 `id` / `avatar`（users.tou_xiang 文件名），`search_posts` 每条增加 `comments` / `authorId` / `avatar`；卡片按结果渲染头像 + 名字 + 摘要（账本按消费额排序，动态按发帖数聚合），头像 URL 由客户端在渲染时用文件令牌拼接（与动态流同机制），只持久化文件名不存字节/URL。新增 `app/chat/tool-people.test.ts` 覆盖解析与聚合。
 
 ### 修复
 

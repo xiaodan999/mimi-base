@@ -103,10 +103,19 @@ type WithExpandedCircle = {
 /**
  * users.tou_xiang stores a filename after the migration; build the URL.
  * The avatar is rendered at 56px at most, so ask PocketBase for a thumbnail
- * instead of the full upload (which can be several megabytes).
+ * instead of the full upload (which can be several megabytes). Callers may
+ * pass a full user record or just `{ id, collectionName, tou_xiang }` for
+ * expanded/derived people (chat tool results).
  */
 export function getUserAvatarUrl(
-    user: { tou_xiang?: string } | null | undefined,
+    user:
+        | {
+              id?: string;
+              collectionName?: string;
+              tou_xiang?: string;
+          }
+        | null
+        | undefined,
     thumb = "200x200",
 ): string {
     if (!user?.tou_xiang) return "";
