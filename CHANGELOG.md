@@ -37,6 +37,13 @@
 - `GET /ai/models` 增加 `thinkingLevels`，模型选择器同时展示三个模型和当前思考强度。
 - 代码工具支持 Python（标准库）和 JavaScript（Node），工具描述与系统提示同步更新；`SANDBOX_BASE_IMAGE` / `SANDBOX_BASE_IMAGE_NODE` 可指定国内可用的基础镜像源。
 - `ask_user` 加入聊天工具列表，系统提示要求缺少城市/位置/偏好/确认时先问用户，用户拒绝定位后改用文字问城市；回答面板关闭后自动滚到底部。
+- 首页与动态合并：`/home` 直接渲染动态流，底部导航去掉「动态」保留五项（首页 / 聊天 / 记账 / 学习 / 我的）。动态的查询、组件与工具函数从 `posts/` 路由抽到 `app/feed/`（`data.ts`、`utils.ts`、`comments.ts`、`components/`），首页的 `-home/feed.tsx` 以 `React.lazy` 单独分包，问候卡先绘制。
+- `/posts` 与 `/photos` 改为重定向到 `/home`，`search: true` 保留 `?month=` / `?q=` 过滤参数；`/photos` 不再经过 `/posts`。
+- 首页头部压缩为问候卡：统计数据收成一行三格（本月花费 → 记账，连续学习 → 学习），晚餐抽奖机改成图标按钮，移除学习基地入口（底部「学习」已覆盖）与「问问我的基地」入口（删除 `-home/ask-sheet.tsx`）。
+- 「年度报告」入口移到个人资料页；「去年今天」由首页卡片改为穿插在动态流第二条之后。
+- 下拉刷新同时刷新首页统计（`qk.homeStats.all`），提交 / 编辑 / 删除动态仍会同时失效列表与统计缓存。
+- `post/new-poo` 的 `useNewPostMutation` 改从 `@/app/feed/data` 引入；AI 面板回归测试移除已删除的 `ask-sheet.tsx`。
+- AI 任务提示 pill 上移到搜索按钮之上（`app/ai/AiTaskCenter.tsx`），避免和动态流左下角的搜索按钮重叠。
 
 ## 2026-11-06
 

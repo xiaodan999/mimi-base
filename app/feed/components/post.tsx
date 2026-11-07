@@ -12,8 +12,8 @@ import { getFileUrl } from "@/lib/pb";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import { PostData, useDeletePostMutation, usePostLikeMutation } from "../-data";
-import { formatRelativeTime } from "../-utils";
+import { PostData, useDeletePostMutation, usePostLikeMutation } from "../data";
+import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
 import { InstagramCarousel, MomentsImageGrid } from "./post-images";

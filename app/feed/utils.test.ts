@@ -5,7 +5,7 @@ import {
     formatMonthLabel,
     groupPostMonths,
     monthKeyOf,
-} from "./-utils";
+} from "./utils";
 
 /** Local-time timestamp so the test never depends on the runner's zone. */
 function at(year: number, month: number, day = 15, hour = 12) {

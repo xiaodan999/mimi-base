@@ -1,23 +1,11 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import {
-    BarChart3,
-    Camera,
-    Carrot,
-    ChevronRight,
-    Flame,
-    Ham,
-    MessageCircle,
-    Sparkles,
-    UtensilsCrossed,
-    Wallet,
-    type LucideIcon,
-} from "lucide-react";
+import { Camera, Carrot } from "lucide-react";
 
-import StudyEntry from "@/app/study/components/StudyEntry";
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
+import { FeedSkeleton } from "@/components/FeedSkeleton";
 import ThemeToggle from "@/components/ThemeToggle";
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";
@@ -36,14 +24,32 @@ import { formatMoney } from "@/lib/money";
 import pb, { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
-import { shortSha } from "@/lib/version";
+import { cn } from "@/lib/utils";
 
-import AskSheet from "./-home/ask-sheet";
 import DailyLine from "./-home/daily-line";
-import MemoryCard from "./-home/memory-card";
 import { useHomeStats } from "./-home-data";
 
+// The feed owns the post, composer, comment and viewer chunks; keeping it in
+// its own bundle lets the greeting header paint before they load.
+const HomeFeed = lazy(() => import("./-home/feed"));
+
+type HomeSearch = {
+    /** "YYYY-MM" — the feed only shows that month. */
+    month?: string;
+    /** Case-insensitive text search over post bodies. */
+    q?: string;
+};
+
 export const Route = createFileRoute("/_protected/_main/home")({
+    validateSearch: (search: Record<string, unknown>): HomeSearch => {
+        const month =
+            typeof search.month === "string" &&
+            /^\d{4}-(0[1-9]|1[0-2])$/.test(search.month)
+                ? search.month
+                : undefined;
+        const q = typeof search.q === "string" ? search.q.trim() : "";
+        return { month, q: q || undefined };
+    },
     component: Page,
 });
 
@@ -51,7 +57,6 @@ function Page() {
     const user = useCurrentUser();
     const { data: stats } = useHomeStats();
     const { data: summaries } = useStudySummaries();
-    const [askOpen, setAskOpen] = useState(false);
     const streak = Math.max(
         0,
         ...Object.values(summaries ?? {}).map((progress) =>
@@ -78,185 +83,117 @@ function Page() {
     }).format(now);
 
     return (
-        <div className="px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
-            <section className="rounded-3xl border border-border/60 bg-card p-5 shadow-soft">
-                <div className="flex items-center gap-3">
+        <div className="pt-[calc(1rem+env(safe-area-inset-top))]">
+            <section className="mx-4 rounded-3xl border border-border/60 bg-card p-4 shadow-soft">
+                <div className="flex items-center gap-2">
                     <Link
                         to="/profile"
                         aria-label="查看个人资料"
                         className="relative shrink-0 rounded-full"
                     >
                         <TouXiang
-                            size={56}
+                            size={44}
                             touXiangUrl={getUserAvatarUrl(user)}
                             name={user.user_name}
                             {...getUserRing(user)}
                         />
                         <span
                             aria-hidden="true"
-                            className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-soft"
+                            className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-soft"
                         >
-                            <Camera className="size-3" />
+                            <Camera className="size-2.5" />
                         </span>
                     </Link>
                     <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="truncate text-[11px] font-medium text-muted-foreground">
                             {greeting} · {dateLabel} {weekday}
                         </p>
-                        <h1 className="truncate text-2xl font-semibold tracking-tight">
-                            <Link to="/profile" className="hover:underline">
+                        <h1 className="truncate text-xl font-semibold tracking-tight">
+                            <Link to="/profile">
                                 {user.user_name || "朋友"}
                             </Link>
                         </h1>
                     </div>
-                    <ThemeToggle className="shrink-0 self-start border-border/60 bg-background/60" />
+                    <DinnerPicker />
+                    <ThemeToggle className="shrink-0" />
                 </div>
+
                 <DailyLine greeting={greeting} stats={stats} streak={streak} />
-            </section>
 
-            <div className="mt-3 grid grid-cols-3 gap-2">
-                <Stat
-                    icon={MessageCircle}
-                    label="今日动态"
-                    value={stats?.postsToday ?? "—"}
-                    unit={stats ? "条" : undefined}
-                />
-                <Stat
-                    icon={Wallet}
-                    label="本月花费"
-                    value={stats ? formatMoney(stats.monthSpend, true) : "—"}
-                />
-                <Stat icon={Flame} label="连续学习" value={streak} unit="天" />
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-                <QuickLink to="/posts" icon={MessageCircle} label="记录动态" />
-                <QuickLink to="/jizhang" icon={Wallet} label="记一笔" />
-            </div>
-
-            <MemoryCard />
-
-            <button
-                type="button"
-                onClick={() => setAskOpen(true)}
-                className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-primary/30 bg-primary/[0.06] p-4 text-left shadow-soft transition-all duration-150 hover:bg-primary/10 active:scale-[0.99]"
-            >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15 text-primary">
-                    <Sparkles className="size-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">
-                        问问我的基地
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        这个月外卖花了多少？
-                    </span>
-                </span>
-                <ChevronRight
-                    className="size-4 shrink-0 text-primary"
-                    aria-hidden="true"
-                />
-            </button>
-
-            <Link
-                to="/report"
-                className="mt-3 flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft transition-colors hover:bg-accent/60"
-            >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-muted text-foreground">
-                    <BarChart3 className="size-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">
-                        年度报告
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        这一年被你过成了什么样
-                    </span>
-                </span>
-                <ChevronRight
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                />
-            </Link>
-
-            <div className="mt-4">
-                <StudyEntry />
-            </div>
-
-            <section className="mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                    <UtensilsCrossed className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">今晚吃什么</p>
-                    <p className="text-xs text-muted-foreground">
-                        让抽奖机替你决定
-                    </p>
+                <div className="mt-3 grid grid-cols-3 divide-x divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-background/40">
+                    <Stat
+                        label="今日动态"
+                        value={stats ? stats.postsToday : "—"}
+                        unit={stats ? "条" : undefined}
+                    />
+                    <Stat
+                        to="/jizhang"
+                        label="本月花费"
+                        value={
+                            stats ? formatMoney(stats.monthSpend, true) : "—"
+                        }
+                    />
+                    <Stat
+                        to="/study"
+                        label="连续学习"
+                        value={streak}
+                        unit="天"
+                    />
                 </div>
-                <DinnerPicker />
             </section>
 
-            <Link
-                to="/about"
-                className="mt-6 block text-center text-[10px] font-medium text-muted-foreground"
+            <Suspense
+                fallback={
+                    <div className="px-3 pt-2">
+                        <FeedSkeleton />
+                    </div>
+                }
             >
-                秘密基地 · {import.meta.env.DEV ? "开发版" : shortSha(APP_SHA)}
-            </Link>
-
-            <AskSheet
-                open={askOpen}
-                onClose={() => setAskOpen(false)}
-                streak={streak}
-            />
+                <HomeFeed />
+            </Suspense>
         </div>
     );
 }
 
 function Stat({
-    icon: Icon,
+    to,
     label,
     value,
     unit,
 }: {
-    icon: LucideIcon;
+    to?: "/jizhang" | "/study";
     label: string;
     value: string | number;
     unit?: string;
 }) {
-    return (
-        <div className="rounded-2xl border border-border/60 bg-card p-3 shadow-soft">
-            <Icon className="size-4 text-primary" aria-hidden="true" />
-            <div className="mt-2 flex items-baseline gap-0.5">
-                <span className="text-xl font-semibold tabular-nums">
-                    {value}
-                </span>
+    const body = (
+        <>
+            <span className="text-sm font-semibold tabular-nums">
+                {value}
                 {unit && (
-                    <span className="text-[10px] font-medium text-muted-foreground">
+                    <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
                         {unit}
                     </span>
                 )}
-            </div>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">{label}</p>
-        </div>
+            </span>
+            <span className="mt-0.5 text-[10px] text-muted-foreground">
+                {label}
+            </span>
+        </>
     );
-}
+    const className =
+        "flex flex-col items-center justify-center py-2 transition-colors";
 
-function QuickLink({
-    to,
-    icon: Icon,
-    label,
-}: {
-    to: "/posts" | "/jizhang";
-    icon: LucideIcon;
-    label: string;
-}) {
+    if (!to) {
+        return <div className={className}>{body}</div>;
+    }
+
     return (
         <Link
             to={to}
-            className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card px-4 py-3 text-sm font-semibold shadow-soft transition-all duration-150 hover:bg-accent active:scale-[0.99]"
+            className={cn(className, "hover:bg-accent/50 active:bg-accent/60")}
         >
-            <Icon className="size-4 text-primary" aria-hidden="true" />
-            {label}
+            {body}
         </Link>
     );
 }
@@ -298,6 +235,10 @@ const generateMealFn = () => {
     return dinnerName;
 };
 
+/**
+ * 晚餐抽奖机 as a compact icon button in the greeting card: tapping the bowl
+ * rolls a dinner and opens the same confirm dialog as before.
+ */
 function DinnerPicker() {
     const user = useCurrentUser();
     const queryClient = useQueryClient();
@@ -345,14 +286,14 @@ function DinnerPicker() {
     return (
         <Dialog open={visible} onOpenChange={setVisible}>
             <DialogTrigger asChild>
-                <Button
-                    size="sm"
-                    className="shrink-0 gap-1"
+                <button
+                    type="button"
                     onClick={handlePick}
+                    aria-label="今晚吃什么（晚餐抽奖）"
+                    className="grid size-9 shrink-0 place-items-center rounded-full border border-amber-500/30 bg-amber-500/10 text-lg leading-none transition-transform hover:scale-105 active:scale-90"
                 >
-                    <Ham className="size-4" />
-                    <span>抽一下</span>
-                </Button>
+                    <span aria-hidden="true">🍜</span>
+                </button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>

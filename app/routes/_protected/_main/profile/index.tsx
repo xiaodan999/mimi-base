@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Camera, ChevronRight, Info, Pencil, Sparkles } from "lucide-react";
+import {
+    BarChart3,
+    Camera,
+    ChevronRight,
+    Info,
+    Pencil,
+    Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
@@ -200,6 +207,27 @@ function Page() {
                     打开 AI 设置
                 </Button>
             </section>
+
+            <Link
+                to="/report"
+                className="mt-4 flex items-center gap-3 rounded-3xl border border-border/60 bg-card p-4 shadow-soft transition-transform active:scale-[0.99]"
+            >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                    <BarChart3 className="size-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                        年度报告
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        这一年被你过成了什么样
+                    </span>
+                </span>
+                <ChevronRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden="true"
+                />
+            </Link>
 
             <section className="mt-4 rounded-3xl border border-border/60 bg-card p-5">
                 <h3 className="text-sm font-semibold">关于头像框</h3>

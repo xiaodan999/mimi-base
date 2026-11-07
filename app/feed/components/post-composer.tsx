@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-import { type PostData } from "../-data";
+import { type PostData } from "../data";
 import PostComposerForm from "./PostComposerForm";
 import ImageViewer from "./image-viewer";
 import { useCaptionTask } from "./useCaptionTask";

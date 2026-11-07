@@ -18,7 +18,7 @@ import {
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-import { groupPostMonths } from "./-utils";
+import { groupPostMonths } from "./utils";
 
 // The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
 // components importing from `./-data` don't need to change.

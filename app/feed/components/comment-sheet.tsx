@@ -25,8 +25,8 @@ import {
     useDeleteCommentMutation,
     useNewCommentMutation,
     type CommentData,
-} from "../-comments";
-import { formatRelativeTime } from "../-utils";
+} from "../comments";
+import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import ImageViewer, { type ViewerImage } from "./image-viewer";
 

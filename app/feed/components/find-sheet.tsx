@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
 
-import { usePostMonths } from "../-data";
+import { usePostMonths } from "../data";
 
 type FindSheetProps = {
     open: boolean;

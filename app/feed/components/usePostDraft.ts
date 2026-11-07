@@ -11,8 +11,8 @@ import {
     useUpdatePostMutation,
     type PostData,
     type PostLayout,
-} from "../-data";
-import { buildPostImagesFields } from "../-utils";
+} from "../data";
+import { buildPostImagesFields } from "../utils";
 
 export type PreviewImage =
     | { kind: "file"; file: File; thumb: File | null; url: string }

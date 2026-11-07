@@ -17,7 +17,8 @@ Chinese; keep that style when adding user-facing text.
     - `__root.tsx` root layout; `_protected.tsx` auth gate; `_protected/_main.tsx`
       app shell (scroll area + bottom `NavButtons`).
     - `_protected/_main/{home,posts,chat,jizhang,study,profile,report,photos}/`
-      feature pages; `photos/` now redirects to `/posts`. `chat/` has an index
+      feature pages. `/posts` and `/photos` now redirect to `/home`, which
+      hosts the 动态 feed under its greeting card. `chat/` has an index
       (conversation list) and `$conversationId.tsx` (thread).
     - Files starting with `-` (`-data.tsx`, `-comments.ts`, `-components/`) are
       colocated helpers, not routes.
@@ -31,6 +32,10 @@ Chinese; keep that style when adding user-facing text.
   fetch), `stream.ts` and `sse.ts` (streaming/tool-call parsing), `prompt.ts`,
   `personas.ts`, `title.ts`, `records.ts`, and `tools.ts` (the server-side
   sandbox itself lives in `pocketbase/sandbox/`).
+- `app/feed/` — 动态 domain: `data.ts` (infinite query and post mutations),
+  `utils.ts`, `comments.ts`, and `components/` (post, composer, comment sheet,
+  image viewer, find sheet). Home renders the feed through the lazy chunk
+  `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
@@ -253,7 +258,7 @@ before your first commit.
 - `posts.images` holds up to 9 filenames; upload them as `FormData` fields in
   the same request that creates the post. `posts.layout` is `moments`
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
-  `/photos` now redirects to `/posts`.
+  `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
   (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,
   `other`, defined in
@@ -363,8 +368,8 @@ before your first commit.
   the browser permission prompt is the consent boundary; never infer it from
   IP or the server.
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
-  category backfill), 动态 composer captions, Home (daily line, 去年今天,
-  问问我的基地), Study (wrong-answer overview, targeted drill, sprint plan),
+  category backfill), 动态 composer captions, Home (daily line, 去年今天 inline
+  in the feed), Study (wrong-answer overview, targeted drill, sprint plan),
   and the year report at `/report`. Data sent to the provider is only what the
   feature builds locally; nothing AI-related is written back to PocketBase
   except the user-confirmed expense rows/categories.

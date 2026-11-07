@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { useNewPostMutation } from "@/app/feed/data";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { toastPromise } from "@/lib/toast-promise";
-
-import { useNewPostMutation } from "../_main/posts/-data";
 
 export const Route = createFileRoute("/_protected/post/new-poo")({
     component: Page,
