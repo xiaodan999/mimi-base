@@ -74,7 +74,8 @@ fi
 . .env.prod
 
 # 4. clean up any legacy mimi-db cron entries from older installs
-#    (boot-start is now handled by the systemd unit, not cron)
+#    (older installs started PB from cron; nothing auto-starts it today —
+#    after a reboot the supervisor is started by hand, see the hint below)
 ( crontab -l 2>/dev/null | grep -v mimi-db || true ) | crontab -
 
 # 5. start (only if not already running) and register the superuser
