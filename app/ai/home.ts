@@ -10,35 +10,6 @@ const ASK_SYSTEM = [
     "涉及金额时把计算过程算准；回答控制在 150 字以内。",
 ].join("\n");
 
-export type DailyLineInput = {
-    greeting: string;
-    postsToday: number;
-    monthSpend: number;
-    monthEntries: number;
-    streak: number;
-};
-
-/** 首页问候语下面那一行：每天最多生成一次。 */
-export function dailyLineMessages(input: DailyLineInput): AiMessage[] {
-    const facts = [
-        `今天已经发了 ${input.postsToday} 条动态`,
-        `本月花了 ¥${input.monthSpend.toFixed(2)}，共 ${input.monthEntries} 笔`,
-        `连续学习 ${input.streak} 天`,
-    ].join("；");
-
-    return [
-        { role: "system", content: SYSTEM },
-        {
-            role: "user",
-            content: [
-                `现在是${input.greeting}。根据这些数据，写一句给用户看的今日小结：${facts}。`,
-                "要求：一句话，不超过 34 个字；只提最值得说的一两件事；没有数据就轻轻提一句记录；",
-                "不要列数字清单，不要用感叹号，不要问问题，不要加引号。",
-            ].join("\n"),
-        },
-    ];
-}
-
 export type MemoryInput = {
     dateLabel: string;
     texts: { yearsAgo: number; text: string }[];

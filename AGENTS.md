@@ -455,8 +455,9 @@ before your first commit.
   Shadow DOM, which is not a security boundary (same origin, same
   `localStorage` / PB token).
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
-  category backfill), 动态 composer captions, Home (daily line, 去年今天 inline
-  in the feed), Study (wrong-answer overview, targeted drill, sprint plan),
+  category backfill), 动态 composer captions, Home (去年今天 inline in the
+  feed; the daily line is computed locally), Study (wrong-answer overview,
+  targeted drill, sprint plan),
   and the year report at `/report`. Data sent to the provider is only what the
   feature builds locally; nothing AI-related is written back to PocketBase
   except the user-confirmed expense rows/categories.

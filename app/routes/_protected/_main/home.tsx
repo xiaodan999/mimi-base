@@ -118,7 +118,7 @@ function Page() {
                     <ThemeToggle className="shrink-0" />
                 </div>
 
-                <DailyLine greeting={greeting} stats={stats} streak={streak} />
+                <DailyLine stats={stats} streak={streak} />
 
                 <div className="mt-3 grid grid-cols-3 divide-x divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-background/40">
                     <Stat

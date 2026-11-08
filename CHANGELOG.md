@@ -2,6 +2,12 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-08
+
+### 变更
+
+- 首页今日小结改为本地计算（`app/routes/_protected/_main/-home/daily-line-text.ts` 的 `buildDailyLine`）：按今日动态数、本月花费/笔数和连续学习天数拼一句，连续学习放不下时省略；移除 `app/ai/home.ts` 的 `dailyLineMessages` 以及 `daily-line.tsx` 的 AI 任务、缓存和恢复逻辑，打开首页不再请求模型，也不会出现在 AI 任务中心。
+
 ## 2026-11-07
 
 ### 新增

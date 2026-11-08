@@ -71,7 +71,10 @@ export function AiTasksProvider({
     // 上次页面被杀（Android 把后台标签回收）时没跑完的任务：从本地台账
     // 恢复成「被中断」的行，能续跑的一键继续。只提醒一次。
     useEffect(() => {
-        const entries = readInterruptibleTasks();
+        // 今日小结已改为本地计算，旧版本留下的「daily:」条目不再恢复。
+        const entries = readInterruptibleTasks().filter(
+            (entry) => !entry.key.startsWith("daily:"),
+        );
         const count = store.restoreInterrupted(entries);
         if (count === 0) return;
         const fresh = entries.some((entry) => entry.restoredAt == null);

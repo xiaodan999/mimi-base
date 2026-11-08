@@ -40,6 +40,15 @@ export type Update = {
 
 export const UPDATES: Update[] = [
     {
+        date: "2026-11-08",
+        title: "今日小结本地算",
+        summary: "打开首页就有小结，不再等 AI，也不再花 AI 次数。",
+        links: [{ label: "回首页", to: "/home" }],
+        changed: [
+            "首页的今日小结改为按今日动态、本月花费和连续学习直接生成，打开就有，不再弹「AI 正在生成」。",
+        ],
+    },
+    {
         date: "2026-11-07",
         title: "聊天上线",
         summary: "聊天、隔离代码运行，和一个会向你提问的 AI。",
