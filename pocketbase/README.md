@@ -16,6 +16,7 @@ everything lives inside the repo clone:
     │                            #   deploy endpoints on :9001
     ├── ai-relay.ts              # streaming /api/ai relay using the site key
     ├── feedback.ts              # feedback (bug/feature) -> GitHub issue + issue state
+    ├── video.ts                 # optional ffmpeg re-encode for post videos
     ├── ai-files.ts              # server-side chat attachment reader
     ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
@@ -276,6 +277,27 @@ supervisor, so the existing `/api/*` rule covers them; no separate location is
 needed. Do not proxy `/feedback` itself (no trailing slash), because that is
 the SPA route. If your proxy splits `/api` by subpath, keep the exact
 `/api/feedback/*` paths.
+
+## Video compression (optional)
+
+The post composer sends videos larger than 8MB to
+`POST /api/video/compress` (supervisor, PocketBase token in `Authorization`,
+multipart `file`, max 50MB) before uploading them to PocketBase. The endpoint
+authenticates with `auth-refresh`, writes the upload to a private temp
+directory, runs `ffmpeg` (or `FFMPEG_PATH`) to produce a ≤1280px H.264/AAC
+MP4 (`-crf 26`, max 2500k video, 96k audio, faststart), and returns those
+bytes as `video/mp4` with `X-Video-Compressed: 1`. The original is deleted
+from the temp directory; PocketBase only ever stores the compressed file, so
+the first feed load is small too.
+
+ffmpeg is not a hard dependency. If the binary is missing, compression fails,
+the timeout (4 minutes) hits, or the output is not smaller, the endpoint
+answers 503/502 or `204 X-Video-Compressed: 0` and the client publishes the
+original file. Posts never fail because compression is unavailable. Install
+it with `sudo apt-get install -y ffmpeg` (Debian/Ubuntu) or
+`sudo apk add ffmpeg` (Alpine), then restart the supervisor; the setup script
+prints a warning when it is missing. `FFMPEG_PATH` can point at a custom
+binary. The endpoint is auth-only and never writes to PocketBase.
 
 ## Code sandbox
 

@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+    compressVideoForUpload,
+    VIDEO_COMPRESS_MIN_BYTES,
+} from "@/lib/compressVideo";
 import { getFileUrl } from "@/lib/pb";
 import { formatFileSize, VIDEO_ACCEPT, videoFileError } from "@/lib/postMedia";
 import { preparePhoto } from "@/lib/prepareImage";
@@ -274,15 +278,50 @@ export function usePostDraft({
 
         const { keep, files, keepThumbs, thumbs } =
             buildPostImagesFields(images);
-        const videoFields = buildPostVideoFields(
-            video
-                ? video.kind === "file"
-                    ? { kind: "file", file: video.file }
-                    : { kind: "existing", name: video.name }
-                : null,
-        );
         setPublishing(true);
+        let compressionToast: ReturnType<typeof toast.loading> | undefined;
         try {
+            // Compress before the PocketBase upload so the stored file is
+            // small from the first view. A missing/failing ffmpeg returns the
+            // original file and the post still publishes normally.
+            let videoFile = video?.kind === "file" ? video.file : null;
+            if (videoFile) {
+                if (videoFile.size >= VIDEO_COMPRESS_MIN_BYTES) {
+                    compressionToast = toast.loading("正在压缩视频…");
+                }
+                const result = await compressVideoForUpload(videoFile).catch(
+                    () => ({
+                        file: videoFile,
+                        compressed: false,
+                        reason: "error",
+                    }),
+                );
+                videoFile = result.file;
+                if (compressionToast !== undefined) {
+                    if (result.compressed) {
+                        toast.success("视频已压缩，正在上传", {
+                            id: compressionToast,
+                        });
+                    } else if (result.reason === "not_smaller") {
+                        toast.info("压缩后没有变小，按原画质上传", {
+                            id: compressionToast,
+                        });
+                    } else {
+                        toast.info("视频压缩暂不可用，按原画质上传", {
+                            id: compressionToast,
+                        });
+                    }
+                    compressionToast = undefined;
+                }
+            }
+            const videoFields = buildPostVideoFields(
+                video
+                    ? video.kind === "file"
+                        ? { kind: "file", file: videoFile ?? video.file }
+                        : { kind: "existing", name: video.name }
+                    : null,
+            );
+
             if (editing) {
                 await toastPromise(
                     updatePostMutation.mutateAsync({
@@ -327,6 +366,7 @@ export function usePostDraft({
         } catch {
             // toastPromise already surfaced the error.
         } finally {
+            if (compressionToast !== undefined) toast.dismiss(compressionToast);
             setPublishing(false);
         }
     };

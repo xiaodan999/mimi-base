@@ -51,10 +51,10 @@ Chinese; keep that style when adding user-facing text.
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
 - `pocketbase/` — server side: `server.ts` supervisor, `ai-files.ts`
-  attachment reader, `feedback.ts` (report -> GitHub issue), `package.json` /
-  `bun.lock` (server-only pdf.js + canvas), `pb_migrations/` (schema),
-  `pb_hooks/` (JSVM counters). Read `pocketbase/README.md` before touching
-  deploys or the server.
+  attachment reader, `feedback.ts` (report -> GitHub issue), `video.ts`
+  (ffmpeg video compression), `package.json` / `bun.lock` (server-only pdf.js +
+  canvas), `pb_migrations/` (schema), `pb_hooks/` (JSVM counters). Read
+  `pocketbase/README.md` before touching deploys or the server.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
 - `scripts/server-setup.sh` — fresh-server bootstrap. `scripts/dev.ts` backs
   `bun run dev:all` on Linux, WSL2 and plain Windows. Under WSL it also runs
@@ -424,7 +424,13 @@ before your first commit.
     GitHub state) on the same supervisor, so the `/api/*` rule covers them;
     `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
     `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.prod`
-    (dev: `.env`); `server.ts` carries them across a respawn.
+    (dev: `.env`); `server.ts` carries them across a respawn. Video posts use
+    `POST /api/video/compress` (auth-only, multipart `file`, max 50MB): the
+    supervisor runs the optional `ffmpeg` binary (or `FFMPEG_PATH`) to return a
+    ≤1280px H.264/AAC MP4, and the client uploads that to PocketBase. Files
+    under 8MB skip the call; missing ffmpeg/failure/not-smaller answers make
+    the client publish the original instead, so a post never fails for lack of
+    compression. The endpoint never stores the original.
 
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use

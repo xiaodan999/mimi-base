@@ -24,6 +24,10 @@
  *                       authenticated attachment upload -> GitHub release
  *                       assets (`feedback-assets` prerelease); returns public
  *                       URLs. Missing token answers 503.
+ *   POST /api/video/compress
+ *                       authenticated video -> smaller MP4 (ffmpeg); the
+ *                       client uploads the result to PocketBase. Missing
+ *                       ffmpeg answers 503 and the client keeps the original.
  *   POST /db/sync       git pull --ff-only -> stop PB -> pb_data snapshot ->
  *                       start PB -> respond only after /api/health passes.
  *                       A failed snapshot ABORTS the restart (PB stays down,
@@ -79,6 +83,7 @@ import path from "node:path";
 import { createAiRelay } from "./ai-relay";
 import { createFeedbackService } from "./feedback";
 import { createIpCityLookup } from "./geo-ip";
+import { createVideoService } from "./video";
 import { resolveChatModels } from "./chat-models";
 import { createSandboxExecutor } from "./sandbox-exec";
 
@@ -983,6 +988,7 @@ function scheduleRespawn(): void {
             "GITHUB_REPO",
             "GITHUB_API_URL",
             "GITHUB_UPLOADS_URL",
+            "FFMPEG_PATH",
         ]) {
             if (process.env[key] !== undefined) {
                 respawnEnv[key] = process.env[key];
@@ -1136,13 +1142,21 @@ function startHttpServer() {
         githubUploadsUrl: process.env.GITHUB_UPLOADS_URL?.trim() || undefined,
     });
 
+    // Video compression uses the caller's PB token and an optional ffmpeg
+    // binary; a missing binary makes the client fall back to the original.
+    const video = createVideoService({
+        pbBaseUrl: `http://127.0.0.1:${httpPort}`,
+        ffmpegPath: process.env.FFMPEG_PATH?.trim() || undefined,
+    });
+
     const serve = () => {
         supervisorServer = Bun.serve({
             port: supervisorPort,
             hostname: deployBind,
             // Bun defaults to 10s. SSE can pause longer between chunks, and
-            // closing the socket would look like a failed answer.
-            idleTimeout: 120,
+            // video compression can run for minutes before the response
+            // starts; closing the socket would look like a failed answer.
+            idleTimeout: 255,
             async fetch(req, server) {
                 const url = new URL(req.url);
                 const pathname = url.pathname;
@@ -1155,6 +1169,9 @@ function startHttpServer() {
 
                 const report = await feedback(req);
                 if (report) return report;
+
+                const compressedVideo = await video(req);
+                if (compressedVideo) return compressedVideo;
 
                 // No deploy secret: deploy endpoints stay off, but the AI
                 // relay above keeps serving (it authenticates PB users).

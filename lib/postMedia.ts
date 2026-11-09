@@ -83,6 +83,12 @@ export function videoFileError(file: VideoCandidate): string | null {
         : "只支持 MP4、WebM 或 MOV 视频";
 }
 
+/** Keep the picked stem but use the MP4 extension the compressor returns. */
+export function compressedVideoFileName(name: string): string {
+    const stem = name.replace(/\.[^./\\]+$/, "").trim() || "video";
+    return `${stem}.mp4`;
+}
+
 /** Human-readable file size for the composer's preview card. */
 export function formatFileSize(bytes: number): string {
     if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";

@@ -73,6 +73,15 @@ fi
 # same value as the GitHub "Production" environment secret.
 . .env.prod
 
+# Video compression is optional. Without ffmpeg the app still publishes, but
+# the original (up to 50MB) is stored and loaded; install it for smaller files.
+if [ ! -x "${FFMPEG_PATH:-$(command -v ffmpeg || true)}" ]; then
+    echo "WARN: ffmpeg not found — video posts will upload uncompressed."
+    echo "      Debian/Ubuntu: sudo apt-get install -y ffmpeg"
+    echo "      Alpine:        sudo apk add ffmpeg"
+    echo "      Then restart the supervisor (or set FFMPEG_PATH in .env.prod)."
+fi
+
 # 4. clean up any legacy mimi-db cron entries from older installs
 #    (older installs started PB from cron; nothing auto-starts it today —
 #    after a reboot the supervisor is started by hand, see the hint below)

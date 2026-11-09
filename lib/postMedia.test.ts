@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    compressedVideoFileName,
     DEFAULT_VIDEO_RATIO,
     fileNames,
     formatFileSize,
@@ -122,6 +123,18 @@ describe("formatFileSize", () => {
         expect(formatFileSize(900 * 1024)).toBe("900 KB");
         expect(formatFileSize(2.5 * MB)).toBe("2.5 MB");
         expect(formatFileSize(50 * MB)).toBe("50 MB");
+    });
+});
+
+describe("compressedVideoFileName", () => {
+    test("keeps the stem and switches to mp4", () => {
+        expect(compressedVideoFileName("clip.MOV")).toBe("clip.mp4");
+        expect(compressedVideoFileName("a.b.webm")).toBe("a.b.mp4");
+    });
+
+    test("falls back when the name has no stem", () => {
+        expect(compressedVideoFileName(".mp4")).toBe("video.mp4");
+        expect(compressedVideoFileName("   ")).toBe("video.mp4");
     });
 });
 

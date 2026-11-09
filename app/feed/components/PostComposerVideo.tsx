@@ -92,7 +92,7 @@ export default function PostComposerVideo({
                             添加视频
                         </span>
                         <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                            和照片二选一，原画质上传
+                            和照片二选一，大视频会自动压缩
                         </span>
                     </span>
                     <Plus className="size-4 shrink-0 text-primary" />
