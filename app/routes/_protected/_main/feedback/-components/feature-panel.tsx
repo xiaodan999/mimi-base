@@ -28,23 +28,26 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 
+import { AttachmentPicker } from "./attachment-picker";
 import { ContextChip, appVersionLabel } from "./context-chips";
+import { PagePicker } from "./page-picker";
 import { ReportList } from "./report-list";
-import { ScreenshotPicker } from "./screenshot-picker";
 import { SuccessCard } from "./success-card";
 
 /**
- * 功能建议 tab: title + want/why/how description + up to 3 photos. No console
- * errors and no chat conversation are attached, and the resulting row is
- * `kind: "feature"` so the other account can read it in 大家的建议.
+ * 功能建议 tab: title + want/why/how description + up to 3 attachments. No
+ * console errors and no chat conversation are attached, and the resulting row
+ * is `kind: "feature"` so the other account can read it in 大家的建议.
  */
 export function FeaturePanel() {
     const user = useCurrentUser();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
-    const [route] = useState(() => readLastRoute());
-    const [photos, setPhotos] = useState<File[]>([]);
+    const [recentRoute] = useState(() => readLastRoute());
+    const [route, setRoute] = useState(recentRoute);
+    const [attachments, setAttachments] = useState<File[]>([]);
     const [polishing, setPolishing] = useState(false);
+    const [pagePickerOpen, setPagePickerOpen] = useState(false);
     const [result, setResult] = useState<{
         issue: FeedbackIssue | null;
         syncError?: string;
@@ -106,7 +109,7 @@ export function FeaturePanel() {
             kind: "feature",
             title,
             description,
-            screenshots: photos,
+            attachments,
         });
         if (!checked.ok) {
             toast.error(checked.error);
@@ -119,11 +122,11 @@ export function FeaturePanel() {
                 title: checked.title,
                 description: checked.description,
                 route,
-                screenshots: photos,
+                attachments,
             });
             setTitle("");
             setDescription("");
-            setPhotos([]);
+            setAttachments([]);
             setResult({
                 issue: submitted.issue,
                 syncError: submitted.syncError,
@@ -226,6 +229,7 @@ export function FeaturePanel() {
                             <ContextChip
                                 icon={Lightbulb}
                                 text={`页面 ${route}`}
+                                onClick={() => setPagePickerOpen(true)}
                             />
                             <ContextChip
                                 icon={Package}
@@ -234,12 +238,10 @@ export function FeaturePanel() {
                         </div>
                     </div>
 
-                    <ScreenshotPicker
+                    <AttachmentPicker
                         disabled={busy}
-                        files={photos}
-                        hint="照片只保存在基地里，自动压缩后随建议上传，不会直接发到 GitHub。"
-                        noun="照片"
-                        onChange={setPhotos}
+                        files={attachments}
+                        onChange={setAttachments}
                     />
 
                     <Button
@@ -260,8 +262,8 @@ export function FeaturePanel() {
                         )}
                     </Button>
                     <p className="text-center text-[11px] leading-4 text-muted-foreground">
-                        建议会出现在「大家的建议」里，两个人都能看到；照片存在基地里，GitHub
-                        上只记录文字和照片名称。
+                        建议会出现在「大家的建议」里，两个人都能看到；附件直接上传到
+                        GitHub，公开可见，请勿放敏感信息。
                     </p>
                 </section>
             )}
@@ -276,7 +278,6 @@ export function FeaturePanel() {
                 <ReportList
                     emptyText="还没有人提过建议，来当第一个吧"
                     loading={suggestions.isLoading}
-                    photoLabel="照片"
                     reports={shared}
                     showAuthor
                     viewerId={user.id}
@@ -284,6 +285,14 @@ export function FeaturePanel() {
                     retryingId={retry.retryingId}
                 />
             </section>
+
+            <PagePicker
+                open={pagePickerOpen}
+                onOpenChange={setPagePickerOpen}
+                recent={recentRoute}
+                value={route}
+                onSelect={setRoute}
+            />
         </div>
     );
 }

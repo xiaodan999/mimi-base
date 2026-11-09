@@ -1,5 +1,17 @@
-import { ExternalLink, ImageIcon, Inbox, RefreshCw } from "lucide-react";
+import {
+    ExternalLink,
+    FileText,
+    ImageIcon,
+    Inbox,
+    Paperclip,
+    RefreshCw,
+} from "lucide-react";
 
+import {
+    attachmentSizeLabel,
+    isImageAttachment,
+    parseAttachmentList,
+} from "@/app/feedback/attachments";
 import type { FeedbackReportRecord } from "@/app/feedback/data";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +42,6 @@ export function ReportList({
     reports,
     loading,
     emptyText = "还没有提交过反馈",
-    photoLabel = "截图",
     showAuthor = false,
     viewerId,
     onRetry,
@@ -39,7 +50,6 @@ export function ReportList({
     reports: FeedbackReportRecord[];
     loading: boolean;
     emptyText?: string;
-    photoLabel?: string;
     /** Shared suggestions show who wrote them; 我的反馈 does not. */
     showAuthor?: boolean;
     /** Enables 重新同步 for the viewer's own stored/failed reports. */
@@ -73,6 +83,7 @@ export function ReportList({
                     ? toUser(report.expand.owner)
                     : null;
                 const authorName = author?.user_name || "朋友";
+                const attachments = parseAttachmentList(report.attachments);
                 return (
                     <li
                         key={report.id}
@@ -112,13 +123,13 @@ export function ReportList({
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
                             <span>{formatDate(report.created)}</span>
-                            {(report.screenshots?.length ?? 0) > 0 && (
+                            {attachments.length > 0 && (
                                 <span className="inline-flex items-center gap-1">
-                                    <ImageIcon
+                                    <Paperclip
                                         className="size-3"
                                         aria-hidden="true"
                                     />
-                                    {report.screenshots?.length} 张{photoLabel}
+                                    {attachments.length} 个附件
                                 </span>
                             )}
                             {report.conversation && <span>附带 AI 对话</span>}
@@ -137,6 +148,45 @@ export function ReportList({
                                 </a>
                             )}
                         </div>
+                        {attachments.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {attachments.map((attachment) => {
+                                    const image = isImageAttachment(attachment);
+                                    return (
+                                        <a
+                                            key={attachment.url}
+                                            className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] text-muted-foreground transition-colors active:bg-accent"
+                                            href={attachment.url}
+                                            rel="noreferrer"
+                                            target="_blank"
+                                            title={attachment.name}
+                                        >
+                                            {image ? (
+                                                <ImageIcon
+                                                    className="size-3 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                            ) : (
+                                                <FileText
+                                                    className="size-3 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            <span className="max-w-[9rem] truncate">
+                                                {attachment.name}
+                                            </span>
+                                            {!image && attachment.size ? (
+                                                <span className="shrink-0 opacity-70">
+                                                    {attachmentSizeLabel(
+                                                        attachment.size,
+                                                    )}
+                                                </span>
+                                            ) : null}
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        )}
                         {report.status === "failed" && report.error && (
                             <p className="mt-2 rounded-lg bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
                                 {report.error}

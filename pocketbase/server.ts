@@ -20,6 +20,10 @@
  *                       owner-scoped bug report -> GitHub issue via
  *                       GITHUB_TOKEN/GITHUB_REPO (see feedback.ts). Missing
  *                       token still accepts the stored report.
+ *   POST /api/feedback/upload
+ *                       authenticated attachment upload -> GitHub release
+ *                       assets (`feedback-assets` prerelease); returns public
+ *                       URLs. Missing token answers 503.
  *   POST /db/sync       git pull --ff-only -> stop PB -> pb_data snapshot ->
  *                       start PB -> respond only after /api/health passes.
  *                       A failed snapshot ABORTS the restart (PB stays down,
@@ -978,6 +982,7 @@ function scheduleRespawn(): void {
             "GITHUB_TOKEN",
             "GITHUB_REPO",
             "GITHUB_API_URL",
+            "GITHUB_UPLOADS_URL",
         ]) {
             if (process.env[key] !== undefined) {
                 respawnEnv[key] = process.env[key];
@@ -1118,15 +1123,17 @@ function startHttpServer() {
         geoLookup: createIpCityLookup({ devEgress: !isProd }),
     });
 
-    // Bug reports are created in PocketBase by the client first; this only
-    // opens the GitHub issue. Without GITHUB_TOKEN the report is still
-    // accepted (`issue: null`) so a missing secret never loses feedback.
-    // GITHUB_API_URL is overridable so tests can point at a local mock.
+    // Attachments upload to GitHub *before* the report row is created; the
+    // row then only stores metadata. Without GITHUB_TOKEN the report is still
+    // accepted (`issue: null`) but the upload endpoint answers 503.
+    // GITHUB_API_URL / GITHUB_UPLOADS_URL are overridable so tests can point
+    // at a local mock.
     const feedback = createFeedbackService({
         pbBaseUrl: `http://127.0.0.1:${httpPort}`,
         githubToken: process.env.GITHUB_TOKEN ?? "",
         githubRepo: process.env.GITHUB_REPO ?? "",
         githubApiUrl: process.env.GITHUB_API_URL?.trim() || undefined,
+        githubUploadsUrl: process.env.GITHUB_UPLOADS_URL?.trim() || undefined,
     });
 
     const serve = () => {

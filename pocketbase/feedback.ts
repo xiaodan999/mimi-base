@@ -2,28 +2,42 @@
  * Feedback -> GitHub issues (Bun supervisor).
  *
  * Handles both kinds stored in `feedback_reports`: bug reports (`kind=bug`,
- * the #39 flow) and feature suggestions (`kind=feature`, #40). The client
- * creates the row first (photos upload in the same PocketBase request), then
- * POSTs `{ reportId }` here. This service:
+ * the #39 flow) and feature suggestions (`kind=feature`, #40).
+ *
+ * Attachments are uploaded to GitHub *before* the PocketBase row exists
+ * (#54): the client POSTs them to `/api/feedback/upload`, this service stores
+ * each one as an asset on the `feedback-assets` prerelease and returns
+ * `{ name, url, size, type }`. The client then creates the report row with
+ * those metadata in the `attachments` JSON field and POSTs `{ reportId }` to
+ * `/api/feedback/report`. Nothing but metadata is ever written to PocketBase.
+ *
+ * The report flow:
  *
  *   1. authenticates the caller with their PocketBase token (`auth-refresh`,
  *      the same pattern as ai-relay.ts),
  *   2. re-fetches the report with that token and still requires the caller to
  *      own it — the shared feature read rule lets the other account *read* a
  *      suggestion, never sync it,
- *   3. builds a sanitized Markdown issue body (including a truncated AI chat
- *      transcript when a bug report attached one) and creates the issue with
- *      the server-held `GITHUB_TOKEN`,
+ *   3. builds a sanitized Markdown issue body (attachments inline/links, plus
+ *      a truncated AI chat transcript when a bug report attached one) and
+ *      creates the issue with the server-held `GITHUB_TOKEN`,
  *   4. writes `status` / `issue_url` / `issue_number` back onto the report.
  *
- * Feature suggestions use `[Feature]` + `enhancement`/`from-app`, never
- * require a conversation, and their body is the idea plus the note that the
- * photos live in the app's feedback record.
+ * Feature suggestions use `[Feature]` + `enhancement`/`from-app` and never
+ * require a conversation. Re-syncing a stored/failed row rebuilds the body
+ * from the stored attachment metadata, so it never re-uploads bytes.
  *
  * If `GITHUB_TOKEN`/`GITHUB_REPO` is not configured the report is still
  * accepted: this returns `200 { issue: null }`, the row stays `stored`, and
- * the UI says 已收到反馈，暂未同步 GitHub. A GitHub failure is recorded as
+ * the UI says 已收到反馈，暂未同步 GitHub. The upload endpoint answers
+ * `503 { reason: "github_not_configured" }` instead, so the client can tell
+ * the user to submit without attachments. A GitHub failure is recorded as
  * `failed` and returned as 502, but the report itself is never lost.
+ *
+ * GitHub has no REST endpoint for issue attachments; a release asset is the
+ * supported workaround. The release is created once (prerelease, tag
+ * `feedback-assets`) and reused. The repository is public, so every uploaded
+ * attachment is public too — the UI says so before submission.
  *
  * The GitHub token, the PocketBase token and raw provider responses never
  * reach the browser.
@@ -32,8 +46,20 @@
 export const FEEDBACK_PREFIX = "/api/feedback";
 /** POST { reportId } — create the GitHub issue for an existing report. */
 export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
+/** POST multipart `files` — upload attachments, return their public URLs. */
+export const FEEDBACK_UPLOAD_PATH = "/api/feedback/upload";
 
 const MAX_BODY_BYTES = 8 * 1024;
+const MAX_UPLOAD_FILES = 3;
+const MAX_UPLOAD_FILE_BYTES = 10 * 1024 * 1024;
+/** Declared-body cap: three 10MB files plus multipart overhead. */
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_FILES * MAX_UPLOAD_FILE_BYTES + 256 * 1024;
+/** Uploads are slower than JSON calls; give a 10MB asset room. */
+const UPLOAD_TIMEOUT_MS = 60_000;
+/** Single prerelease that holds every feedback attachment. */
+const RELEASE_TAG = "feedback-assets";
+/** Same client/server cap; the row stores at most this many. */
+const MAX_ATTACHMENTS = 3;
 const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 500;
 const CONNECT_TIMEOUT_MS = 10_000;
@@ -72,9 +98,20 @@ export type FeedbackReport = {
     issue_url?: string;
     issue_number?: number;
     error?: string;
-    screenshots?: unknown;
+    /** JSON field: `[{ name, url, size, type }]`, stored by the client. */
+    attachments?: unknown;
     conversation?: string;
     created?: string;
+};
+
+/** Public metadata for one attachment already uploaded to GitHub. */
+export type FeedbackAttachment = {
+    name: string;
+    url: string;
+    /** Bytes on disk; omitted when unknown. */
+    size?: number;
+    /** MIME type as sent by the browser; `image/*` renders inline. */
+    type?: string;
 };
 
 export type TranscriptMessage = {
@@ -91,6 +128,8 @@ export type FeedbackDeps = {
     githubRepo: string;
     /** GitHub API base; override a local mock in tests. */
     githubApiUrl?: string;
+    /** GitHub asset-upload base; override a local mock in tests. */
+    githubUploadsUrl?: string;
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
@@ -101,6 +140,8 @@ export type FeedbackService = (req: Request) => Promise<Response | null>;
 
 type AuthOk = { ok: true; uid: string; token: string };
 type AuthFail = { ok: false; response: Response };
+type ReleaseResult =
+    { ok: true; id: number } | { ok: false; status: number; error: string };
 
 function json(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
@@ -152,11 +193,99 @@ function inline(value: unknown, max: number): string {
         .replace(/`/g, "'");
 }
 
-function asStringArray(value: unknown): string[] {
-    if (!Array.isArray(value)) return [];
-    return value
-        .filter((item): item is string => typeof item === "string" && !!item)
-        .slice(0, 3);
+/**
+ * Attachment metadata comes back from a JSONField, so PocketBase may hand us
+ * either the parsed array or (for a row written as a string) the raw JSON.
+ * Only public https URLs are accepted: a `javascript:`/`data:`/`http:` link
+ * must never end up in an issue body.
+ */
+export function asAttachmentArray(value: unknown): FeedbackAttachment[] {
+    let raw = value;
+    if (typeof raw === "string") {
+        try {
+            raw = JSON.parse(raw) as unknown;
+        } catch {
+            return [];
+        }
+    }
+    if (!Array.isArray(raw)) return [];
+    const attachments: FeedbackAttachment[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== "object") continue;
+        const record = item as Record<string, unknown>;
+        const url = typeof record.url === "string" ? record.url.trim() : "";
+        // Parentheses/brackets would terminate the Markdown link early.
+        if (!/^https:\/\/[^\s<>"'`()[\]{}]+$/i.test(url)) continue;
+        const name = inline(record.name, 120) || "附件";
+        const size =
+            typeof record.size === "number" &&
+            Number.isFinite(record.size) &&
+            record.size > 0
+                ? Math.floor(record.size)
+                : undefined;
+        const type = inline(record.type, 100);
+        attachments.push({
+            name,
+            url,
+            ...(size === undefined ? {} : { size }),
+            ...(type ? { type } : {}),
+        });
+        if (attachments.length >= MAX_ATTACHMENTS) break;
+    }
+    return attachments;
+}
+
+/** Escape characters that would break Markdown link text / alt text. */
+export function escapeMarkdownText(value: string): string {
+    return value.replace(/[\\`*_\[\]<>|]/g, (char) => `\\${char}`);
+}
+
+/** 1234 -> "1.2 KB", 10*1024*1024 -> "10 MB". */
+export function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) {
+        return `${kb < 10 ? Math.round(kb * 10) / 10 : Math.round(kb)} KB`;
+    }
+    return `${Math.round((kb / 1024) * 10) / 10} MB`;
+}
+
+/** One Markdown block: images inline, everything else as a linked bullet. */
+export function renderAttachment(attachment: FeedbackAttachment): string {
+    const label = escapeMarkdownText(attachment.name);
+    if ((attachment.type ?? "").toLowerCase().startsWith("image/")) {
+        return `![${label}](${attachment.url})`;
+    }
+    const size = attachment.size ? ` (${formatBytes(attachment.size)})` : "";
+    return `- [${label}](${attachment.url})${size}`;
+}
+
+/**
+ * Make a browser file name safe for a release asset URL: ASCII only, no path
+ * part, no control chars, bounded length, extension preserved.
+ */
+export function sanitizeAssetName(raw: string): string {
+    const base = (raw.split(/[\\/]/).pop() ?? "")
+        .replace(/[\u0000-\u001f\u007f]/g, "")
+        .trim();
+    const dot = base.lastIndexOf(".");
+    const hasExtension = dot > 0 && dot < base.length - 1;
+    const stem = hasExtension ? base.slice(0, dot) : base;
+    const extension = hasExtension
+        ? base
+              .slice(dot + 1)
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "")
+              .slice(0, 12)
+        : "";
+    const safeStem =
+        stem
+            .replace(/[^A-Za-z0-9._-]+/g, "-")
+            .replace(/-{2,}/g, "-")
+            .replace(/^[-.]+|[-.]+$/g, "")
+            .slice(0, 100)
+            .replace(/[-.]+$/g, "") || "file";
+    return extension ? `${safeStem}.${extension}` : safeStem;
 }
 
 /** Console entries are client-supplied JSON; accept both an array and a wrapper. */
@@ -312,11 +441,10 @@ export function buildIssueTitle(title: string, kind = "bug"): string {
 export function buildIssueBody(input: IssueBodyInput): string {
     const { report } = input;
     const feature = report.kind === "feature";
-    const screenshots = asStringArray(report.screenshots);
+    const attachments = asAttachmentArray(report.attachments);
     const consoleText = feature ? "" : formatConsoleErrors(report.console);
     const when = (input.now ?? new Date()).toISOString();
     const conversationTitle = cleanText(input.conversationTitle, 80);
-    const photoLabel = feature ? "照片" : "截图";
     const meta = [
         `- 类型：${feature ? "功能建议" : "问题反馈"}`,
         `- 页面：\`${inline(report.route, 180) || "未知"}\``,
@@ -325,13 +453,9 @@ export function buildIssueBody(input: IssueBodyInput): string {
         })`,
         `- 提交时间：${when}`,
         `- 浏览器：${inline(report.user_agent, 400) || "未知"}`,
-        `- ${photoLabel}：${
-            screenshots.length > 0
-                ? `${screenshots.length} 张（${screenshots
-                      .map((name) => inline(name, 120))
-                      .join("、")}）——${
-                      feature ? "照片" : "图片"
-                  }保存在 App 内的反馈记录里，需要时请登录后台查看。`
+        `- 附件：${
+            attachments.length > 0
+                ? `${attachments.length} 个（已上传到 GitHub）`
                 : "无"
         }`,
         // A feature suggestion never needs a chat transcript; omit the line
@@ -357,6 +481,16 @@ export function buildIssueBody(input: IssueBodyInput): string {
         "",
         meta,
     ];
+    if (attachments.length > 0) {
+        sections.push(
+            "",
+            "### 附件",
+            "",
+            "> 附件由 App 直接上传到 GitHub（本仓库为公开仓库，链接可公开访问）。",
+            "",
+            attachments.map(renderAttachment).join("\n\n"),
+        );
+    }
     if (consoleText) {
         sections.push(
             "",
@@ -389,11 +523,20 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     const apiBase = (
         deps.githubApiUrl?.trim() || "https://api.github.com"
     ).replace(/\/+$/, "");
+    const uploadsBase = (
+        deps.githubUploadsUrl?.trim() || "https://uploads.github.com"
+    ).replace(/\/+$/, "");
     const repo = deps.githubRepo.trim();
     const token = deps.githubToken.trim();
     const authCacheMs = deps.authCacheMs ?? AUTH_CACHE_MS;
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
     const configured = token !== "" && repo !== "";
+    /** Release id resolved once; every upload reuses this single prerelease. */
+    let releaseId: number | null = null;
+    /** Concurrent first uploads must not create two releases. */
+    let releaseInFlight: Promise<ReleaseResult> | null = null;
+    /** Makes asset names unique even within the same millisecond. */
+    let assetSeq = 0;
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
         const header = req.headers.get("authorization")?.trim() ?? "";
@@ -487,6 +630,258 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         } catch {
             return false;
         }
+    }
+
+    function githubHeaders(
+        extra: Record<string, string> = {},
+    ): Record<string, string> {
+        return {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "mimi-base-feedback",
+            ...extra,
+        };
+    }
+
+    async function findRelease(): Promise<
+        { ok: true; id: number } | { ok: false; status: number }
+    > {
+        let res: Response;
+        try {
+            res = await fetchImpl(
+                `${apiBase}/repos/${repo}/releases/tags/${encodeURIComponent(RELEASE_TAG)}`,
+                {
+                    method: "GET",
+                    headers: githubHeaders(),
+                    signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+                },
+            );
+        } catch {
+            return { ok: false, status: 0 };
+        }
+        if (!res.ok) return { ok: false, status: res.status };
+        let data: { id?: unknown };
+        try {
+            data = (await res.json()) as typeof data;
+        } catch {
+            return { ok: false, status: 0 };
+        }
+        const id =
+            typeof data.id === "number" && Number.isFinite(data.id)
+                ? Math.floor(data.id)
+                : 0;
+        return id > 0 ? { ok: true, id } : { ok: false, status: 0 };
+    }
+
+    async function resolveRelease(): Promise<ReleaseResult> {
+        const found = await findRelease();
+        if (found.ok) {
+            releaseId = found.id;
+            return found;
+        }
+        if (found.status !== 404) {
+            return {
+                ok: false,
+                status: 502,
+                error:
+                    found.status === 0
+                        ? "无法连接 GitHub"
+                        : `无法读取 GitHub Release（HTTP ${found.status}）`,
+            };
+        }
+
+        let res: Response;
+        try {
+            res = await fetchImpl(`${apiBase}/repos/${repo}/releases`, {
+                method: "POST",
+                headers: githubHeaders({ "content-type": "application/json" }),
+                body: JSON.stringify({
+                    tag_name: RELEASE_TAG,
+                    name: "反馈附件",
+                    body: "App 问题反馈 / 功能建议直接上传的附件。",
+                    prerelease: true,
+                }),
+                signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+            });
+        } catch {
+            return { ok: false, status: 502, error: "无法连接 GitHub" };
+        }
+        if (res.status === 422) {
+            // A concurrent request may have created the tag between our GET
+            // and POST; re-read instead of failing the upload.
+            const again = await findRelease();
+            if (again.ok) {
+                releaseId = again.id;
+                return again;
+            }
+        }
+        if (!res.ok) {
+            return {
+                ok: false,
+                status: 502,
+                error: `GitHub 创建附件仓库失败（HTTP ${res.status}）`,
+            };
+        }
+        let data: { id?: unknown };
+        try {
+            data = (await res.json()) as typeof data;
+        } catch {
+            return {
+                ok: false,
+                status: 502,
+                error: "GitHub 返回了无法解析的结果",
+            };
+        }
+        const id =
+            typeof data.id === "number" && Number.isFinite(data.id)
+                ? Math.floor(data.id)
+                : 0;
+        if (id <= 0) {
+            return {
+                ok: false,
+                status: 502,
+                error: "GitHub 没有返回 Release 编号",
+            };
+        }
+        releaseId = id;
+        return { ok: true, id };
+    }
+
+    async function ensureRelease(): Promise<ReleaseResult> {
+        if (releaseId !== null) return { ok: true, id: releaseId };
+        if (!releaseInFlight) {
+            releaseInFlight = resolveRelease().finally(() => {
+                releaseInFlight = null;
+            });
+        }
+        return releaseInFlight;
+    }
+
+    /**
+     * POST one asset to the release. Returns the public https URL GitHub
+     * assigns. A failed upload aborts the whole request: the client then
+     * shows "remove the attachments or retry" instead of creating a report
+     * whose metadata points at missing assets.
+     */
+    async function uploadReleaseAsset(
+        release: number,
+        file: File,
+    ): Promise<
+        | { ok: true; attachment: FeedbackAttachment }
+        | { ok: false; error: string }
+    > {
+        const safeName = sanitizeAssetName(file.name || "file");
+        const uniqueName = `${now().toString(36)}-${(assetSeq++).toString(36)}-${safeName}`;
+        const endpoint = `${uploadsBase}/repos/${repo}/releases/${release}/assets?name=${encodeURIComponent(uniqueName)}`;
+        let res: Response;
+        try {
+            res = await fetchImpl(endpoint, {
+                method: "POST",
+                headers: githubHeaders({
+                    "Content-Type": file.type || "application/octet-stream",
+                }),
+                body: await file.arrayBuffer(),
+                signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+            });
+        } catch {
+            return { ok: false, error: "无法连接 GitHub 上传附件" };
+        }
+        if (!res.ok) {
+            // Status only: the body can contain repository details.
+            return {
+                ok: false,
+                error: `GitHub 上传附件失败（HTTP ${res.status}）`,
+            };
+        }
+        let data: { browser_download_url?: unknown };
+        try {
+            data = (await res.json()) as typeof data;
+        } catch {
+            return { ok: false, error: "GitHub 返回了无法解析的结果" };
+        }
+        const url =
+            typeof data.browser_download_url === "string"
+                ? data.browser_download_url.trim()
+                : "";
+        if (!/^https?:\/\//i.test(url)) {
+            return { ok: false, error: "GitHub 没有返回附件链接" };
+        }
+        const name = cleanText(file.name, 200) || safeName;
+        const type = cleanText(file.type, 100);
+        return {
+            ok: true,
+            attachment: {
+                name,
+                url,
+                size: file.size,
+                ...(type ? { type } : {}),
+            },
+        };
+    }
+
+    async function handleUpload(req: Request): Promise<Response> {
+        if (!configured) {
+            return json(
+                {
+                    ok: false,
+                    reason: "github_not_configured",
+                    error: "附件需要上传到 GitHub，但服务端还没有配置 GITHUB_TOKEN / GITHUB_REPO",
+                },
+                503,
+            );
+        }
+        let form: FormData;
+        try {
+            form = await req.formData();
+        } catch {
+            return badRequest("请求内容不是合法的表单");
+        }
+        const files = form
+            .getAll("files")
+            .filter(
+                (value): value is File =>
+                    value instanceof File && value.size > 0,
+            );
+        if (files.length === 0) return badRequest("没有收到附件");
+        if (files.length > MAX_UPLOAD_FILES) {
+            return badRequest(`最多上传 ${MAX_UPLOAD_FILES} 个附件`);
+        }
+        for (const file of files) {
+            if (file.size > MAX_UPLOAD_FILE_BYTES) {
+                return json(
+                    {
+                        ok: false,
+                        error: `单个附件不能超过 ${MAX_UPLOAD_FILE_BYTES / 1024 / 1024}MB`,
+                    },
+                    413,
+                );
+            }
+        }
+
+        const release = await ensureRelease();
+        if (!release.ok) {
+            return json(
+                { ok: false, reason: "github_failed", error: release.error },
+                release.status,
+            );
+        }
+        const attachments: FeedbackAttachment[] = [];
+        for (const file of files) {
+            const uploaded = await uploadReleaseAsset(release.id, file);
+            if (!uploaded.ok) {
+                return json(
+                    {
+                        ok: false,
+                        reason: "github_failed",
+                        error: uploaded.error,
+                    },
+                    502,
+                );
+            }
+            attachments.push(uploaded.attachment);
+        }
+        return json({ ok: true, attachments });
     }
 
     async function withTranscript(
@@ -599,18 +994,30 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         const url = new URL(req.url);
         if (!url.pathname.startsWith(FEEDBACK_PREFIX)) return null;
         if (req.method === "OPTIONS") return empty(204);
-        if (url.pathname !== FEEDBACK_REPORT_PATH) {
+        const uploading = url.pathname === FEEDBACK_UPLOAD_PATH;
+        if (url.pathname !== FEEDBACK_REPORT_PATH && !uploading) {
             return json({ ok: false, error: "not found" }, 404);
         }
         if (req.method !== "POST") {
             return json({ ok: false, error: "method not allowed" }, 405);
         }
 
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (declared > MAX_BODY_BYTES) return tooLarge();
+        if (uploading) {
+            const declared = Number(req.headers.get("content-length") ?? 0);
+            if (declared > MAX_UPLOAD_BYTES) {
+                return json(
+                    { ok: false, error: "附件太大了（最多 3 个，每个 10MB）" },
+                    413,
+                );
+            }
+        } else {
+            const declared = Number(req.headers.get("content-length") ?? 0);
+            if (declared > MAX_BODY_BYTES) return tooLarge();
+        }
 
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
+        if (uploading) return handleUpload(req);
 
         let body: { reportId?: unknown };
         try {
@@ -641,8 +1048,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         }
 
         // Already synced (e.g. a retry): return the existing issue instead of
-        // opening a duplicate one. Checked before the rate limit so retrying
-        // a successful submission never spends quota or a GitHub call.
+        // opening a duplicate one. Checked before any GitHub call so retrying
+        // a successful submission never spends a GitHub request.
         if (report.status === "issue_created" && report.issue_url) {
             return json({
                 ok: true,

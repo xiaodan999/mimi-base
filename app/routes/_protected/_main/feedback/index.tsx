@@ -12,11 +12,20 @@ type FeedbackTab = "bug" | "feature";
 type FeedbackSearch = {
     /** `feature` deep-links the 功能建议 tab; omitted means 问题反馈. */
     tab?: "feature";
+    /**
+     * A chat conversation to attach to the bug report. Set by the 反馈问题
+     * action in the chat thread, never picked on this page.
+     */
+    conversation?: string;
 };
 
 export const Route = createFileRoute("/_protected/_main/feedback/")({
     validateSearch: (search: Record<string, unknown>): FeedbackSearch => ({
         tab: search.tab === "feature" ? "feature" : undefined,
+        conversation:
+            typeof search.conversation === "string" && search.conversation
+                ? search.conversation
+                : undefined,
     }),
     component: Page,
 });
@@ -51,10 +60,25 @@ function Page() {
     const switchTab = (next: FeedbackTab) => {
         if (next === tab) return;
         // `replace` keeps the browser back gesture going back to 个人资料
-        // instead of walking through every tab the user tapped.
+        // instead of walking through every tab the user tapped. The attached
+        // conversation rides along so a tab switch does not detach it.
         void navigate({
             to: "/feedback",
-            search: next === "feature" ? { tab: "feature" } : {},
+            search: {
+                tab: next === "feature" ? "feature" : undefined,
+                conversation: search.conversation,
+            },
+            replace: true,
+        });
+    };
+
+    // Only the 反馈问题 tab can hold a conversation; detaching rewrites the
+    // URL so a reload stays detached. Other bug-draft fields are state in
+    // BugPanel and survive the navigation.
+    const detachConversation = () => {
+        void navigate({
+            to: "/feedback",
+            search: { tab: search.tab, conversation: undefined },
             replace: true,
         });
     };
@@ -117,7 +141,12 @@ function Page() {
                 id="feedback-panel-bug"
                 role="tabpanel"
             >
-                {visited.bug && <BugPanel />}
+                {visited.bug && (
+                    <BugPanel
+                        conversationId={search.conversation}
+                        onDetachConversation={detachConversation}
+                    />
+                )}
             </div>
 
             <div

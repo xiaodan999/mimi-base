@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    MAX_ATTACHMENT_BYTES,
+    MAX_FEEDBACK_ATTACHMENTS,
     MAX_FEEDBACK_DESCRIPTION,
-    MAX_FEEDBACK_SCREENSHOTS,
     MAX_FEEDBACK_TITLE,
-    MAX_SCREENSHOT_BYTES,
     validateFeedback,
 } from "./validation";
 
@@ -12,6 +12,12 @@ const image = (name = "shot.webp", size = 1024) => ({
     name,
     size,
     type: "image/webp",
+});
+
+const textFile = (name = "log.txt", size = 1024) => ({
+    name,
+    size,
+    type: "text/plain",
 });
 
 describe("validateFeedback", () => {
@@ -60,47 +66,55 @@ describe("validateFeedback", () => {
         ).toBe(true);
     });
 
-    test("accepts up to three screenshots", () => {
-        const result = validateFeedback({
-            title: "t",
-            description: "d",
-            screenshots: [image("a"), image("b"), image("c")],
-        });
-        expect(result.ok).toBe(true);
+    test("accepts up to three mixed attachments", () => {
+        expect(
+            validateFeedback({
+                title: "t",
+                description: "d",
+                attachments: [
+                    image("a"),
+                    textFile("b"),
+                    { name: "c.zip", size: 2048, type: "application/zip" },
+                ],
+            }).ok,
+        ).toBe(true);
     });
 
-    test("rejects too many screenshots", () => {
-        const screenshots = Array.from(
-            { length: MAX_FEEDBACK_SCREENSHOTS + 1 },
+    test("accepts a file without a MIME type", () => {
+        expect(
+            validateFeedback({
+                title: "t",
+                description: "d",
+                attachments: [{ name: "dump.bin", size: 10 }],
+            }).ok,
+        ).toBe(true);
+    });
+
+    test("rejects too many attachments", () => {
+        const attachments = Array.from(
+            { length: MAX_FEEDBACK_ATTACHMENTS + 1 },
             (_, index) => image(`shot-${index}.webp`),
         );
         expect(
             validateFeedback({
                 title: "t",
                 description: "d",
-                screenshots,
+                attachments,
             }),
         ).toEqual({
             ok: false,
-            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张截图`,
+            error: `最多上传 ${MAX_FEEDBACK_ATTACHMENTS} 个附件`,
         });
     });
 
-    test("rejects non-images and oversized files", () => {
+    test("rejects an oversized attachment", () => {
         expect(
             validateFeedback({
                 title: "t",
                 description: "d",
-                screenshots: [{ name: "a.txt", size: 10, type: "text/plain" }],
+                attachments: [image("big.png", MAX_ATTACHMENT_BYTES + 1)],
             }),
-        ).toEqual({ ok: false, error: "截图需要是图片文件" });
-        expect(
-            validateFeedback({
-                title: "t",
-                description: "d",
-                screenshots: [image("big.png", MAX_SCREENSHOT_BYTES + 1)],
-            }),
-        ).toEqual({ ok: false, error: "单张截图不能超过 5MB" });
+        ).toEqual({ ok: false, error: "单个附件不能超过 10MB" });
     });
 
     test("uses feature-suggestion copy for a missing description", () => {
@@ -113,39 +127,13 @@ describe("validateFeedback", () => {
         ).toEqual({ ok: false, error: "请描述一下你的想法" });
     });
 
-    test("uses photo wording for feature screenshots", () => {
-        const tooMany = Array.from(
-            { length: MAX_FEEDBACK_SCREENSHOTS + 1 },
-            (_, index) => image(`photo-${index}.webp`),
-        );
-        expect(
-            validateFeedback({
-                kind: "feature",
-                title: "t",
-                description: "d",
-                screenshots: tooMany,
-            }),
-        ).toEqual({
-            ok: false,
-            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张图片`,
-        });
-        expect(
-            validateFeedback({
-                kind: "feature",
-                title: "t",
-                description: "d",
-                screenshots: [{ name: "a.txt", size: 10, type: "text/plain" }],
-            }),
-        ).toEqual({ ok: false, error: "照片需要是图片文件" });
-    });
-
-    test("accepts a feature suggestion with photos", () => {
+    test("accepts a feature suggestion with attachments", () => {
         expect(
             validateFeedback({
                 kind: "feature",
                 title: " 想要每日一句 ",
                 description: " 想要什么 / 为什么 / 怎么用 ",
-                screenshots: [image("a"), image("b")],
+                attachments: [image("a"), textFile("b")],
             }),
         ).toEqual({
             ok: true,

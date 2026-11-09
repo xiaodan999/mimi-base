@@ -1,15 +1,17 @@
 /**
- * Client-side validation shared by the form and its tests. The server-side
- * caps live in `pocketbase/pb_migrations/1795700000_add_feedback_reports.js`
- * (title 120, description 5000, 3 screenshots x 5MB) and are the backstop.
+ * Client-side validation shared by the form and its tests. The supervisor
+ * (`pocketbase/feedback.ts`) enforces the same caps for uploaded attachments
+ * (3 files, 10MB each, any MIME type) and is the backstop; nothing but
+ * metadata is written to `feedback_reports`, so the collection itself no
+ * longer caps file size.
  */
 
 export const MAX_FEEDBACK_TITLE = 120;
 export const MAX_FEEDBACK_DESCRIPTION = 5000;
-export const MAX_FEEDBACK_SCREENSHOTS = 3;
-export const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
+export const MAX_FEEDBACK_ATTACHMENTS = 3;
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-export type ScreenshotLike = {
+export type AttachmentLike = {
     name?: string;
     size?: number;
     type?: string;
@@ -21,7 +23,7 @@ export type FeedbackDraft = {
     kind?: FeedbackKind;
     title: string;
     description: string;
-    screenshots?: readonly ScreenshotLike[];
+    attachments?: readonly AttachmentLike[];
 };
 
 export type FeedbackValidation =
@@ -53,28 +55,21 @@ export function validateFeedback(draft: FeedbackDraft): FeedbackValidation {
         };
     }
 
-    const screenshots = draft.screenshots ?? [];
-    if (screenshots.length > MAX_FEEDBACK_SCREENSHOTS) {
+    const attachments = draft.attachments ?? [];
+    if (attachments.length > MAX_FEEDBACK_ATTACHMENTS) {
         return {
             ok: false,
-            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张${
-                feature ? "图片" : "截图"
-            }`,
+            error: `最多上传 ${MAX_FEEDBACK_ATTACHMENTS} 个附件`,
         };
     }
-    for (const file of screenshots) {
-        if (!file.type || !file.type.startsWith("image/")) {
+    for (const file of attachments) {
+        // Any MIME type is allowed (logs, zips, PDFs, ...); only size is
+        // capped. An empty type is common for uncommon extensions and is not
+        // a reason to reject the file here.
+        if (typeof file.size === "number" && file.size > MAX_ATTACHMENT_BYTES) {
             return {
                 ok: false,
-                error: feature ? "照片需要是图片文件" : "截图需要是图片文件",
-            };
-        }
-        if (typeof file.size === "number" && file.size > MAX_SCREENSHOT_BYTES) {
-            return {
-                ok: false,
-                error: feature
-                    ? "单张照片不能超过 5MB"
-                    : "单张截图不能超过 5MB",
+                error: `单个附件不能超过 ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB`,
             };
         }
     }

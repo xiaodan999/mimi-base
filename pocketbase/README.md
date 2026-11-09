@@ -204,11 +204,28 @@ PB host's reverse proxy must expose `/api/ai/*` as well.
 ## Feedback (bugs + feature suggestions) -> GitHub
 
 `/feedback` writes a row into `feedback_reports` (`kind=bug` or
-`kind=feature`; photos upload through PocketBase, protected files). The
+`kind=feature`). Attachments — images or arbitrary files, up to 3 and 10MB
+each — are uploaded to GitHub **before** the row exists; PocketBase stores
+only their `{ name, url, size, type }` metadata in the `attachments` JSON
+field. No file bytes and no protected file fields are involved anymore. The
 collection's list/view rule is
 `@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`, so
 feature suggestions are shared between the two accounts while bug reports stay
-owner-only; create/update/delete remain owner-bound. The client then calls
+owner-only; create/update/delete remain owner-bound.
+
+The client POSTs multipart `files` to `POST /api/feedback/upload` (supervisor,
+PocketBase token in `Authorization`). The service authenticates with
+`auth-refresh`, then uploads each file as an asset on the single
+`feedback-assets` prerelease (created on first use via
+`GET/POST /repos/:repo/releases`), and returns
+`{ ok: true, attachments: [{ name, url, size, type }] }` with
+`browser_download_url`s. GitHub has no issue-attachment REST API; release
+assets are the supported workaround. Missing config answers
+`503 { reason: "github_not_configured" }` so the client tells the user to
+submit without attachments. A GitHub or upload failure answers 502 and no
+report row is created. The token never reaches the browser.
+
+Then the client creates the row with `attachments` and calls
 `POST /api/feedback/report` on the supervisor with `{ reportId }` and its
 PocketBase token. `feedback.ts`:
 
@@ -218,31 +235,38 @@ PocketBase token. `feedback.ts`:
   another owner's id is a 404);
 - has no per-user submission cap; the feedback list's 「重新同步」 action calls
   this endpoint again for a `stored`/`failed` row, and an already-synced
-  report reuses its existing issue without another GitHub call;
-- builds a sanitized/truncated Markdown issue. Bug reports include route,
-  build version + sha, UA, timestamp, screenshot names, the last 20 console
-  errors, and a collapsed transcript of the last 20 chat messages / 10k chars
-  when a conversation is attached. Feature suggestions are `[Feature]` +
-  `enhancement` + `from-app`, never fetch a transcript, and their body is the
-  idea plus the note that the photos live in the app's feedback record;
+  report reuses its existing issue without another GitHub call. Because the
+  row keeps attachment metadata, a retry rebuilds the same body without
+  re-uploading bytes;
+- builds a sanitized/truncated Markdown issue. Both kinds include route,
+  build version + sha, UA, timestamp, `附件：N 个（已上传到 GitHub）` and a
+  `### 附件` section: images render inline (`![name](url)`), other files as
+  `- [name](url) (size)`; names are Markdown-escaped and only https URLs are
+  accepted. Bug reports also include the last 20 console errors and a
+  collapsed transcript of the last 20 chat messages / 10k chars when a
+  conversation is attached. Feature suggestions are `[Feature]` +
+  `enhancement` + `from-app` and never fetch a transcript;
 - creates `[Bug] <title>` with labels `bug` + `from-app` (or
   `[Feature] <title>` with `enhancement` + `from-app`), then writes
   `status=issue_created`, `issue_url` and `issue_number` back onto the row.
 
 Config in `.env.prod` (or `.env` in dev): `GITHUB_TOKEN` (fine-grained token
-with `issues:write` on the target repo), `GITHUB_REPO=owner/repo`, and
-optionally `GITHUB_API_URL` (default `https://api.github.com`; used by tests
-against a local mock). The token never reaches the browser, PocketBase, or
-the logs. If `GITHUB_TOKEN` or `GITHUB_REPO` is missing the endpoint still
-returns `200 { issue: null }` and leaves the row `stored` (UI: 待同步), and the
-report card's 「重新同步」 action retries it later. A GitHub error writes
+with `issues:write` and `contents:write` on the target repo — release assets
+need the latter), `GITHUB_REPO=owner/repo`, optionally `GITHUB_API_URL`
+(default `https://api.github.com`) and `GITHUB_UPLOADS_URL` (default
+`https://uploads.github.com`); both are overridable for tests against a local
+mock. The repository is public, so uploaded attachments are public too — the
+UI says so before submission. If `GITHUB_TOKEN` or `GITHUB_REPO` is missing
+the report endpoint still returns `200 { issue: null }` and leaves the row
+`stored` (UI: 待同步), and the report card's 「重新同步」 action retries it
+later; the upload endpoint answers 503 instead. A GitHub error writes
 `status=failed` + a short error and returns 502; the report is kept.
 
-Reverse proxy: the endpoint is `POST /api/feedback/report` on the supervisor,
-so the existing `/api/*` rule covers it; no separate location is needed. Do
-not proxy `/feedback` itself (no trailing slash), because that is the SPA
-route. If your proxy splits `/api` by subpath, keep the exact
-`/api/feedback/report` path.
+Reverse proxy: the endpoints are `POST /api/feedback/report` and
+`POST /api/feedback/upload` on the supervisor, so the existing `/api/*` rule
+covers them; no separate location is needed. Do not proxy `/feedback` itself
+(no trailing slash), because that is the SPA route. If your proxy splits
+`/api` by subpath, keep the exact `/api/feedback/*` paths.
 
 ## Code sandbox
 

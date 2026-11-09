@@ -277,7 +277,7 @@ function Page() {
                     className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
                 >
                     <RowContent
-                        description="遇到问题？带上截图和 AI 对话告诉我们"
+                        description="遇到问题？带上截图、文件和 AI 对话告诉我们"
                         icon={MessageSquareWarning}
                         title="问题反馈"
                     />

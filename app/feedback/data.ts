@@ -11,6 +11,7 @@ import pb from "@/lib/pb";
 import type { UserRecord } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
+import { parseAttachmentList, type FeedbackAttachment } from "./attachments";
 import { getFeedbackErrors } from "./error-buffer";
 
 export type FeedbackStatus = "stored" | "issue_created" | "failed";
@@ -31,7 +32,8 @@ export type FeedbackReportRecord = {
     issue_url?: string;
     issue_number?: number;
     error?: string;
-    screenshots?: string[];
+    /** Public GitHub URLs + display metadata; no file bytes live in PB. */
+    attachments?: FeedbackAttachment[];
     conversation?: string;
     /** `owner` is expanded by the shared suggestion list. */
     expand?: {
@@ -48,7 +50,8 @@ export type SubmitFeedbackInput = {
     title: string;
     description: string;
     route: string;
-    screenshots: File[];
+    /** Images and arbitrary files; uploaded to GitHub before the row exists. */
+    attachments: File[];
     /** Bug reports only; feature suggestions never require a conversation. */
     conversationId?: string;
 };
@@ -56,7 +59,7 @@ export type SubmitFeedbackInput = {
 export type SubmitFeedbackResult = {
     /** The PocketBase row always exists once the mutation resolves. */
     report: FeedbackReportRecord;
-    /** `null` when GitHub is not configured / unreachable / rate-limited. */
+    /** `null` when GitHub is not configured / unreachable. */
     issue: FeedbackIssue | null;
     synced: boolean;
     /** Machine-readable server reason, e.g. `github_not_configured`. */
@@ -78,39 +81,103 @@ function appSha(): string {
     return typeof APP_SHA === "string" ? APP_SHA : "dev";
 }
 
+type UploadResponse = {
+    ok?: unknown;
+    reason?: unknown;
+    error?: unknown;
+    attachments?: unknown;
+};
+
 /**
- * Create the owner-scoped report (screenshots upload in this same request).
+ * Upload images/files to GitHub through the supervisor *before* creating the
+ * report. GitHub has no issue-attachment REST API, so the supervisor stores
+ * them on the `feedback-assets` release and returns public URLs. Any failure
+ * throws: the row must never claim attachments that are not reachable.
+ */
+async function uploadAttachments(files: File[]): Promise<FeedbackAttachment[]> {
+    if (files.length === 0) return [];
+    const token = pb.authStore.token;
+    if (!token) throw new Error("登录已过期，请重新登录");
+
+    const form = new FormData();
+    for (const file of files) {
+        form.append("files", file, file.name);
+    }
+
+    let res: Response;
+    try {
+        res = await fetch(feedbackUrl("/upload"), {
+            method: "POST",
+            headers: { Authorization: token },
+            body: form,
+        });
+    } catch {
+        throw new Error(
+            "附件上传到 GitHub 失败（网络异常），可以移除附件后只提交文字",
+        );
+    }
+
+    let body: UploadResponse = {};
+    try {
+        body = (await res.json()) as UploadResponse;
+    } catch {
+        // proxy error page; fall through to the status message
+    }
+
+    const attachments = parseAttachmentList(body.attachments);
+    if (res.ok && body.ok !== false && attachments.length === files.length) {
+        return attachments;
+    }
+    if (body.reason === "github_not_configured") {
+        throw new Error(
+            "服务端还没有配置 GitHub，附件传不上去；移除附件后可以只提交文字",
+        );
+    }
+    const message =
+        typeof body.error === "string" && body.error
+            ? body.error
+            : res.status === 401
+              ? "登录已过期，请重新登录"
+              : "附件上传失败";
+    throw new Error(`${message}，可以移除附件后只提交文字`);
+}
+
+/**
+ * Create the owner-scoped report. Attachments were uploaded to GitHub first,
+ * so this only writes their metadata: no File parts, no bytes in PocketBase.
  * Status is always `stored` at create time; only the supervisor may flip it.
  */
 async function createReport(
     userId: string,
     input: SubmitFeedbackInput,
+    attachments: FeedbackAttachment[],
 ): Promise<FeedbackReportRecord> {
-    const form = new FormData();
-    form.append("owner", userId);
-    form.append("kind", input.kind);
-    form.append("title", input.title);
-    form.append("description", input.description);
-    form.append("route", input.route);
-    form.append("app_version", appVersion());
-    form.append("app_sha", appSha());
-    form.append("user_agent", navigator.userAgent);
+    const payload: Record<string, unknown> = {
+        owner: userId,
+        kind: input.kind,
+        title: input.title,
+        description: input.description,
+        route: input.route,
+        app_version: appVersion(),
+        app_sha: appSha(),
+        user_agent: navigator.userAgent,
+        status: "stored",
+        // JSONField stores the array; sending the serialized form is explicit
+        // and survives a FormData-free request.
+        attachments: JSON.stringify(attachments),
+    };
     // Console output is a bug-report diagnostic; a feature idea does not need
     // it, and sending it would make the GitHub issue noisier for no reason.
     if (input.kind === "bug") {
-        form.append("console", JSON.stringify(getFeedbackErrors()));
+        payload.console = JSON.stringify(getFeedbackErrors());
     }
-    form.append("status", "stored");
     if (input.conversationId) {
-        form.append("conversation", input.conversationId);
-    }
-    for (const file of input.screenshots) {
-        form.append("screenshots", file);
+        payload.conversation = input.conversationId;
     }
 
     const record = await pb
         .collection("feedback_reports")
-        .create<FeedbackReportRecord>(form);
+        .create<FeedbackReportRecord>(payload);
     if (!record?.id) {
         // Same empty-200 trap as posts: a middleware that never calls
         // e.next() looks like success to the SDK but saves nothing.
@@ -283,7 +350,10 @@ export function useSubmitFeedback() {
         mutationFn: async (
             input: SubmitFeedbackInput,
         ): Promise<SubmitFeedbackResult> => {
-            const report = await createReport(user.id, input);
+            // Order matters: upload first, so a GitHub failure aborts before
+            // a row exists (text-only reports never touch the upload path).
+            const attachments = await uploadAttachments(input.attachments);
+            const report = await createReport(user.id, input, attachments);
             const sync = await syncIssue(report.id);
             return { report, ...sync };
         },

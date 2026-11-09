@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
+    Bug,
     Check,
     Download,
     MoreHorizontal,
@@ -48,6 +49,8 @@ export type ChatHeaderProps = {
     onClearSandbox: () => Promise<void>;
     onTogglePin: () => Promise<void>;
     onExport: () => void;
+    /** 反馈问题: opens /feedback with this conversation attached. */
+    onReportProblem: () => void;
 };
 
 /**
@@ -67,6 +70,7 @@ export function ChatHeader({
     onClearSandbox,
     onTogglePin,
     onExport,
+    onReportProblem,
 }: ChatHeaderProps) {
     const [renameOpen, setRenameOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -160,6 +164,13 @@ export function ChatHeader({
                         >
                             <Download className="mr-2 size-4" />
                             导出 Markdown
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={onReportProblem}
+                        >
+                            <Bug className="mr-2 size-4" />
+                            反馈问题
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="cursor-pointer"

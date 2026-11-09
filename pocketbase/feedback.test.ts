@@ -2,13 +2,17 @@ import { describe, expect, test } from "bun:test";
 
 import {
     FEEDBACK_REPORT_PATH,
+    FEEDBACK_UPLOAD_PATH,
+    asAttachmentArray,
     buildIssueBody,
     buildIssueTitle,
     buildTranscript,
     cleanText,
     createFeedbackService,
+    formatBytes,
     formatConsoleErrors,
     messageText,
+    sanitizeAssetName,
     type FeedbackDeps,
     type FeedbackReport,
 } from "./feedback";
@@ -44,10 +48,30 @@ function report(overrides: Partial<FeedbackReport> = {}): FeedbackReport {
             },
         ],
         status: "stored",
-        screenshots: ["shot-one.webp", "shot-two.webp"],
+        attachments: [
+            {
+                name: "shot-one.png",
+                url: "https://github.com/owner/repo/releases/download/feedback-assets/one.png",
+                size: 2048,
+                type: "image/png",
+            },
+            {
+                name: "log.txt",
+                url: "https://github.com/owner/repo/releases/download/feedback-assets/log.txt",
+                size: 1200,
+                type: "text/plain",
+            },
+        ],
         ...overrides,
     };
 }
+
+const FILE_ONE =
+    "https://github.com/owner/repo/releases/download/feedback-assets/one.png";
+const FILE_TWO =
+    "https://github.com/owner/repo/releases/download/feedback-assets/two.png";
+const FILE_LOG =
+    "https://github.com/owner/repo/releases/download/feedback-assets/log.txt";
 
 type MockCall = { url: URL; init?: RequestInit };
 
@@ -70,6 +94,7 @@ function setup(
         githubToken: "github-token",
         githubRepo: "owner/repo",
         githubApiUrl: "https://github.test",
+        githubUploadsUrl: "https://uploads.github.test",
         fetch: fetchMock,
         ...overrides,
     });
@@ -142,6 +167,122 @@ function pbHandler(options: {
     };
 }
 
+function uploadRequest(
+    files: Array<{
+        name: string;
+        type?: string;
+        data?: string | Uint8Array;
+    }>,
+    token: string | null = "pb-token",
+): Request {
+    const form = new FormData();
+    for (const file of files) {
+        const data = file.data ?? "hello";
+        const part: BlobPart =
+            typeof data === "string" ? data : new Uint8Array(data).buffer;
+        form.append(
+            "files",
+            new File([part], file.name, {
+                type: file.type ?? "text/plain",
+            }),
+        );
+    }
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = token;
+    return new Request(`http://supervisor${FEEDBACK_UPLOAD_PATH}`, {
+        method: "POST",
+        headers,
+        body: form,
+    });
+}
+
+type AssetCall = { url: URL; init?: RequestInit };
+
+/** Mock release + asset endpoints; issue/report routes stay 404. */
+function githubUploads(options: {
+    releaseFound?: boolean;
+    releaseId?: number;
+    createReleaseStatus?: number;
+    assetStatus?: number;
+    onAsset?: (call: AssetCall) => void;
+    onCreateRelease?: (init?: RequestInit) => void;
+}) {
+    const releaseId = options.releaseId ?? 1;
+    return (url: URL, init?: RequestInit): Response => {
+        if (
+            url.pathname === "/repos/owner/repo/releases/tags/feedback-assets"
+        ) {
+            if (options.releaseFound) return json({ id: releaseId });
+            return json({ message: "Not Found" }, 404);
+        }
+        if (url.pathname === "/repos/owner/repo/releases") {
+            options.onCreateRelease?.(init);
+            if (
+                options.createReleaseStatus &&
+                options.createReleaseStatus !== 201
+            ) {
+                return json({ message: "boom" }, options.createReleaseStatus);
+            }
+            return json({ id: releaseId }, 201);
+        }
+        if (url.pathname === `/repos/owner/repo/releases/${releaseId}/assets`) {
+            options.onAsset?.({ url, init });
+            if (options.assetStatus && options.assetStatus !== 201) {
+                return json({ message: "boom" }, options.assetStatus);
+            }
+            const name = url.searchParams.get("name") ?? "asset";
+            return json(
+                {
+                    browser_download_url: `https://github.com/owner/repo/releases/download/feedback-assets/${name}`,
+                },
+                201,
+            );
+        }
+        return json({}, 404);
+    };
+}
+
+describe("attachment helpers", () => {
+    test("asAttachmentArray drops unsafe URLs and caps the list", () => {
+        expect(
+            asAttachmentArray([
+                { name: "a.png", url: FILE_ONE, size: 12.9, type: "image/png" },
+                { name: "b", url: "javascript:alert(1)" },
+                { name: "c", url: "http://example.com/x" },
+                { name: "d", url: `${FILE_TWO})` },
+                { name: "", url: FILE_TWO },
+            ]),
+        ).toEqual([
+            { name: "a.png", url: FILE_ONE, size: 12, type: "image/png" },
+            { name: "附件", url: FILE_TWO },
+        ]);
+        expect(asAttachmentArray("not json")).toEqual([]);
+        expect(
+            asAttachmentArray(
+                Array.from({ length: 5 }, (_, index) => ({
+                    name: `f-${index}`,
+                    url: `${FILE_ONE}?n=${index}`,
+                })),
+            ),
+        ).toHaveLength(3);
+    });
+
+    test("sanitizeAssetName keeps a safe ASCII name and extension", () => {
+        expect(sanitizeAssetName("截图 2026.png")).toBe("2026.png");
+        expect(sanitizeAssetName("../../etc/passwd")).toBe("passwd");
+        expect(sanitizeAssetName("a b(c)*.TXT")).toBe("a-b-c.txt");
+        expect(sanitizeAssetName("")).toBe("file");
+        expect(sanitizeAssetName("x".repeat(300) + ".log")).toHaveLength(104);
+    });
+
+    test("formatBytes", () => {
+        expect(formatBytes(512)).toBe("512 B");
+        expect(formatBytes(1536)).toBe("1.5 KB");
+        expect(formatBytes(12 * 1024)).toBe("12 KB");
+        expect(formatBytes(10 * 1024 * 1024)).toBe("10 MB");
+    });
+});
+
 describe("cleanText", () => {
     test("strips control characters, trims and caps", () => {
         expect(cleanText("  a\u0000b\u001fc\n\nd  ", 10)).toBe("abc\n\nd");
@@ -161,7 +302,7 @@ describe("buildIssueTitle", () => {
 });
 
 describe("buildIssueBody", () => {
-    test("includes description, context, screenshots and console errors", () => {
+    test("includes description, context, attachments and console errors", () => {
         const body = buildIssueBody({
             report: report(),
             now: new Date("2026-11-09T12:00:00.000Z"),
@@ -171,13 +312,65 @@ describe("buildIssueBody", () => {
         expect(body).toContain("0.0.1 (abc1234)");
         expect(body).toContain("2026-11-09T12:00:00.000Z");
         expect(body).toContain("Mozilla/5.0 (iPhone)");
-        expect(body).toContain("shot-one.webp");
-        expect(body).toContain("图片保存在 App 内的反馈记录里");
+        expect(body).toContain("- 附件：2 个（已上传到 GitHub）");
         expect(body).toContain(
             "TypeError: cannot read properties of undefined",
         );
         expect(body).toContain("控制台 / 页面错误");
         expect(body).toContain("关联 AI 对话：未附加");
+        expect(body).not.toContain("保存在 App");
+    });
+
+    test("renders images inline and other files as links with size", () => {
+        const body = buildIssueBody({ report: report() });
+        expect(body).toContain("### 附件");
+        expect(body).toContain(`![shot-one.png](${FILE_ONE})`);
+        expect(body).toContain(`- [log.txt](${FILE_LOG})`);
+        expect(body).toContain("(1.2 KB)");
+    });
+
+    test("accepts a JSON string and drops unsafe or malformed entries", () => {
+        const body = buildIssueBody({
+            report: report({
+                attachments: JSON.stringify([
+                    { name: "ok.png", url: FILE_ONE, type: "image/png" },
+                    { name: "js", url: "javascript:alert(1)" },
+                    { name: "http", url: "http://example.com/a.png" },
+                    { name: "evil", url: `${FILE_TWO})` },
+                    null,
+                    "x",
+                ]),
+            }),
+        });
+        expect(body).toContain("### 附件");
+        expect(body).toContain(`![ok.png](${FILE_ONE})`);
+        expect(body).not.toContain("javascript:");
+        expect(body).not.toContain("http://example.com");
+    });
+
+    test("escapes Markdown-sensitive attachment names", () => {
+        const body = buildIssueBody({
+            report: report({
+                attachments: [
+                    {
+                        name: "a[b]*c*_d_<e>.png",
+                        url: FILE_ONE,
+                        type: "image/png",
+                    },
+                ],
+            }),
+        });
+        expect(body).toContain(
+            `![a\\[b\\]\\*c\\*\\_d\\_\\<e\\>.png](${FILE_ONE})`,
+        );
+    });
+
+    test("says 附件：无 when a report has no attachments", () => {
+        const body = buildIssueBody({
+            report: report({ attachments: [] }),
+        });
+        expect(body).toContain("- 附件：无");
+        expect(body).not.toContain("### 附件");
     });
 
     test("includes the transcript and conversation title when attached", () => {
@@ -203,7 +396,20 @@ describe("buildIssueBody", () => {
                 description:
                     "想要什么：首页每天一句。\n为什么：早上想被鼓励一下。\n希望怎么用：打开首页就能看到。",
                 route: "/feedback",
-                screenshots: ["idea-one.webp", "idea-two.webp"],
+                attachments: [
+                    {
+                        name: "idea-one.png",
+                        url: FILE_ONE,
+                        size: 4096,
+                        type: "image/png",
+                    },
+                    {
+                        name: "idea-two.png",
+                        url: FILE_TWO,
+                        size: 4096,
+                        type: "image/png",
+                    },
+                ],
                 console: [{ kind: "error", message: "feature console noise" }],
             }),
             now: new Date("2026-11-09T12:00:00.000Z"),
@@ -211,9 +417,9 @@ describe("buildIssueBody", () => {
         expect(body).toContain("想要什么：首页每天一句");
         expect(body).toContain("### 建议信息");
         expect(body).toContain("- 类型：功能建议");
-        expect(body).toContain("照片：2 张");
-        expect(body).toContain("idea-one.webp");
-        expect(body).toContain("照片保存在 App 内的反馈记录里");
+        expect(body).toContain("- 附件：2 个（已上传到 GitHub）");
+        expect(body).toContain(`![idea-one.png](${FILE_ONE})`);
+        expect(body).not.toContain("保存在 App");
         // Feature bodies never include a transcript or console dump.
         expect(body).not.toContain("关联 AI 对话");
         expect(body).not.toContain("控制台");
@@ -393,6 +599,10 @@ describe("feedback service", () => {
         expect(payload.title).toBe("[Bug] 首页闪退");
         expect(payload.labels).toEqual(["bug", "from-app"]);
         expect(payload.body).toContain("打开首页后白屏");
+        // The row's stored metadata is enough to rebuild the attachment
+        // section on a retry — no bytes are fetched again.
+        expect(payload.body).toContain("### 附件");
+        expect(payload.body).toContain(`![shot-one.png](${FILE_ONE})`);
 
         expect(patched).toEqual({
             status: "issue_created",
@@ -420,7 +630,18 @@ describe("feedback service", () => {
                     description:
                         "想要什么：首页每天一句。\n为什么：早上想被鼓励。\n希望怎么用：打开就能看到。",
                     route: "/feedback",
-                    screenshots: ["idea-one.webp", "idea-two.webp"],
+                    attachments: [
+                        {
+                            name: "idea-one.png",
+                            url: FILE_ONE,
+                            type: "image/png",
+                        },
+                        {
+                            name: "idea-two.png",
+                            url: FILE_TWO,
+                            type: "image/png",
+                        },
+                    ],
                     console: [],
                     // Even if a feature row somehow carries a conversation,
                     // the feature path must not fetch a transcript.
@@ -453,8 +674,8 @@ describe("feedback service", () => {
         expect(payload.title).toBe("[Feature] 想要每日一句");
         expect(payload.labels).toEqual(["enhancement", "from-app"]);
         expect(payload.body).toContain("想要什么：首页每天一句");
-        expect(payload.body).toContain("照片：2 张");
-        expect(payload.body).toContain("照片保存在 App 内的反馈记录里");
+        expect(payload.body).toContain("- 附件：2 个（已上传到 GitHub）");
+        expect(payload.body).toContain(`![idea-one.png](${FILE_ONE})`);
         expect(payload.body).not.toContain("附带的 AI 对话");
         expect(payload.body).not.toContain("关联 AI 对话");
 
@@ -610,6 +831,51 @@ describe("feedback service", () => {
         ).toBe(false);
     });
 
+    test("accepts more than five consecutive submissions (no per-user cap)", async () => {
+        const issues: number[] = [];
+        const { service, calls } = setup((url, init) => {
+            if (
+                url.pathname.startsWith(
+                    "/api/collections/feedback_reports/records/",
+                )
+            ) {
+                if (init?.method === "PATCH") return json({ id: REPORT_ID });
+                const id = url.pathname.split("/").pop() ?? REPORT_ID;
+                return json(report({ id }));
+            }
+            if (url.pathname === "/repos/owner/repo/issues") {
+                const number = issues.length + 1;
+                issues.push(number);
+                return json(
+                    {
+                        html_url: `https://github.test/owner/repo/issues/${number}`,
+                        number,
+                    },
+                    201,
+                );
+            }
+            return json({}, 404);
+        });
+
+        // Six distinct new reports in a row: the old 5/hour limiter answered
+        // 429 on the sixth. Each one must create its own issue and return 200.
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            const id = `report${String(attempt).padStart(9, "0")}`;
+            const res = await service(submit("pb-token", id));
+            expect(res?.status).toBe(200);
+            const body = (await res!.json()) as {
+                synced: boolean;
+                issue: { number: number } | null;
+            };
+            expect(body.synced).toBe(true);
+            expect(body.issue?.number).toBe(attempt + 1);
+        }
+        expect(issues).toHaveLength(6);
+        expect(
+            calls.filter((call) => call.url.pathname.endsWith("/issues")),
+        ).toHaveLength(6);
+    });
+
     test("already-synced retries reuse the existing issue", async () => {
         let current: FeedbackReport = report({
             status: "issue_created",
@@ -668,5 +934,208 @@ describe("feedback service", () => {
             }),
         );
         expect(notFound?.status).toBe(404);
+    });
+});
+
+describe("feedback upload service", () => {
+    test("requires a PocketBase token", async () => {
+        const { service, calls } = setup(githubUploads({}));
+        const res = await service(uploadRequest([{ name: "a.txt" }], null));
+        expect(res?.status).toBe(401);
+        expect(calls).toHaveLength(0);
+    });
+
+    test("answers 503 when GitHub is not configured", async () => {
+        const { service, calls } = setup(githubUploads({}), {
+            githubToken: "",
+        });
+        const res = await service(uploadRequest([{ name: "a.txt" }]));
+        expect(res?.status).toBe(503);
+        const body = (await res!.json()) as {
+            ok: boolean;
+            reason: string;
+            error: string;
+        };
+        expect(body.ok).toBe(false);
+        expect(body.reason).toBe("github_not_configured");
+        expect(body.error).toContain("GITHUB_TOKEN");
+        // Only auth-refresh happened; no GitHub call.
+        expect(
+            calls.some((call) => call.url.pathname.startsWith("/repos/")),
+        ).toBe(false);
+    });
+
+    test("creates the release once and uploads every file", async () => {
+        const assets: AssetCall[] = [];
+        let releasePosts = 0;
+        const { service, calls } = setup(
+            githubUploads({
+                onAsset: (call) => assets.push(call),
+                onCreateRelease: () => {
+                    releasePosts += 1;
+                },
+            }),
+        );
+
+        const res = await service(
+            uploadRequest([
+                { name: "截图 2026.png", type: "image/png", data: "png-bytes" },
+                { name: "log.txt", type: "text/plain", data: "log-bytes" },
+            ]),
+        );
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            ok: boolean;
+            attachments: Array<{
+                name: string;
+                url: string;
+                size: number;
+                type?: string;
+            }>;
+        };
+        expect(body.ok).toBe(true);
+        expect(body.attachments).toHaveLength(2);
+        expect(body.attachments[0]).toEqual({
+            name: "截图 2026.png",
+            url: expect.stringContaining(
+                "https://github.com/owner/repo/releases/download/feedback-assets/",
+            ),
+            size: 9,
+            type: "image/png",
+        });
+        expect(body.attachments[1]).toEqual({
+            name: "log.txt",
+            url: expect.stringContaining(
+                "https://github.com/owner/repo/releases/download/feedback-assets/",
+            ),
+            size: 9,
+            // Bun appends a charset to a text File's type.
+            type: expect.stringContaining("text/plain"),
+        });
+
+        // Release GET missed, then POST created it exactly once.
+        expect(
+            calls.filter(
+                (call) =>
+                    call.url.pathname ===
+                    "/repos/owner/repo/releases/tags/feedback-assets",
+            ),
+        ).toHaveLength(1);
+        const createCall = calls.find(
+            (call) =>
+                call.url.pathname === "/repos/owner/repo/releases" &&
+                call.init?.method === "POST",
+        );
+        expect(releasePosts).toBe(1);
+        expect(JSON.parse(String(createCall?.init?.body))).toMatchObject({
+            tag_name: "feedback-assets",
+            prerelease: true,
+        });
+
+        expect(assets).toHaveLength(2);
+        const headers = assets[0].init?.headers as Record<string, string>;
+        expect(headers.Authorization).toBe("Bearer github-token");
+        expect(headers["Content-Type"]).toBe("image/png");
+        expect(headers["User-Agent"]).toBe("mimi-base-feedback");
+        expect(assets[0].url.origin).toBe("https://uploads.github.test");
+        expect(assets[0].url.pathname).toBe(
+            "/repos/owner/repo/releases/1/assets",
+        );
+        expect(assets[0].url.searchParams.get("name")).toMatch(
+            /^[a-z0-9]+-[a-z0-9]+-2026\.png$/,
+        );
+        expect(assets[1].url.searchParams.get("name")).not.toBe(
+            assets[0].url.searchParams.get("name"),
+        );
+
+        // A second submission reuses the cached release id.
+        const again = await service(uploadRequest([{ name: "b.txt" }]));
+        expect(again?.status).toBe(200);
+        expect(releasePosts).toBe(1);
+        expect(assets).toHaveLength(3);
+        expect(
+            calls.filter(
+                (call) =>
+                    call.url.pathname ===
+                    "/repos/owner/repo/releases/tags/feedback-assets",
+            ),
+        ).toHaveLength(1);
+    });
+
+    test("reuses an existing feedback-assets release", async () => {
+        const assets: AssetCall[] = [];
+        const { service, calls } = setup(
+            githubUploads({
+                releaseFound: true,
+                releaseId: 7,
+                onAsset: (call) => assets.push(call),
+            }),
+        );
+        const res = await service(uploadRequest([{ name: "a.txt" }]));
+        expect(res?.status).toBe(200);
+        expect(
+            calls.some(
+                (call) =>
+                    call.url.pathname === "/repos/owner/repo/releases" &&
+                    call.init?.method === "POST",
+            ),
+        ).toBe(false);
+        expect(assets[0]?.url.pathname).toBe(
+            "/repos/owner/repo/releases/7/assets",
+        );
+    });
+
+    test("rejects too many or oversized files before uploading", async () => {
+        const { service, calls } = setup(githubUploads({}));
+        const tooMany = await service(
+            uploadRequest([
+                { name: "a.txt" },
+                { name: "b.txt" },
+                { name: "c.txt" },
+                { name: "d.txt" },
+            ]),
+        );
+        expect(tooMany?.status).toBe(400);
+        expect(
+            calls.some((call) => call.url.pathname.startsWith("/repos/")),
+        ).toBe(false);
+
+        const oversized = await service(
+            uploadRequest([
+                {
+                    name: "big.bin",
+                    type: "application/octet-stream",
+                    data: new Uint8Array(10 * 1024 * 1024 + 1),
+                },
+            ]),
+        );
+        expect(oversized?.status).toBe(413);
+        expect(
+            calls.some((call) => call.url.pathname.startsWith("/repos/")),
+        ).toBe(false);
+    });
+
+    test("fails the whole upload when GitHub rejects an asset", async () => {
+        const { service } = setup(githubUploads({ assetStatus: 500 }));
+        const res = await service(uploadRequest([{ name: "a.txt" }]));
+        expect(res?.status).toBe(502);
+        const body = (await res!.json()) as {
+            ok: boolean;
+            reason: string;
+            error: string;
+        };
+        expect(body.ok).toBe(false);
+        expect(body.reason).toBe("github_failed");
+        expect(body.error).toContain("HTTP 500");
+    });
+
+    test("only accepts POST on the upload path", async () => {
+        const { service } = setup(githubUploads({}));
+        const res = await service(
+            new Request(`http://supervisor${FEEDBACK_UPLOAD_PATH}`, {
+                method: "GET",
+            }),
+        );
+        expect(res?.status).toBe(405);
     });
 });

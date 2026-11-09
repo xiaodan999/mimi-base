@@ -297,6 +297,12 @@ function ChatConversationView({
                     });
                 }}
                 onExport={handleExport}
+                onReportProblem={() => {
+                    void navigate({
+                        to: "/feedback",
+                        search: { conversation: conversation.id },
+                    });
+                }}
             />
             {showResumeBanner && (
                 <ResumeBanner
