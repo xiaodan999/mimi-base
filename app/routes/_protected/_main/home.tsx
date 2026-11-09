@@ -13,13 +13,12 @@ import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
 import DailyLine from "./-home/daily-line";
+import DinnerLotteryDialog from "./-home/dinner/-dialog";
 import { useHomeStats } from "./-home-data";
 
 // The feed owns the post, composer, comment and viewer chunks; keeping it in
 // its own bundle lets the greeting header paint before they load.
 const HomeFeed = lazy(() => import("./-home/feed"));
-// The wheel SVG and the option manager only load once the bowl is tapped.
-const DinnerLotteryDialog = lazy(() => import("./-home/dinner/-dialog"));
 
 type HomeSearch = {
     /** "YYYY-MM" — the feed only shows that month. */
@@ -188,8 +187,9 @@ function Stat({
 
 /**
  * The bowl in the greeting card opens the shared dinner wheel. The dialog
- * chunk is loaded on first tap, so Home does not pay for the SVG wheel and
- * the management surface up front.
+ * shell is part of this route chunk so the sheet opens on the first tap; the
+ * SVG wheel and the management surface load lazily inside it, behind their
+ * own "正在准备转盘…" status.
  */
 function DinnerPicker() {
     const [open, setOpen] = useState(false);
@@ -208,11 +208,7 @@ function DinnerPicker() {
                     className="absolute -right-0.5 -top-0.5 size-3 text-amber-500"
                 />
             </button>
-            {open && (
-                <Suspense fallback={null}>
-                    <DinnerLotteryDialog open={open} onOpenChange={setOpen} />
-                </Suspense>
-            )}
+            {open && <DinnerLotteryDialog open={open} onOpenChange={setOpen} />}
         </>
     );
 }

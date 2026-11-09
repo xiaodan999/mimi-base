@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Carrot, Loader2, RefreshCw, Settings2, Sparkles } from "lucide-react";
 
@@ -18,9 +18,33 @@ import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
 import { useDinnerOptions } from "./-data";
-import { DinnerManager } from "./-manage";
-import { DinnerWheel } from "./-wheel";
 import { type DinnerOption, spinPlan, spinTurns } from "./options";
+
+// The sheet ships with the Home route chunk, so the first tap opens it right
+// away; only the SVG wheel and the option manager are fetched on demand.
+const loadDinnerWheel = () =>
+    import("./-wheel").then((module) => ({ default: module.DinnerWheel }));
+const loadDinnerManager = () =>
+    import("./-manage").then((module) => ({ default: module.DinnerManager }));
+
+const DinnerWheel = lazy(loadDinnerWheel);
+const DinnerManager = lazy(loadDinnerManager);
+
+/** Visible feedback while a lazy body chunk is still downloading. */
+function DinnerPreparing() {
+    return (
+        <div
+            role="status"
+            aria-live="polite"
+            className="grid h-[320px] place-items-center"
+        >
+            <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+                正在准备转盘…
+            </div>
+        </div>
+    );
+}
 
 const SPIN_MS = 4200;
 
@@ -72,6 +96,12 @@ export default function DinnerLotteryDialog({
     const pickedIndex = picked
         ? options.findIndex((option) => option.id === picked.id)
         : -1;
+
+    // Start the wheel chunk on open, so the download and the options query
+    // run in parallel instead of one after the other.
+    useEffect(() => {
+        if (open) void loadDinnerWheel();
+    }, [open]);
 
     useEffect(() => {
         return () => {
@@ -152,7 +182,7 @@ export default function DinnerLotteryDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 mobileSheet
-                className="max-h-[92dvh] gap-0 overflow-y-auto overscroll-contain p-0 sm:max-w-md"
+                className="max-h-[92dvh] gap-0 overflow-y-auto overflow-x-hidden overscroll-contain p-0 sm:max-w-md"
             >
                 <div
                     aria-hidden="true"
@@ -183,10 +213,12 @@ export default function DinnerLotteryDialog({
 
                     {view === "manage" ? (
                         <div className="mt-4">
-                            <DinnerManager
-                                options={options}
-                                onBack={() => setView("wheel")}
-                            />
+                            <Suspense fallback={<DinnerPreparing />}>
+                                <DinnerManager
+                                    options={options}
+                                    onBack={() => setView("wheel")}
+                                />
+                            </Suspense>
                         </div>
                     ) : isLoading ? (
                         <div className="grid h-[320px] place-items-center">
@@ -216,17 +248,21 @@ export default function DinnerLotteryDialog({
                     ) : (
                         <>
                             <div className="mt-4">
-                                <DinnerWheel
-                                    options={options}
-                                    rotation={rotation}
-                                    spinning={phase === "spinning"}
-                                    reducedMotion={reducedMotion}
-                                    selectedIndex={
-                                        phase === "result" ? pickedIndex : -1
-                                    }
-                                    onSpin={handleSpin}
-                                    onSpinEnd={finishSpin}
-                                />
+                                <Suspense fallback={<DinnerPreparing />}>
+                                    <DinnerWheel
+                                        options={options}
+                                        rotation={rotation}
+                                        spinning={phase === "spinning"}
+                                        reducedMotion={reducedMotion}
+                                        selectedIndex={
+                                            phase === "result"
+                                                ? pickedIndex
+                                                : -1
+                                        }
+                                        onSpin={handleSpin}
+                                        onSpinEnd={finishSpin}
+                                    />
+                                </Suspense>
                             </div>
 
                             <div className="mt-3 flex items-center justify-between gap-2">

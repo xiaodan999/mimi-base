@@ -83,174 +83,188 @@ export function DinnerWheel({
             />
 
             <div className="relative aspect-square">
-                <div
-                    className={cn(
-                        "absolute inset-0 will-change-transform",
-                        !reducedMotion && "dinner-wheel-rotor",
-                    )}
-                    style={{ transform: `rotate(${rotation}deg)` }}
-                    onTransitionEnd={(event) => {
-                        if (event.propertyName === "transform") onSpinEnd();
-                    }}
-                >
-                    <svg
-                        viewBox="0 0 320 320"
-                        className="size-full drop-shadow-[0_18px_30px_hsl(var(--chart-1)/0.18)]"
-                        aria-hidden="true"
-                    >
-                        <circle
-                            cx={CX}
-                            cy={CY}
-                            r={R + 5}
-                            fill="hsl(var(--card))"
-                            stroke="hsl(var(--border))"
-                            strokeWidth="2"
-                        />
-                        {count === 1 ? (
-                            <circle
-                                cx={CX}
-                                cy={CY}
-                                r={R}
-                                fill="hsl(var(--chart-1))"
-                            />
-                        ) : (
-                            count > 0 &&
-                            options.map((option, index) => (
-                                <path
-                                    key={option.id}
-                                    d={slicePath(index, count)}
-                                    fill={`hsl(var(--chart-${segmentPaletteIndex(index, count) + 1})`}
-                                    stroke="hsl(var(--background))"
-                                    strokeWidth="2"
-                                />
-                            ))
+                {/*
+                 * Static clipper: the rotor is a square, so its transformed
+                 * bounding box grows up to 41% while it spins. Without a clip
+                 * that box widens the scrollable area of the sheet, which is
+                 * the horizontal scrollbar on phones. The wheel itself is a
+                 * circle, so clipping at the square edge never hides any of
+                 * it; the pointer and center button stay outside this box.
+                 * The drop shadow sits on the clipper so the glow is not cut.
+                 */}
+                <div className="absolute inset-0 overflow-hidden drop-shadow-[0_18px_30px_hsl(var(--chart-1)/0.18)]">
+                    <div
+                        className={cn(
+                            "absolute inset-0 will-change-transform",
+                            !reducedMotion && "dinner-wheel-rotor",
                         )}
-                        {count === 0 && (
+                        style={{ transform: `rotate(${rotation}deg)` }}
+                        onTransitionEnd={(event) => {
+                            if (event.propertyName === "transform") onSpinEnd();
+                        }}
+                    >
+                        <svg
+                            viewBox="0 0 320 320"
+                            className="size-full"
+                            aria-hidden="true"
+                        >
                             <circle
                                 cx={CX}
                                 cy={CY}
-                                r={R}
-                                fill="hsl(var(--muted))"
+                                r={R + 5}
+                                fill="hsl(var(--card))"
                                 stroke="hsl(var(--border))"
                                 strokeWidth="2"
-                                strokeDasharray="8 9"
                             />
-                        )}
-
-                        {showRimDots &&
-                            options.map((option, index) => {
-                                const dot = point(
-                                    segmentCenterAngle(index, count),
-                                    R - 13,
-                                );
-                                return (
-                                    <circle
-                                        key={`dot-${option.id}`}
-                                        cx={dot.x}
-                                        cy={dot.y}
-                                        r="2"
-                                        fill="hsl(var(--background))"
-                                        opacity="0.45"
-                                    />
-                                );
-                            })}
-
-                        {highlightIndex >= 0 &&
-                            (count === 1 ? (
+                            {count === 1 ? (
                                 <circle
-                                    data-testid="dinner-selected-slice"
                                     cx={CX}
                                     cy={CY}
-                                    r={R - 1}
-                                    fill="none"
-                                    stroke="hsl(var(--foreground))"
-                                    strokeWidth="3"
-                                    opacity="0.9"
+                                    r={R}
+                                    fill="hsl(var(--chart-1))"
                                 />
                             ) : (
-                                <path
-                                    data-testid="dinner-selected-slice"
-                                    d={slicePath(highlightIndex, count)}
-                                    fill="none"
-                                    stroke="hsl(var(--foreground))"
-                                    strokeWidth="3"
-                                    strokeLinejoin="round"
-                                    opacity="0.9"
+                                count > 0 &&
+                                options.map((option, index) => (
+                                    <path
+                                        key={option.id}
+                                        d={slicePath(index, count)}
+                                        fill={`hsl(var(--chart-${segmentPaletteIndex(index, count) + 1})`}
+                                        stroke="hsl(var(--background))"
+                                        strokeWidth="2"
+                                    />
+                                ))
+                            )}
+                            {count === 0 && (
+                                <circle
+                                    cx={CX}
+                                    cy={CY}
+                                    r={R}
+                                    fill="hsl(var(--muted))"
+                                    stroke="hsl(var(--border))"
+                                    strokeWidth="2"
+                                    strokeDasharray="8 9"
                                 />
-                            ))}
+                            )}
 
-                        {count > 1 &&
-                            options.map((option, index) => {
-                                if (!shouldDrawWheelLabel(index, count)) {
-                                    return null;
-                                }
-                                const angle = segmentCenterAngle(index, count);
-                                const flip = angle > 90 && angle < 270;
-                                return (
-                                    <g
-                                        key={`label-${option.id}`}
-                                        transform={`rotate(${angle} ${CX} ${CY})`}
-                                    >
+                            {showRimDots &&
+                                options.map((option, index) => {
+                                    const dot = point(
+                                        segmentCenterAngle(index, count),
+                                        R - 13,
+                                    );
+                                    return (
+                                        <circle
+                                            key={`dot-${option.id}`}
+                                            cx={dot.x}
+                                            cy={dot.y}
+                                            r="2"
+                                            fill="hsl(var(--background))"
+                                            opacity="0.45"
+                                        />
+                                    );
+                                })}
+
+                            {highlightIndex >= 0 &&
+                                (count === 1 ? (
+                                    <circle
+                                        data-testid="dinner-selected-slice"
+                                        cx={CX}
+                                        cy={CY}
+                                        r={R - 1}
+                                        fill="none"
+                                        stroke="hsl(var(--foreground))"
+                                        strokeWidth="3"
+                                        opacity="0.9"
+                                    />
+                                ) : (
+                                    <path
+                                        data-testid="dinner-selected-slice"
+                                        d={slicePath(highlightIndex, count)}
+                                        fill="none"
+                                        stroke="hsl(var(--foreground))"
+                                        strokeWidth="3"
+                                        strokeLinejoin="round"
+                                        opacity="0.9"
+                                    />
+                                ))}
+
+                            {count > 1 &&
+                                options.map((option, index) => {
+                                    if (!shouldDrawWheelLabel(index, count)) {
+                                        return null;
+                                    }
+                                    const angle = segmentCenterAngle(
+                                        index,
+                                        count,
+                                    );
+                                    const flip = angle > 90 && angle < 270;
+                                    return (
                                         <g
-                                            transform={`translate(${CX} ${CY - LABEL_RADIUS})`}
+                                            key={`label-${option.id}`}
+                                            transform={`rotate(${angle} ${CX} ${CY})`}
                                         >
-                                            <text
-                                                transform={
-                                                    flip
-                                                        ? "rotate(180)"
-                                                        : undefined
-                                                }
-                                                textAnchor="middle"
-                                                dominantBaseline="middle"
-                                                fontSize={fontSize}
-                                                fontWeight="600"
-                                                fill="hsl(var(--background))"
-                                                style={{
-                                                    fontFamily:
-                                                        "ui-rounded, system-ui, sans-serif",
-                                                }}
+                                            <g
+                                                transform={`translate(${CX} ${CY - LABEL_RADIUS})`}
                                             >
-                                                {wheelLabel(
-                                                    option.name,
-                                                    labelMax,
-                                                )}
-                                            </text>
+                                                <text
+                                                    transform={
+                                                        flip
+                                                            ? "rotate(180)"
+                                                            : undefined
+                                                    }
+                                                    textAnchor="middle"
+                                                    dominantBaseline="middle"
+                                                    fontSize={fontSize}
+                                                    fontWeight="600"
+                                                    fill="hsl(var(--background))"
+                                                    style={{
+                                                        fontFamily:
+                                                            "ui-rounded, system-ui, sans-serif",
+                                                    }}
+                                                >
+                                                    {wheelLabel(
+                                                        option.name,
+                                                        labelMax,
+                                                    )}
+                                                </text>
+                                            </g>
                                         </g>
-                                    </g>
-                                );
-                            })}
+                                    );
+                                })}
 
-                        {count === 1 && (
-                            <text
-                                x={CX}
-                                y={CY - LABEL_RADIUS}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fontSize={12}
-                                fontWeight="600"
+                            {count === 1 && (
+                                <text
+                                    x={CX}
+                                    y={CY - LABEL_RADIUS}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    fontSize={12}
+                                    fontWeight="600"
+                                    fill="hsl(var(--background))"
+                                >
+                                    {wheelLabel(options[0].name, 8)}
+                                </text>
+                            )}
+
+                            <circle
+                                cx={CX}
+                                cy={CY}
+                                r="62"
                                 fill="hsl(var(--background))"
-                            >
-                                {wheelLabel(options[0].name, 8)}
-                            </text>
-                        )}
-
-                        <circle
-                            cx={CX}
-                            cy={CY}
-                            r="62"
-                            fill="hsl(var(--background))"
-                            stroke="hsl(var(--border))"
-                            strokeWidth="2"
-                        />
-                        <circle
-                            cx={CX}
-                            cy={CY}
-                            r="55"
-                            fill="none"
-                            stroke="hsl(var(--primary)/0.12)"
-                            strokeWidth="1"
-                        />
-                    </svg>
+                                stroke="hsl(var(--border))"
+                                strokeWidth="2"
+                            />
+                            <circle
+                                cx={CX}
+                                cy={CY}
+                                r="55"
+                                fill="none"
+                                stroke="hsl(var(--primary)/0.12)"
+                                strokeWidth="1"
+                            />
+                        </svg>
+                    </div>
                 </div>
 
                 {/* Pointer: static, points into the top slice. */}
