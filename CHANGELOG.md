@@ -12,6 +12,7 @@
 
 ### 变更
 
+- 首页晚餐入口保持原有 🍜 按钮位置，弹窗从「随机结果 + 保存」改为彩色转盘 + 管理视图；`home.tsx` 用 `lazy()` 只在首次点开时加载转盘 chunk，并移除硬编码 `DINNER` 数组（`app/routes/_protected/_main/home.tsx`）。
 - 聊天里的「人格」统一改名为「应用场景」：对话列表空态、筛选与新建对话面板、场景卡片表单、校验/成功提示、删除确认和导出标题同步更新；内置选项改为日常对话 / 写作润色 / 英语学习 / 基地管家（`app/chat/personas.ts` 的 id 与内部字段不变，旧对话继续使用创建时的快照）。
 - 确认弹窗改为手机原生观感：新增 `components/ConfirmDialog`，`DialogContent` 增加 `mobileSheet` 布局（手机端贴底、顶部圆角、抓手、48px 整行操作按钮、底部安全区内边距、滑入/滑出动画；`sm` 以上仍为居中弹窗）。删除对话（列表单条 / 批量 / 对话页头部）与删除场景的四处确认统一迁移到该组件；遮罩、返回手势、Escape 关闭以及标题 / 描述的无障碍关联保持不变。
 - 个人资料页重组（#41，`app/routes/_protected/_main/profile/index.tsx`）：身份卡置顶（头像、昵称、头像框与两个更改按钮），头像框说明从独立卡片收进身份卡的紧凑备注；年度报告与 AI 设置合并为「功能」分组列表，关于秘密基地单独成「关于」分组；分区标题 + `divide-y` 圆角容器 + 统一的行式布局（图标 / 标题 / 描述 / Chevron）替代原来五张同权重的卡片，未读更新圆点与全部弹层行为保留，页面不再需要滚到底才能看全。
@@ -24,6 +25,9 @@
 - 动态流支持播放视频：`PostVideo` 用带 token 的受保护 URL + `#t=0.1` 显示首帧，不自动播放，点击大按钮才出声并出现原生控件；右上角按钮打开独立的 `VideoViewer` 全屏播放，手机返回手势可关闭。九宫格与大图轮播两种排版都适配（`app/feed/components/post.tsx`）。
 - AI 配文支持视频动态，但只根据文字生成，视频字节不会发给模型（`app/ai/posts.ts` 的 `video` 标记）。
 - 新增 `lib/postMedia.test.ts` 与 `app/feed/utils.test.ts` 用例：视频类型/体积校验、文件大小格式化、首帧 URL 片段、视频字段的保留/上传/清空。
+- 晚餐抽奖机（#43）：首页的 🍜 入口打开懒加载的 SVG 转盘，点「开转」按扇区中心角计算目标角度，累积 5–6 圈、扇区内随机抖动，4.2s 缓停后展示结果卡（渐变名称、彩纸动画、再抽一次 / 就吃这个）。选项超过 16 个时只标注约 10 个扇区（避免名字连成一圈），中奖扇区用前景色描边高亮，结果卡始终显示完整名称；`prefers-reduced-motion` 下立即出结果并跳过旋转与彩纸（`app/routes/_protected/_main/-home/dinner/-dialog.tsx`、`-wheel.tsx`、`options.ts` 的 `shouldDrawWheelLabel`、`globals.css` 的 `dinner-wheel-rotor` / `dinner-confetti`）。
+- 新增共享晚餐选项管理：同一 Dialog 内切换管理视图，可添加、行内改名、确认删除；新集合 `dinner_options`（迁移 `1795600001_add_dinner_options.js`）为 auth-only 共享列表，`name` 唯一索引，客户端在集合为空时用旧 DINNER 数组首次播种；查询按 `-created` 排序，新加的选项显示在列表顶部。保存结果仍创建 `[晚餐抽奖机]: name` 动态（`-data.ts`、`-manage.tsx`）。
+- 转盘纯逻辑集中在 `-home/dinner/options.ts`：名称归一化/重复与长度校验、扇区中心角、旋转累积、随机索引/轮数与调色板槽位；`options.test.ts` 覆盖转盘落点、连续旋转、抖动边界、单扇区/空列表与调色板相邻不重色。
 - 评论支持编辑（`app/feed/comments.ts` 的 `useEditCommentMutation`）：自己的评论行新增「编辑」入口，行内 Textarea 编辑，Enter 保存 / Shift+Enter 换行 / Esc 取消，`toastPromise` 处理保存中/成功/失败；`onMutate` 先乐观更新文本，`onSettled` 失效 `qk.comments.all(postId)` 与服务端对齐，失败回滚。编辑只 PATCH `text`，不发送 `images`，也不触碰 `comment_count`（计数器钩子只处理 create/delete）。
 - `CommentData` 新增 `updatedAt`（映射 PB 的 `updated` 自动日期）；`isCommentEdited`（`app/feed/comment-edit.ts`）在 `updated > created` 时显示「已编辑」，未编辑和新评论（两者相等）不显示。
 - 评论输入统一 `MAX_COMMENT_LENGTH = 2000` 上限；`commentTextError` 同时用于新评论和编辑（空文本仅在评论已有图片时允许），并新增 `app/feed/comment-edit.test.ts` 单测。

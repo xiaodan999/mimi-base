@@ -234,8 +234,8 @@ before your first commit.
   `post_likes`, `comment_likes` (schema only, unused by the UI),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
   `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`,
-  `chat_artifacts`; `tu_pian_xin_xi` is
-  legacy (its rows were migrated into `posts`).
+  `chat_artifacts`, `dinner_options` (shared 晚餐抽奖机 menu); `tu_pian_xin_xi`
+  is legacy (its rows were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. **This is deliberate, not a leak.** The product has exactly two
   accounts for one couple, sign-up is locked (`users.createRule = null` in

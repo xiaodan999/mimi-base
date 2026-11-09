@@ -48,6 +48,11 @@ export const qk = {
     },
     memories: (userId: string, day: string) =>
         ["memories", userId, day] as const,
+    dinner: {
+        all: ["dinner-options"] as const,
+        /** Shared between the couple; the user id still isolates the cache. */
+        options: (userId: string) => ["dinner-options", userId] as const,
+    },
     yearReport: (userId: string, year: number) =>
         ["year-report", userId, year] as const,
     chat: {
