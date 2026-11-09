@@ -1,15 +1,15 @@
+import { apiUrl } from "@/lib/env";
 import pb from "@/lib/pb";
 
 import type { ChatModel } from "./types";
 
 /**
- * `/ai` is served by the Bun supervisor (see pocketbase/ai-relay.ts), not by
- * PocketBase. In dev Vite proxies it, so `pb.baseUrl` is always the right
- * origin — the same trick `app/ai/endpoint.ts` uses for the legacy features.
+ * `/api/ai` is served by the Bun supervisor (see pocketbase/ai-relay.ts), not
+ * by PocketBase. `apiUrl` keeps the API origin separate from the PB origin
+ * (which is mounted under `/db`).
  */
 export function aiUrl(path: string): string {
-    const base = pb.baseUrl.replace(/\/+$/, "");
-    return `${base}/ai${path.startsWith("/") ? path : `/${path}`}`;
+    return apiUrl(`/ai${path.startsWith("/") ? path : `/${path}`}`);
 }
 
 export function chatHeaders(): Record<string, string> {

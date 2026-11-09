@@ -14,6 +14,7 @@ import {
 // the background/border of the shadcn buttons these sheets use.
 import "@/app/study/ai-tokens.css";
 
+import ENV from "@/lib/env";
 import pb from "@/lib/pb";
 
 import AiSettingsSheet from "./AiSettings";
@@ -41,7 +42,7 @@ const AiContext = createContext<AiContextValue | null>(null);
 // （加载时校验环境变量，会破坏 AI 单元测试）。由 Provider 注入一次，
 // 闭包里每次取最新值。
 setAiAuthTokenProvider(() => pb.authStore.token);
-setAiRelayBaseUrlProvider(() => openCodeRelayBaseUrl(pb.baseUrl));
+setAiRelayBaseUrlProvider(() => openCodeRelayBaseUrl(ENV.API_ORIGIN));
 
 export function AiProvider({ children }: { children: ReactNode }) {
     const [settings, setSettings] = useState<AiSettings>(() =>

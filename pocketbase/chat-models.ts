@@ -1,7 +1,7 @@
 /**
  * Server-owned allowlist for the general chat (`/chat`).
  *
- * The browser never chooses a model freely: `GET /ai/models` returns this
+ * The browser never chooses a model freely: `GET /api/ai/models` returns this
  * list and the relay rejects any other id. The catalog lives here (not in
  * PocketBase) so deploying a new model is a code change on the server, and
  * an operator can narrow it with `OPENCODE_CHAT_MODELS` (comma separated ids)

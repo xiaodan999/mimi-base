@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { getIpCity } from "./location";
 
 const request = {
-    url: "http://relay.test/ai/geo/ip",
+    url: "http://relay.test/api/ai/geo/ip",
     headers: { Authorization: "token" },
 };
 

@@ -67,7 +67,9 @@ let calls: { url: string; init?: RequestInit }[] = [];
 beforeEach(() => {
     calls = [];
     installStorage();
-    setAiRelayBaseUrlProvider(() => "https://mimi.example.com/ai/opencode/v1");
+    setAiRelayBaseUrlProvider(
+        () => "https://mimi.example.com/api/ai/opencode/v1",
+    );
     setAiAuthTokenProvider(() => "pb-token");
     globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
         calls.push({ url: String(url), init });
@@ -141,7 +143,7 @@ describe("chatText / streamChat", () => {
         await chatText(settings, messages);
 
         expect(calls[0].url).toBe(
-            "https://mimi.example.com/ai/opencode/v1/chat/completions",
+            "https://mimi.example.com/api/ai/opencode/v1/chat/completions",
         );
         const headers = new Headers(calls[0].init?.headers);
         expect(headers.get("authorization")).toBe("pb-token");

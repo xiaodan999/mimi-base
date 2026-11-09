@@ -223,12 +223,13 @@ https://bun.sh 按提示安装。
 VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
-不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载时会直接
-抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
+`lib/env.ts` 会自动把 PocketBase 挂到 `/db` 下（`https://pb.example.com/db`
+也接受）。不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载
+时会直接抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
 
 **AI 由站点统一提供**：服务器在 `.env.prod` 里配置 `OPENCODE_API_KEY`（开发
-时放 `.env`），浏览器只带登录令牌访问 `/ai` 中转，不需要也不能填自己的 Key。
-反向代理必须把 `/ai/*` 转发到 `:9001` 并关闭响应缓冲（nginx
+时放 `.env`），浏览器只带登录令牌访问 `/api/ai` 中转，不需要也不能填自己的 Key。
+反向代理必须把 `/api/*` 转发到 `:9001` 并关闭响应缓冲（nginx
 `proxy_buffering off`），否则流式输出会退化成一次性返回。
 
 **聊天**：底部的「聊天」标签是通用 AI 对话。可选模型由服务端白名单决定
@@ -263,10 +264,11 @@ Run workflow）。之后推送到 `master` 的前端改动会自动发布。
   发布成功后会再调 `POST /repo/sync`（只做 `git pull --ff-only`，不重启
   PB），让服务器上的 checkout 跟上已部署的 commit；改到 `pocketbase/**`
   仍由 `deploy-db` 的 `/db/sync` 负责拉代码、备份、重启。
-- 反向代理要把 `/ai/*`、`/spa/*`、`/repo/*` 转发到 `:9001`（`/ai` 关闭响应
-  缓冲），给 `/assets/*` 设长缓存，
-  给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase 自己
-  不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
+- 反向代理：`/api/*` 转发到 `:9001`（关闭响应缓冲），`/db/*` 去掉 `/db` 前缀
+  后转发到 PocketBase `:8090`（管理面板是 `/db/_/`），`/db/sync` 作为精确路径
+  优先转发到 `:9001`；`/spa/*`、`/repo/*` 也转发到 `:9001`。给 `/assets/*` 设长
+  缓存，给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase
+  自己不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
 
 部署、systemd、反向代理、快照恢复等运维细节刻意不放进仓库，只在服务器上维护；
 后端英文说明见 `pocketbase/README.md` 的 Frontend 一节。

@@ -86,15 +86,15 @@ export function writeAiSettings(settings: AiSettings) {
     }
 }
 
-/** 站点 AI 中转路由（Bun supervisor，不在 PocketBase 的 /api 下）。 */
+/** 站点 AI 中转路由（Bun supervisor，挂在 `/api/ai` 下）。 */
 export const OPENCODE_RELAY_PATH = "/ai/opencode/v1";
 
 /**
- * 中转地址必须跟着当前的 PocketBase 地址走，不能把保存时的 origin
- * 写死：同一份设置在 localhost 和局域网 IP 之间切换时也要能用。
+ * 中转地址跟着当前部署的 API origin 走，不能把保存时的 origin 写死：
+ * 同一份设置在 localhost 和局域网 IP 之间切换时也要能用。
  */
-export function openCodeRelayBaseUrl(pbBaseUrl: string): string {
-    return `${pbBaseUrl.replace(/\/+$/, "")}${OPENCODE_RELAY_PATH}`;
+export function openCodeRelayBaseUrl(apiOrigin: string): string {
+    return `${apiOrigin.replace(/\/+$/, "")}/api${OPENCODE_RELAY_PATH}`;
 }
 
 /**

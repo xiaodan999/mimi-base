@@ -14,8 +14,8 @@ everything lives inside the repo clone:
     ├── server.ts                # supervisor: spawns the pinned PB binary and
     │                            #   serves the AI relay + token-protected
     │                            #   deploy endpoints on :9001
-    ├── ai-relay.ts              # streaming /ai relay using the site key
-    ├── feedback.ts              # feedback (bug/feature) -> GitHub issue (/feedback/report)
+    ├── ai-relay.ts              # streaming /api/ai relay using the site key
+    ├── feedback.ts              # feedback (bug/feature) -> GitHub issue (/api/feedback/report)
     ├── ai-files.ts              # server-side chat attachment reader
     ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
@@ -51,7 +51,7 @@ Set `PB_PORT` to run the database on another port (e.g. `PB_PORT=8091`), and
 `VITE_PORT` for the frontend. Each worktree has its own `pb_data/`, so two
 checkouts can run side by side; `dev:all` points the frontend at the PB it
 started. It also picks a free `SUPERVISOR_PORT` (near 9001) for the AI relay
-and points Vite's `/ai` proxy at it. In the split flow, keep
+and points Vite's `/api/ai` proxy at it. In the split flow, keep
 `VITE_POCKETBASE_URL` in `.env` in sync.
 
 For AI, put `OPENCODE_API_KEY` in `.env` (never commit it). The relay is part
@@ -83,32 +83,40 @@ first for that — then also update the GitHub `DEPLOY_TOKEN` secret and
 restart PB).
 
 Exposing the API to the internet (reverse proxy + TLS) is a separate
-concern; the requirements are that `/api/*`, `/ai/*`, `/feedback/report`,
-`/db/sync` (and `/spa/*` when self-hosting the frontend) are reachable by
-your apps and the deploy pipeline. `/feedback/report` must go to the
-supervisor (:9001), while `/feedback` itself stays the SPA route.
+concern. The URL layout is:
+
+- **PocketBase**: `/db/*` (the proxy strips `/db`; the admin dashboard is
+  `/db/_/` and the SDK endpoint is `/db/api/*`). The app builds its SDK base
+  as `<PB origin>/db`.
+- **Hand-written Bun endpoints**: `/api/*` (AI relay under `/api/ai/*`,
+  feedback under `/api/feedback/*`, future handlers anywhere under `/api/*`).
+- **Deploy endpoints** on the supervisor: `/db/sync` (exact, before the
+  `/db/*` PocketBase rule), `/spa/*` and `/repo/*`.
+
+`/feedback` (no trailing slash) remains an SPA route. `/api/*` belongs to the
+supervisor; PocketBase's own `/api` is reachable only through the `/db` mount.
 
 ## AI relay
 
 The browser never holds an API key. It calls
-`POST /ai/opencode/v1/chat/completions` with its PocketBase user token, and
+`POST /api/ai/opencode/v1/chat/completions` with its PocketBase user token, and
 the Bun supervisor forwards the request to OpenCode Go with the server key,
-piping the SSE response back as it arrives. `GET /ai/health` reports
+piping the SSE response back as it arrives. `GET /api/ai/health` reports
 `{ ok, keyConfigured, model }`.
 
 The general chat (`/chat`) uses these routes:
 
-- `GET /ai/models` (authenticated) returns the server-owned allowlist:
+- `GET /api/ai/models` (authenticated) returns the server-owned allowlist:
   `models` (each with `id`, `label`, `vision`, `tools`, `reasoning`), plus
   `defaultModel` and `keyConfigured`. The client can only render and send
   these ids.
-- `POST /ai/chat/completions` behaves like the legacy endpoint but honours
+- `POST /api/ai/chat/completions` behaves like the legacy endpoint but honours
   `body.model` when it is in the allowlist, rejects unknown ids with `400`,
   strips `tools` for text-only models, and rejects image parts sent to a
   model without `vision`. Legacy features keep using
-  `/ai/opencode/v1/chat/completions`, where the relay still forces one model.
+  `/api/ai/opencode/v1/chat/completions`, where the relay still forces one model.
 
-- `POST /ai/files` (authenticated) reads one chat attachment for the
+- `POST /api/ai/files` (authenticated) reads one chat attachment for the
   browser: text/code files are decoded as UTF-8, and PDFs are parsed with
   pdf.js on the supervisor using the CMaps and standard fonts bundled in
   `node_modules`. Those files are required for Chinese PDFs — without them
@@ -124,7 +132,7 @@ The general chat (`/chat`) uses these routes:
   lazily, so a server that predates it still starts and only scanned PDFs
   fail with a clear message.
 
-- `POST /ai/tools/{expenses,posts,memory,url}` (authenticated) backs the
+- `POST /api/ai/tools/{expenses,posts,memory,url}` (authenticated) backs the
   chat's data tools (`pocketbase/ai-tools.ts`). They have their own
   30/min + 200/day per-user limits. The ledger and feed are read
   **shared-scope** on purpose (same as the app's screens); `chat_memories`
@@ -132,7 +140,7 @@ The general chat (`/chat`) uses these routes:
   refuses private/reserved addresses and redirects into them, and strips
   HTML to text (300KB fetch cap, 12k-char output).
 
-- `GET /ai/geo/ip` (authenticated) backs the chat's location question: it
+- `GET /api/ai/geo/ip` (authenticated) backs the chat's location question: it
   resolves the caller's public IP to a city with the `ip2region` package
   (`pocketbase/geo-ip.ts`), whose bundled v4+v6 xdb data ships in
   `node_modules` like the pdf.js CMaps — nothing is downloaded at runtime or
@@ -161,27 +169,37 @@ The general chat (`/chat`) uses these routes:
   plus 20 requests/minute/user. Both are in-memory and reset on restart.
 - **Port**: `SUPERVISOR_PORT` overrides :9001 (dev:all chooses a free one;
   leave it unset in prod).
-- **Proxy**: route `/ai/*` to the supervisor and disable response buffering,
-  or the stream arrives as one chunk:
+- **Proxy**: route `/api/*` to the supervisor and disable response buffering,
+  or the stream arrives as one chunk. PocketBase lives under `/db/*` (strip
+  the prefix) and is not involved in `/api`:
 
     ```nginx
-    location /ai/ {
+    location /db/sync {              # exact deploy endpoint, before /db/
+        proxy_pass http://127.0.0.1:9001;
+    }
+    location /db/ {                  # strip /db before PocketBase
+        rewrite ^/db(/.*)$ $1 break;
+        proxy_pass http://127.0.0.1:8090;
+    }
+    location /api/ {                 # AI + feedback + future Bun handlers
         proxy_pass http://127.0.0.1:9001;
         proxy_http_version 1.1;
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
-        # /ai/geo/ip resolves the caller's real address (rightmost XFF entry).
+        # /api/ai/geo/ip resolves the caller's real address (rightmost XFF entry).
         proxy_set_header X-Forwarded-For $remote_addr;
-        # Chat attachments upload raw bytes (/ai/files, 30MB cap).
+        # Chat attachments upload raw bytes (/api/ai/files, 30MB cap).
         client_max_body_size 32m;
     }
     ```
 
-    Caddy equivalent: `reverse_proxy 127.0.0.1:9001 { flush_interval -1 }`.
+    Caddy equivalent: `handle /db/sync` first, then
+    `handle_path /db/* { reverse_proxy 127.0.0.1:8090 }` and
+    `handle /api/* { reverse_proxy 127.0.0.1:9001 { flush_interval -1 } }`.
 
-The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/ai/...`, so the
-PB host's reverse proxy must expose `/ai/*` as well.
+The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/api/ai/...`, so the
+PB host's reverse proxy must expose `/api/ai/*` as well.
 
 ## Feedback (bugs + feature suggestions) -> GitHub
 
@@ -191,7 +209,7 @@ collection's list/view rule is
 `@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`, so
 feature suggestions are shared between the two accounts while bug reports stay
 owner-only; create/update/delete remain owner-bound. The client then calls
-`POST /feedback/report` on the supervisor with `{ reportId }` and its
+`POST /api/feedback/report` on the supervisor with `{ reportId }` and its
 PocketBase token. `feedback.ts`:
 
 - re-authenticates with `auth-refresh` and re-reads the report **with the
@@ -220,15 +238,11 @@ returns `200 { issue: null }` and leaves the row `stored`, so the UI says
 已收到反馈，暂未同步 GitHub instead of failing the submission. A GitHub error
 writes `status=failed` + a short error and returns 502; the report is kept.
 
-Reverse proxy: route **only** `/feedback/report` to `127.0.0.1:9001`; do not
-proxy `/feedback` itself, or the SPA page stops loading:
-
-```nginx
-location = /feedback/report {
-    proxy_pass http://127.0.0.1:9001;
-    proxy_set_header X-Forwarded-For $remote_addr;
-}
-```
+Reverse proxy: the endpoint is `POST /api/feedback/report` on the supervisor,
+so the existing `/api/*` rule covers it; no separate location is needed. Do
+not proxy `/feedback` itself (no trailing slash), because that is the SPA
+route. If your proxy splits `/api` by subpath, keep the exact
+`/api/feedback/report` path.
 
 ## Code sandbox
 
@@ -252,7 +266,7 @@ two Docker images:
   `no-new-privileges`, 256 MB / 0.5 CPU / 64 PIDs, and a 60 s wall clock.
   The request arrives as JSON on stdin, so user code never appears in a
   command line and no host path is mounted.
-- `POST /ai/sandbox` is the only entry point (PocketBase token auth). It
+- `POST /api/ai/sandbox` is the only entry point (PocketBase token auth). It
   allows one concurrent run per user and 200 runs/day. The tools are defined
   in `app/chat/tools.ts`; the protocol lives in `lib/sandbox-protocol.ts`.
 
@@ -300,10 +314,11 @@ Nothing has to be switched off.
 - **No restart**: PocketBase reads `publicDir` on every request, so a
   frontend deploy never bounces the API. `POST /spa/rollback` swaps back
   to `build.old`; calling it again swaps forward.
-- **Reverse proxy**: route `/ai/*`, `/spa/*` and `/repo/*` to :9001 next to
-  `/db/sync` (with buffering off for `/ai/`), give `/assets/*` a long
-  immutable cache and `/`, `/index.html`, `/sw.js`, `/manifest.json`
-  `no-cache` (PB sends no `Cache-Control` of its own).
+- **Reverse proxy**: route `/api/*`, `/spa/*` and `/repo/*` to :9001, with
+  buffering off for `/api/`; route `/db/*` to PocketBase after stripping
+  `/db`, with `/db/sync` kept as an exact supervisor route first. Give
+  `/assets/*` a long immutable cache and `/`, `/index.html`, `/sw.js`,
+  `/manifest.json` `no-cache` (PB sends no `Cache-Control` of its own).
 - `build/`, `build.next/` and `build.old/` are gitignored; they are not
   part of `pb_data` snapshots.
 - `PB_PUBLIC_DIR` overrides the served directory; `DEPLOY_BIND` pins the

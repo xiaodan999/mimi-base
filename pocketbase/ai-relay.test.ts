@@ -122,7 +122,7 @@ describe("routing", () => {
 
     test("unknown /ai paths are 404", async () => {
         const { relay } = harness();
-        const res = await relay(request("/ai/nope"));
+        const res = await relay(request("/api/ai/nope"));
         expect(res?.status).toBe(404);
     });
 });

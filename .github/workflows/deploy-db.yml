@@ -86,4 +86,4 @@ jobs:
               if: steps.gate.outputs.armed == 'yes'
               run: |
                   curl --fail --max-time 30 -sS --retry 3 --retry-delay 10 --retry-all-errors \
-                    "$PB_BASE_URL/api/health"
+                    "$PB_BASE_URL/db/api/health"

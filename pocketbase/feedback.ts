@@ -30,9 +30,9 @@
  * reach the browser.
  */
 
-export const FEEDBACK_PREFIX = "/feedback";
+export const FEEDBACK_PREFIX = "/api/feedback";
 /** POST { reportId } — create the GitHub issue for an existing report. */
-export const FEEDBACK_REPORT_PATH = "/feedback/report";
+export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const AUTH_CACHE_MS = 60_000;

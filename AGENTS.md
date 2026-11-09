@@ -238,6 +238,14 @@ before your first commit.
 ## Backend / data rules
 
 - Use the singleton `pb` from `lib/pb.ts`; don't create another client.
+- URL layout: PocketBase is mounted at `/db` (SDK base `<origin>/db`, admin
+  dashboard `/db/_/`); hand-written Bun endpoints live under `/api/*` (AI
+  `/api/ai/*`, feedback `/api/feedback/*`). Vite proxies `/db` to PocketBase
+  and `/api` to the supervisor; production does the same (strip `/db` before
+  PocketBase, exact `/db/sync` to the supervisor first). New Bun handlers go
+  under `/api/*` and need no proxy change; `/feedback` stays the SPA route.
+  `VITE_POCKETBASE_URL` may be a bare origin or end in `/db`; `lib/env.ts`
+  normalizes it and never sends PocketBase's SDK to root `/api`.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
   `post_likes`, `comment_likes` (schema only, unused by the UI),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
@@ -271,7 +279,7 @@ before your first commit.
 - Feedback is a two-step flow for both kinds: the client creates
   `feedback_reports` (`kind` bug/feature, protected photos, optional
   `chat_conversations` relation for bugs) and then POSTs `{ reportId }` to
-  `/feedback/report`. The Bun supervisor (`pocketbase/feedback.ts`)
+  `/api/feedback/report`. The Bun supervisor (`pocketbase/feedback.ts`)
   authenticates with the caller's PB token, re-reads the row with that token,
   and still requires `report.owner === caller` — the shared feature read rule
   lets the other account read a suggestion, never sync it. It rate-limits
@@ -288,9 +296,10 @@ before your first commit.
   spend the 5/hour quota (already-synced retries and unconfigured GitHub do
   not). The feature tab's 大家的建议 is shared; the bug tab's 我的反馈 stays
   owner-only. Realtime subscriptions are row-filtered by PocketBase, so the
-  other account receives feature events only. Vite proxies only
-  `/feedback/report` (never `/feedback`, which is a client route); production
-  reverse proxies must do the same.
+  other account receives feature events only. Vite proxies `/api` (Bun) and
+  `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`
+  to PocketBase after stripping the prefix, while `/feedback` stays a client
+  route.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
   from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
   it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
@@ -376,9 +385,9 @@ before your first commit.
 
     The site owns the only AI key; by design there is no BYOK path. The Bun
     supervisor (`pocketbase/server.ts`) mounts `pocketbase/ai-relay.ts` at
-    `/ai/opencode/v1/chat/completions`, authenticates the caller's PocketBase
+    `/api/ai/opencode/v1/chat/completions`, authenticates the caller's PocketBase
     token via `auth-refresh`, and streams the upstream SSE body back unchanged.
-    General chat uses `POST /ai/chat/completions` + `GET /ai/models` instead:
+    General chat uses `POST /api/ai/chat/completions` + `GET /api/ai/models` instead:
     the model must be in the server allowlist (`chat-models.ts`, narrowed by
     `OPENCODE_CHAT_MODELS`), unknown ids get 400, text-only models lose
     `tools`, non-vision models reject image parts, and `reasoning_effort` is
@@ -391,15 +400,14 @@ before your first commit.
     `localStorage` (`mimi:ai:v1`, legacy fallback); old saved API keys are
     scrubbed on load. Generated content is cached under `mimi:ai-cache:v1:*`
     keyed by `AI_MODEL` (`constants.ts`). Dev: `dev:all` picks a free
-    `SUPERVISOR_PORT` and Vite proxies `/ai` to it; the supervisor keeps
-    `opencode.ai` out of the dev proxy env. Prod: the reverse proxy must route
-    `/ai/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too), and
-    the Vercel build derives the relay from `VITE_POCKETBASE_URL`.
-    The feedback endpoint is `POST /feedback/report` on the same supervisor:
-    prod must proxy that exact path to :9001 while `/feedback` itself stays
-    the SPA route (Vite dev proxies only `/feedback/report`). `GITHUB_TOKEN`
-    / `GITHUB_REPO` / `GITHUB_API_URL` live in `.env.prod` (dev: `.env`);
-    `server.ts` carries them across a respawn.
+    `SUPERVISOR_PORT` and Vite proxies `/api` to it; the supervisor keeps
+    `opencode.ai` out of the dev proxy env. Prod: the reverse proxy routes
+    `/api/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too),
+    and the Vercel build derives the API origin from `VITE_POCKETBASE_URL`.
+    The feedback endpoint is `POST /api/feedback/report` on the same
+    supervisor, so the `/api/*` rule covers it; `/feedback` itself stays the
+    SPA route. `GITHUB_TOKEN` / `GITHUB_REPO` / `GITHUB_API_URL` live in
+    `.env.prod` (dev: `.env`); `server.ts` carries them across a respawn.
 
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use
@@ -439,7 +447,7 @@ before your first commit.
   `ask_user` is client-side: it pauses the tool loop, shows the inline panel
   (text/choice/confirm/location/expense), and resolves the tool result so the
   same run continues. Location is a **city-only IP estimate**: the panel calls
-  `GET /ai/geo/ip` (`pocketbase/geo-ip.ts`, bundled `ip2region` data) only
+  `GET /api/ai/geo/ip` (`pocketbase/geo-ip.ts`, bundled `ip2region` data) only
   after the user taps 自动识别城市, and the estimate is shown for confirmation
   before it reaches the model. Never resolve coordinates, never geolocate a
   request without that explicit tap, and never inject IP-derived location
@@ -456,7 +464,7 @@ before your first commit.
   map enum values to fixed literal theme-token classes (`-chart-card.tsx`,
   `-ui-card.tsx`) so Tailwind emits them and dark mode works. Never accept
   free-form Tailwind classes, event handlers or external content on this path.
-- Chat data tools (`/ai/tools/{expenses,posts,comments,memory,url}` in
+- Chat data tools (`/api/ai/tools/{expenses,posts,comments,memory,url}` in
   `pocketbase/ai-tools.ts`) are the only way the model reads site data, and
   **the server, not the persona prompt, is the security boundary**: the relay
   authenticates, rate-limits (30/min) and quotas (200/day) them, scopes rows
@@ -482,7 +490,7 @@ before your first commit.
   params → composer draft), and read-aloud via the browser speech adapter.
   Code blocks highlight with a lazy Shiki chunk (`app/chat/highlighter.ts`,
   JS regex engine, no wasm). Attachments are uploaded raw to
-  `POST /ai/files` and read on the relay (`pocketbase/ai-files.ts`): pdf.js
+  `POST /api/ai/files` and read on the relay (`pocketbase/ai-files.ts`): pdf.js
   runs **server-side** with the CMaps/standard fonts from
   `pocketbase/node_modules` (deps live in `pocketbase/package.json`, not the
   app's; without the CMaps Chinese PDFs extract as an empty string), text

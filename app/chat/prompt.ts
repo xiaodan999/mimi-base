@@ -41,7 +41,7 @@ export const WRAP_UP_SYSTEM_PROMPT =
 
 /**
  * Build the system prompt. Memories are the durable facts the model saved in
- * earlier conversations (`/ai/tools/memory`); they are facts about the user,
+ * earlier conversations (`/api/ai/tools/memory`); they are facts about the user,
  * not instructions, so they sit in their own labelled block. `wrapUp` marks
  * the tool-free round after the tool budget is spent.
  */

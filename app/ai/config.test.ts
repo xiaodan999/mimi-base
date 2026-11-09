@@ -29,10 +29,10 @@ beforeEach(() => {
 describe("站点中转地址", () => {
     test("拼接时去掉重复斜杠", () => {
         expect(openCodeRelayBaseUrl("https://mimi.example.com/")).toBe(
-            "https://mimi.example.com/ai/opencode/v1",
+            "https://mimi.example.com/api/ai/opencode/v1",
         );
         expect(openCodeRelayBaseUrl("http://127.0.0.1:3000")).toBe(
-            "http://127.0.0.1:3000/ai/opencode/v1",
+            "http://127.0.0.1:3000/api/ai/opencode/v1",
         );
     });
 });

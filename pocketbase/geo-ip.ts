@@ -1,7 +1,7 @@
 /**
  * Offline IP -> city lookup for the chat location feature.
  *
- * `GET /ai/geo/ip` (wired in ai-relay.ts) resolves the caller's public IP to
+ * `GET /api/ai/geo/ip` (wired in ai-relay.ts) resolves the caller's public IP to
  * a city with the `ip2region` package, whose bundled xdb data (v4 + v6) ships
  * via node_modules like the pdf.js CMaps — nothing is downloaded or
  * committed. City-level only: the feature never produces coordinates, and

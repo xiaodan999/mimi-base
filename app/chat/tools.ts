@@ -45,7 +45,7 @@ export type { ToolHooks } from "./tool-inputs";
 
 /**
  * Tools the chat model may call. Code runs in the server-side Docker sandbox
- * (public HTTP(S) only); data tools hit `/ai/tools/*`, where the server
+ * (public HTTP(S) only); data tools hit `/api/ai/tools/*`, where the server
  * enforces auth, scoping and limits — the browser just forwards arguments.
  */
 export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [

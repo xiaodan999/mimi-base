@@ -302,7 +302,9 @@ describe("feedback service", () => {
         const { service } = setup(pbHandler({}));
         expect(
             await service(
-                new Request("http://supervisor/ai/models", { method: "GET" }),
+                new Request("http://supervisor/api/ai/models", {
+                    method: "GET",
+                }),
             ),
         ).toBeNull();
     });
@@ -680,7 +682,7 @@ describe("feedback service", () => {
         );
         expect(badJson?.status).toBe(400);
         const notFound = await service(
-            new Request("http://supervisor/feedback/nope", {
+            new Request("http://supervisor/api/feedback/nope", {
                 method: "POST",
             }),
         );

@@ -136,14 +136,15 @@ self.addEventListener("fetch", (event) => {
     // let cross-origin requests (PocketBase API, CDN assets, ...) go straight to the network
     if (url.origin !== self.location.origin) return;
 
-    // PocketBase is same-origin when it serves this app itself, so the API
-    // must stay untouched here: auth headers, the realtime stream and
-    // protected /api/files URLs must never be cached or replayed. The
-    // dashboard and its assets get the same treatment. /ai is the streaming
-    // relay; a cached health/model GET would be wrong, so bypass it too.
+    // PocketBase is same-origin when it serves this app itself, so its /db
+    // mount must stay untouched here: auth headers, the realtime stream and
+    // protected /db/api/files URLs must never be cached or replayed. The
+    // dashboard (/db/_/) gets the same treatment. /api is the streaming AI
+    // relay plus the feedback and future backend endpoints; a cached
+    // health/model GET would be wrong, so bypass it too.
     if (
+        url.pathname.startsWith("/db") ||
         url.pathname.startsWith("/api") ||
-        url.pathname.startsWith("/ai") ||
         url.pathname.startsWith("/_")
     )
         return;

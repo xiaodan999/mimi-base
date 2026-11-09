@@ -140,24 +140,19 @@ export default defineConfig(({ mode }) => {
         server: {
             port,
             proxy: {
-                // Pairs with VITE_POCKETBASE_URL=same-origin in dev.
-                "/api": {
+                // PocketBase lives under /db (see lib/env.ts). Strip the
+                // prefix before handing the request to the PB server, which
+                // only knows /api, /_/ and the public dir. ws keeps realtime.
+                "/db": {
                     target: `http://127.0.0.1:${pocketBasePort}`,
                     ws: true,
+                    rewrite: (path) => path.replace(/^\/db/, ""),
                 },
-                // Streaming AI relay (Bun supervisor), same-origin in dev.
-                // xfwd forwards the phone's address so /ai/geo/ip can tell
-                // the Vite proxy hop from the actual caller.
-                "/ai": {
-                    target: `http://127.0.0.1:${supervisorPort}`,
-                    xfwd: true,
-                },
-                // Bug-report -> GitHub issue endpoint (Bun supervisor). Only
-                // the API path is proxied: `/feedback` itself is a client
-                // route and must keep the SPA history fallback. Production
-                // must route `/feedback/report` to the supervisor port (see
-                // AGENTS.md).
-                "/feedback/report": {
+                // Hand-written Bun APIs: the streaming AI relay, feedback,
+                // and any future backend handlers. xfwd forwards the phone's
+                // address so /api/ai/geo/ip can tell the proxy hop from the
+                // actual caller.
+                "/api": {
                     target: `http://127.0.0.1:${supervisorPort}`,
                     xfwd: true,
                 },

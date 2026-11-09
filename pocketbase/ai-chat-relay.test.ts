@@ -102,7 +102,7 @@ function upstreamBody(calls: Call[]): Record<string, unknown> {
 }
 
 describe("chat model allowlist", () => {
-    test("GET /ai/models requires auth and returns the allowlist", async () => {
+    test("GET /api/ai/models requires auth and returns the allowlist", async () => {
         const { relay } = harness();
         expect((await relay(request(AI_MODELS_PATH)))?.status).toBe(401);
 

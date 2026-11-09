@@ -11,12 +11,12 @@
  * (SUPERVISOR_PORT overrides; bound to 127.0.0.1 unless DEPLOY_BIND is
  * explicitly opted into the public interface with DEPLOY_BIND_ALLOW_PUBLIC=1):
  *
- *   POST /ai/opencode/v1/chat/completions
+ *   POST /api/ai/opencode/v1/chat/completions
  *                       authenticated streaming relay for the site's
  *                       OpenCode Go key (see ai-relay.ts). The key comes from
  *                       OPENCODE_API_KEY and never reaches the browser.
- *   GET  /ai/health     relay status: key configured + model (no auth).
- *   POST /feedback/report
+ *   GET  /api/ai/health     relay status: key configured + model (no auth).
+ *   POST /api/feedback/report
  *                       owner-scoped bug report -> GitHub issue via
  *                       GITHUB_TOKEN/GITHUB_REPO (see feedback.ts). Missing
  *                       token still accepts the stored report.

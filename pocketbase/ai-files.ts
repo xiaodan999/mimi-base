@@ -33,7 +33,7 @@ import {
     sanitizeFileName,
 } from "../lib/chat-files";
 
-export const AI_FILES_PATH = "/ai/files";
+export const AI_FILES_PATH = "/api/ai/files";
 
 /** Stop pulling text/pages out of a pathological PDF after this long. */
 const MAX_PDF_MS = 60_000;

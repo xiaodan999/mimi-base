@@ -45,15 +45,15 @@ import {
     type ChatModelInfo,
 } from "./chat-models";
 
-export const AI_RELAY_PREFIX = "/ai";
-export const AI_CHAT_PATH = "/ai/opencode/v1/chat/completions";
+export const AI_RELAY_PREFIX = "/api/ai";
+export const AI_CHAT_PATH = "/api/ai/opencode/v1/chat/completions";
 /** General chat entry point: honours the server allowlist instead of forcing one model. */
-export const AI_CHAT_COMPLETIONS_PATH = "/ai/chat/completions";
-export const AI_MODELS_PATH = "/ai/models";
-export const AI_SANDBOX_PATH = "/ai/sandbox";
-export const AI_HEALTH_PATH = "/ai/health";
+export const AI_CHAT_COMPLETIONS_PATH = "/api/ai/chat/completions";
+export const AI_MODELS_PATH = "/api/ai/models";
+export const AI_SANDBOX_PATH = "/api/ai/sandbox";
+export const AI_HEALTH_PATH = "/api/ai/health";
 /** Chat location feature: caller IP -> city estimate (see geo-ip.ts). */
-export const AI_GEO_IP_PATH = "/ai/geo/ip";
+export const AI_GEO_IP_PATH = "/api/ai/geo/ip";
 
 const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 /**
@@ -97,7 +97,7 @@ export type AiRelayDeps = {
     pbBaseUrl: string;
     /** Server-held OpenCode Go key. Empty disables chat (health stays up). */
     apiKey: string;
-    /** Model forced on every legacy request (`/ai/opencode/v1/...`). */
+    /** Model forced on every legacy request (`/api/ai/opencode/v1/...`). */
     model: string;
     /**
      * Models the general chat may pick from. Omit to derive the list from
@@ -111,7 +111,7 @@ export type AiRelayDeps = {
     /** Server-side code sandbox; omitted in focused tests. */
     sandbox?: SandboxService;
     /**
-     * IP -> city resolver for /ai/geo/ip. Built on first use (without the
+     * IP -> city resolver for /api/ai/geo/ip. Built on first use (without the
      * dev egress fallback) when omitted; server.ts injects the real one so
      * dev can resolve loopback callers.
      */
@@ -426,7 +426,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
     }
 
     /**
-     * `/ai/files`: the current client persists the file in `chat_attachments`
+     * `/api/ai/files`: the current client persists the file in `chat_attachments`
      * first and asks us to read that stored copy (JSON body). The raw-bytes
      * path stays for a client that ships ahead of the server (the SPA and the
      * supervisor deploy independently).

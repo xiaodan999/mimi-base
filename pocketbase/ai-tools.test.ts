@@ -261,7 +261,7 @@ describe("ai tools service", () => {
             });
         });
         const res = await tools({
-            pathname: "/ai/tools/expenses",
+            pathname: "/api/ai/tools/expenses",
             body: { from: "2026-11-01", to: "2026-11-07", tz: -480 },
             uid: "user-1",
             token: "pb-token",
@@ -325,7 +325,7 @@ describe("ai tools service", () => {
             }),
         );
         const res = await tools({
-            pathname: "/ai/tools/expenses",
+            pathname: "/api/ai/tools/expenses",
             body: { tz: -480 },
             uid: "user-1",
             token: "pb-token",
@@ -350,7 +350,7 @@ describe("ai tools service", () => {
             return json({ items: [] });
         });
         await tools({
-            pathname: "/ai/tools/posts",
+            pathname: "/api/ai/tools/posts",
             body: { query: '上海" AND 1=1' },
             uid: "user-1",
             token: "pb-token",
@@ -392,7 +392,7 @@ describe("ai tools service", () => {
             });
         });
         const res = await tools({
-            pathname: "/ai/tools/posts",
+            pathname: "/api/ai/tools/posts",
             body: {},
             uid: "user-1",
             token: "pb-token",
@@ -473,7 +473,7 @@ describe("ai tools service", () => {
             });
         });
         const res = await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: {
                 post_id: "p1",
                 query: "火锅",
@@ -537,7 +537,7 @@ describe("ai tools service", () => {
             return json({ items: [] });
         });
         await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { author: "u2abc123xyz4567" },
             uid: "user-1",
             token: "pb-token",
@@ -554,7 +554,7 @@ describe("ai tools service", () => {
             return json({ items: [] });
         });
         await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { query: '他说"好" AND 1=1', limit: 999 },
             uid: "user-1",
             token: "pb-token",
@@ -562,7 +562,7 @@ describe("ai tools service", () => {
         expect(filter).toBe('(text ~ "他说好 AND 1=1")');
         expect(perPage).toBe("60");
         await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { limit: 0 },
             uid: "user-1",
             token: "pb-token",
@@ -579,7 +579,7 @@ describe("ai tools service", () => {
         }));
         const tools = service(() => json({ items }));
         const res = await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { limit: 3 },
             uid: "user-1",
             token: "pb-token",
@@ -598,7 +598,7 @@ describe("ai tools service", () => {
             return json({ items: [] });
         });
         const bad = await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { post_id: "../etc/passwd" },
             uid: "user-1",
             token: "pb-token",
@@ -608,7 +608,7 @@ describe("ai tools service", () => {
             error: "post_id 不是有效的动态记录 id",
         });
         const wrongType = await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: { post_id: 123 },
             uid: "user-1",
             token: "pb-token",
@@ -623,7 +623,7 @@ describe("ai tools service", () => {
     test("comments turn PB failures into a tool result", async () => {
         const tools = service(() => json({ message: "boom" }, 500));
         const res = await tools({
-            pathname: "/ai/tools/comments",
+            pathname: "/api/ai/tools/comments",
             body: {},
             uid: "user-1",
             token: "pb-token",
@@ -647,7 +647,7 @@ describe("ai tools service", () => {
             "ftp://example.com/file",
         ]) {
             const res = await tools({
-                pathname: "/ai/tools/url",
+                pathname: "/api/ai/tools/url",
                 body: { url },
                 uid: "user-1",
                 token: "pb-token",
@@ -668,7 +668,7 @@ describe("ai tools service", () => {
             return json({}, 404);
         });
         const res = await tools({
-            pathname: "/ai/tools/url",
+            pathname: "/api/ai/tools/url",
             body: { url: "http://93.184.216.34/weather" },
             uid: "user-1",
             token: "pb-token",
@@ -696,7 +696,7 @@ describe("ai tools service", () => {
             });
         });
         const res = await tools({
-            pathname: "/ai/tools/url",
+            pathname: "/api/ai/tools/url",
             body: { url: "http://93.184.216.34/start" },
             uid: "user-1",
             token: "pb-token",
@@ -719,7 +719,7 @@ describe("ai tools service", () => {
             return new Response("nope", { status: 500 });
         });
         const res = await tools({
-            pathname: "/ai/tools/url",
+            pathname: "/api/ai/tools/url",
             body: { url: "http://93.184.216.34/start" },
             uid: "user-1",
             token: "pb-token",
@@ -757,7 +757,7 @@ describe("tools relay wiring", () => {
     test("requires a PocketBase token", async () => {
         const relay = relayHarness();
         const res = await relay(
-            new Request("http://relay.test/ai/tools/memory", {
+            new Request("http://relay.test/api/ai/tools/memory", {
                 method: "POST",
                 body: JSON.stringify({ action: "list" }),
             }),
@@ -768,7 +768,7 @@ describe("tools relay wiring", () => {
     test("rejects non-object bodies", async () => {
         const relay = relayHarness();
         const res = await relay(
-            new Request("http://relay.test/ai/tools/memory", {
+            new Request("http://relay.test/api/ai/tools/memory", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify([1, 2]),
@@ -780,7 +780,7 @@ describe("tools relay wiring", () => {
     test("comments path is in the tools allowlist and needs auth", async () => {
         const relay = relayHarness();
         const anonymous = await relay(
-            new Request("http://relay.test/ai/tools/comments", {
+            new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 body: JSON.stringify({ limit: 1 }),
             }),
@@ -788,7 +788,7 @@ describe("tools relay wiring", () => {
         expect(anonymous?.status).toBe(401);
 
         const authed = await relay(
-            new Request("http://relay.test/ai/tools/comments", {
+            new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify({ limit: 1 }),
@@ -806,7 +806,7 @@ describe("tools relay wiring", () => {
         const relay = relayHarness();
         for (let i = 0; i < 30; i += 1) {
             const res = await relay(
-                new Request("http://relay.test/ai/tools/comments", {
+                new Request("http://relay.test/api/ai/tools/comments", {
                     method: "POST",
                     headers: { Authorization: "good-token" },
                     body: JSON.stringify({ limit: 1 }),
@@ -815,7 +815,7 @@ describe("tools relay wiring", () => {
             expect(res?.status).toBe(200);
         }
         const limited = await relay(
-            new Request("http://relay.test/ai/tools/comments", {
+            new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify({ limit: 1 }),

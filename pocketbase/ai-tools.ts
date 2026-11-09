@@ -22,11 +22,11 @@ import { isIP } from "node:net";
 
 import { isRecordId } from "../lib/chat-files";
 
-export const AI_TOOLS_EXPENSES_PATH = "/ai/tools/expenses";
-export const AI_TOOLS_POSTS_PATH = "/ai/tools/posts";
-export const AI_TOOLS_COMMENTS_PATH = "/ai/tools/comments";
-export const AI_TOOLS_MEMORY_PATH = "/ai/tools/memory";
-export const AI_TOOLS_URL_PATH = "/ai/tools/url";
+export const AI_TOOLS_EXPENSES_PATH = "/api/ai/tools/expenses";
+export const AI_TOOLS_POSTS_PATH = "/api/ai/tools/posts";
+export const AI_TOOLS_COMMENTS_PATH = "/api/ai/tools/comments";
+export const AI_TOOLS_MEMORY_PATH = "/api/ai/tools/memory";
+export const AI_TOOLS_URL_PATH = "/api/ai/tools/url";
 
 const MAX_EXPENSE_ROWS = 200;
 const MAX_POST_ROWS = 30;
@@ -172,7 +172,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         }
     };
 
-    // ---------- /ai/tools/expenses ----------
+    // ---------- /api/ai/tools/expenses ----------
 
     async function expenses(call: AiToolsCall): Promise<AiToolsResult> {
         const tz = parseTz(call.body.tz);
@@ -277,7 +277,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         });
     }
 
-    // ---------- /ai/tools/posts ----------
+    // ---------- /api/ai/tools/posts ----------
 
     async function posts(call: AiToolsCall): Promise<AiToolsResult> {
         const query =
@@ -342,7 +342,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         });
     }
 
-    // ---------- /ai/tools/comments ----------
+    // ---------- /api/ai/tools/comments ----------
 
     async function comments(call: AiToolsCall): Promise<AiToolsResult> {
         if (
@@ -479,7 +479,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         });
     }
 
-    // ---------- /ai/tools/memory ----------
+    // ---------- /api/ai/tools/memory ----------
 
     async function memory(call: AiToolsCall): Promise<AiToolsResult> {
         const ownerFilter = `(owner = "${call.uid}")`;
@@ -564,7 +564,7 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         return toolFail("未知的记忆操作");
     }
 
-    // ---------- /ai/tools/url ----------
+    // ---------- /api/ai/tools/url ----------
 
     async function readUrl(call: AiToolsCall): Promise<AiToolsResult> {
         const raw =

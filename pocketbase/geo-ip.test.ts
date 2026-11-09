@@ -7,7 +7,7 @@ const PB_BASE = "http://127.0.0.1:8090";
 
 describe("resolveClientIp", () => {
     const req = (forwarded?: string) =>
-        new Request("http://relay.test/ai/geo/ip", {
+        new Request("http://relay.test/api/ai/geo/ip", {
             headers: forwarded ? { "X-Forwarded-For": forwarded } : {},
         });
 

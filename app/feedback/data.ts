@@ -6,6 +6,7 @@ import {
 } from "@/app/chat/records";
 import type { ChatConversation } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
+import { apiUrl } from "@/lib/env";
 import pb from "@/lib/pb";
 import type { UserRecord } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
@@ -64,10 +65,9 @@ export type SubmitFeedbackResult = {
     syncError?: string;
 };
 
-/** Dev/prod same-origin proxy, or the absolute PB host on Vercel. */
+/** Same-origin proxy, or the PB host's `/api` origin on Vercel. */
 export function feedbackUrl(path = "/report"): string {
-    const base = pb.baseUrl.replace(/\/+$/, "");
-    return `${base}/feedback${path.startsWith("/") ? path : `/${path}`}`;
+    return apiUrl(`/feedback${path.startsWith("/") ? path : `/${path}`}`);
 }
 
 function appVersion(): string {

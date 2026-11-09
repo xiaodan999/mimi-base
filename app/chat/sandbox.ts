@@ -8,7 +8,7 @@ import {
 import { aiUrl, chatHeaders, readChatError } from "./api";
 
 /**
- * Runs the code in the server-side Docker sandbox (`/ai/sandbox`). The
+ * Runs the code in the server-side Docker sandbox (`/api/ai/sandbox`). The
  * browser only sends the operation and the conversation's file snapshot;
  * execution and network filtering happen on the server.
  */
