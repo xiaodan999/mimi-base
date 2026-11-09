@@ -40,7 +40,8 @@ Chinese; keep that style when adding user-facing text.
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
 - `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
   upload + bug/feature report create + supervisor sync + owner-only bug list +
-  shared suggestion query), `attachments.ts` (metadata parse/display),
+  shared suggestion query + live GitHub issue state), `attachments.ts`
+  (metadata parse/display), `issue-state.ts` (issue state response parser),
   `filters.ts` (visibility helpers mirroring the PB rules),
   `error-buffer.ts` (20-entry console/page-error ring buffer),
   `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
@@ -306,9 +307,14 @@ before your first commit.
   reuses its existing issue without another GitHub call. The feature tab's
   大家的建议 is shared; the bug tab's 我的反馈 stays owner-only. Realtime
   subscriptions are row-filtered by PocketBase, so the other account receives
-  feature events only. Vite proxies `/api` (Bun) and `/db` (PocketBase);
-  production routes `/api/*` to the supervisor and `/db/*` to PocketBase after
-  stripping the prefix, while `/feedback` stays a client route.
+  feature events only. Closing an issue happens on GitHub, so
+  `POST /api/feedback/issue-state` (auth-only, max 50 numbers, one-minute
+  server cache) reads the live `open`/`closed` state for the numbers on screen;
+  the list badge shows「已关闭」instead of「已建 Issue」, and a GitHub read
+  failure leaves the existing label untouched. Vite proxies `/api` (Bun) and
+  `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`
+  to PocketBase after stripping the prefix, while `/feedback` stays a client
+  route.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
   from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
   it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
@@ -413,9 +419,10 @@ before your first commit.
     `opencode.ai` out of the dev proxy env. Prod: the reverse proxy routes
     `/api/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too),
     and the Vercel build derives the API origin from `VITE_POCKETBASE_URL`.
-    The feedback endpoints are `POST /api/feedback/upload` (attachments) and
-    `POST /api/feedback/report` on the same supervisor, so the `/api/*` rule
-    covers them; `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
+    The feedback endpoints are `POST /api/feedback/upload` (attachments),
+    `POST /api/feedback/report` and `POST /api/feedback/issue-state` (live
+    GitHub state) on the same supervisor, so the `/api/*` rule covers them;
+    `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
     `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.prod`
     (dev: `.env`); `server.ts` carries them across a respawn.
 

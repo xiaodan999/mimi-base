@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    FEEDBACK_ISSUE_STATE_PATH,
     FEEDBACK_REPORT_PATH,
     FEEDBACK_UPLOAD_PATH,
     asAttachmentArray,
@@ -110,6 +111,21 @@ function submit(token: string | null = "pb-token", id = REPORT_ID) {
         method: "POST",
         headers,
         body: JSON.stringify({ reportId: id }),
+    });
+}
+
+function issueStateRequest(
+    numbers: unknown[],
+    token: string | null = "pb-token",
+) {
+    const headers: Record<string, string> = {
+        "content-type": "application/json",
+    };
+    if (token) headers.Authorization = token;
+    return new Request(`http://supervisor${FEEDBACK_ISSUE_STATE_PATH}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ numbers }),
     });
 }
 
@@ -934,6 +950,109 @@ describe("feedback service", () => {
             }),
         );
         expect(notFound?.status).toBe(404);
+    });
+});
+
+describe("feedback issue state service", () => {
+    test("returns live open/closed state and ignores invalid numbers", async () => {
+        let githubCalls = 0;
+        const { service, calls } = setup((url) => {
+            const match = url.pathname.match(
+                /^\/repos\/owner\/repo\/issues\/(\d+)$/,
+            );
+            if (!match) return json({}, 404);
+            githubCalls += 1;
+            return json({
+                state: Number(match[1]) === 8 ? "closed" : "open",
+            });
+        });
+        const res = await service(
+            issueStateRequest([7, 8, 7, -1, 0, 3.5, "8"]),
+        );
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            states: Record<string, string>;
+        };
+        expect(body.states).toEqual({ "7": "open", "8": "closed" });
+        expect(githubCalls).toBe(2);
+        // The endpoint is read-only: it must not reread or PATCH reports.
+        expect(
+            calls.filter((call) =>
+                call.url.pathname.includes("feedback_reports"),
+            ),
+        ).toHaveLength(0);
+    });
+
+    test("caches each issue state for a minute", async () => {
+        let clock = 1_000;
+        let githubCalls = 0;
+        const { service } = setup(
+            (url) => {
+                if (!/\/issues\/\d+$/.test(url.pathname)) return json({}, 404);
+                githubCalls += 1;
+                return json({ state: "open" });
+            },
+            { now: () => clock },
+        );
+
+        expect((await service(issueStateRequest([7])))?.status).toBe(200);
+        expect((await service(issueStateRequest([7])))?.status).toBe(200);
+        expect(githubCalls).toBe(1);
+
+        clock += 60_001;
+        expect((await service(issueStateRequest([7])))?.status).toBe(200);
+        expect(githubCalls).toBe(2);
+    });
+
+    test("requires auth and stays quiet when GitHub is unconfigured", async () => {
+        const { service, calls } = setup((url) => json({}, 404));
+        expect((await service(issueStateRequest([7], null)))?.status).toBe(401);
+        expect(calls).toHaveLength(0);
+
+        const unconfigured = setup((url) => json({}, 404), {
+            githubToken: "",
+        });
+        const res = await unconfigured.service(issueStateRequest([7]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: {},
+            reason: "github_not_configured",
+        });
+        expect(
+            unconfigured.calls.some((call) =>
+                call.url.pathname.startsWith("/repos/"),
+            ),
+        ).toBe(false);
+    });
+
+    test("omits issues GitHub cannot resolve instead of failing the list", async () => {
+        const { service } = setup((url) => {
+            if (url.pathname.endsWith("/issues/7")) return json({}, 500);
+            if (url.pathname.endsWith("/issues/8")) return json({ state: "x" });
+            return json({ state: "closed" });
+        });
+        const res = await service(issueStateRequest([7, 8, 9]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: { "9": "closed" },
+        });
+    });
+
+    test("rejects a malformed body", async () => {
+        const { service } = setup((url) => json({}, 404));
+        const res = await service(
+            new Request(`http://supervisor${FEEDBACK_ISSUE_STATE_PATH}`, {
+                method: "POST",
+                headers: {
+                    Authorization: "pb-token",
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify({ numbers: "7" }),
+            }),
+        );
+        expect(res?.status).toBe(400);
     });
 });
 

@@ -13,6 +13,10 @@ import { qk } from "@/lib/query-keys";
 
 import { parseAttachmentList, type FeedbackAttachment } from "./attachments";
 import { getFeedbackErrors } from "./error-buffer";
+import {
+    parseFeedbackIssueStates,
+    type FeedbackIssueStates,
+} from "./issue-state";
 
 export type FeedbackStatus = "stored" | "issue_created" | "failed";
 export type FeedbackKind = "bug" | "feature";
@@ -321,6 +325,62 @@ export function useFeatureSuggestions() {
                     perPage: 50,
                     expand: "owner",
                 }),
+    });
+}
+
+/**
+ * Resolve the live GitHub state of the issues currently listed. Reports stay
+ * `issue_created` in PocketBase after GitHub closes an issue, so the badge
+ * needs this separate read. Failures are silent: the badge keeps its
+ * existing「已建 Issue」label instead of turning the list into an error state.
+ */
+export function useFeedbackIssueStates(reports: FeedbackReportRecord[]) {
+    const user = useCurrentUser();
+    const numbers = Array.from(
+        new Set(
+            reports
+                .filter((report) => report.status === "issue_created")
+                .map((report) => report.issue_number)
+                .filter(
+                    (number): number is number =>
+                        typeof number === "number" &&
+                        Number.isInteger(number) &&
+                        number > 0,
+                ),
+        ),
+    ).sort((a, b) => a - b);
+    const key = numbers.join(",");
+
+    return useQuery({
+        queryKey: qk.feedback.issueStates(user.id, key),
+        enabled: numbers.length > 0,
+        queryFn: async (): Promise<FeedbackIssueStates> => {
+            const token = pb.authStore.token;
+            if (!token) return {};
+            let res: Response;
+            try {
+                res = await fetch(feedbackUrl("/issue-state"), {
+                    method: "POST",
+                    headers: {
+                        "content-type": "application/json",
+                        Authorization: token,
+                    },
+                    body: JSON.stringify({ numbers }),
+                });
+            } catch {
+                return {};
+            }
+            if (!res.ok) return {};
+            let body: { states?: unknown };
+            try {
+                body = (await res.json()) as typeof body;
+            } catch {
+                return {};
+            }
+            return parseFeedbackIssueStates(body.states);
+        },
+        staleTime: 60_000,
+        retry: false,
     });
 }
 

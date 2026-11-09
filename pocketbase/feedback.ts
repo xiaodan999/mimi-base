@@ -23,6 +23,11 @@
  *      creates the issue with the server-held `GITHUB_TOKEN`,
  *   4. writes `status` / `issue_url` / `issue_number` back onto the report.
  *
+ * `POST /api/feedback/issue-state` is read-only: the feedback lists ask for
+ * the current GitHub state of their issues so a closed issue stops showing
+ *「已建 Issue」. It accepts at most 50 numbers, caches each result for a
+ * minute, and never mutates the report row.
+ *
  * Feature suggestions use `[Feature]` + `enhancement`/`from-app` and never
  * require a conversation. Re-syncing a stored/failed row rebuilds the body
  * from the stored attachment metadata, so it never re-uploads bytes.
@@ -48,6 +53,8 @@ export const FEEDBACK_PREFIX = "/api/feedback";
 export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
 /** POST multipart `files` — upload attachments, return their public URLs. */
 export const FEEDBACK_UPLOAD_PATH = "/api/feedback/upload";
+/** POST { numbers } — read the current GitHub open/closed state. */
+export const FEEDBACK_ISSUE_STATE_PATH = "/api/feedback/issue-state";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_UPLOAD_FILES = 3;
@@ -63,6 +70,11 @@ const MAX_ATTACHMENTS = 3;
 const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 500;
 const CONNECT_TIMEOUT_MS = 10_000;
+/** Bound one state request; the feedback lists never exceed 50 reports. */
+const MAX_ISSUE_STATE_NUMBERS = 50;
+/** GitHub issue state is read for display only; a minute is plenty fresh. */
+const ISSUE_STATE_CACHE_MS = 60_000;
+const ISSUE_STATE_CONCURRENCY = 5;
 
 const MAX_ISSUE_TITLE = 180;
 const MAX_DESCRIPTION_CHARS = 5000;
@@ -113,6 +125,8 @@ export type FeedbackAttachment = {
     /** MIME type as sent by the browser; `image/*` renders inline. */
     type?: string;
 };
+
+export type FeedbackIssueState = "open" | "closed";
 
 export type TranscriptMessage = {
     role: string;
@@ -537,6 +551,11 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     let releaseInFlight: Promise<ReleaseResult> | null = null;
     /** Makes asset names unique even within the same millisecond. */
     let assetSeq = 0;
+    /** GitHub closes issues out-of-band, so the list reads their live state. */
+    const issueStateCache = new Map<
+        number,
+        { state: FeedbackIssueState; expiresAt: number }
+    >();
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
         const header = req.headers.get("authorization")?.trim() ?? "";
@@ -642,6 +661,47 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             "User-Agent": "mimi-base-feedback",
             ...extra,
         };
+    }
+
+    /**
+     * Read one issue's live state. Failures (deleted issue, GitHub down,
+     * rate limit) are non-fatal: the UI keeps its last「已建 Issue」 label.
+     * A short cache avoids spending a GitHub request for every list render.
+     */
+    async function readIssueState(
+        number: number,
+    ): Promise<FeedbackIssueState | null> {
+        const cached = issueStateCache.get(number);
+        if (cached && now() < cached.expiresAt) return cached.state;
+
+        let res: Response;
+        try {
+            res = await fetchImpl(`${apiBase}/repos/${repo}/issues/${number}`, {
+                method: "GET",
+                headers: githubHeaders(),
+                signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+            });
+        } catch {
+            return null;
+        }
+        if (!res.ok) return null;
+        let data: { state?: unknown };
+        try {
+            data = (await res.json()) as typeof data;
+        } catch {
+            return null;
+        }
+        const state =
+            data.state === "open" || data.state === "closed"
+                ? data.state
+                : null;
+        if (!state) return null;
+        if (issueStateCache.size >= AUTH_CACHE_MAX) issueStateCache.clear();
+        issueStateCache.set(number, {
+            state,
+            expiresAt: now() + ISSUE_STATE_CACHE_MS,
+        });
+        return state;
     }
 
     async function findRelease(): Promise<
@@ -820,6 +880,57 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         };
     }
 
+    async function handleIssueStates(req: Request): Promise<Response> {
+        let body: { numbers?: unknown };
+        try {
+            body = JSON.parse(await req.text()) as typeof body;
+        } catch {
+            return badRequest("请求内容不是合法 JSON");
+        }
+        if (!Array.isArray(body.numbers)) {
+            return badRequest("缺少 Issue 编号");
+        }
+        const numbers = Array.from(
+            new Set(
+                body.numbers.filter(
+                    (value): value is number =>
+                        typeof value === "number" &&
+                        Number.isInteger(value) &&
+                        value > 0,
+                ),
+            ),
+        ).slice(0, MAX_ISSUE_STATE_NUMBERS);
+        if (numbers.length === 0) return json({ ok: true, states: {} });
+        if (!configured) {
+            return json({
+                ok: true,
+                states: {},
+                reason: "github_not_configured",
+            });
+        }
+
+        const states: Record<string, FeedbackIssueState> = {};
+        for (
+            let index = 0;
+            index < numbers.length;
+            index += ISSUE_STATE_CONCURRENCY
+        ) {
+            const chunk = numbers.slice(index, index + ISSUE_STATE_CONCURRENCY);
+            const results = await Promise.all(
+                chunk.map(async (number) => ({
+                    number,
+                    state: await readIssueState(number),
+                })),
+            );
+            for (const result of results) {
+                if (result.state) {
+                    states[String(result.number)] = result.state;
+                }
+            }
+        }
+        return json({ ok: true, states });
+    }
+
     async function handleUpload(req: Request): Promise<Response> {
         if (!configured) {
             return json(
@@ -995,7 +1106,12 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         if (!url.pathname.startsWith(FEEDBACK_PREFIX)) return null;
         if (req.method === "OPTIONS") return empty(204);
         const uploading = url.pathname === FEEDBACK_UPLOAD_PATH;
-        if (url.pathname !== FEEDBACK_REPORT_PATH && !uploading) {
+        const readingStates = url.pathname === FEEDBACK_ISSUE_STATE_PATH;
+        if (
+            url.pathname !== FEEDBACK_REPORT_PATH &&
+            !uploading &&
+            !readingStates
+        ) {
             return json({ ok: false, error: "not found" }, 404);
         }
         if (req.method !== "POST") {
@@ -1018,6 +1134,7 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
         if (uploading) return handleUpload(req);
+        if (readingStates) return handleIssueStates(req);
 
         let body: { reportId?: unknown };
         try {

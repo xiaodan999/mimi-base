@@ -15,7 +15,7 @@ everything lives inside the repo clone:
     │                            #   serves the AI relay + token-protected
     │                            #   deploy endpoints on :9001
     ├── ai-relay.ts              # streaming /api/ai relay using the site key
-    ├── feedback.ts              # feedback (bug/feature) -> GitHub issue (/api/feedback/report)
+    ├── feedback.ts              # feedback (bug/feature) -> GitHub issue + issue state
     ├── ai-files.ts              # server-side chat attachment reader
     ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
@@ -250,6 +250,14 @@ PocketBase token. `feedback.ts`:
   `[Feature] <title>` with `enhancement` + `from-app`), then writes
   `status=issue_created`, `issue_url` and `issue_number` back onto the row.
 
+The row's `status` never changes when someone closes the issue on GitHub, so
+the feedback lists call `POST /api/feedback/issue-state` with the
+`{ numbers }` currently on screen (at most 50). It authenticates the same way,
+reads each issue's live `state` with the server token, caches each result for
+60 seconds, and returns `{ states: { "7": "open", "8": "closed" } }`. Numbers
+GitHub cannot resolve are omitted, and the UI keeps its「已建 Issue」label;
+this endpoint never writes to PocketBase.
+
 Config in `.env.prod` (or `.env` in dev): `GITHUB_TOKEN` (fine-grained token
 with `issues:write` and `contents:write` on the target repo — release assets
 need the latter), `GITHUB_REPO=owner/repo`, optionally `GITHUB_API_URL`
@@ -262,11 +270,12 @@ the report endpoint still returns `200 { issue: null }` and leaves the row
 later; the upload endpoint answers 503 instead. A GitHub error writes
 `status=failed` + a short error and returns 502; the report is kept.
 
-Reverse proxy: the endpoints are `POST /api/feedback/report` and
-`POST /api/feedback/upload` on the supervisor, so the existing `/api/*` rule
-covers them; no separate location is needed. Do not proxy `/feedback` itself
-(no trailing slash), because that is the SPA route. If your proxy splits
-`/api` by subpath, keep the exact `/api/feedback/*` paths.
+Reverse proxy: the endpoints are `POST /api/feedback/report`,
+`POST /api/feedback/upload` and `POST /api/feedback/issue-state` on the
+supervisor, so the existing `/api/*` rule covers them; no separate location is
+needed. Do not proxy `/feedback` itself (no trailing slash), because that is
+the SPA route. If your proxy splits `/api` by subpath, keep the exact
+`/api/feedback/*` paths.
 
 ## Code sandbox
 

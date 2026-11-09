@@ -66,6 +66,9 @@ export const qk = {
         reports: (userId: string) => ["feedback", "reports", userId] as const,
         /** Shared suggestions; the user id still isolates the cache. */
         features: (userId: string) => ["feedback", "features", userId] as const,
+        /** Live GitHub state for the issue numbers currently on screen. */
+        issueStates: (userId: string, numbers: string) =>
+            ["feedback", "issue-states", userId, numbers] as const,
     },
     chat: {
         all: ["chat"] as const,

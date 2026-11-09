@@ -12,7 +12,11 @@ import {
     isImageAttachment,
     parseAttachmentList,
 } from "@/app/feedback/attachments";
-import type { FeedbackReportRecord } from "@/app/feedback/data";
+import {
+    useFeedbackIssueStates,
+    type FeedbackReportRecord,
+} from "@/app/feedback/data";
+import type { FeedbackIssueState } from "@/app/feedback/issue-state";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,15 +26,25 @@ import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { toUser } from "@/lib/pb-types";
 import { cn } from "@/lib/utils";
 
-function statusLabel(status: FeedbackReportRecord["status"]): string {
-    if (status === "issue_created") return "已建 Issue";
+function statusLabel(
+    status: FeedbackReportRecord["status"],
+    issueState?: FeedbackIssueState,
+): string {
+    if (status === "issue_created") {
+        return issueState === "closed" ? "已关闭" : "已建 Issue";
+    }
     if (status === "failed") return "同步失败";
     return "待同步";
 }
 
-function statusClass(status: FeedbackReportRecord["status"]): string {
+function statusClass(
+    status: FeedbackReportRecord["status"],
+    issueState?: FeedbackIssueState,
+): string {
     if (status === "issue_created") {
-        return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+        return issueState === "closed"
+            ? "border-border bg-muted/60 text-muted-foreground"
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
     }
     if (status === "failed") {
         return "border-destructive/30 bg-destructive/10 text-destructive";
@@ -57,6 +71,8 @@ export function ReportList({
     onRetry?: (report: FeedbackReportRecord) => void;
     retryingId?: string | null;
 }) {
+    const issueStates = useFeedbackIssueStates(reports).data ?? {};
+
     if (loading) {
         return (
             <div className="mt-3 flex justify-center py-8">
@@ -84,6 +100,9 @@ export function ReportList({
                     : null;
                 const authorName = author?.user_name || "朋友";
                 const attachments = parseAttachmentList(report.attachments);
+                const issueState = report.issue_number
+                    ? issueStates[report.issue_number]
+                    : undefined;
                 return (
                     <li
                         key={report.id}
@@ -111,11 +130,11 @@ export function ReportList({
                             <Badge
                                 className={cn(
                                     "shrink-0 text-[10px]",
-                                    statusClass(report.status),
+                                    statusClass(report.status, issueState),
                                 )}
                                 variant="outline"
                             >
-                                {statusLabel(report.status)}
+                                {statusLabel(report.status, issueState)}
                             </Badge>
                         </div>
                         <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
