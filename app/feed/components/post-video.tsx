@@ -1,5 +1,13 @@
-import { useRef, useState } from "react";
-import { Loader2, Maximize2, Play, VideoOff } from "lucide-react";
+import { useRef, useState, type ChangeEvent } from "react";
+import {
+    Loader2,
+    Maximize2,
+    Pause,
+    Play,
+    VideoOff,
+    Volume2,
+    VolumeX,
+} from "lucide-react";
 
 import type { PostLayout } from "@/lib/pb-types";
 import {
@@ -31,9 +39,11 @@ const MAX_HEIGHT = "75dvh";
  * Ratios are clamped to 9:16..16:9 and the height to 75dvh; `object-contain`
  * keeps the rest readable without ever cropping.
  *
- * Native controls are switched on after the first play. The full-screen
- * button is our own overlay (not the native one) so the video can be enlarged
- * without the browser's gesture-heavy player chrome on a phone.
+ * After the first play we use a compact control bar (play/pause, seek, mute,
+ * fullscreen) instead of the browser's native chrome. Native controls are
+ * inconsistent across Android/iOS, oversized on a phone, and their fullscreen
+ * button collided with our own overlay; the custom bar keeps the video clean
+ * and leaves the dedicated fullscreen viewer in charge.
  */
 export default function PostVideo({
     url,
@@ -42,13 +52,18 @@ export default function PostVideo({
 }: PostVideoProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [started, setStarted] = useState(false);
+    const [playing, setPlaying] = useState(false);
+    const [muted, setMuted] = useState(false);
     const [failed, setFailed] = useState(false);
     const [ready, setReady] = useState(false);
     const [ratio, setRatio] = useState(DEFAULT_VIDEO_RATIO);
     const [duration, setDuration] = useState<number | null>(null);
+    const [currentTime, setCurrentTime] = useState(0);
 
     const durationLabel =
         duration === null ? "" : formatVideoDuration(duration);
+    const currentLabel =
+        currentTime > 0 ? formatVideoDuration(currentTime) : "0:00";
 
     const handleLoadedMetadata = () => {
         const video = videoRef.current;
@@ -66,15 +81,48 @@ export default function PostVideo({
             await video.play();
             setStarted(true);
         } catch {
-            // Autoplay policy or an unsupported codec; leave the player with
-            // its native controls so the user can try again.
+            // Autoplay policy or an unsupported codec; keep the custom bar
+            // visible so the user can try again.
             setStarted(true);
         }
+    };
+
+    const togglePlay = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused || video.ended) {
+            if (video.ended) video.currentTime = 0;
+            void play();
+        } else {
+            video.pause();
+        }
+    };
+
+    const seek = (event: ChangeEvent<HTMLInputElement>) => {
+        const next = Number(event.currentTarget.value);
+        const video = videoRef.current;
+        if (video) video.currentTime = next;
+        setCurrentTime(next);
+    };
+
+    const toggleMute = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.muted = !video.muted;
+        setMuted(video.muted);
     };
 
     const openFullscreen = () => {
         videoRef.current?.pause();
         onOpenFullscreen();
+    };
+
+    const retry = () => {
+        setFailed(false);
+        setStarted(false);
+        setPlaying(false);
+        setCurrentTime(0);
+        videoRef.current?.load();
     };
 
     return (
@@ -95,11 +143,22 @@ export default function PostVideo({
                 src={videoFirstFrameUrl(url)}
                 preload="metadata"
                 playsInline
-                controls={started}
                 aria-label="动态视频"
                 className="size-full bg-black object-contain"
+                onClick={() => {
+                    if (started) void togglePlay();
+                }}
                 onLoadedMetadata={handleLoadedMetadata}
-                onPlay={() => setStarted(true)}
+                onTimeUpdate={(event) =>
+                    setCurrentTime(event.currentTarget.currentTime)
+                }
+                onPlay={() => {
+                    setStarted(true);
+                    setPlaying(true);
+                }}
+                onPause={() => setPlaying(false)}
+                onEnded={() => setPlaying(false)}
+                onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
                 onError={() => setFailed(true)}
             />
 
@@ -140,6 +199,63 @@ export default function PostVideo({
                 </>
             )}
 
+            {started && !failed && (
+                <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-2.5 pt-10 animate-in fade-in-0">
+                    <div className="flex items-center gap-1.5 text-white">
+                        <button
+                            type="button"
+                            onClick={togglePlay}
+                            aria-label={playing ? "暂停视频" : "播放视频"}
+                            className="grid size-9 shrink-0 place-items-center rounded-full bg-white/15 active:bg-white/30"
+                        >
+                            {playing ? (
+                                <Pause className="size-4 fill-current" />
+                            ) : (
+                                <Play className="ml-0.5 size-4 fill-current" />
+                            )}
+                        </button>
+                        <span className="w-9 shrink-0 text-center text-[11px] font-medium tabular-nums text-white/90">
+                            {currentLabel}
+                        </span>
+                        <input
+                            type="range"
+                            min={0}
+                            max={duration ?? 0}
+                            step={0.1}
+                            value={Math.min(currentTime, duration ?? 0)}
+                            onChange={seek}
+                            disabled={duration === null}
+                            aria-label="视频进度"
+                            aria-valuetext={`${currentLabel} / ${durationLabel || "未知"}`}
+                            className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/30 accent-white disabled:opacity-50"
+                        />
+                        <span className="w-9 shrink-0 text-center text-[11px] font-medium tabular-nums text-white/90">
+                            {durationLabel || "--:--"}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={toggleMute}
+                            aria-label={muted ? "取消静音" : "静音"}
+                            className="grid size-9 shrink-0 place-items-center rounded-full bg-white/15 active:bg-white/30"
+                        >
+                            {muted ? (
+                                <VolumeX className="size-4" />
+                            ) : (
+                                <Volume2 className="size-4" />
+                            )}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={openFullscreen}
+                            aria-label="全屏播放视频"
+                            className="grid size-9 shrink-0 place-items-center rounded-full bg-white/15 active:bg-white/30"
+                        >
+                            <Maximize2 className="size-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {failed && (
                 <div className="absolute inset-0 grid place-items-center bg-black/70 px-6 text-center text-white">
                     <div>
@@ -149,10 +265,7 @@ export default function PostVideo({
                         </p>
                         <button
                             type="button"
-                            onClick={() => {
-                                setFailed(false);
-                                videoRef.current?.load();
-                            }}
+                            onClick={retry}
                             className="mt-3 rounded-full bg-white/15 px-4 py-1.5 text-xs font-medium active:bg-white/30"
                         >
                             重试
@@ -161,7 +274,7 @@ export default function PostVideo({
                 </div>
             )}
 
-            {!failed && (
+            {!failed && !started && (
                 <button
                     type="button"
                     onClick={openFullscreen}

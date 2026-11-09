@@ -9,6 +9,7 @@
 - 晚餐抽奖机的首次点开反馈（#55）：`home.tsx` 改为静态引入弹窗壳，`-dialog.tsx` 只对转盘/管理视图 `lazy()`，并新增 `正在准备转盘…` 的 `role=status` 占位；首屏不再因为动态 import 未完成而看起来「点了没反应」。
 - 晚餐转盘的横向滚动条（#51）：旋转中的方形 rotor 会把 transformed bounding box 撑大，进而计入 sheet 的 `overflow-y-auto` 可滚动宽度；`-wheel.tsx` 用静态 `overflow-hidden` 包住 rotor（指针和中心按钮留在外面），`-dialog.tsx` 补 `overflow-x-hidden`。320/360/375/390 宽度下 spin/result 均为 `scrollWidth === clientWidth`。
 - 动态视频的竖屏显示（#57）：`PostVideo` 按 `loadedmetadata` 的真实宽高比布局（夹取 9:16–16:9，最高 75dvh），不再强制 16:9 导致竖屏视频两侧大面积黑边；同时补充播放遮罩、时长角标和元数据加载提示。`lib/postMedia.ts` 新增 `videoDisplayRatio` / `formatVideoDuration` 及单测。
+- 动态视频播放界面重做（#63）：`post-video.tsx` 不再启用浏览器原生控件，改为底部自定义控制条（播放/暂停、可拖动进度、当前时间/总时长、静音、全屏），点击画面也能暂停/继续；未播放时保留居中的大播放按钮、时长角标和右上角全屏入口，全屏仍交给 `VideoViewer`。这样 Android/iOS 的原生控件不会再和自有按钮重叠，时间轴和按钮大小在手机上保持一致。
 - 反馈卡片显示 GitHub Issue 实时状态（#62）：新增 `POST /api/feedback/issue-state`（auth-only，最多 50 个编号，逐批最多 5 个并发请求，每个 Issue 状态缓存 60 秒；GitHub 读取失败只省略该编号，不影响列表）。客户端 `useFeedbackIssueStates` 按当前列表的 `issue_number` 拉取状态，`ReportList` 对已关闭的 Issue 显示「已关闭」并使用灰色徽章；无状态时保持「已建 Issue」。新增 `app/feedback/issue-state.ts` 解析器与单测，服务端测试覆盖鉴权、过滤/去重、缓存和上游失败。
 - 晚餐抽奖机结果出现时的布局跳动（#59）：`-dialog.tsx` 把 idle / spinning / result 三种状态放进同高（`min-h-[12.5rem]`）的居中槽位，结果卡不再把底部抽屉撑高；长名字按长度降到 `text-2xl` / `text-xl`，保证最多两行，结果槽高度保持稳定。
 - 反馈附件支持全屏预览（#60）：`AttachmentPicker` 统一持有图片的 object URL，点击缩略图打开现有的 `ImageViewer`（缩放、左右滑动、下滑关闭、返回手势关闭）；上传/移除文件时释放旧 URL，避免泄漏。
