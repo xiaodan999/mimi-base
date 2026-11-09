@@ -172,8 +172,12 @@ export default function HomeFeed() {
                             <Fragment key={post.id}>
                                 {showDivider && (
                                     <div
+                                        // Decoration only: the full-width
+                                        // transparent row must never swallow
+                                        // taps aimed at what scrolls beneath
+                                        // it (or at the floating buttons).
                                         className={cn(
-                                            "sticky z-10 -mx-3 mb-2 px-3 py-1.5",
+                                            "pointer-events-none sticky z-10 -mx-3 mb-2 px-3 py-1.5",
                                             filtering ? "top-10" : "top-0",
                                         )}
                                     >
@@ -307,7 +311,11 @@ export default function HomeFeed() {
                 </div>
             </div>
 
-            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))]">
+            {/* Floating actions live above the feed's sticky day dividers
+                (z-10) and filter bar (z-20) so they stay visible and tappable
+                at every scroll offset; the bottom offset clears the nav bar
+                and the home indicator. */}
+            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))] z-30">
                 <Button
                     variant="secondary"
                     size="icon"
@@ -319,7 +327,7 @@ export default function HomeFeed() {
                 </Button>
             </div>
 
-            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] flex flex-col items-center gap-2">
+            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 flex flex-col items-center gap-2">
                 {showBackToTop && (
                     <Button
                         variant="secondary"
