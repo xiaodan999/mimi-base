@@ -6,6 +6,10 @@
 
 ### 修复
 
+- 晚餐抽奖机的首次点开反馈（#55）：`home.tsx` 改为静态引入弹窗壳，`-dialog.tsx` 只对转盘/管理视图 `lazy()`，并新增 `正在准备转盘…` 的 `role=status` 占位；首屏不再因为动态 import 未完成而看起来「点了没反应」。
+- 晚餐转盘的横向滚动条（#51）：旋转中的方形 rotor 会把 transformed bounding box 撑大，进而计入 sheet 的 `overflow-y-auto` 可滚动宽度；`-wheel.tsx` 用静态 `overflow-hidden` 包住 rotor（指针和中心按钮留在外面），`-dialog.tsx` 补 `overflow-x-hidden`。320/360/375/390 宽度下 spin/result 均为 `scrollWidth === clientWidth`。
+- 动态视频的竖屏显示（#57）：`PostVideo` 按 `loadedmetadata` 的真实宽高比布局（夹取 9:16–16:9，最高 75dvh），不再强制 16:9 导致竖屏视频两侧大面积黑边；同时补充播放遮罩、时长角标和元数据加载提示。`lib/postMedia.ts` 新增 `videoDisplayRatio` / `formatVideoDuration` 及单测。
+- 反馈页面字段可修改（#52）：`页面` chip 改为可点按钮，新增 `page-picker.tsx` 列出主要页面；`readLastRoute()` 的深层路径保留为「最近访问」。问题反馈和功能建议两个 panel 各自持有 route 状态，提交与 AI 整理都使用用户最终选择的页面。
 - 记账/动态/评论/聊天/学习进度接入 PocketBase realtime（#37）：新增 `hooks/useRealtimeSync.ts`，在受保护的 App 壳里只建立一层订阅，监听 `ji_zhang_biao`、`ji_zhang_category`、`posts`、`comments`、`post_likes`、`study_progress`、`tou_xiang_circle` 和 `chat_*`；事件经 `lib/realtime.ts` 映射到 `qk.*` 前缀、120ms 去重批处理后失效，替代按页面各写一套失效逻辑。
 - 订阅随受保护壳挂载/卸载：退出登录后取消所有监听并关闭 SSE，重新登录自动重订阅；`online` 事件和长时间后台恢复时全量失效补拉，因为 PocketBase 不会重放断线期间错过的记录事件。
 - React Query 默认值改为 `staleTime: 0` 并显式开启 `refetchOnReconnect`；`useHomeStats` 去掉 60s 覆盖，切回页面/重连会重新拉取。动态流仍保留 5 分钟 `staleTime`，避免一次聚焦重抓所有已加载分页。
@@ -17,6 +21,9 @@
 
 ### 变更
 
+- 反馈附件改为直传 GitHub（#54）：新增迁移 `1795900000_feedback_attachments.js`，清空并删除 `feedback_reports.screenshots` FileField，新增 `attachments` JSONField；supervisor 新增 `POST /api/feedback/upload`（multipart `files`，最多 3 个 / 每个 10MB / 任意类型），在 `feedback-assets` prerelease 上复用 release 并上传 asset，返回 `{name,url,size,type}`；新增 `GITHUB_UPLOADS_URL`，未配置 token/repo 时返回 503 `github_not_configured`。客户端先上传再创建报告，行内只存元数据；上传失败不创建带附件的报告。Issue 正文新增 `### 附件`（图片内嵌、文件链接 + 大小）。
+- `ScreenshotPicker` 替换为 `AttachmentPicker`（图片压缩、任意文件原样上传），`ReportList` 显示附件数量与可点击 chip；反馈页和功能建议的说明改为「附件会直接上传到 GitHub Issue（公开可见）」。`app/feedback/validation.ts` 改为 3 个附件 / 每个 10MB / 不限 MIME。
+- 附上 AI 对话改为从聊天页发起（#53）：`-chat-header.tsx` 对话菜单新增「反馈问题」，跳转 `/feedback?conversation=<id>`；反馈页 `validateSearch` 接收该参数，bug panel 只展示「已附上「标题」」并可移除，删除通用 `ConversationPicker`。
 - 反馈列表：移除每用户 5 次/小时的提交上限；`stored` 状态改显示「待同步」，卡片新增「重新同步」按钮（复用 `POST /api/feedback/report`，已建 Issue 幂等复用），提交成功卡片与 toast 改为提示可稍后重试；`pocketbase/feedback.ts` 删除滑动窗口限流与 429 分支，`report-list.tsx` 只在本人报告上显示重试。
 - URL 布局迁移：PocketBase 统一挂到 `/db`（SDK base 为 `<origin>/db`，管理面板 `/db/_/`），手写 Bun 接口统一到 `/api`（AI `/api/ai/*`、反馈 `/api/feedback/report`，以后新增后端处理器也放在 `/api/*`）。`lib/env.ts` 负责把 `VITE_POCKETBASE_URL` 归一化为 `/db` 并单独暴露 API origin；Vite 开发代理改为 `/db` → PocketBase（去掉前缀）和 `/api` → supervisor，生产 Caddy 同构（`/db/sync` 保持精确路径优先）；Service Worker 绕过 `/db` 与 `/api`，部署健康检查改用 `/db/api/health`。旧的 `/ai/*`、`/feedback/report` 路由不再保留。
 - 首页晚餐入口保持原有 🍜 按钮位置，弹窗从「随机结果 + 保存」改为彩色转盘 + 管理视图；`home.tsx` 用 `lazy()` 只在首次点开时加载转盘 chunk，并移除硬编码 `DINNER` 数组（`app/routes/_protected/_main/home.tsx`）。
@@ -26,6 +33,7 @@
 
 ### 新增
 
+- 反馈页面选择器与附件测试：新增 `app/routes/_protected/_main/feedback/-components/page-picker.tsx`（`FEEDBACK_PAGES` + 最近访问）和 `page-picker.test.ts`；`app/feedback/attachments.ts` 统一解析/展示附件元数据并新增单测。`pocketbase/feedback.test.ts` 覆盖 `POST /api/feedback/upload`（鉴权、未配置、release 复用、数量/体积限制、上游失败）与附件正文渲染；#56 新增连续多次提交的回归测试。
 - 功能建议（#40）：`/feedback` 改为「问题反馈 / 功能建议」双标签页，支持 `/feedback?tab=feature` 深链，个人资料页「功能」分组新增「功能建议」入口；两个标签页首次访问后保持挂载，切换不会丢失草稿，标签切换用 `replace`，返回手势直接回到个人资料。
 - 新增迁移 `1795800000_share_feature_feedback.js`：`feedback_reports` 的 list/view 规则改为 `@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`，功能建议两人共享、bug 仍仅本人可见；update/delete 保持 owner-only，create 仍绑定 `@request.body.owner`。
 - 功能建议表单：标题、想要什么/为什么/希望怎么用描述、最多 3 张照片（复用 `prepareImage` 压缩与截图选择器）、自动带页面/版本、功能专用「AI 帮我整理」（`featurePolishMessages`，503 保留原文）；创建 `kind: "feature"` 行并在同一 FormData 上传照片，随后 POST `{reportId}`，成功卡片显示 GitHub 链接，「大家的建议」展示双方建议（作者头像/昵称、日期、照片数、状态、Issue 链接）。

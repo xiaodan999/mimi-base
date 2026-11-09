@@ -38,9 +38,10 @@ Chinese; keep that style when adding user-facing text.
   image viewer, video player/viewer, find sheet). Home renders the feed
   through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
-- `app/feedback/` — feedback domain for both kinds: `data.ts` (bug/feature
-  report create + supervisor sync + owner-only bug list + shared suggestion
-  query), `filters.ts` (visibility helpers mirroring the PB rules),
+- `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
+  upload + bug/feature report create + supervisor sync + owner-only bug list +
+  shared suggestion query), `attachments.ts` (metadata parse/display),
+  `filters.ts` (visibility helpers mirroring the PB rules),
   `error-buffer.ts` (20-entry console/page-error ring buffer),
   `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
   `_main/feedback/` with 问题反馈 / 功能建议 tabs (`?tab=feature` deep link);
@@ -271,36 +272,43 @@ before your first commit.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
   Date literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
 - File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`,
-  `posts.videos`, `feedback_reports.screenshots`) store filenames, not URLs.
-  They are protected, so build URLs with `getFileUrl` (or `getUserAvatarUrl` /
-  `getUserCircleUrl`), which appends the short-lived token; `AuthProvider`
-  refreshes it. Never call `pb.files.getURL` directly for these files —
-  `<img>` cannot send the auth header, so a tokenless URL 404s.
-- Feedback is a two-step flow for both kinds: the client creates
-  `feedback_reports` (`kind` bug/feature, protected photos, optional
-  `chat_conversations` relation for bugs) and then POSTs `{ reportId }` to
-  `/api/feedback/report`. The Bun supervisor (`pocketbase/feedback.ts`)
+  `posts.videos`) store filenames, not URLs. They are protected, so build URLs
+  with `getFileUrl` (or `getUserAvatarUrl` / `getUserCircleUrl`), which appends
+  the short-lived token; `AuthProvider` refreshes it. Never call
+  `pb.files.getURL` directly for these files — `<img>` cannot send the auth
+  header, so a tokenless URL 404s. Feedback attachments are **not** PB files:
+  `feedback_reports.attachments` only stores `{ name, url, size, type }`
+  metadata pointing at GitHub release assets.
+- Feedback is a three-step flow for both kinds: the client uploads attachments
+  (`POST /api/feedback/upload`, multipart `files`, max 3 × 10MB, any MIME) to
+  the `feedback-assets` GitHub prerelease, creates `feedback_reports`
+  (`kind` bug/feature, `attachments` metadata JSON, optional
+  `chat_conversations` relation for bugs), then POSTs `{ reportId }` to
+  `/api/feedback/report`. Attaching an AI conversation starts in the chat
+  thread's 反馈问题 menu (`/feedback?conversation=<id>`); the feedback page has
+  no conversation picker. The Bun supervisor (`pocketbase/feedback.ts`)
   authenticates with the caller's PB token, re-reads the row with that token,
   and still requires `report.owner === caller` — the shared feature read rule
   lets the other account read a suggestion, never sync it. There is **no
   per-user submission cap** (two trusted accounts, and the report list offers
   a 重新同步 action); it opens a GitHub issue with the server-only
-  `GITHUB_TOKEN` (`GITHUB_REPO`, optional `GITHUB_API_URL`). **Never** send the
-  GitHub token or the PB token to the browser. Missing token/repo still
-  returns `200 { issue: null }` and the row stays `stored` (UI: 待同步), and
-  the report card can retry it later; GitHub failures set `status=failed`
-  without losing the report. Bug issues are `[Bug]` + `bug`/`from-app`, and
-  their body may include the last 20 console errors and a server-fetched
-  transcript of the last 20 chat messages / 10k chars. Feature issues are
-  `[Feature]` + `enhancement`/`from-app`, never fetch a transcript, and their
-  body is the idea plus the in-app photo note. Retrying an already-synced
-  report reuses its existing issue without another GitHub call. The feature
-  tab's 大家的建议 is shared; the bug tab's 我的反馈 stays
-  owner-only. Realtime subscriptions are row-filtered by PocketBase, so the
-  other account receives feature events only. Vite proxies `/api` (Bun) and
-  `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`
-  to PocketBase after stripping the prefix, while `/feedback` stays a client
-  route.
+  `GITHUB_TOKEN` (`GITHUB_REPO`, optional `GITHUB_API_URL` /
+  `GITHUB_UPLOADS_URL`). **Never** send the GitHub token or the PB token to the
+  browser. Missing token/repo still accepts a text-only report with
+  `200 { issue: null }` and the row stays `stored` (UI: 待同步), and the report
+  card can retry it later; attachment uploads return 503 instead and no report
+  row is created. GitHub failures set `status=failed` without losing the
+  report. Bug issues are `[Bug]` + `bug`/`from-app`, and their body may include
+  the last 20 console errors and a server-fetched transcript of the last 20
+  chat messages / 10k chars. Feature issues are `[Feature]` +
+  `enhancement`/`from-app`, never fetch a transcript, and their body is the
+  idea plus inline attachment images/links. Retrying an already-synced report
+  reuses its existing issue without another GitHub call. The feature tab's
+  大家的建议 is shared; the bug tab's 我的反馈 stays owner-only. Realtime
+  subscriptions are row-filtered by PocketBase, so the other account receives
+  feature events only. Vite proxies `/api` (Bun) and `/db` (PocketBase);
+  production routes `/api/*` to the supervisor and `/db/*` to PocketBase after
+  stripping the prefix, while `/feedback` stays a client route.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
   from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
   it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
@@ -405,10 +413,11 @@ before your first commit.
     `opencode.ai` out of the dev proxy env. Prod: the reverse proxy routes
     `/api/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too),
     and the Vercel build derives the API origin from `VITE_POCKETBASE_URL`.
-    The feedback endpoint is `POST /api/feedback/report` on the same
-    supervisor, so the `/api/*` rule covers it; `/feedback` itself stays the
-    SPA route. `GITHUB_TOKEN` / `GITHUB_REPO` / `GITHUB_API_URL` live in
-    `.env.prod` (dev: `.env`); `server.ts` carries them across a respawn.
+    The feedback endpoints are `POST /api/feedback/upload` (attachments) and
+    `POST /api/feedback/report` on the same supervisor, so the `/api/*` rule
+    covers them; `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
+    `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.prod`
+    (dev: `.env`); `server.ts` carries them across a respawn.
 
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use
