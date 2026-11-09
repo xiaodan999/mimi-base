@@ -17,7 +17,7 @@ function conversation(
         model: "deepseek-v4.1-flash",
         thinking: "",
         personaId: "builtin:general",
-        personaName: "通用助手",
+        personaName: "日常对话",
         personaPrompt: "p",
         sandboxFiles: {},
         lastMessage: "好的",
@@ -77,6 +77,7 @@ describe("conversationToMarkdown", () => {
             }),
         ]);
         expect(markdown).toContain("# 周末计划");
+        expect(markdown).toContain("> 应用场景：日常对话");
         expect(markdown).toContain("### 我");
         expect(markdown).toContain("看这个");
         expect(markdown).toContain("[图片]");
@@ -145,7 +146,7 @@ describe("list helpers", () => {
                 id: "b",
                 title: "english",
                 personaId: "builtin:english-teacher",
-                personaName: "英语老师",
+                personaName: "英语学习",
             }),
         ];
         expect(
@@ -166,13 +167,13 @@ describe("list helpers", () => {
                 conversation({ personaId: "builtin:general" }),
                 conversation({
                     personaId: "builtin:removed",
-                    personaName: "已删除人格",
+                    personaName: "已删除场景",
                 }),
             ],
             [
                 {
                     id: "builtin:general",
-                    name: "通用助手",
+                    name: "日常对话",
                     icon: "✨",
                     description: "",
                     prompt: "",
@@ -182,13 +183,13 @@ describe("list helpers", () => {
         );
         expect(chips[0]).toMatchObject({
             id: "builtin:general",
-            name: "通用助手",
+            name: "日常对话",
             icon: "✨",
             count: 2,
         });
         expect(chips[1]).toMatchObject({
             id: "builtin:removed",
-            name: "已删除人格",
+            name: "已删除场景",
             icon: "💬",
             count: 1,
         });

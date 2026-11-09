@@ -1,3 +1,4 @@
+import { DEFAULT_PERSONA_NAME } from "./personas";
 import { TOOL_TITLES } from "./tool-labels";
 import type { ChatConversation, ChatMessage } from "./types";
 
@@ -82,7 +83,7 @@ export function conversationToMarkdown(
     const header = [
         `# ${conversation.title}`,
         "",
-        `> 人格：${conversation.personaName || "通用助手"} · 导出于 ${dateLabel(new Date().toISOString())}`,
+        `> 应用场景：${conversation.personaName || DEFAULT_PERSONA_NAME} · 导出于 ${dateLabel(new Date().toISOString())}`,
         "",
     ];
     const body = messages.flatMap((message) => [...messageLines(message), ""]);

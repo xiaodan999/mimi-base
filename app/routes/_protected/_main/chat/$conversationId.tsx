@@ -9,7 +9,11 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
-import { findPersona, resolvePersona } from "@/app/chat/personas";
+import {
+    DEFAULT_PERSONA_NAME,
+    findPersona,
+    resolvePersona,
+} from "@/app/chat/personas";
 import { previewText } from "@/app/chat/records";
 import { stopChatRun } from "@/app/chat/run-store";
 import type { ChatConversation, ChatMessage } from "@/app/chat/types";
@@ -149,7 +153,7 @@ function ChatConversationView({
                 personasQuery.data ?? [],
             ) ?? {
                 id: conversation.personaId,
-                name: conversation.personaName || "通用助手",
+                name: conversation.personaName || DEFAULT_PERSONA_NAME,
                 icon: "💬",
                 description: "",
                 prompt: conversation.personaPrompt,
@@ -309,7 +313,9 @@ function ChatConversationView({
                     sandboxFiles={session.sandboxFiles}
                     model={model}
                     models={models}
-                    personaName={conversation.personaName || "通用助手"}
+                    personaName={
+                        conversation.personaName || DEFAULT_PERSONA_NAME
+                    }
                     initialDraft={initialDraft}
                     starters={personaStarters}
                     onSend={session.send}

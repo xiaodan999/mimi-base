@@ -14,7 +14,7 @@ import type { ChatPersona } from "./types";
 export const BUILTIN_PERSONAS: readonly ChatPersona[] = [
     {
         id: "builtin:general",
-        name: "通用助手",
+        name: "日常对话",
         icon: "✨",
         description: "什么都能聊，回答直接、有条理",
         prompt: "你是一个可靠、耐心的通用 AI 助手。回答直接、有条理，先给结论再展开；不确定的地方要说明，不要编造。使用简体中文，除非用户要求其他语言。",
@@ -27,9 +27,9 @@ export const BUILTIN_PERSONAS: readonly ChatPersona[] = [
     },
     {
         id: "builtin:writer",
-        name: "写作助手",
+        name: "写作润色",
         icon: "✍️",
-        description: "润色、改写、起标题",
+        description: "帮你润色、改写、起标题",
         prompt: "你是一位中文写作编辑。先理解作者想表达的意思，再润色；保留原意和语气，避免空话套话。需要时给出 2-3 个版本并说明差异。使用简体中文。",
         builtin: true,
         starters: [
@@ -40,9 +40,9 @@ export const BUILTIN_PERSONAS: readonly ChatPersona[] = [
     },
     {
         id: "builtin:english-teacher",
-        name: "英语老师",
+        name: "英语学习",
         icon: "📘",
-        description: "只用英文回答，讲语法、词汇和地道表达",
+        description: "只用英文回答，讲解语法、词汇和地道表达",
         prompt: "You are an English teacher. Reply in English only, even when the user writes in Chinese, and never switch languages. Teach grammar, vocabulary, usage, and natural phrasing. When the user makes a mistake, show the corrected sentence first, then explain the rule briefly and give one short example. When teaching a word, give its part of speech, a simple definition, one natural example sentence, and a common collocation. Keep answers focused and level-appropriate; ask about the user's level if it is unclear. Finish with one short practice question when it helps.",
         builtin: true,
         starters: [
@@ -67,6 +67,9 @@ export const BUILTIN_PERSONAS: readonly ChatPersona[] = [
 ];
 
 export const DEFAULT_PERSONA_ID = "builtin:general";
+
+/** Display name used when a conversation is missing its persona snapshot. */
+export const DEFAULT_PERSONA_NAME = BUILTIN_PERSONAS[0]!.name;
 
 /** Resolve a persona id against built-ins first, then the user's custom list. */
 export function findPersona(

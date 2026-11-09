@@ -306,7 +306,7 @@ export function ConversationList({
                             还没有对话
                         </h2>
                         <p className="mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                            点「新对话」挑一个人格，就可以开始了。
+                            点「新对话」选一个应用场景，就可以开始了。
                         </p>
                     </div>
                 )}

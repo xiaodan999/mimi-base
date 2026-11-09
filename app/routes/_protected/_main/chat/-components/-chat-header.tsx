@@ -12,6 +12,7 @@ import {
     X,
 } from "lucide-react";
 
+import { DEFAULT_PERSONA_NAME } from "@/app/chat/personas";
 import type { ChatConversation, ChatModel } from "@/app/chat/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,7 +110,7 @@ export function ChatHeader({
                         {conversation.title}
                     </h1>
                     <p className="truncate text-[10px] leading-tight text-muted-foreground">
-                        {conversation.personaName || "通用助手"}
+                        {conversation.personaName || DEFAULT_PERSONA_NAME}
                         {running ? " · 正在回复" : ""}
                     </p>
                 </div>

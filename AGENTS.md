@@ -421,11 +421,11 @@ before your first commit.
   instructions — keep that line when editing `app/chat/prompt.ts`. Memories
   (`chat_memories`) are injected into every run's system prompt (top 30) and
   managed in the chat list header's 「AI 的记忆」 sheet.
-- Built-in personas (`app/chat/personas.ts`) are 通用助手 / 写作助手 /
-  英语老师 / 基地管家, each with `starters` for the empty thread. A
-  conversation snapshots persona name+prompt at creation, so removing or
-  editing a built-in never rewrites old chats. Personas are prompts only —
-  never gate real capabilities on them.
+- Built-in personas (`app/chat/personas.ts`, shown in the UI as 应用场景) are
+  日常对话 / 写作润色 / 英语学习 / 基地管家, each with `starters` for the
+  empty thread. A conversation snapshots persona name+prompt at creation, so
+  removing or editing a built-in never rewrites old chats. Personas are
+  prompts only — never gate real capabilities on them.
 - Other chat affordances: conversation search/filter/pin on the list page,
   per-message edit-and-resend (`onEdit`), fork-into-new-conversation,
   one-off retry with another model, Markdown export (header), document

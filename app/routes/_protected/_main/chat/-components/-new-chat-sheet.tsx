@@ -111,7 +111,7 @@ export function NewChatSheet({
         const name = form.name.trim();
         const prompt = form.prompt.trim();
         if (name === "" || prompt === "") {
-            toast.error("人格名称和设定都要填");
+            toast.error("场景名称和设定都要填");
             return;
         }
         setBusy(true);
@@ -125,13 +125,13 @@ export function NewChatSheet({
             if (form.id) {
                 await toastPromise(onUpdatePersona(form.id, input), {
                     loading: "保存中…",
-                    success: "人格已更新",
+                    success: "场景已更新",
                     error: "保存失败",
                 });
             } else {
                 const created = await toastPromise(onCreatePersona(input), {
                     loading: "保存中…",
-                    success: "人格已创建",
+                    success: "场景已创建",
                     error: "保存失败",
                 });
                 setPersonaId(created.id);
@@ -171,13 +171,13 @@ export function NewChatSheet({
                 <SheetHeader>
                     <SheetTitle>新对话</SheetTitle>
                     <SheetDescription>
-                        选一个人格和模型。聊天记录只保存在你自己的账号里。
+                        选一个应用场景和模型。聊天记录只保存在你自己的账号里。
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="mt-4 space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground">
-                        人格
+                        应用场景
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
                         {allPersonas.map((persona) => {
@@ -211,7 +211,7 @@ export function NewChatSheet({
                                         </div>
                                         <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
                                             {persona.description ||
-                                                "自定义人格"}
+                                                "自定义场景"}
                                         </p>
                                     </button>
                                     {!persona.builtin && (
@@ -256,7 +256,7 @@ export function NewChatSheet({
                                 <Input
                                     value={form.icon}
                                     maxLength={4}
-                                    aria-label="人格图标"
+                                    aria-label="场景图标"
                                     className="w-14 text-center"
                                     onChange={(event) =>
                                         setForm({
@@ -268,7 +268,7 @@ export function NewChatSheet({
                                 <Input
                                     value={form.name}
                                     maxLength={40}
-                                    placeholder="人格名称"
+                                    placeholder="场景名称"
                                     onChange={(event) =>
                                         setForm({
                                             ...form,
@@ -292,7 +292,7 @@ export function NewChatSheet({
                                 value={form.prompt}
                                 rows={4}
                                 maxLength={8000}
-                                placeholder="人格设定：说话方式、擅长什么、要避免什么…"
+                                placeholder="场景设定：希望 AI 怎么配合、擅长什么、要避免什么…"
                                 onChange={(event) =>
                                     setForm({
                                         ...form,
@@ -313,7 +313,7 @@ export function NewChatSheet({
                                     disabled={busy}
                                     onClick={() => void savePersona()}
                                 >
-                                    保存人格
+                                    保存场景
                                 </Button>
                             </div>
                         </div>
@@ -324,7 +324,7 @@ export function NewChatSheet({
                             onClick={() => setForm({ ...EMPTY_FORM })}
                         >
                             <Plus className="mr-1 size-4" />
-                            新建自定义人格
+                            新建自定义场景
                         </Button>
                     )}
                 </div>
@@ -404,10 +404,10 @@ export function NewChatSheet({
                 <DialogContent className="max-w-sm">
                     <DialogHeader>
                         <DialogTitle>
-                            删除人格「{deleteTarget?.name}」？
+                            删除场景「{deleteTarget?.name}」？
                         </DialogTitle>
                         <DialogDescription>
-                            已经开始的对话保存了当时的人格设定，不会被改写。
+                            已经开始的对话保存了当时的场景设定，不会被改写。
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex-row justify-end gap-2">
@@ -428,7 +428,7 @@ export function NewChatSheet({
                                         onDeletePersona(deleteTarget.id),
                                         {
                                             loading: "删除中…",
-                                            success: "人格已删除",
+                                            success: "场景已删除",
                                             error: "删除失败",
                                         },
                                     );

@@ -395,7 +395,7 @@ export function toChatMessage(record: ChatMessageRecord): ChatMessage {
 export function toChatPersona(record: ChatPersonaRecord): ChatPersona {
     return {
         id: record.id,
-        name: asString(record.name, 40) || "自定义人格",
+        name: asString(record.name, 40) || "自定义场景",
         icon: asString(record.icon, 16) || "💬",
         description: asString(record.description, 120),
         prompt: asString(record.prompt),
