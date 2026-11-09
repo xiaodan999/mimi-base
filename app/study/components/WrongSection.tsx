@@ -8,10 +8,10 @@ import { WRONG_CHIPS, diagnoseWrongMessages } from "@/app/ai/prompts";
 import { wrongOverviewMessages } from "@/app/ai/study";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
-import { gameForModule } from "../games/registry";
-import type { QuizItem } from "../types";
 import AiDrillSheet from "./AiDrillSheet";
 import QuizRunner from "./QuizRunner";
+import { gameForModule } from "../games/registry";
+import type { QuizItem } from "../types";
 import { useStudy } from "./StudyContext";
 
 export default function WrongSection() {
