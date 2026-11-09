@@ -44,30 +44,21 @@ export default function NavButtons() {
                         to={path}
                         aria-label={name}
                         aria-current={active ? "page" : undefined}
-                        className="group flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 focus-visible:bg-accent/60 active:bg-accent/60"
+                        className={cn(
+                            "group flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-muted-foreground transition-colors focus-visible:bg-accent/60 active:bg-primary/10 active:text-primary",
+                            active
+                                ? "bg-primary/10 text-primary"
+                                : "hover:text-foreground",
+                        )}
                     >
-                        <span
-                            className={cn(
-                                "grid h-8 w-12 place-items-center rounded-full transition-all duration-200",
-                                active
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-muted-foreground group-hover:text-foreground",
-                            )}
-                        >
+                        <span className="grid h-8 w-12 place-items-center">
                             <Icon
                                 className="size-[18px]"
                                 strokeWidth={active ? 2.4 : 2}
                                 aria-hidden="true"
                             />
                         </span>
-                        <span
-                            className={cn(
-                                "text-[10px] font-semibold tracking-wide transition-colors",
-                                active
-                                    ? "text-primary"
-                                    : "text-muted-foreground",
-                            )}
-                        >
+                        <span className="text-[10px] font-semibold tracking-wide">
                             {name}
                         </span>
                     </Link>
