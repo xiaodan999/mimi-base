@@ -14,6 +14,12 @@
 - 聊天里的「人格」统一改名为「应用场景」：对话列表空态、筛选与新建对话面板、场景卡片表单、校验/成功提示、删除确认和导出标题同步更新；内置选项改为日常对话 / 写作润色 / 英语学习 / 基地管家（`app/chat/personas.ts` 的 id 与内部字段不变，旧对话继续使用创建时的快照）。
 - 确认弹窗改为手机原生观感：新增 `components/ConfirmDialog`，`DialogContent` 增加 `mobileSheet` 布局（手机端贴底、顶部圆角、抓手、48px 整行操作按钮、底部安全区内边距、滑入/滑出动画；`sm` 以上仍为居中弹窗）。删除对话（列表单条 / 批量 / 对话页头部）与删除场景的四处确认统一迁移到该组件；遮罩、返回手势、Escape 关闭以及标题 / 描述的无障碍关联保持不变。
 
+### 新增
+
+- 评论支持编辑（`app/feed/comments.ts` 的 `useEditCommentMutation`）：自己的评论行新增「编辑」入口，行内 Textarea 编辑，Enter 保存 / Shift+Enter 换行 / Esc 取消，`toastPromise` 处理保存中/成功/失败；`onMutate` 先乐观更新文本，`onSettled` 失效 `qk.comments.all(postId)` 与服务端对齐，失败回滚。编辑只 PATCH `text`，不发送 `images`，也不触碰 `comment_count`（计数器钩子只处理 create/delete）。
+- `CommentData` 新增 `updatedAt`（映射 PB 的 `updated` 自动日期）；`isCommentEdited`（`app/feed/comment-edit.ts`）在 `updated > created` 时显示「已编辑」，未编辑和新评论（两者相等）不显示。
+- 评论输入统一 `MAX_COMMENT_LENGTH = 2000` 上限；`commentTextError` 同时用于新评论和编辑（空文本仅在评论已有图片时允许），并新增 `app/feed/comment-edit.test.ts` 单测。
+
 ## 2026-11-08
 
 ### 变更

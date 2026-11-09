@@ -78,6 +78,8 @@ export type CommentData = {
     text: string;
     author: User;
     createdAt: string;
+    // PocketBase's autodate; later than `createdAt` once the comment is edited.
+    updatedAt: string;
     // "" for a top-level comment.
     parentId: string;
     /** Uploaded filenames; text or at least one image is present. */
@@ -144,6 +146,7 @@ export type PostRecord = PbRecord & {
 export type CommentRecord = PbRecord & {
     text: string;
     created: string;
+    updated: string;
     parent_id?: string;
     images?: string[];
     expand?: {
@@ -251,6 +254,7 @@ export function toCommentData(record: CommentRecord): CommentData {
         text: record.text,
         author: record.expand?.author_id ?? EMPTY_AUTHOR,
         createdAt: record.created,
+        updatedAt: record.updated,
         parentId: record.parent_id ?? "",
         images: record.images ?? [],
         collectionId: record.collectionId,

@@ -75,6 +75,7 @@ export const qk = {
         deletePost: () => ["delete_post"] as const,
         // comments (scoped per post)
         newComment: (postId: string) => ["new_comment", postId] as const,
+        editComment: (postId: string) => ["edit_comment", postId] as const,
         deleteComment: (postId: string) => ["delete_comment", postId] as const,
         // ji_zhang_biao
         addJiZhang: () => ["add-ji-zhang"] as const,

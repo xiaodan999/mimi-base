@@ -105,6 +105,57 @@ export function useNewCommentMutation(postId: string) {
     });
 }
 
+export function useEditCommentMutation(postId: string) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: qk.mutations.editComment(postId),
+        // Only the text is sent: PocketBase leaves the untouched `images`
+        // field alone, and `post_counters` only reacts to create/delete, so
+        // editing never changes comment_count.
+        mutationFn: async ({ id, text }: { id: string; text: string }) => {
+            await pb.collection("comments").update(id, { text });
+        },
+        onMutate: async ({ id, text }) => {
+            const queryKey = qk.comments.all(postId);
+            await queryClient.cancelQueries({ queryKey });
+            const previous = queryClient.getQueryData<CommentData[]>(queryKey);
+
+            // Optimistic: the sheet shows the new text (and 已编辑) before the
+            // round trip; onSettled reconciles with the server copy.
+            if (previous) {
+                queryClient.setQueryData<CommentData[]>(
+                    queryKey,
+                    previous.map((comment) =>
+                        comment.id === id
+                            ? {
+                                  ...comment,
+                                  text,
+                                  updatedAt: new Date().toISOString(),
+                              }
+                            : comment,
+                    ),
+                );
+            }
+
+            return { previous };
+        },
+        onError: (_error, _variables, context) => {
+            if (context?.previous) {
+                queryClient.setQueryData(
+                    qk.comments.all(postId),
+                    context.previous,
+                );
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({
+                queryKey: qk.comments.all(postId),
+            });
+        },
+    });
+}
+
 export function useDeleteCommentMutation(postId: string) {
     const queryClient = useQueryClient();
 

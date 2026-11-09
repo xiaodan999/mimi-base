@@ -20,9 +20,15 @@ import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
 import {
+    commentTextError,
+    isCommentEdited,
+    MAX_COMMENT_LENGTH,
+} from "../comment-edit";
+import {
     buildCommentThreads,
     useComments,
     useDeleteCommentMutation,
+    useEditCommentMutation,
     useNewCommentMutation,
     type CommentData,
 } from "../comments";
@@ -90,6 +96,83 @@ function CommentImages({
     );
 }
 
+/**
+ * Inline text editor for one of the user's own comments. Mounted only while
+ * editing, so it takes focus once and dies when the edit is saved/cancelled.
+ */
+function InlineCommentEditor({
+    value,
+    hasImages,
+    pending,
+    onChange,
+    onCancel,
+    onSave,
+}: {
+    value: string;
+    hasImages: boolean;
+    pending: boolean;
+    onChange: (value: string) => void;
+    onCancel: () => void;
+    onSave: () => void;
+}) {
+    const ref = useRef<HTMLTextAreaElement>(null);
+    const error = commentTextError(value, hasImages ? 1 : 0);
+
+    useEffect(() => {
+        const input = ref.current;
+        if (!input) return;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }, []);
+
+    return (
+        <div className="mt-1 space-y-1.5">
+            <Textarea
+                ref={ref}
+                value={value}
+                rows={2}
+                maxLength={MAX_COMMENT_LENGTH}
+                aria-label="编辑评论内容"
+                className="min-h-16 resize-none text-sm"
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                        event.preventDefault();
+                        onCancel();
+                    } else if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        if (!error) onSave();
+                    }
+                }}
+            />
+            <div className="flex items-center justify-end gap-1.5">
+                {error && (
+                    <span className="mr-auto text-xs text-muted-foreground">
+                        {error}
+                    </span>
+                )}
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending}
+                    onClick={onCancel}
+                >
+                    取消
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    disabled={pending || !!error}
+                    onClick={onSave}
+                >
+                    {pending ? "保存中..." : "保存"}
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 export default function CommentSheet({
     postId,
     open,
@@ -101,9 +184,12 @@ export default function CommentSheet({
         open && !!postId,
     );
     const newComment = useNewCommentMutation(postId ?? "");
+    const editComment = useEditCommentMutation(postId ?? "");
     const deleteComment = useDeleteCommentMutation(postId ?? "");
     const [text, setText] = useState("");
     const [replyingTo, setReplyingTo] = useState<CommentData | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editText, setEditText] = useState("");
     const [images, setImages] = useState<CommentImageDraft[]>([]);
     const [preparing, setPreparing] = useState(false);
     const [viewer, setViewer] = useState<{
@@ -125,6 +211,8 @@ export default function CommentSheet({
         // keyboard) keeps the draft so it isn't lost by accident.
         setText("");
         setReplyingTo(null);
+        setEditingId(null);
+        setEditText("");
         setImages([]);
         previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
         previewUrls.current = [];
@@ -216,6 +304,7 @@ export default function CommentSheet({
         const value = text.trim();
         if (
             (!value && images.length === 0) ||
+            commentTextError(value, images.length) ||
             newComment.isPending ||
             preparing
         ) {
@@ -249,6 +338,49 @@ export default function CommentSheet({
         }
     };
 
+    const startReply = (comment: CommentData) => {
+        // Reply and edit share the comment body, so keep only one active.
+        setEditingId(null);
+        setEditText("");
+        setReplyingTo(comment);
+    };
+
+    const startEdit = (comment: CommentData) => {
+        setReplyingTo(null);
+        setEditingId(comment.id);
+        setEditText(comment.text);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditText("");
+    };
+
+    const saveEdit = async (comment: CommentData) => {
+        const value = editText.trim();
+        if (commentTextError(value, comment.images.length)) return;
+        // Save only real changes: an unchanged PATCH would still bump
+        // `updated` and falsely label the comment as 已编辑.
+        if (value === comment.text.trim()) {
+            cancelEdit();
+            return;
+        }
+
+        try {
+            await toastPromise(
+                editComment.mutateAsync({ id: comment.id, text: value }),
+                {
+                    loading: "保存中...",
+                    success: "评论已更新",
+                    error: "保存失败",
+                },
+            );
+            cancelEdit();
+        } catch {
+            // toastPromise already surfaced the error; keep the editor open.
+        }
+    };
+
     const removeComment = async (comment: CommentData) => {
         try {
             await toastPromise(deleteComment.mutateAsync({ id: comment.id }), {
@@ -257,6 +389,7 @@ export default function CommentSheet({
                 error: "删除失败",
             });
             if (replyingTo?.id === comment.id) setReplyingTo(null);
+            if (editingId === comment.id) cancelEdit();
         } catch {
             // toastPromise already surfaced the error.
         }
@@ -318,55 +451,105 @@ export default function CommentSheet({
                                                                 .user_name ||
                                                                 "朋友"}
                                                         </span>
-                                                        <time
-                                                            className="shrink-0 text-xs text-muted-foreground"
-                                                            dateTime={
-                                                                root.createdAt
-                                                            }
-                                                        >
-                                                            {formatRelativeTime(
-                                                                root.createdAt,
+                                                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                                                            <time
+                                                                dateTime={
+                                                                    root.createdAt
+                                                                }
+                                                            >
+                                                                {formatRelativeTime(
+                                                                    root.createdAt,
+                                                                )}
+                                                            </time>
+                                                            {isCommentEdited(
+                                                                root,
+                                                            ) && (
+                                                                <span aria-label="已编辑">
+                                                                    已编辑
+                                                                </span>
                                                             )}
-                                                        </time>
+                                                        </span>
                                                     </div>
-                                                    {root.text && (
-                                                        <p className="whitespace-pre-wrap break-words text-sm">
-                                                            {root.text}
-                                                        </p>
+                                                    {editingId === root.id ? (
+                                                        <InlineCommentEditor
+                                                            key={root.id}
+                                                            value={editText}
+                                                            hasImages={
+                                                                root.images
+                                                                    .length > 0
+                                                            }
+                                                            pending={
+                                                                editComment.isPending
+                                                            }
+                                                            onChange={
+                                                                setEditText
+                                                            }
+                                                            onCancel={
+                                                                cancelEdit
+                                                            }
+                                                            onSave={() =>
+                                                                void saveEdit(
+                                                                    root,
+                                                                )
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        root.text && (
+                                                            <p className="whitespace-pre-wrap break-words text-sm">
+                                                                {root.text}
+                                                            </p>
+                                                        )
                                                     )}
                                                     <CommentImages
                                                         comment={root}
                                                         onOpen={openViewer}
                                                     />
-                                                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                                                        <button
-                                                            type="button"
-                                                            className="hover:text-foreground"
-                                                            aria-label={`回复 ${rootLabel}`}
-                                                            onClick={() =>
-                                                                setReplyingTo(
-                                                                    root,
-                                                                )
-                                                            }
-                                                        >
-                                                            回复
-                                                        </button>
-                                                        {root.author.id ===
-                                                            user.id && (
+                                                    {editingId !== root.id && (
+                                                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                                                             <button
                                                                 type="button"
-                                                                className="hover:text-red-500"
-                                                                aria-label={`删除 ${rootLabel}`}
+                                                                className="hover:text-foreground"
+                                                                aria-label={`回复 ${rootLabel}`}
                                                                 onClick={() =>
-                                                                    removeComment(
+                                                                    startReply(
                                                                         root,
                                                                     )
                                                                 }
                                                             >
-                                                                删除
+                                                                回复
                                                             </button>
-                                                        )}
-                                                    </div>
+                                                            {root.author.id ===
+                                                                user.id && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="hover:text-foreground"
+                                                                    aria-label={`编辑 ${rootLabel}`}
+                                                                    onClick={() =>
+                                                                        startEdit(
+                                                                            root,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    编辑
+                                                                </button>
+                                                            )}
+                                                            {root.author.id ===
+                                                                user.id && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="hover:text-red-500"
+                                                                    aria-label={`删除 ${rootLabel}`}
+                                                                    onClick={() =>
+                                                                        removeComment(
+                                                                            root,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    删除
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -385,34 +568,87 @@ export default function CommentSheet({
                                                                 key={reply.id}
                                                                 className="text-sm leading-5"
                                                             >
-                                                                <p className="whitespace-pre-wrap break-words">
-                                                                    <span className="font-semibold">
-                                                                        {reply
-                                                                            .author
-                                                                            .user_name ||
-                                                                            "朋友"}
-                                                                    </span>
-                                                                    <span className="text-muted-foreground">
-                                                                        {" "}
-                                                                        回复{" "}
-                                                                    </span>
-                                                                    <span className="font-semibold">
-                                                                        {commentsById.get(
-                                                                            reply.parentId,
-                                                                        )
-                                                                            ?.author
-                                                                            .user_name ||
-                                                                            "该评论"}
-                                                                    </span>
-                                                                    {reply.text && (
-                                                                        <span>
-                                                                            ：
+                                                                {editingId ===
+                                                                reply.id ? (
+                                                                    <>
+                                                                        <p className="text-muted-foreground">
+                                                                            <span className="font-semibold text-foreground">
+                                                                                {reply
+                                                                                    .author
+                                                                                    .user_name ||
+                                                                                    "朋友"}
+                                                                            </span>
                                                                             {
-                                                                                reply.text
+                                                                                " 回复 "
                                                                             }
+                                                                            <span className="font-semibold text-foreground">
+                                                                                {commentsById.get(
+                                                                                    reply.parentId,
+                                                                                )
+                                                                                    ?.author
+                                                                                    .user_name ||
+                                                                                    "该评论"}
+                                                                            </span>
+                                                                        </p>
+                                                                        <InlineCommentEditor
+                                                                            key={
+                                                                                reply.id
+                                                                            }
+                                                                            value={
+                                                                                editText
+                                                                            }
+                                                                            hasImages={
+                                                                                reply
+                                                                                    .images
+                                                                                    .length >
+                                                                                0
+                                                                            }
+                                                                            pending={
+                                                                                editComment.isPending
+                                                                            }
+                                                                            onChange={
+                                                                                setEditText
+                                                                            }
+                                                                            onCancel={
+                                                                                cancelEdit
+                                                                            }
+                                                                            onSave={() =>
+                                                                                void saveEdit(
+                                                                                    reply,
+                                                                                )
+                                                                            }
+                                                                        />
+                                                                    </>
+                                                                ) : (
+                                                                    <p className="whitespace-pre-wrap break-words">
+                                                                        <span className="font-semibold">
+                                                                            {reply
+                                                                                .author
+                                                                                .user_name ||
+                                                                                "朋友"}
                                                                         </span>
-                                                                    )}
-                                                                </p>
+                                                                        <span className="text-muted-foreground">
+                                                                            {" "}
+                                                                            回复{" "}
+                                                                        </span>
+                                                                        <span className="font-semibold">
+                                                                            {commentsById.get(
+                                                                                reply.parentId,
+                                                                            )
+                                                                                ?.author
+                                                                                .user_name ||
+                                                                                "该评论"}
+                                                                        </span>
+                                                                        {reply.text && (
+                                                                            <span>
+                                                                                ：
+                                                                                {
+                                                                                    reply.text
+                                                                                }
+                                                                            </span>
+                                                                        )}
+                                                                    </p>
+                                                                )}
                                                                 <CommentImages
                                                                     comment={
                                                                         reply
@@ -422,7 +658,14 @@ export default function CommentSheet({
                                                                         openViewer
                                                                     }
                                                                 />
-                                                                <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                                                                <div
+                                                                    className={cn(
+                                                                        "mt-0.5 flex items-center gap-3 text-xs text-muted-foreground",
+                                                                        editingId ===
+                                                                            reply.id &&
+                                                                            "hidden",
+                                                                    )}
+                                                                >
                                                                     <time
                                                                         dateTime={
                                                                             reply.createdAt
@@ -432,18 +675,42 @@ export default function CommentSheet({
                                                                             reply.createdAt,
                                                                         )}
                                                                     </time>
+                                                                    {isCommentEdited(
+                                                                        reply,
+                                                                    ) && (
+                                                                        <span aria-label="已编辑">
+                                                                            已编辑
+                                                                        </span>
+                                                                    )}
                                                                     <button
                                                                         type="button"
                                                                         className="hover:text-foreground"
                                                                         aria-label={`回复 ${replyLabel}`}
                                                                         onClick={() =>
-                                                                            setReplyingTo(
+                                                                            startReply(
                                                                                 reply,
                                                                             )
                                                                         }
                                                                     >
                                                                         回复
                                                                     </button>
+                                                                    {reply
+                                                                        .author
+                                                                        .id ===
+                                                                        user.id && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className="hover:text-foreground"
+                                                                            aria-label={`编辑 ${replyLabel}`}
+                                                                            onClick={() =>
+                                                                                startEdit(
+                                                                                    reply,
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            编辑
+                                                                        </button>
+                                                                    )}
                                                                     {reply
                                                                         .author
                                                                         .id ===
@@ -563,6 +830,7 @@ export default function CommentSheet({
                                         : "说点什么..."
                                 }
                                 rows={1}
+                                maxLength={MAX_COMMENT_LENGTH}
                                 className="max-h-24 min-h-10 resize-none"
                             />
                             <Button
