@@ -13,10 +13,12 @@ function Preview({
     file,
     onRemove,
     disabled,
+    noun,
 }: {
     file: File;
     onRemove: () => void;
     disabled?: boolean;
+    noun: string;
 }) {
     const [url, setUrl] = useState("");
 
@@ -37,7 +39,7 @@ function Preview({
             ) : null}
             <button
                 type="button"
-                aria-label={`移除截图 ${file.name}`}
+                aria-label={`移除${noun} ${file.name}`}
                 className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white transition-colors active:bg-black/80"
                 disabled={disabled}
                 onClick={onRemove}
@@ -52,10 +54,15 @@ export function ScreenshotPicker({
     files,
     onChange,
     disabled,
+    noun = "截图",
+    hint = "截图只保存在基地里，自动压缩后随反馈上传，不会直接发到 GitHub。",
 }: {
     files: File[];
     onChange: (files: File[]) => void;
     disabled?: boolean;
+    /** 截图 for bugs, 照片 for feature suggestions. */
+    noun?: string;
+    hint?: string;
 }) {
     const room = MAX_FEEDBACK_SCREENSHOTS - files.length;
 
@@ -71,14 +78,14 @@ export function ScreenshotPicker({
             ) {
                 return;
             }
-            toast.error("选择截图失败");
+            toast.error(`选择${noun}失败`);
             return;
         }
 
         const accepted = picked.slice(0, room);
         if (picked.length > room) {
             toast.message(
-                `最多 ${MAX_FEEDBACK_SCREENSHOTS} 张截图，多出的已忽略`,
+                `最多 ${MAX_FEEDBACK_SCREENSHOTS} 张${noun}，多出的已忽略`,
             );
         }
         if (
@@ -100,14 +107,14 @@ export function ScreenshotPicker({
             );
             onChange([...files, ...prepared]);
         } catch {
-            toast.error("截图压缩失败，换一张试试");
+            toast.error(`${noun}压缩失败，换一张试试`);
         }
     };
 
     return (
         <div>
             <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">截图</p>
+                <p className="text-sm font-medium">{noun}</p>
                 <span className="text-[11px] text-muted-foreground">
                     {files.length}/{MAX_FEEDBACK_SCREENSHOTS}
                 </span>
@@ -118,6 +125,7 @@ export function ScreenshotPicker({
                         key={`${file.name}-${index}`}
                         disabled={disabled}
                         file={file}
+                        noun={noun}
                         onRemove={() =>
                             onChange(files.filter((_, item) => item !== index))
                         }
@@ -134,13 +142,13 @@ export function ScreenshotPicker({
                     >
                         <span className="flex flex-col items-center gap-1 text-[11px]">
                             <ImagePlus className="size-5" aria-hidden="true" />
-                            添加截图
+                            添加{noun}
                         </span>
                     </button>
                 )}
             </div>
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                截图只保存在基地里，自动压缩后随反馈上传，不会直接发到 GitHub。
+                {hint}
             </p>
         </div>
     );

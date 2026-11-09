@@ -195,6 +195,31 @@ describe("buildIssueBody", () => {
         expect(body).toContain("<details>");
     });
 
+    test("describes a feature suggestion without bug-only sections", () => {
+        const body = buildIssueBody({
+            report: report({
+                kind: "feature",
+                title: "想要每日一句",
+                description:
+                    "想要什么：首页每天一句。\n为什么：早上想被鼓励一下。\n希望怎么用：打开首页就能看到。",
+                route: "/feedback",
+                screenshots: ["idea-one.webp", "idea-two.webp"],
+                console: [{ kind: "error", message: "feature console noise" }],
+            }),
+            now: new Date("2026-11-09T12:00:00.000Z"),
+        });
+        expect(body).toContain("想要什么：首页每天一句");
+        expect(body).toContain("### 建议信息");
+        expect(body).toContain("- 类型：功能建议");
+        expect(body).toContain("照片：2 张");
+        expect(body).toContain("idea-one.webp");
+        expect(body).toContain("照片保存在 App 内的反馈记录里");
+        // Feature bodies never include a transcript or console dump.
+        expect(body).not.toContain("关联 AI 对话");
+        expect(body).not.toContain("控制台");
+        expect(body).not.toContain("feature console noise");
+    });
+
     test("truncates a huge description and body", () => {
         const body = buildIssueBody({
             report: report({ description: "长".repeat(20_000) }),
@@ -382,6 +407,74 @@ describe("feedback service", () => {
         });
     });
 
+    test("creates a [Feature] issue with enhancement labels and no transcript", async () => {
+        let github: { url: URL; init: RequestInit } | null = null;
+        let patched: unknown;
+        const { service, calls } = setup(
+            pbHandler({
+                report: report({
+                    kind: "feature",
+                    title: "想要每日一句",
+                    description:
+                        "想要什么：首页每天一句。\n为什么：早上想被鼓励。\n希望怎么用：打开就能看到。",
+                    route: "/feedback",
+                    screenshots: ["idea-one.webp", "idea-two.webp"],
+                    console: [],
+                    // Even if a feature row somehow carries a conversation,
+                    // the feature path must not fetch a transcript.
+                    conversation: "conv1234567890",
+                }),
+                onPatch: (body) => {
+                    patched = body;
+                },
+                onGithub: (url, init) => {
+                    github = { url, init };
+                    return json({}, 201);
+                },
+            }),
+        );
+        const res = await service(submit());
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            ok: boolean;
+            issue: { url: string; number: number };
+        };
+        expect(body.ok).toBe(true);
+        expect(body.issue.number).toBe(7);
+
+        const captured = github as { url: URL; init: RequestInit } | null;
+        const payload = JSON.parse(String(captured?.init.body)) as {
+            title: string;
+            body: string;
+            labels: string[];
+        };
+        expect(payload.title).toBe("[Feature] 想要每日一句");
+        expect(payload.labels).toEqual(["enhancement", "from-app"]);
+        expect(payload.body).toContain("想要什么：首页每天一句");
+        expect(payload.body).toContain("照片：2 张");
+        expect(payload.body).toContain("照片保存在 App 内的反馈记录里");
+        expect(payload.body).not.toContain("附带的 AI 对话");
+        expect(payload.body).not.toContain("关联 AI 对话");
+
+        expect(patched).toEqual({
+            status: "issue_created",
+            issue_url: "https://github.test/owner/repo/issues/7",
+            issue_number: 7,
+            error: "",
+        });
+        // No chat_conversations / chat_messages reads on the feature path.
+        expect(
+            calls.some((call) =>
+                call.url.pathname.includes("/chat_conversations/records/"),
+            ),
+        ).toBe(false);
+        expect(
+            calls.some((call) =>
+                call.url.pathname.includes("/chat_messages/records"),
+            ),
+        ).toBe(false);
+    });
+
     test("attaches a truncated transcript fetched through the caller token", async () => {
         let payload: { body: string } | null = null;
         const messages = Array.from({ length: 25 }, (_, index) => ({
@@ -532,6 +625,46 @@ describe("feedback service", () => {
         expect(
             calls.filter((call) => call.url.pathname.endsWith("/issues")),
         ).toHaveLength(5);
+    });
+
+    test("does not spend rate-limit quota on already-synced retries", async () => {
+        let current: FeedbackReport = report({
+            status: "issue_created",
+            issue_url: "https://github.test/owner/repo/issues/3",
+            issue_number: 3,
+        });
+        const { service } = setup((url, init) => {
+            if (
+                url.pathname ===
+                `/api/collections/feedback_reports/records/${REPORT_ID}`
+            ) {
+                if (init?.method === "PATCH") return json({ id: REPORT_ID });
+                return json(current);
+            }
+            if (url.pathname === "/repos/owner/repo/issues") {
+                return json(
+                    {
+                        html_url: "https://github.test/owner/repo/issues/9",
+                        number: 9,
+                    },
+                    201,
+                );
+            }
+            return json({}, 404);
+        });
+
+        // Six retries would exhaust a 5/hour window if they counted.
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            expect((await service(submit()))?.status).toBe(200);
+        }
+
+        current = report();
+        const res = await service(submit());
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            issue: { number: number } | null;
+        };
+        expect(body.issue?.number).toBe(9);
     });
 
     test("rejects malformed ids and bodies", async () => {

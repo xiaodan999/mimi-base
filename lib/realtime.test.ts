@@ -44,6 +44,13 @@ describe("realtimeInvalidationKeys", () => {
         ]);
     });
 
+    test("maps feedback writes to both feedback lists", () => {
+        expect(realtimeInvalidationKeys("feedback_reports")).toEqual([
+            qk.feedback.all,
+        ]);
+        expect(REALTIME_COLLECTIONS).toContain("feedback_reports");
+    });
+
     test("ignores collections the app does not read", () => {
         expect(realtimeInvalidationKeys("tu_pian_xin_xi")).toEqual([]);
         expect(realtimeInvalidationKeys("")).toEqual([]);

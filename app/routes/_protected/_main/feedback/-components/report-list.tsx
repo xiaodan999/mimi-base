@@ -1,9 +1,12 @@
 import { ExternalLink, ImageIcon, Inbox } from "lucide-react";
 
 import type { FeedbackReportRecord } from "@/app/feedback/data";
+import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/date";
+import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import { toUser } from "@/lib/pb-types";
 import { cn } from "@/lib/utils";
 
 function statusLabel(status: FeedbackReportRecord["status"]): string {
@@ -25,9 +28,16 @@ function statusClass(status: FeedbackReportRecord["status"]): string {
 export function ReportList({
     reports,
     loading,
+    emptyText = "还没有提交过反馈",
+    photoLabel = "截图",
+    showAuthor = false,
 }: {
     reports: FeedbackReportRecord[];
     loading: boolean;
+    emptyText?: string;
+    photoLabel?: string;
+    /** Shared suggestions show who wrote them; 我的反馈 does not. */
+    showAuthor?: boolean;
 }) {
     if (loading) {
         return (
@@ -43,71 +53,90 @@ export function ReportList({
                     className="size-6 text-muted-foreground"
                     aria-hidden="true"
                 />
-                <p className="text-sm text-muted-foreground">
-                    还没有提交过反馈
-                </p>
+                <p className="text-sm text-muted-foreground">{emptyText}</p>
             </div>
         );
     }
 
     return (
         <ul className="mt-3 space-y-2">
-            {reports.map((report) => (
-                <li
-                    key={report.id}
-                    className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft"
-                >
-                    <div className="flex items-start gap-2">
-                        <p className="min-w-0 flex-1 text-sm font-semibold">
-                            {report.title}
-                        </p>
-                        <Badge
-                            className={cn(
-                                "shrink-0 text-[10px]",
-                                statusClass(report.status),
-                            )}
-                            variant="outline"
-                        >
-                            {statusLabel(report.status)}
-                        </Badge>
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                        {report.description}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>{formatDate(report.created)}</span>
-                        {(report.screenshots?.length ?? 0) > 0 && (
-                            <span className="inline-flex items-center gap-1">
-                                <ImageIcon
-                                    className="size-3"
-                                    aria-hidden="true"
-                                />
-                                {report.screenshots?.length} 张截图
-                            </span>
+            {reports.map((report) => {
+                const author = report.expand?.owner
+                    ? toUser(report.expand.owner)
+                    : null;
+                const authorName = author?.user_name || "朋友";
+                return (
+                    <li
+                        key={report.id}
+                        className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft"
+                    >
+                        {showAuthor && (
+                            <div className="mb-2 flex items-center gap-2">
+                                {author && (
+                                    <TouXiang
+                                        size={24}
+                                        touXiangUrl={getUserAvatarUrl(author)}
+                                        name={authorName}
+                                        {...getUserRing(author)}
+                                    />
+                                )}
+                                <span className="text-xs font-medium">
+                                    {authorName}
+                                </span>
+                            </div>
                         )}
-                        {report.conversation && <span>附带 AI 对话</span>}
-                        {report.issue_url && (
-                            <a
-                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                                href={report.issue_url}
-                                rel="noreferrer"
-                                target="_blank"
+                        <div className="flex items-start gap-2">
+                            <p className="min-w-0 flex-1 text-sm font-semibold">
+                                {report.title}
+                            </p>
+                            <Badge
+                                className={cn(
+                                    "shrink-0 text-[10px]",
+                                    statusClass(report.status),
+                                )}
+                                variant="outline"
                             >
-                                查看 Issue
-                                <ExternalLink
-                                    className="size-3"
-                                    aria-hidden="true"
-                                />
-                            </a>
-                        )}
-                    </div>
-                    {report.status === "failed" && report.error && (
-                        <p className="mt-2 rounded-lg bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
-                            {report.error}
+                                {statusLabel(report.status)}
+                            </Badge>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {report.description}
                         </p>
-                    )}
-                </li>
-            ))}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                            <span>{formatDate(report.created)}</span>
+                            {(report.screenshots?.length ?? 0) > 0 && (
+                                <span className="inline-flex items-center gap-1">
+                                    <ImageIcon
+                                        className="size-3"
+                                        aria-hidden="true"
+                                    />
+                                    {report.screenshots?.length} 张{photoLabel}
+                                </span>
+                            )}
+                            {report.conversation && <span>附带 AI 对话</span>}
+                            {report.issue_url && (
+                                <a
+                                    className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                                    href={report.issue_url}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                >
+                                    查看 Issue
+                                    <ExternalLink
+                                        className="size-3"
+                                        aria-hidden="true"
+                                    />
+                                </a>
+                            )}
+                        </div>
+                        {report.status === "failed" && report.error && (
+                            <p className="mt-2 rounded-lg bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+                                {report.error}
+                            </p>
+                        )}
+                    </li>
+                );
+            })}
         </ul>
     );
 }

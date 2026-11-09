@@ -33,6 +33,7 @@ export const REALTIME_COLLECTIONS = [
     "chat_messages",
     "chat_personas",
     "chat_memories",
+    "feedback_reports",
 ] as const;
 
 export type RealtimeCollection = (typeof REALTIME_COLLECTIONS)[number];
@@ -58,6 +59,9 @@ const INVALIDATIONS: Record<RealtimeCollection, readonly RealtimeQueryKey[]> = {
     chat_messages: [qk.chat.messagesAll, qk.chat.conversationsAll],
     chat_personas: [qk.chat.personasAll],
     chat_memories: [qk.chat.memoriesAll],
+    // A suggestion from the other account appears in 大家的建议 without a
+    // reload; the same prefix refreshes the bug tab's owner-only list.
+    feedback_reports: [qk.feedback.all],
 };
 
 /** Keys to invalidate for a collection name; unknown names are ignored. */

@@ -7,16 +7,18 @@ import {
 import type { ChatConversation } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
+import type { UserRecord } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
 import { getFeedbackErrors } from "./error-buffer";
 
 export type FeedbackStatus = "stored" | "issue_created" | "failed";
+export type FeedbackKind = "bug" | "feature";
 
 export type FeedbackReportRecord = {
     id: string;
     owner: string;
-    kind: "bug" | "feature";
+    kind: FeedbackKind;
     title: string;
     description: string;
     route?: string;
@@ -30,6 +32,10 @@ export type FeedbackReportRecord = {
     error?: string;
     screenshots?: string[];
     conversation?: string;
+    /** `owner` is expanded by the shared suggestion list. */
+    expand?: {
+        owner?: UserRecord;
+    };
     created: string;
     updated: string;
 };
@@ -37,10 +43,12 @@ export type FeedbackReportRecord = {
 export type FeedbackIssue = { url: string; number: number | null };
 
 export type SubmitFeedbackInput = {
+    kind: FeedbackKind;
     title: string;
     description: string;
     route: string;
     screenshots: File[];
+    /** Bug reports only; feature suggestions never require a conversation. */
     conversationId?: string;
 };
 
@@ -80,14 +88,18 @@ async function createReport(
 ): Promise<FeedbackReportRecord> {
     const form = new FormData();
     form.append("owner", userId);
-    form.append("kind", "bug");
+    form.append("kind", input.kind);
     form.append("title", input.title);
     form.append("description", input.description);
     form.append("route", input.route);
     form.append("app_version", appVersion());
     form.append("app_sha", appSha());
     form.append("user_agent", navigator.userAgent);
-    form.append("console", JSON.stringify(getFeedbackErrors()));
+    // Console output is a bug-report diagnostic; a feature idea does not need
+    // it, and sending it would make the GitHub issue noisier for no reason.
+    if (input.kind === "bug") {
+        form.append("console", JSON.stringify(getFeedbackErrors()));
+    }
     form.append("status", "stored");
     if (input.conversationId) {
         form.append("conversation", input.conversationId);
@@ -207,11 +219,39 @@ export function useFeedbackReports() {
             pb
                 .collection("feedback_reports")
                 .getFullList<FeedbackReportRecord>({
-                    filter: pb.filter("owner = {:owner}", {
+                    // The collection rule now also exposes other owners'
+                    // feature suggestions, so the bug tab asks for its own
+                    // kind explicitly instead of relying on owner alone.
+                    filter: pb.filter("owner = {:owner} && kind = {:kind}", {
                         owner: user.id,
+                        kind: "bug",
                     }),
                     sort: "-created",
                     perPage: 50,
+                }),
+    });
+}
+
+/**
+ * Shared across both accounts: every feature suggestion, newest first, with
+ * the author expanded for the 「大家的建议」 list. The collection's list rule
+ * (`@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`)
+ * is what makes this legal; bug reports never appear in this query.
+ */
+export function useFeatureSuggestions() {
+    const user = useCurrentUser();
+    return useQuery({
+        queryKey: qk.feedback.features(user.id),
+        queryFn: async () =>
+            pb
+                .collection("feedback_reports")
+                .getFullList<FeedbackReportRecord>({
+                    filter: pb.filter("kind = {:kind}", {
+                        kind: "feature",
+                    }),
+                    sort: "-created",
+                    perPage: 50,
+                    expand: "owner",
                 }),
     });
 }

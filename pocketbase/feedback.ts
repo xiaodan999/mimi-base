@@ -1,18 +1,25 @@
 /**
- * Bug reports -> GitHub issues (Bun supervisor).
+ * Feedback -> GitHub issues (Bun supervisor).
  *
- * The client creates a `feedback_reports` row first (screenshots upload in the
- * same PocketBase request), then POSTs `{ reportId }` here. This service:
+ * Handles both kinds stored in `feedback_reports`: bug reports (`kind=bug`,
+ * the #39 flow) and feature suggestions (`kind=feature`, #40). The client
+ * creates the row first (photos upload in the same PocketBase request), then
+ * POSTs `{ reportId }` here. This service:
  *
  *   1. authenticates the caller with their PocketBase token (`auth-refresh`,
  *      the same pattern as ai-relay.ts),
- *   2. re-fetches the report with that token, so PocketBase's owner-scoped
- *      view rule is the security boundary (another owner's id answers 404),
+ *   2. re-fetches the report with that token and still requires the caller to
+ *      own it — the shared feature read rule lets the other account *read* a
+ *      suggestion, never sync it,
  *   3. rate-limits submissions per user (5 per hour by default),
  *   4. builds a sanitized Markdown issue body (including a truncated AI chat
- *      transcript when one is attached) and creates the issue with the
- *      server-held `GITHUB_TOKEN`,
+ *      transcript when a bug report attached one) and creates the issue with
+ *      the server-held `GITHUB_TOKEN`,
  *   5. writes `status` / `issue_url` / `issue_number` back onto the report.
+ *
+ * Feature suggestions use `[Feature]` + `enhancement`/`from-app`, never
+ * require a conversation, and their body is the idea plus the note that the
+ * photos live in the app's feedback record.
  *
  * If `GITHUB_TOKEN`/`GITHUB_REPO` is not configured the report is still
  * accepted: this returns `200 { issue: null }`, the row stays `stored`, and
@@ -310,29 +317,40 @@ export function buildIssueTitle(title: string, kind = "bug"): string {
 /** Metadata + description, sanitized and capped for the GitHub API. */
 export function buildIssueBody(input: IssueBodyInput): string {
     const { report } = input;
+    const feature = report.kind === "feature";
     const screenshots = asStringArray(report.screenshots);
-    const consoleText = formatConsoleErrors(report.console);
+    const consoleText = feature ? "" : formatConsoleErrors(report.console);
     const when = (input.now ?? new Date()).toISOString();
     const conversationTitle = cleanText(input.conversationTitle, 80);
+    const photoLabel = feature ? "照片" : "截图";
     const meta = [
+        `- 类型：${feature ? "功能建议" : "问题反馈"}`,
         `- 页面：\`${inline(report.route, 180) || "未知"}\``,
         `- App：${inline(report.app_version, 40) || "未知"} (${
             inline(report.app_sha, 40) || "dev"
         })`,
         `- 提交时间：${when}`,
         `- 浏览器：${inline(report.user_agent, 400) || "未知"}`,
-        `- 截图：${
+        `- ${photoLabel}：${
             screenshots.length > 0
                 ? `${screenshots.length} 张（${screenshots
                       .map((name) => inline(name, 120))
-                      .join(
-                          "、",
-                      )}）——图片保存在 App 内的反馈记录里，需要时请登录后台查看。`
+                      .join("、")}）——${
+                      feature ? "照片" : "图片"
+                  }保存在 App 内的反馈记录里，需要时请登录后台查看。`
                 : "无"
         }`,
-        `- 关联 AI 对话：${
-            report.conversation ? conversationTitle || "已附加" : "未附加"
-        }`,
+        // A feature suggestion never needs a chat transcript; omit the line
+        // instead of printing a meaningless 未附加.
+        ...(feature
+            ? []
+            : [
+                  `- 关联 AI 对话：${
+                      report.conversation
+                          ? conversationTitle || "已附加"
+                          : "未附加"
+                  }`,
+              ]),
     ].join("\n");
 
     const sections = [
@@ -341,7 +359,7 @@ export function buildIssueBody(input: IssueBodyInput): string {
         "",
         "---",
         "",
-        "### 反馈信息",
+        feature ? "### 建议信息" : "### 反馈信息",
         "",
         meta,
     ];
@@ -554,9 +572,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     ): Promise<
         { ok: true; url: string; number: number } | { ok: false; error: string }
     > {
-        // `kind=feature` is reserved for the feature-request flow (#40); the
-        // bug flow always sends "bug". Keep the label choice kind-aware so
-        // that follow-up can reuse this service.
+        // Bug reports and feature suggestions share this one endpoint; the
+        // kind picks the title prefix and labels.
         const payload = {
             title: buildIssueTitle(report.title, report.kind),
             body: buildIssueBody({
@@ -655,20 +672,9 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             return json({ ok: false, error: "找不到这条反馈" }, 404);
         }
 
-        if (rateLimited(auth.uid)) {
-            return json(
-                {
-                    ok: false,
-                    issue: null,
-                    error: "反馈提交太频繁了，请稍后再试",
-                    retryAfter: Math.ceil(rateWindow / 1000),
-                },
-                429,
-            );
-        }
-
         // Already synced (e.g. a retry): return the existing issue instead of
-        // opening a duplicate one. This does not spend a new GitHub call.
+        // opening a duplicate one. Checked before the rate limit so retrying
+        // a successful submission never spends quota or a GitHub call.
         if (report.status === "issue_created" && report.issue_url) {
             return json({
                 ok: true,
@@ -683,7 +689,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
 
         if (!configured) {
             // The report itself is already stored; accepting it quietly is
-            // deliberate so a missing token never loses a bug report.
+            // deliberate so a missing token never loses a bug report. No
+            // GitHub call happens, so this does not consume the rate limit.
             return json({
                 ok: true,
                 synced: false,
@@ -693,7 +700,24 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             });
         }
 
-        const attached = await withTranscript(report, auth.token);
+        if (rateLimited(auth.uid)) {
+            return json(
+                {
+                    ok: false,
+                    issue: null,
+                    error: "反馈提交太频繁了，请稍后再试",
+                    retryAfter: Math.ceil(rateWindow / 1000),
+                },
+                429,
+            );
+        }
+
+        // A feature suggestion has no transcript requirement; skipping the
+        // fetch also keeps the GitHub call fast. A bug report may attach one.
+        const attached =
+            report.kind === "feature"
+                ? { transcript: "", title: "" }
+                : await withTranscript(report, auth.token);
         const created = await createIssue(
             report,
             attached.transcript,

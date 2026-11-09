@@ -38,10 +38,13 @@ Chinese; keep that style when adding user-facing text.
   image viewer, video player/viewer, find sheet). Home renders the feed
   through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
-- `app/feedback/` — 问题反馈 domain: `data.ts` (report create + supervisor
-  sync + report list), `error-buffer.ts` (20-entry console/page-error ring
-  buffer), `validation.ts`, `prompt.ts` (AI tidy-up). The page lives at
-  `_main/feedback/`; its entry point is the profile page's 功能 section.
+- `app/feedback/` — feedback domain for both kinds: `data.ts` (bug/feature
+  report create + supervisor sync + owner-only bug list + shared suggestion
+  query), `filters.ts` (visibility helpers mirroring the PB rules),
+  `error-buffer.ts` (20-entry console/page-error ring buffer),
+  `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
+  `_main/feedback/` with 问题反馈 / 功能建议 tabs (`?tab=feature` deep link);
+  both entries sit in the profile page's 功能 section.
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
@@ -248,11 +251,13 @@ before your first commit.
   `1792854446_updated_users.js`), and the shared feed / shared ledger _is_ the
   feature. Don't "fix" auth-only rules by owner-scoping posts or comments, and
   don't add a friends system. Scope today: `study_progress`,
-  `ji_zhang_category`, `tou_xiang_circle`, `feedback_reports` and all
-  `chat_*` collections are owner-scoped; `ji_zhang_biao` is shared for reads
-  but owner-scoped for update/delete. If a third account is ever added,
-  decide and migrate the per-collection scope _before_ that account exists —
-  auth-only rules would expose every row to it.
+  `ji_zhang_category`, `tou_xiang_circle` and all `chat_*` collections are
+  owner-scoped; `feedback_reports` is owner-only for bug rows plus
+  update/delete, but its list/view rule shares `kind = "feature"` rows with
+  both accounts (`1795800000_share_feature_feedback.js`); `ji_zhang_biao` is
+  shared for reads but owner-scoped for update/delete. If a third account is
+  ever added, decide and migrate the per-collection scope _before_ that
+  account exists — auth-only rules would expose every row to it.
   File fields are `protected`, so unauthenticated requests to `/api/files/...`
   return 404.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
@@ -263,21 +268,29 @@ before your first commit.
   `getUserCircleUrl`), which appends the short-lived token; `AuthProvider`
   refreshes it. Never call `pb.files.getURL` directly for these files —
   `<img>` cannot send the auth header, so a tokenless URL 404s.
-- 问题反馈 is a two-step flow: the client creates `feedback_reports` (with
-  protected screenshots and an optional `chat_conversations` relation) and
-  then POSTs `{ reportId }` to `/feedback/report`. The Bun supervisor
-  (`pocketbase/feedback.ts`) authenticates with the caller's PB token, re-reads
-  the row with that token (owner rule = server-side boundary), rate-limits
-  5/hour/user, and opens a GitHub issue with the server-only `GITHUB_TOKEN`
+- Feedback is a two-step flow for both kinds: the client creates
+  `feedback_reports` (`kind` bug/feature, protected photos, optional
+  `chat_conversations` relation for bugs) and then POSTs `{ reportId }` to
+  `/feedback/report`. The Bun supervisor (`pocketbase/feedback.ts`)
+  authenticates with the caller's PB token, re-reads the row with that token,
+  and still requires `report.owner === caller` — the shared feature read rule
+  lets the other account read a suggestion, never sync it. It rate-limits
+  5/hour/user and opens a GitHub issue with the server-only `GITHUB_TOKEN`
   (`GITHUB_REPO`, optional `GITHUB_API_URL`). **Never** send the GitHub token
   or the PB token to the browser. Missing token/repo still returns
   `200 { issue: null }` and the row stays `stored` (UI:
   已收到反馈，暂未同步 GitHub); GitHub failures set `status=failed` without
-  losing the report. The issue body is sanitized/truncated and includes a
-  server-fetched transcript of the last 20 chat messages / 10k chars when a
-  conversation is attached. Vite proxies only `/feedback/report` (never
-  `/feedback`, which is a client route); production reverse proxies must do
-  the same.
+  losing the report. Bug issues are `[Bug]` + `bug`/`from-app`, and their body
+  may include the last 20 console errors and a server-fetched transcript of
+  the last 20 chat messages / 10k chars. Feature issues are `[Feature]` +
+  `enhancement`/`from-app`, never fetch a transcript, and their body is the
+  idea plus the in-app photo note. Only attempts that actually call GitHub
+  spend the 5/hour quota (already-synced retries and unconfigured GitHub do
+  not). The feature tab's 大家的建议 is shared; the bug tab's 我的反馈 stays
+  owner-only. Realtime subscriptions are row-filtered by PocketBase, so the
+  other account receives feature events only. Vite proxies only
+  `/feedback/report` (never `/feedback`, which is a client route); production
+  reverse proxies must do the same.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
   from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
   it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
@@ -493,11 +506,11 @@ before your first commit.
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (去年今天 inline in the
   feed; the daily line is computed locally), Study (wrong-answer overview,
-  targeted drill, sprint plan), the year report at `/report`, and 问题反馈's
-  「AI 帮我整理」 (rewrites the title/description; a 503 keeps the original
-  text and the form still submits). Data sent to the provider is only what the
-  feature builds locally; nothing AI-related is written back to PocketBase
-  except the user-confirmed expense rows/categories.
+  targeted drill, sprint plan), the year report at `/report`, and AI polish in
+  问题反馈 (bug: title/symptom/reproduction) and 功能建议 (want/why/how). A 503
+  keeps the original text and the form still submits. Data sent to the provider
+  is only what the feature builds locally; nothing AI-related is written back
+  to PocketBase except the user-confirmed expense rows/categories.
 - Adding a page: create `app/routes/_protected/_main/<name>/index.tsx` with
   `createFileRoute("/_protected/_main/<name>/")`, let the dev server regenerate
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.

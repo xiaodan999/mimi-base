@@ -64,6 +64,8 @@ export const qk = {
     feedback: {
         all: ["feedback"] as const,
         reports: (userId: string) => ["feedback", "reports", userId] as const,
+        /** Shared suggestions; the user id still isolates the cache. */
+        features: (userId: string) => ["feedback", "features", userId] as const,
     },
     chat: {
         all: ["chat"] as const,

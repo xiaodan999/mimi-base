@@ -5,6 +5,7 @@ import {
     Camera,
     ChevronRight,
     Info,
+    Lightbulb,
     type LucideIcon,
     MessageSquareWarning,
     Pencil,
@@ -279,6 +280,17 @@ function Page() {
                         description="遇到问题？带上截图和 AI 对话告诉我们"
                         icon={MessageSquareWarning}
                         title="问题反馈"
+                    />
+                </Link>
+                <Link
+                    search={{ tab: "feature" }}
+                    to="/feedback"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        description="想要什么新功能？说说你的想法"
+                        icon={Lightbulb}
+                        title="功能建议"
                     />
                 </Link>
             </Section>

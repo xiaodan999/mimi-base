@@ -55,6 +55,48 @@ export function feedbackPolishMessages(
     ];
 }
 
+/* --------------------------- feature suggestions ------------------------ */
+
+const FEATURE_SYSTEM = systemPrompt(
+    "帮朋友整理功能建议的助手",
+    "把零散的想法改写成开发者能直接理解的需求，不编造用户没提供的使用场景。",
+);
+
+export type FeaturePolishInput = {
+    title: string;
+    description: string;
+    route?: string;
+};
+
+const FEATURE_RULES = [
+    "标题不超过 30 个字，直接说想要什么功能。",
+    "描述分三小段：想要什么、为什么需要、希望怎么用。",
+    "只使用用户提供的信息和下面的页面上下文，不要编造设备、账号或时间。",
+    "语气直接、克制，不写客套话，不要 Markdown 标题。",
+    "只输出 JSON：",
+    '{"title":"...","description":"..."}',
+].join("\n");
+
+export function featurePolishMessages(input: FeaturePolishInput): AiMessage[] {
+    const context = [
+        `用户看到建议的页面：${input.route || "未知"}`,
+        fenceUntrusted("用户写的标题", input.title.trim() || "（还没写标题）"),
+        fenceUntrusted(
+            "用户写的想法",
+            input.description.trim() || "（还没写描述）",
+        ),
+        "整理成一条可以直接提交的功能建议。",
+        FEATURE_RULES,
+    ]
+        .filter(Boolean)
+        .join("\n\n");
+
+    return [
+        { role: "system", content: FEATURE_SYSTEM },
+        { role: "user", content: context },
+    ];
+}
+
 /** Trim/limit the model's answer so it still fits the form and the schema. */
 export function sanitizePolishedFeedback(value: {
     title: unknown;

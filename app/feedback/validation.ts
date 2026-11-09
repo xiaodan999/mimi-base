@@ -15,7 +15,10 @@ export type ScreenshotLike = {
     type?: string;
 };
 
+export type FeedbackKind = "bug" | "feature";
+
 export type FeedbackDraft = {
+    kind?: FeedbackKind;
     title: string;
     description: string;
     screenshots?: readonly ScreenshotLike[];
@@ -26,6 +29,7 @@ export type FeedbackValidation =
     | { ok: false; error: string };
 
 export function validateFeedback(draft: FeedbackDraft): FeedbackValidation {
+    const feature = draft.kind === "feature";
     const title = draft.title.trim();
     if (!title) return { ok: false, error: "请填写一句话标题" };
     if (title.length > MAX_FEEDBACK_TITLE) {
@@ -36,7 +40,12 @@ export function validateFeedback(draft: FeedbackDraft): FeedbackValidation {
     }
 
     const description = draft.description.trim();
-    if (!description) return { ok: false, error: "请描述一下遇到的问题" };
+    if (!description) {
+        return {
+            ok: false,
+            error: feature ? "请描述一下你的想法" : "请描述一下遇到的问题",
+        };
+    }
     if (description.length > MAX_FEEDBACK_DESCRIPTION) {
         return {
             ok: false,
@@ -48,15 +57,25 @@ export function validateFeedback(draft: FeedbackDraft): FeedbackValidation {
     if (screenshots.length > MAX_FEEDBACK_SCREENSHOTS) {
         return {
             ok: false,
-            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张截图`,
+            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张${
+                feature ? "图片" : "截图"
+            }`,
         };
     }
     for (const file of screenshots) {
         if (!file.type || !file.type.startsWith("image/")) {
-            return { ok: false, error: "截图需要是图片文件" };
+            return {
+                ok: false,
+                error: feature ? "照片需要是图片文件" : "截图需要是图片文件",
+            };
         }
         if (typeof file.size === "number" && file.size > MAX_SCREENSHOT_BYTES) {
-            return { ok: false, error: "单张截图不能超过 5MB" };
+            return {
+                ok: false,
+                error: feature
+                    ? "单张照片不能超过 5MB"
+                    : "单张截图不能超过 5MB",
+            };
         }
     }
 

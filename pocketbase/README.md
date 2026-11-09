@@ -15,7 +15,7 @@ everything lives inside the repo clone:
     │                            #   serves the AI relay + token-protected
     │                            #   deploy endpoints on :9001
     ├── ai-relay.ts              # streaming /ai relay using the site key
-    ├── feedback.ts              # bug report -> GitHub issue (/feedback/report)
+    ├── feedback.ts              # feedback (bug/feature) -> GitHub issue (/feedback/report)
     ├── ai-files.ts              # server-side chat attachment reader
     ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
@@ -183,22 +183,32 @@ The general chat (`/chat`) uses these routes:
 The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/ai/...`, so the
 PB host's reverse proxy must expose `/ai/*` as well.
 
-## Bug reports -> GitHub
+## Feedback (bugs + feature suggestions) -> GitHub
 
-`/feedback` writes a row into the owner-scoped `feedback_reports` collection
-(screenshots upload through PocketBase, protected files). The client then
-calls `POST /feedback/report` on the supervisor with `{ reportId }` and its
+`/feedback` writes a row into `feedback_reports` (`kind=bug` or
+`kind=feature`; photos upload through PocketBase, protected files). The
+collection's list/view rule is
+`@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`, so
+feature suggestions are shared between the two accounts while bug reports stay
+owner-only; create/update/delete remain owner-bound. The client then calls
+`POST /feedback/report` on the supervisor with `{ reportId }` and its
 PocketBase token. `feedback.ts`:
 
 - re-authenticates with `auth-refresh` and re-reads the report **with the
-  caller's token**, so PocketBase's owner rules decide access (another
-  owner's id is a 404);
-- limits each user to 5 submissions/hour (sliding window, in memory);
-- builds a sanitized/truncated Markdown issue (description, route, build
-  version + sha, UA, timestamp, screenshot names, last 20 console errors,
-  and a collapsed transcript of the last 20 chat messages / 10k chars when
-  a conversation is attached);
-- creates `[Bug] <title>` with labels `bug` + `from-app`, then writes
+  caller's token**, then still requires the caller to own it (the shared
+  feature read rule lets the other account read a suggestion, never sync it;
+  another owner's id is a 404);
+- limits each user to 5 submissions/hour (sliding window, in memory); retries
+  of an already-synced report and requests made while GitHub is unconfigured
+  do not spend quota;
+- builds a sanitized/truncated Markdown issue. Bug reports include route,
+  build version + sha, UA, timestamp, screenshot names, the last 20 console
+  errors, and a collapsed transcript of the last 20 chat messages / 10k chars
+  when a conversation is attached. Feature suggestions are `[Feature]` +
+  `enhancement` + `from-app`, never fetch a transcript, and their body is the
+  idea plus the note that the photos live in the app's feedback record;
+- creates `[Bug] <title>` with labels `bug` + `from-app` (or
+  `[Feature] <title>` with `enhancement` + `from-app`), then writes
   `status=issue_created`, `issue_url` and `issue_number` back onto the row.
 
 Config in `.env.prod` (or `.env` in dev): `GITHUB_TOKEN` (fine-grained token

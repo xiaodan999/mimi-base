@@ -102,4 +102,55 @@ describe("validateFeedback", () => {
             }),
         ).toEqual({ ok: false, error: "单张截图不能超过 5MB" });
     });
+
+    test("uses feature-suggestion copy for a missing description", () => {
+        expect(
+            validateFeedback({
+                kind: "feature",
+                title: "想要每日一句",
+                description: "   ",
+            }),
+        ).toEqual({ ok: false, error: "请描述一下你的想法" });
+    });
+
+    test("uses photo wording for feature screenshots", () => {
+        const tooMany = Array.from(
+            { length: MAX_FEEDBACK_SCREENSHOTS + 1 },
+            (_, index) => image(`photo-${index}.webp`),
+        );
+        expect(
+            validateFeedback({
+                kind: "feature",
+                title: "t",
+                description: "d",
+                screenshots: tooMany,
+            }),
+        ).toEqual({
+            ok: false,
+            error: `最多上传 ${MAX_FEEDBACK_SCREENSHOTS} 张图片`,
+        });
+        expect(
+            validateFeedback({
+                kind: "feature",
+                title: "t",
+                description: "d",
+                screenshots: [{ name: "a.txt", size: 10, type: "text/plain" }],
+            }),
+        ).toEqual({ ok: false, error: "照片需要是图片文件" });
+    });
+
+    test("accepts a feature suggestion with photos", () => {
+        expect(
+            validateFeedback({
+                kind: "feature",
+                title: " 想要每日一句 ",
+                description: " 想要什么 / 为什么 / 怎么用 ",
+                screenshots: [image("a"), image("b")],
+            }),
+        ).toEqual({
+            ok: true,
+            title: "想要每日一句",
+            description: "想要什么 / 为什么 / 怎么用",
+        });
+    });
 });
