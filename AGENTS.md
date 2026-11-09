@@ -343,7 +343,8 @@ before your first commit.
   never autoplays, and the first frame comes from `#t=0.1` on the protected
   URL (`lib/postMedia.ts`). AI captions for video posts use the text hint
   only — never send video bytes to the model. `posts.layout` is `moments`
-  (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
+  (朋友圈 square grid), `instagram` (full-bleed carousel) or `twitter`
+  (compact timeline with the action row under the media), picked per post.
   `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
   (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,

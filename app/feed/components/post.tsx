@@ -16,7 +16,11 @@ import { PostData, useDeletePostMutation, usePostLikeMutation } from "../data";
 import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
-import { InstagramCarousel, MomentsImageGrid } from "./post-images";
+import {
+    InstagramCarousel,
+    MomentsImageGrid,
+    TwitterImageGrid,
+} from "./post-images";
 import PostVideo from "./post-video";
 
 type PostProps = PostData & {
@@ -204,6 +208,61 @@ export default function Post({
                         {text}
                     </p>
                 )}
+            </article>
+        );
+    }
+
+    if (layout === "twitter") {
+        return (
+            <article className="mb-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+                <div className="flex gap-3">
+                    {avatar}
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex min-w-0 items-baseline gap-1.5">
+                                <span className="truncate text-sm font-semibold">
+                                    {author.user_name || "朋友"}
+                                </span>
+                                <time
+                                    className="shrink-0 text-xs text-muted-foreground"
+                                    dateTime={createdAt}
+                                >
+                                    {formatRelativeTime(createdAt)}
+                                </time>
+                            </div>
+                            {menu}
+                        </div>
+
+                        {text && (
+                            <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                                {text}
+                            </p>
+                        )}
+
+                        {videoUrl && (
+                            <div className="mt-3">
+                                <PostVideo
+                                    url={videoUrl}
+                                    layout="twitter"
+                                    onOpenFullscreen={() =>
+                                        onOpenVideo(videoUrl)
+                                    }
+                                />
+                            </div>
+                        )}
+
+                        {images.length > 0 && (
+                            <TwitterImageGrid
+                                images={gridImages}
+                                onOpen={openImage}
+                            />
+                        )}
+
+                        <div className="mt-2 flex items-center gap-6 border-t border-border/50 pt-2">
+                            {actions}
+                        </div>
+                    </div>
+                </div>
             </article>
         );
     }

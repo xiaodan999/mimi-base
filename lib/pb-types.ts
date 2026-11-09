@@ -20,7 +20,7 @@ type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
 // App-facing view models
 // ---------------------------------------------------------------------------
 
-export type PostLayout = "moments" | "instagram";
+export type PostLayout = "moments" | "instagram" | "twitter";
 
 export type PostImage = {
     name: string;
@@ -246,7 +246,12 @@ export function toPostData(
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
         createdAt: post.created,
         liked: likedPostIds.has(post.id),
-        layout: post.layout === "instagram" ? "instagram" : "moments",
+        layout:
+            post.layout === "instagram"
+                ? "instagram"
+                : post.layout === "twitter"
+                  ? "twitter"
+                  : "moments",
         collectionId: post.collectionId,
         images: pairThumbs(post.images ?? [], post.thumbs ?? []),
         videos: fileNames(post.videos),

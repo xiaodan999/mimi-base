@@ -24,6 +24,8 @@ type PostComposerFormProps = {
     onClose: () => void;
 };
 
+const LAYOUT_ORDER: PostLayout[] = ["moments", "instagram", "twitter"];
+
 export default function PostComposerForm({
     draft,
     caption,
@@ -198,7 +200,7 @@ export default function PostComposerForm({
                         <div
                             role="radiogroup"
                             aria-labelledby="new-post-layout"
-                            className="mt-2.5 grid grid-cols-2 gap-2"
+                            className="mt-2.5 grid grid-cols-3 gap-2"
                             onKeyDown={(event) => {
                                 const keys = [
                                     "ArrowLeft",
@@ -211,14 +213,26 @@ export default function PostComposerForm({
                                 if (!keys.includes(event.key)) return;
 
                                 event.preventDefault();
-                                const next: PostLayout =
+                                const index = LAYOUT_ORDER.indexOf(layout);
+                                const next =
                                     event.key === "Home"
-                                        ? "moments"
+                                        ? LAYOUT_ORDER[0]
                                         : event.key === "End"
-                                          ? "instagram"
-                                          : layout === "moments"
-                                            ? "instagram"
-                                            : "moments";
+                                          ? LAYOUT_ORDER[
+                                                LAYOUT_ORDER.length - 1
+                                            ]
+                                          : event.key === "ArrowRight" ||
+                                              event.key === "ArrowDown"
+                                            ? LAYOUT_ORDER[
+                                                  (index + 1) %
+                                                      LAYOUT_ORDER.length
+                                              ]
+                                            : LAYOUT_ORDER[
+                                                  (index -
+                                                      1 +
+                                                      LAYOUT_ORDER.length) %
+                                                      LAYOUT_ORDER.length
+                                              ];
                                 setLayout(next);
                                 event.currentTarget
                                     .querySelector<HTMLElement>(
@@ -243,6 +257,14 @@ export default function PostComposerForm({
                                 caption="滑动浏览"
                                 preview="wide"
                             />
+                            <LayoutOption
+                                value="twitter"
+                                current={layout}
+                                onSelect={setLayout}
+                                title="推文"
+                                caption="简洁时间线"
+                                preview="tweet"
+                            />
                         </div>
                     </section>
                 )}
@@ -261,7 +283,7 @@ type LayoutOptionProps = {
     onSelect: (value: PostLayout) => void;
     title: string;
     caption: string;
-    preview: "grid" | "wide";
+    preview: "grid" | "wide" | "tweet";
 };
 
 /**
@@ -287,7 +309,7 @@ function LayoutOption({
             data-layout={value}
             onClick={() => onSelect(value)}
             className={cn(
-                "flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-all duration-150",
+                "relative flex flex-col items-start gap-2 rounded-2xl border p-2.5 text-left transition-all duration-150",
                 selected
                     ? "border-primary/60 bg-primary/[0.07] shadow-soft"
                     : "border-border/70 bg-card/60 hover:border-primary/30",
@@ -314,7 +336,7 @@ function LayoutOption({
                             />
                         ))}
                     </span>
-                ) : (
+                ) : preview === "wide" ? (
                     <span className="flex flex-col items-center gap-[3px]">
                         <span
                             className={cn(
@@ -338,10 +360,47 @@ function LayoutOption({
                             ))}
                         </span>
                     </span>
+                ) : (
+                    <span className="flex w-7 flex-col gap-[3px]">
+                        <span className="flex items-center gap-[3px]">
+                            <span
+                                className={cn(
+                                    "size-1.5 rounded-full",
+                                    selected
+                                        ? "bg-primary/70"
+                                        : "bg-muted-foreground/40",
+                                )}
+                            />
+                            <span
+                                className={cn(
+                                    "h-1 w-4 rounded-[1px]",
+                                    selected
+                                        ? "bg-primary/70"
+                                        : "bg-muted-foreground/40",
+                                )}
+                            />
+                        </span>
+                        <span
+                            className={cn(
+                                "h-1 w-7 rounded-[1px]",
+                                selected
+                                    ? "bg-primary/45"
+                                    : "bg-muted-foreground/25",
+                            )}
+                        />
+                        <span
+                            className={cn(
+                                "h-1 w-5 rounded-[1px]",
+                                selected
+                                    ? "bg-primary/45"
+                                    : "bg-muted-foreground/25",
+                            )}
+                        />
+                    </span>
                 )}
             </span>
 
-            <span className="min-w-0 flex-1">
+            <span className="w-full min-w-0">
                 <span className="block truncate text-xs font-semibold">
                     {title}
                 </span>
@@ -353,7 +412,7 @@ function LayoutOption({
             <Check
                 aria-hidden="true"
                 className={cn(
-                    "size-4 shrink-0 text-primary transition-opacity duration-150",
+                    "absolute right-2 top-2 size-3.5 text-primary transition-opacity duration-150",
                     selected ? "opacity-100" : "opacity-0",
                 )}
             />

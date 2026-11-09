@@ -72,6 +72,56 @@ export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
 }
 
 /**
+ * Twitter-style media: one large preview, two squares side by side, or a
+ * 2x2 mosaic. More than four images collapse into a +N tile; the viewer still
+ * opens the full list.
+ */
+export function TwitterImageGrid({ images, onOpen }: ImageListProps) {
+    if (images.length === 0) return null;
+
+    const visible = images.slice(0, 4);
+    const count = images.length;
+
+    return (
+        <div
+            className={cn(
+                "mt-3 grid gap-1",
+                count === 1 ? "grid-cols-1" : "grid-cols-2",
+            )}
+        >
+            {visible.map((image, index) => (
+                <button
+                    key={image.name}
+                    type="button"
+                    onClick={() => onOpen(index)}
+                    aria-label={`查看第 ${index + 1} 张图片`}
+                    className={cn(
+                        "relative overflow-hidden rounded-xl bg-muted",
+                        count === 1
+                            ? "aspect-[4/3]"
+                            : count === 3 && index === 0
+                              ? "col-span-2 aspect-[16/9]"
+                              : "aspect-square",
+                    )}
+                >
+                    <img
+                        src={image.thumbUrl}
+                        alt=""
+                        loading="lazy"
+                        className="size-full object-cover"
+                    />
+                    {index === 3 && count > 4 && (
+                        <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-semibold text-white">
+                            +{count - 4}
+                        </span>
+                    )}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+/**
  * Instagram-style full-bleed media. Multiple images form a native
  * scroll-snap carousel so no carousel dependency is needed.
  */

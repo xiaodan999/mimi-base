@@ -39,6 +39,7 @@
 
 ### 新增
 
+- 动态新增「推文」排版（#58）：迁移 `1796000000_add_twitter_post_layout.js` 给 `posts.layout` 增加 `twitter` 值；composer 的排版选择改成三列（九宫格 / 大图 / 推文），支持方向键/Home/End 循环。`Post` 新增推文卡片：左侧头像、名字+相对时间、正文，视频走 `PostVideo` 全宽，图片用新的 `TwitterImageGrid`（单图 4:3、双图方形、三图首图通栏、四图 2x2、超过四张显示 +N），点赞/评论固定在底部。`lib/pb-types.ts` 和 AI 配文提示词同步识别 `twitter`。
 - 反馈页面选择器与附件测试：新增 `app/routes/_protected/_main/feedback/-components/page-picker.tsx`（`FEEDBACK_PAGES` + 最近访问）和 `page-picker.test.ts`；`app/feedback/attachments.ts` 统一解析/展示附件元数据并新增单测。`pocketbase/feedback.test.ts` 覆盖 `POST /api/feedback/upload`（鉴权、未配置、release 复用、数量/体积限制、上游失败）与附件正文渲染；#56 新增连续多次提交的回归测试。
 - 功能建议（#40）：`/feedback` 改为「问题反馈 / 功能建议」双标签页，支持 `/feedback?tab=feature` 深链，个人资料页「功能」分组新增「功能建议」入口；两个标签页首次访问后保持挂载，切换不会丢失草稿，标签切换用 `replace`，返回手势直接回到个人资料。
 - 新增迁移 `1795800000_share_feature_feedback.js`：`feedback_reports` 的 list/view 规则改为 `@request.auth.id != "" && (kind = "feature" || owner = @request.auth.id)`，功能建议两人共享、bug 仍仅本人可见；update/delete 保持 owner-only，create 仍绑定 `@request.body.owner`。
