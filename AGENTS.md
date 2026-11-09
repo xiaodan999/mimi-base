@@ -282,19 +282,20 @@ before your first commit.
   `/api/feedback/report`. The Bun supervisor (`pocketbase/feedback.ts`)
   authenticates with the caller's PB token, re-reads the row with that token,
   and still requires `report.owner === caller` — the shared feature read rule
-  lets the other account read a suggestion, never sync it. It rate-limits
-  5/hour/user and opens a GitHub issue with the server-only `GITHUB_TOKEN`
-  (`GITHUB_REPO`, optional `GITHUB_API_URL`). **Never** send the GitHub token
-  or the PB token to the browser. Missing token/repo still returns
-  `200 { issue: null }` and the row stays `stored` (UI:
-  已收到反馈，暂未同步 GitHub); GitHub failures set `status=failed` without
-  losing the report. Bug issues are `[Bug]` + `bug`/`from-app`, and their body
-  may include the last 20 console errors and a server-fetched transcript of
-  the last 20 chat messages / 10k chars. Feature issues are `[Feature]` +
-  `enhancement`/`from-app`, never fetch a transcript, and their body is the
-  idea plus the in-app photo note. Only attempts that actually call GitHub
-  spend the 5/hour quota (already-synced retries and unconfigured GitHub do
-  not). The feature tab's 大家的建议 is shared; the bug tab's 我的反馈 stays
+  lets the other account read a suggestion, never sync it. There is **no
+  per-user submission cap** (two trusted accounts, and the report list offers
+  a 重新同步 action); it opens a GitHub issue with the server-only
+  `GITHUB_TOKEN` (`GITHUB_REPO`, optional `GITHUB_API_URL`). **Never** send the
+  GitHub token or the PB token to the browser. Missing token/repo still
+  returns `200 { issue: null }` and the row stays `stored` (UI: 待同步), and
+  the report card can retry it later; GitHub failures set `status=failed`
+  without losing the report. Bug issues are `[Bug]` + `bug`/`from-app`, and
+  their body may include the last 20 console errors and a server-fetched
+  transcript of the last 20 chat messages / 10k chars. Feature issues are
+  `[Feature]` + `enhancement`/`from-app`, never fetch a transcript, and their
+  body is the idea plus the in-app photo note. Retrying an already-synced
+  report reuses its existing issue without another GitHub call. The feature
+  tab's 大家的建议 is shared; the bug tab's 我的反馈 stays
   owner-only. Realtime subscriptions are row-filtered by PocketBase, so the
   other account receives feature events only. Vite proxies `/api` (Bun) and
   `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`

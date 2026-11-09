@@ -17,6 +17,7 @@
 
 ### 变更
 
+- 反馈列表：移除每用户 5 次/小时的提交上限；`stored` 状态改显示「待同步」，卡片新增「重新同步」按钮（复用 `POST /api/feedback/report`，已建 Issue 幂等复用），提交成功卡片与 toast 改为提示可稍后重试；`pocketbase/feedback.ts` 删除滑动窗口限流与 429 分支，`report-list.tsx` 只在本人报告上显示重试。
 - URL 布局迁移：PocketBase 统一挂到 `/db`（SDK base 为 `<origin>/db`，管理面板 `/db/_/`），手写 Bun 接口统一到 `/api`（AI `/api/ai/*`、反馈 `/api/feedback/report`，以后新增后端处理器也放在 `/api/*`）。`lib/env.ts` 负责把 `VITE_POCKETBASE_URL` 归一化为 `/db` 并单独暴露 API origin；Vite 开发代理改为 `/db` → PocketBase（去掉前缀）和 `/api` → supervisor，生产 Caddy 同构（`/db/sync` 保持精确路径优先）；Service Worker 绕过 `/db` 与 `/api`，部署健康检查改用 `/db/api/health`。旧的 `/ai/*`、`/feedback/report` 路由不再保留。
 - 首页晚餐入口保持原有 🍜 按钮位置，弹窗从「随机结果 + 保存」改为彩色转盘 + 管理视图；`home.tsx` 用 `lazy()` 只在首次点开时加载转盘 chunk，并移除硬编码 `DINNER` 数组（`app/routes/_protected/_main/home.tsx`）。
 - 聊天里的「人格」统一改名为「应用场景」：对话列表空态、筛选与新建对话面板、场景卡片表单、校验/成功提示、删除确认和导出标题同步更新；内置选项改为日常对话 / 写作润色 / 英语学习 / 基地管家（`app/chat/personas.ts` 的 id 与内部字段不变，旧对话继续使用创建时的快照）。

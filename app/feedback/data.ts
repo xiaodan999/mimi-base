@@ -292,3 +292,20 @@ export function useSubmitFeedback() {
         },
     });
 }
+
+/**
+ * Retry a stored/failed report from the list. The supervisor is idempotent:
+ * an already-created issue is returned as-is, a stored/failed row gets a new
+ * GitHub attempt, and GitHub being unconfigured is a non-fatal `issue: null`
+ * result.
+ */
+export function useRetryFeedbackReport() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationKey: qk.mutations.retryFeedback(),
+        mutationFn: (reportId: string) => syncIssue(reportId),
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: qk.feedback.all });
+        },
+    });
+}

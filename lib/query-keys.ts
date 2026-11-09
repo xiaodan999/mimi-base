@@ -107,5 +107,7 @@ export const qk = {
         createExpenseCategory: () => ["create-expense-category"] as const,
         updateExpenseCategory: () => ["update-expense-category"] as const,
         deleteExpenseCategory: () => ["delete-expense-category"] as const,
+        // feedback
+        retryFeedback: () => ["retry_feedback"] as const,
     },
 };

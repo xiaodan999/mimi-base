@@ -11,11 +11,10 @@
  *   2. re-fetches the report with that token and still requires the caller to
  *      own it — the shared feature read rule lets the other account *read* a
  *      suggestion, never sync it,
- *   3. rate-limits submissions per user (5 per hour by default),
- *   4. builds a sanitized Markdown issue body (including a truncated AI chat
+ *   3. builds a sanitized Markdown issue body (including a truncated AI chat
  *      transcript when a bug report attached one) and creates the issue with
  *      the server-held `GITHUB_TOKEN`,
- *   5. writes `status` / `issue_url` / `issue_number` back onto the report.
+ *   4. writes `status` / `issue_url` / `issue_number` back onto the report.
  *
  * Feature suggestions use `[Feature]` + `enhancement`/`from-app`, never
  * require a conversation, and their body is the idea plus the note that the
@@ -37,9 +36,6 @@ export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
 const MAX_BODY_BYTES = 8 * 1024;
 const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 500;
-/** ~5 submissions/hour per user; both are overridable in tests. */
-const RATE_WINDOW_MS = 60 * 60_000;
-const RATE_MAX = 5;
 const CONNECT_TIMEOUT_MS = 10_000;
 
 const MAX_ISSUE_TITLE = 180;
@@ -98,8 +94,6 @@ export type FeedbackDeps = {
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
-    rateMax?: number;
-    rateWindowMs?: number;
     authCacheMs?: number;
 };
 
@@ -385,8 +379,6 @@ export function buildIssueBody(input: IssueBodyInput): string {
 
 /* ------------------------------ service -------------------------------- */
 
-type RateState = { times: number[] };
-
 /**
  * Build the `/feedback` handler. Returns `null` for paths it does not own, so
  * server.ts can keep it next to the AI relay and deploy endpoints.
@@ -399,11 +391,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     ).replace(/\/+$/, "");
     const repo = deps.githubRepo.trim();
     const token = deps.githubToken.trim();
-    const rateMax = deps.rateMax ?? RATE_MAX;
-    const rateWindow = deps.rateWindowMs ?? RATE_WINDOW_MS;
     const authCacheMs = deps.authCacheMs ?? AUTH_CACHE_MS;
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
-    const rates = new Map<string, RateState>();
     const configured = token !== "" && repo !== "";
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
@@ -455,27 +444,6 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             expiresAt: now() + authCacheMs,
         });
         return { ok: true, uid, token: pbToken };
-    }
-
-    function rateLimited(uid: string): boolean {
-        const t = now();
-        const cutoff = t - rateWindow;
-        const state = rates.get(uid) ?? { times: [] };
-        state.times = state.times.filter((time) => time > cutoff);
-        if (state.times.length >= rateMax) {
-            rates.set(uid, state);
-            return true;
-        }
-        state.times.push(t);
-        rates.set(uid, state);
-        if (rates.size > 1000) {
-            for (const [key, value] of rates) {
-                if (value.times.every((time) => time <= cutoff)) {
-                    rates.delete(key);
-                }
-            }
-        }
-        return false;
     }
 
     async function pbGet<T>(
@@ -689,8 +657,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
 
         if (!configured) {
             // The report itself is already stored; accepting it quietly is
-            // deliberate so a missing token never loses a bug report. No
-            // GitHub call happens, so this does not consume the rate limit.
+            // deliberate so a missing token never loses a report. The user can
+            // retry from the feedback list once GitHub is configured.
             return json({
                 ok: true,
                 synced: false,
@@ -698,18 +666,6 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
                 issue: null,
                 report: { id: report.id, status: report.status ?? "stored" },
             });
-        }
-
-        if (rateLimited(auth.uid)) {
-            return json(
-                {
-                    ok: false,
-                    issue: null,
-                    error: "反馈提交太频繁了，请稍后再试",
-                    retryAfter: Math.ceil(rateWindow / 1000),
-                },
-                429,
-            );
         }
 
         // A feature suggestion has no transcript requirement; skipping the

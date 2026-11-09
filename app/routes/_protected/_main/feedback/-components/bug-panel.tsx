@@ -31,6 +31,7 @@ import {
     feedbackPolishMessages,
     sanitizePolishedFeedback,
 } from "@/app/feedback/prompt";
+import { useFeedbackRetry } from "@/app/feedback/retry";
 import {
     MAX_FEEDBACK_DESCRIPTION,
     MAX_FEEDBACK_TITLE,
@@ -79,6 +80,7 @@ export function BugPanel() {
     const reports = useFeedbackReports();
     const conversations = useFeedbackConversations();
     const submit = useSubmitFeedback();
+    const retry = useFeedbackRetry();
 
     const busy = submit.isPending || polishing;
     const bugReports = selectOwnBugReports(reports.data ?? [], user.id);
@@ -164,7 +166,7 @@ export function BugPanel() {
             if (submitted.issue) {
                 toast.success("反馈已提交，GitHub Issue 已创建");
             } else {
-                toast.success("反馈已收到");
+                toast.success("反馈已保存，可稍后重新同步");
             }
         } catch (error) {
             toast.error(
@@ -361,7 +363,13 @@ export function BugPanel() {
                         最近 {bugReports.length} 条
                     </span>
                 </div>
-                <ReportList loading={reports.isLoading} reports={bugReports} />
+                <ReportList
+                    loading={reports.isLoading}
+                    reports={bugReports}
+                    viewerId={user.id}
+                    onRetry={retry.run}
+                    retryingId={retry.retryingId}
+                />
             </section>
 
             <ConversationPicker

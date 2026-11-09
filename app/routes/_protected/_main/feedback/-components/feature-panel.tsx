@@ -16,6 +16,7 @@ import {
     featurePolishMessages,
     sanitizePolishedFeedback,
 } from "@/app/feedback/prompt";
+import { useFeedbackRetry } from "@/app/feedback/retry";
 import {
     MAX_FEEDBACK_DESCRIPTION,
     MAX_FEEDBACK_TITLE,
@@ -25,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/lib/auth";
 
 import { ContextChip, appVersionLabel } from "./context-chips";
 import { ReportList } from "./report-list";
@@ -37,6 +39,7 @@ import { SuccessCard } from "./success-card";
  * `kind: "feature"` so the other account can read it in 大家的建议.
  */
 export function FeaturePanel() {
+    const user = useCurrentUser();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [route] = useState(() => readLastRoute());
@@ -51,6 +54,7 @@ export function FeaturePanel() {
     const { settings } = useAi();
     const suggestions = useFeatureSuggestions();
     const submit = useSubmitFeedback();
+    const retry = useFeedbackRetry();
 
     const busy = submit.isPending || polishing;
     const shared = selectFeatureSuggestions(suggestions.data ?? []);
@@ -128,7 +132,7 @@ export function FeaturePanel() {
             if (submitted.issue) {
                 toast.success("建议已提交，GitHub Issue 已创建");
             } else {
-                toast.success("建议已收到");
+                toast.success("建议已保存，可稍后重新同步");
             }
         } catch (error) {
             toast.error(
@@ -275,6 +279,9 @@ export function FeaturePanel() {
                     photoLabel="照片"
                     reports={shared}
                     showAuthor
+                    viewerId={user.id}
+                    onRetry={retry.run}
+                    retryingId={retry.retryingId}
                 />
             </section>
         </div>

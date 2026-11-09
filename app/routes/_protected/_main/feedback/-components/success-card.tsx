@@ -21,15 +21,13 @@ export function SuccessCard({
     onReset: () => void;
 }) {
     const feature = kind === "feature";
+    const retryHint = feature
+        ? "建议已保存，可在下方「大家的建议」里点「重新同步」补建 Issue。"
+        : "反馈已保存，可在下方「我的反馈」里点「重新同步」补建 Issue。";
     const notSynced =
         reason === "github_not_configured"
-            ? feature
-                ? "已收到建议，暂未同步 GitHub。"
-                : "已收到反馈，暂未同步 GitHub。"
-            : (syncError ??
-              (feature
-                  ? "已收到建议，暂未同步 GitHub。"
-                  : "已收到反馈，暂未同步 GitHub。"));
+            ? retryHint
+            : (syncError ?? retryHint);
     return (
         <section className="mt-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-5">
             <div className="flex items-start gap-3">

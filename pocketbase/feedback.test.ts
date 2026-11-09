@@ -610,26 +610,7 @@ describe("feedback service", () => {
         ).toBe(false);
     });
 
-    test("rate-limits after five submissions per user", async () => {
-        const { service, calls } = setup(pbHandler({}));
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-            const res = await service(submit());
-            expect(res?.status).toBe(200);
-        }
-        const blocked = await service(submit());
-        expect(blocked?.status).toBe(429);
-        const body = (await blocked!.json()) as {
-            error: string;
-            retryAfter: number;
-        };
-        expect(body.error).toContain("太频繁");
-        expect(body.retryAfter).toBe(3600);
-        expect(
-            calls.filter((call) => call.url.pathname.endsWith("/issues")),
-        ).toHaveLength(5);
-    });
-
-    test("does not spend rate-limit quota on already-synced retries", async () => {
+    test("already-synced retries reuse the existing issue", async () => {
         let current: FeedbackReport = report({
             status: "issue_created",
             issue_url: "https://github.test/owner/repo/issues/3",
@@ -655,7 +636,7 @@ describe("feedback service", () => {
             return json({}, 404);
         });
 
-        // Six retries would exhaust a 5/hour window if they counted.
+        // Already-synced reports reuse their issue without a new GitHub call.
         for (let attempt = 0; attempt < 6; attempt += 1) {
             expect((await service(submit()))?.status).toBe(200);
         }

@@ -1,8 +1,9 @@
-import { ExternalLink, ImageIcon, Inbox } from "lucide-react";
+import { ExternalLink, ImageIcon, Inbox, RefreshCw } from "lucide-react";
 
 import type { FeedbackReportRecord } from "@/app/feedback/data";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatDate } from "@/lib/date";
 import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 function statusLabel(status: FeedbackReportRecord["status"]): string {
     if (status === "issue_created") return "已建 Issue";
     if (status === "failed") return "同步失败";
-    return "已收到";
+    return "待同步";
 }
 
 function statusClass(status: FeedbackReportRecord["status"]): string {
@@ -31,6 +32,9 @@ export function ReportList({
     emptyText = "还没有提交过反馈",
     photoLabel = "截图",
     showAuthor = false,
+    viewerId,
+    onRetry,
+    retryingId = null,
 }: {
     reports: FeedbackReportRecord[];
     loading: boolean;
@@ -38,6 +42,10 @@ export function ReportList({
     photoLabel?: string;
     /** Shared suggestions show who wrote them; 我的反馈 does not. */
     showAuthor?: boolean;
+    /** Enables 重新同步 for the viewer's own stored/failed reports. */
+    viewerId?: string;
+    onRetry?: (report: FeedbackReportRecord) => void;
+    retryingId?: string | null;
 }) {
     if (loading) {
         return (
@@ -134,6 +142,34 @@ export function ReportList({
                                 {report.error}
                             </p>
                         )}
+                        {onRetry &&
+                            viewerId &&
+                            report.owner === viewerId &&
+                            (report.status === "stored" ||
+                                report.status === "failed") && (
+                                <div className="mt-2 flex justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 gap-1 px-2 text-[11px]"
+                                        disabled={retryingId === report.id}
+                                        onClick={() => onRetry(report)}
+                                    >
+                                        <RefreshCw
+                                            className={cn(
+                                                "size-3",
+                                                retryingId === report.id &&
+                                                    "animate-spin",
+                                            )}
+                                            aria-hidden="true"
+                                        />
+                                        {retryingId === report.id
+                                            ? "同步中…"
+                                            : "重新同步"}
+                                    </Button>
+                                </div>
+                            )}
                     </li>
                 );
             })}

@@ -216,9 +216,9 @@ PocketBase token. `feedback.ts`:
   caller's token**, then still requires the caller to own it (the shared
   feature read rule lets the other account read a suggestion, never sync it;
   another owner's id is a 404);
-- limits each user to 5 submissions/hour (sliding window, in memory); retries
-  of an already-synced report and requests made while GitHub is unconfigured
-  do not spend quota;
+- has no per-user submission cap; the feedback list's 「重新同步」 action calls
+  this endpoint again for a `stored`/`failed` row, and an already-synced
+  report reuses its existing issue without another GitHub call;
 - builds a sanitized/truncated Markdown issue. Bug reports include route,
   build version + sha, UA, timestamp, screenshot names, the last 20 console
   errors, and a collapsed transcript of the last 20 chat messages / 10k chars
@@ -234,9 +234,9 @@ with `issues:write` on the target repo), `GITHUB_REPO=owner/repo`, and
 optionally `GITHUB_API_URL` (default `https://api.github.com`; used by tests
 against a local mock). The token never reaches the browser, PocketBase, or
 the logs. If `GITHUB_TOKEN` or `GITHUB_REPO` is missing the endpoint still
-returns `200 { issue: null }` and leaves the row `stored`, so the UI says
-已收到反馈，暂未同步 GitHub instead of failing the submission. A GitHub error
-writes `status=failed` + a short error and returns 502; the report is kept.
+returns `200 { issue: null }` and leaves the row `stored` (UI: 待同步), and the
+report card's 「重新同步」 action retries it later. A GitHub error writes
+`status=failed` + a short error and returns 502; the report is kept.
 
 Reverse proxy: the endpoint is `POST /api/feedback/report` on the supervisor,
 so the existing `/api/*` rule covers it; no separate location is needed. Do
