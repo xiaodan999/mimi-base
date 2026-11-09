@@ -497,7 +497,8 @@ carry customizations that must survive any future `shadcn add` / `init` /
 primitives refresh:
 
 - `dialog.tsx` — the `Dialog` root calls `useBackDismiss`; `DialogContent`
-  adds `overlayClassName` and `showCloseButton`.
+  adds `overlayClassName`, `showCloseButton` and `mobileSheet` (bottom-sheet
+  layout below `sm`, centered dialog above; used by `ConfirmDialog`).
 - `sheet.tsx` — the `Sheet` root calls `useBackDismiss`.
 - `drawer.tsx` — the `Drawer` root calls `useBackDismiss` and defaults
   `repositionInputs={false}` (our own keyboard handling sizes the sheet).

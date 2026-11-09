@@ -24,11 +24,11 @@ import {
 } from "@/app/chat/conversations";
 import { findPersona } from "@/app/chat/personas";
 import type { ChatConversation, ChatPersona } from "@/app/chat/types";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -555,105 +555,63 @@ export function ConversationList({
                 </DialogContent>
             </Dialog>
 
-            <Dialog
+            <ConfirmDialog
                 open={deleteTarget !== null}
                 onOpenChange={(next) => {
                     if (!next) setDeleteTarget(null);
                 }}
-            >
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>
-                            删除「{deleteTarget?.title}」？
-                        </DialogTitle>
-                        <DialogDescription>
-                            这个对话的所有消息会一起删除，无法恢复。
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex-row justify-end gap-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setDeleteTarget(null)}
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={busy}
-                            onClick={async () => {
-                                if (!deleteTarget) return;
-                                setBusy(true);
-                                try {
-                                    await toastPromise(
-                                        onDelete(deleteTarget.id),
-                                        {
-                                            loading: "删除中…",
-                                            success: "对话已删除",
-                                            error: "删除失败",
-                                        },
-                                    );
-                                    setDeleteTarget(null);
-                                } catch {
-                                    // toast already shown
-                                } finally {
-                                    setBusy(false);
-                                }
-                            }}
-                        >
-                            删除
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title={`删除「${deleteTarget?.title}」？`}
+                description="这个对话的所有消息会一起删除，无法恢复。"
+                confirmLabel="删除"
+                destructive
+                busy={busy}
+                onConfirm={async () => {
+                    if (!deleteTarget) return;
+                    setBusy(true);
+                    try {
+                        await toastPromise(onDelete(deleteTarget.id), {
+                            loading: "删除中…",
+                            success: "对话已删除",
+                            error: "删除失败",
+                        });
+                        setDeleteTarget(null);
+                    } catch {
+                        // toast already shown
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
 
-            <Dialog
+            <ConfirmDialog
                 open={bulkConfirmOpen}
                 onOpenChange={(next) => {
                     if (!next) setBulkConfirmOpen(false);
                 }}
-            >
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>
-                            删除选中的 {selected.size} 个对话？
-                        </DialogTitle>
-                        <DialogDescription>
-                            这些对话的所有消息会一起删除，无法恢复。
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex-row justify-end gap-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setBulkConfirmOpen(false)}
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={busy || selected.size === 0}
-                            onClick={async () => {
-                                const ids = [...selected];
-                                setBusy(true);
-                                try {
-                                    await toastPromise(onDeleteMany(ids), {
-                                        loading: "删除中…",
-                                        success: `已删除 ${ids.length} 个对话`,
-                                        error: "删除失败",
-                                    });
-                                    setBulkConfirmOpen(false);
-                                    exitSelectMode();
-                                } catch {
-                                    // toast already shown
-                                } finally {
-                                    setBusy(false);
-                                }
-                            }}
-                        >
-                            删除
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title={`删除选中的 ${selected.size} 个对话？`}
+                description="这些对话的所有消息会一起删除，无法恢复。"
+                confirmLabel="删除"
+                destructive
+                busy={busy}
+                confirmDisabled={selected.size === 0}
+                onConfirm={async () => {
+                    const ids = [...selected];
+                    setBusy(true);
+                    try {
+                        await toastPromise(onDeleteMany(ids), {
+                            loading: "删除中…",
+                            success: `已删除 ${ids.length} 个对话`,
+                            error: "删除失败",
+                        });
+                        setBulkConfirmOpen(false);
+                        exitSelectMode();
+                    } catch {
+                        // toast already shown
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
         </>
     );
 }

@@ -14,6 +14,7 @@ import {
 
 import { DEFAULT_PERSONA_NAME } from "@/app/chat/personas";
 import type { ChatConversation, ChatModel } from "@/app/chat/types";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -235,47 +236,30 @@ export function ChatHeader({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>删除这个对话？</DialogTitle>
-                        <DialogDescription>
-                            「{conversation.title}
-                            」及其消息会一起删除，无法恢复。
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex-row justify-end gap-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setDeleteOpen(false)}
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={busy}
-                            onClick={async () => {
-                                setBusy(true);
-                                try {
-                                    await toastPromise(onDelete(), {
-                                        loading: "删除中…",
-                                        success: "对话已删除",
-                                        error: "删除失败",
-                                    });
-                                    setDeleteOpen(false);
-                                } catch {
-                                    // toast already shown
-                                } finally {
-                                    setBusy(false);
-                                }
-                            }}
-                        >
-                            <Trash2 className="mr-1 size-4" />
-                            删除
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <ConfirmDialog
+                open={deleteOpen}
+                onOpenChange={setDeleteOpen}
+                title="删除这个对话？"
+                description={`「${conversation.title}」及其消息会一起删除，无法恢复。`}
+                confirmLabel="删除"
+                destructive
+                busy={busy}
+                onConfirm={async () => {
+                    setBusy(true);
+                    try {
+                        await toastPromise(onDelete(), {
+                            loading: "删除中…",
+                            success: "对话已删除",
+                            error: "删除失败",
+                        });
+                        setDeleteOpen(false);
+                    } catch {
+                        // toast already shown
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
         </>
     );
 }

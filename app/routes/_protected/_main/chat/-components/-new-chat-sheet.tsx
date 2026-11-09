@@ -8,15 +8,8 @@ import {
     resolvePersona,
 } from "@/app/chat/personas";
 import type { ChatModel, ChatPersona } from "@/app/chat/types";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
     Sheet,
@@ -395,59 +388,36 @@ export function NewChatSheet({
                 </Button>
             </SheetContent>
 
-            <Dialog
+            <ConfirmDialog
                 open={deleteTarget !== null}
                 onOpenChange={(next) => {
                     if (!next) setDeleteTarget(null);
                 }}
-            >
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>
-                            删除场景「{deleteTarget?.name}」？
-                        </DialogTitle>
-                        <DialogDescription>
-                            已经开始的对话保存了当时的场景设定，不会被改写。
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex-row justify-end gap-2">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setDeleteTarget(null)}
-                        >
-                            取消
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={busy}
-                            onClick={async () => {
-                                if (!deleteTarget) return;
-                                setBusy(true);
-                                try {
-                                    await toastPromise(
-                                        onDeletePersona(deleteTarget.id),
-                                        {
-                                            loading: "删除中…",
-                                            success: "场景已删除",
-                                            error: "删除失败",
-                                        },
-                                    );
-                                    if (personaId === deleteTarget.id) {
-                                        setPersonaId(DEFAULT_PERSONA_ID);
-                                    }
-                                    setDeleteTarget(null);
-                                } catch {
-                                    // toast already shown
-                                } finally {
-                                    setBusy(false);
-                                }
-                            }}
-                        >
-                            删除
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title={`删除场景「${deleteTarget?.name}」？`}
+                description="已经开始的对话保存了当时的场景设定，不会被改写。"
+                confirmLabel="删除"
+                destructive
+                busy={busy}
+                onConfirm={async () => {
+                    if (!deleteTarget) return;
+                    setBusy(true);
+                    try {
+                        await toastPromise(onDeletePersona(deleteTarget.id), {
+                            loading: "删除中…",
+                            success: "场景已删除",
+                            error: "删除失败",
+                        });
+                        if (personaId === deleteTarget.id) {
+                            setPersonaId(DEFAULT_PERSONA_ID);
+                        }
+                        setDeleteTarget(null);
+                    } catch {
+                        // toast already shown
+                    } finally {
+                        setBusy(false);
+                    }
+                }}
+            />
         </Sheet>
     );
 }
