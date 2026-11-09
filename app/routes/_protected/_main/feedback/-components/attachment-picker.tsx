@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileText, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 
+import ImageViewer from "@/app/feed/components/image-viewer";
 import {
     attachmentSizeLabel,
     isImageAttachment,
@@ -24,30 +25,32 @@ function renamePrepared(prepared: File, original: File): File {
 
 function ImagePreview({
     file,
+    url,
+    onOpen,
     onRemove,
     disabled,
 }: {
     file: File;
+    url: string;
+    onOpen: () => void;
     onRemove: () => void;
     disabled?: boolean;
 }) {
-    const [url, setUrl] = useState("");
-
-    useEffect(() => {
-        const next = URL.createObjectURL(file);
-        setUrl(next);
-        return () => URL.revokeObjectURL(next);
-    }, [file]);
-
     return (
         <div className="relative aspect-square overflow-hidden rounded-xl border border-border/60 bg-muted">
-            {url ? (
+            <button
+                type="button"
+                aria-label={`查看附件 ${file.name}`}
+                className="block h-full w-full"
+                disabled={disabled}
+                onClick={onOpen}
+            >
                 <img
                     alt={file.name}
                     className="h-full w-full object-cover"
                     src={url}
                 />
-            ) : null}
+            </button>
             <button
                 type="button"
                 aria-label={`移除附件 ${file.name}`}
@@ -113,6 +116,7 @@ export function AttachmentPicker({
     disabled?: boolean;
     hint?: string;
 }) {
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null);
     const room = MAX_FEEDBACK_ATTACHMENTS - files.length;
     const images = files
         .map((file, index) => ({ file, index }))
@@ -120,6 +124,26 @@ export function AttachmentPicker({
     const others = files
         .map((file, index) => ({ file, index }))
         .filter(({ file }) => !isImageAttachment(file));
+    const imageUrls = useMemo(
+        () =>
+            files
+                .filter((file) => isImageAttachment(file))
+                .map((file) => URL.createObjectURL(file)),
+        [files],
+    );
+
+    // Object URLs are only valid until revoked; keep the current set alive
+    // for the previews and the full-screen viewer, then release it on change.
+    useEffect(() => {
+        return () => {
+            for (const url of imageUrls) URL.revokeObjectURL(url);
+        };
+    }, [imageUrls]);
+
+    // Removing or adding files can invalidate the open viewer's index.
+    useEffect(() => {
+        setPreviewIndex(null);
+    }, [files]);
 
     const removeAt = (index: number) => {
         onChange(files.filter((_, item) => item !== index));
@@ -188,11 +212,13 @@ export function AttachmentPicker({
 
             {images.length > 0 && (
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                    {images.map(({ file, index }) => (
+                    {images.map(({ file, index }, imageIndex) => (
                         <ImagePreview
                             key={`${file.name}-${index}`}
                             disabled={disabled}
                             file={file}
+                            url={imageUrls[imageIndex] ?? ""}
+                            onOpen={() => setPreviewIndex(imageIndex)}
                             onRemove={() => removeAt(index)}
                         />
                     ))}
@@ -228,6 +254,20 @@ export function AttachmentPicker({
             <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
                 {hint}
             </p>
+
+            {previewIndex !== null && images[previewIndex] && (
+                <ImageViewer
+                    images={images.map(({ file }, index) => ({
+                        name: file.name,
+                        url: imageUrls[index] ?? "",
+                    }))}
+                    index={previewIndex}
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) setPreviewIndex(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
