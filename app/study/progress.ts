@@ -12,11 +12,10 @@ const COLLECTION = "study_progress";
 const SAVE_DELAY = 700;
 
 /**
- * 总览查询的本地前缀。lib/query-keys.ts 由另一个分支维护，这里先就近定义，
- * 落地时再收敛成 qk.studySummaries.all（见最终报告 NEEDS INTEGRATION PASS）。
- * 用前缀而不是具体 key，flush 时一次 invalidate 就能覆盖所有用户的总览。
+ * 总览查询的前缀。用前缀而不是具体 key，flush 时一次 invalidate 就能覆盖
+ * 所有用户的总览；key 结构与 `qk.studySummariesAll` 保持一致。
  */
-export const STUDY_SUMMARIES_KEY = ["studySummaries"] as const;
+export const STUDY_SUMMARIES_KEY = qk.studySummariesAll;
 
 type StudyRecord = {
     id: string;
@@ -143,6 +142,8 @@ export function useStudyProgress(subjectId: string) {
     const hydrated = useRef(false);
     const hadError = useRef(hasPending(userId, subjectId));
     const savingNow = useRef(false);
+    /** 已应用到界面的服务端版本，避免同一份快照反复覆盖本地状态。 */
+    const appliedRemote = useRef<string | null>(null);
     /** 写入期间又有新改动：结束后补写一次。 */
     const dirtyAfterFlush = useRef(false);
     const prevScope = useRef({ userId, subjectId });
@@ -173,6 +174,7 @@ export function useStudyProgress(subjectId: string) {
         }
         hydrated.current = false;
         recordId.current = null;
+        appliedRemote.current = null;
         const fresh = readLocal(userId, subjectId) ?? emptyProgress();
         const pending = hasPending(userId, subjectId);
         latest.current = fresh;
@@ -188,6 +190,7 @@ export function useStudyProgress(subjectId: string) {
         hydrated.current = true;
         const record = query.data;
         recordId.current = record?.id ?? null;
+        appliedRemote.current = record?.updated ?? null;
         if (record?.data) {
             const remote = normalizeProgress(record.data);
             const local = readLocal(userId, subjectId);
@@ -198,6 +201,29 @@ export function useStudyProgress(subjectId: string) {
             setProgress(merged);
             writeLocal(userId, subjectId, merged);
         }
+    }, [query.isSuccess, query.data, subjectId, userId]);
+
+    // 另一台设备改动后，realtime 同步会失效 `study-progress` 前缀并重新拉取。
+    // 空闲时把服务端版本应用回来；本地有未落库的改动时不覆盖，交给 flush
+    // 先合并再写，避免把刚答的题冲掉。
+    useEffect(() => {
+        if (!query.isSuccess || !hydrated.current) return;
+        const record = query.data;
+        if (!record?.data || !record.updated) return;
+        if (record.updated === appliedRemote.current) return;
+        appliedRemote.current = record.updated;
+        if (
+            savingNow.current ||
+            timer.current !== null ||
+            hasPending(userId, subjectId)
+        ) {
+            return;
+        }
+        const remote = normalizeProgress(record.data);
+        if (JSON.stringify(remote) === JSON.stringify(latest.current)) return;
+        latest.current = remote;
+        setProgress(remote);
+        writeLocal(userId, subjectId, remote);
     }, [query.isSuccess, query.data, subjectId, userId]);
 
     /**

@@ -40,7 +40,11 @@ export const qk = {
     },
     studyProgress: (userId: string, subjectId: string) =>
         ["study-progress", subjectId, userId] as const,
+    /** Prefix for every subject's progress row. */
+    studyProgressAll: ["study-progress"] as const,
     studySummaries: (userId: string) => ["study-summaries", userId] as const,
+    /** Prefix used by the study overview and the realtime sync. */
+    studySummariesAll: ["study-summaries"] as const,
     homeStats: {
         all: ["home-stats"] as const,
         get: (userId: string, day: string) =>
@@ -55,16 +59,23 @@ export const qk = {
     },
     yearReport: (userId: string, year: number) =>
         ["year-report", userId, year] as const,
+    /** Prefix for every year's report. */
+    yearReportAll: ["year-report"] as const,
     chat: {
         all: ["chat"] as const,
         conversations: (userId: string) =>
             ["chat", "conversations", userId] as const,
+        conversationsAll: ["chat", "conversations"] as const,
         conversation: (userId: string, conversationId: string) =>
             ["chat", "conversation", userId, conversationId] as const,
+        conversationAll: ["chat", "conversation"] as const,
         messages: (userId: string, conversationId: string) =>
             ["chat", "messages", userId, conversationId] as const,
+        messagesAll: ["chat", "messages"] as const,
         personas: (userId: string) => ["chat", "personas", userId] as const,
+        personasAll: ["chat", "personas"] as const,
         memories: (userId: string) => ["chat", "memories", userId] as const,
+        memoriesAll: ["chat", "memories"] as const,
         models: () => ["chat", "models"] as const,
     },
     /**

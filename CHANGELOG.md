@@ -6,6 +6,11 @@
 
 ### 修复
 
+- 记账/动态/评论/聊天/学习进度接入 PocketBase realtime（#37）：新增 `hooks/useRealtimeSync.ts`，在受保护的 App 壳里只建立一层订阅，监听 `ji_zhang_biao`、`ji_zhang_category`、`posts`、`comments`、`post_likes`、`study_progress`、`tou_xiang_circle` 和 `chat_*`；事件经 `lib/realtime.ts` 映射到 `qk.*` 前缀、120ms 去重批处理后失效，替代按页面各写一套失效逻辑。
+- 订阅随受保护壳挂载/卸载：退出登录后取消所有监听并关闭 SSE，重新登录自动重订阅；`online` 事件和长时间后台恢复时全量失效补拉，因为 PocketBase 不会重放断线期间错过的记录事件。
+- React Query 默认值改为 `staleTime: 0` 并显式开启 `refetchOnReconnect`；`useHomeStats` 去掉 60s 覆盖，切回页面/重连会重新拉取。动态流仍保留 5 分钟 `staleTime`，避免一次聚焦重抓所有已加载分页。
+- 学习进度：`STUDY_SUMMARIES_KEY` 收敛为 `qk.studySummariesAll`；`useStudyProgress` 在本地没有未落库改动时应用 realtime 拉回的服务端版本，避免另一台设备更新后本机一直显示旧进度。
+- 新增 `lib/realtime.test.ts` 覆盖集合→查询键映射、去重、批量失效和 `dispose` 清理；`lib/query-keys.ts` 补充 `studyProgressAll` / `studySummariesAll` / `yearReportAll` 与 `chat.*All` 前缀。
 - 底部导航的按下与选中状态统一为整块圆角高亮：图标和文字共用同一种前景色，按下（`active:`）与当前路由（`aria-current`）使用相同的 `bg-primary/10` 背景，移除只包住图标的圆形底色（`components/NavButtons/index.tsx`）。
 - 首页动态流的发布按钮在滚动到日期分隔条下方时点不动（#49）：分隔条整行透明且 `z-10` 盖在 `fixed` 浮动按钮上，命中测试被它拦截。查找/回到顶部/发布按钮所在浮动层提到 `z-30`（高于分隔条与筛选条），纯装饰的日期分隔条改为 `pointer-events-none`，不再吞掉经过其下方的点按；底部偏移沿用 `4.5rem + env(safe-area-inset-bottom)`，导航栏与安全区不受影响。
 - 首页 `/home` 的查找浮动按钮从左下角移到右下角发布按钮上方（#44）：日期分隔的 sticky 药丸（`z-10`，整行透明区域也会命中）会盖住左下的按钮并吞掉点按；现在浮动操作统一收进右侧列并抬到 `z-30`，与左侧日期标签横向完全分开，底部留白从 `pb-24` 提到 `pb-32`，滚到底时内容也不会停在按钮下面。

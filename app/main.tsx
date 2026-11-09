@@ -15,11 +15,17 @@ import { routeTree } from "./routeTree.gen";
 export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            // A short freshness window keeps refocus/revisit from re-fetching
-            // every loaded page of the feed; explicit refetches still work.
-            staleTime: 60_000,
+            // PocketBase realtime (useRealtimeSync) invalidates the relevant
+            // prefixes on every write, so cached data is normally fresh.
+            // staleTime 0 is the safety net for anything the socket missed
+            // (phone suspended, tab restored): mount/focus/reconnect refetch
+            // instead of showing the previous device's data. Queries that
+            // would refetch several pages at once keep a longer explicit
+            // staleTime (the feed) to avoid request storms.
+            staleTime: 0,
             gcTime: 5 * 60_000,
             refetchOnWindowFocus: true,
+            refetchOnReconnect: true,
             // PocketBase throws ClientResponseError with a `status`; 4xx
             // (auth/validation/not-found) can never succeed on a retry.
             retry: (failureCount, error) => {

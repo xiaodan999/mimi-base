@@ -134,6 +134,5 @@ export function useHomeStats() {
                 monthEntries: expenses.length,
             };
         },
-        staleTime: 60_000,
     });
 }

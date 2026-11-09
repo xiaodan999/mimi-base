@@ -6,6 +6,7 @@ import { abortAllChatRuns } from "@/app/chat/run-store";
 import NavButtons from "@/components/NavButtons";
 import OfflineBanner from "@/components/OfflineBanner";
 import { RouteError } from "@/components/RouteError";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 export const Route = createFileRoute("/_protected/_main")({
     component: Layout,
@@ -13,6 +14,10 @@ export const Route = createFileRoute("/_protected/_main")({
 });
 
 function Layout() {
+    // One realtime subscription layer for every page inside the shell; it
+    // closes on logout and reconnects with the auth session.
+    useRealtimeSync();
+
     // Chat runs outlive the conversation route on purpose; leaving the app
     // shell (logout) is the one place they must not keep running.
     useEffect(() => abortAllChatRuns, []);
