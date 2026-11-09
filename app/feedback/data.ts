@@ -295,6 +295,7 @@ export function useFeedbackReports() {
                     }),
                     sort: "-created",
                     perPage: 50,
+                    expand: "owner",
                 }),
     });
 }

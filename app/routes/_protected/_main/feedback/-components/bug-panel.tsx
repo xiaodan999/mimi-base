@@ -360,6 +360,7 @@ export function BugPanel({
                 <ReportList
                     loading={reports.isLoading}
                     reports={bugReports}
+                    showAuthor
                     viewerId={user.id}
                     onRetry={retry.run}
                     retryingId={retry.retryingId}

@@ -9,6 +9,7 @@
 - 晚餐抽奖机的首次点开反馈（#55）：`home.tsx` 改为静态引入弹窗壳，`-dialog.tsx` 只对转盘/管理视图 `lazy()`，并新增 `正在准备转盘…` 的 `role=status` 占位；首屏不再因为动态 import 未完成而看起来「点了没反应」。
 - 晚餐转盘的横向滚动条（#51）：旋转中的方形 rotor 会把 transformed bounding box 撑大，进而计入 sheet 的 `overflow-y-auto` 可滚动宽度；`-wheel.tsx` 用静态 `overflow-hidden` 包住 rotor（指针和中心按钮留在外面），`-dialog.tsx` 补 `overflow-x-hidden`。320/360/375/390 宽度下 spin/result 均为 `scrollWidth === clientWidth`。
 - 动态视频的竖屏显示（#57）：`PostVideo` 按 `loadedmetadata` 的真实宽高比布局（夹取 9:16–16:9，最高 75dvh），不再强制 16:9 导致竖屏视频两侧大面积黑边；同时补充播放遮罩、时长角标和元数据加载提示。`lib/postMedia.ts` 新增 `videoDisplayRatio` / `formatVideoDuration` 及单测。
+- 问题反馈卡片补齐报告人信息（#61）：`useFeedbackReports` 查询带上 `expand: "owner"`，`BugPanel` 的「我的反馈」列表启用 `showAuthor`，与功能建议卡片一样显示头像、头像框和昵称。
 - 反馈页面字段可修改（#52）：`页面` chip 改为可点按钮，新增 `page-picker.tsx` 列出主要页面；`readLastRoute()` 的深层路径保留为「最近访问」。问题反馈和功能建议两个 panel 各自持有 route 状态，提交与 AI 整理都使用用户最终选择的页面。
 - 记账/动态/评论/聊天/学习进度接入 PocketBase realtime（#37）：新增 `hooks/useRealtimeSync.ts`，在受保护的 App 壳里只建立一层订阅，监听 `ji_zhang_biao`、`ji_zhang_category`、`posts`、`comments`、`post_likes`、`study_progress`、`tou_xiang_circle` 和 `chat_*`；事件经 `lib/realtime.ts` 映射到 `qk.*` 前缀、120ms 去重批处理后失效，替代按页面各写一套失效逻辑。
 - 订阅随受保护壳挂载/卸载：退出登录后取消所有监听并关闭 SSE，重新登录自动重订阅；`online` 事件和长时间后台恢复时全量失效补拉，因为 PocketBase 不会重放断线期间错过的记录事件。

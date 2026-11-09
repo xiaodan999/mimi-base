@@ -50,7 +50,7 @@ export function ReportList({
     reports: FeedbackReportRecord[];
     loading: boolean;
     emptyText?: string;
-    /** Shared suggestions show who wrote them; 我的反馈 does not. */
+    /** Show the reporter's avatar and name above the report. */
     showAuthor?: boolean;
     /** Enables 重新同步 for the viewer's own stored/failed reports. */
     viewerId?: string;
