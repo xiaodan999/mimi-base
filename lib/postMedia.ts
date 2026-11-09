@@ -105,3 +105,48 @@ export function videoFirstFrameUrl(url: string): string {
     if (!url) return "";
     return url.includes("#") ? url : `${url}#t=0.1`;
 }
+
+/** Used until the video reports its intrinsic size, so the box never collapses. */
+export const DEFAULT_VIDEO_RATIO = 16 / 9;
+
+/** Portrait phone clips stop at 9:16; taller ratios would eat the whole feed. */
+export const MIN_VIDEO_RATIO = 9 / 16;
+
+/** Wider than 16:9 gets letterboxed inside a 16:9 box instead of letter-shaped. */
+export const MAX_VIDEO_RATIO = 16 / 9;
+
+/**
+ * Display aspect ratio (width / height) for a feed video. The box follows the
+ * clip's intrinsic ratio — a portrait 9:16 clip fills the card instead of
+ * sitting in a 16:9 box as a narrow pillar — clamped to a sane range so one
+ * extreme recording cannot dominate the feed. Falls back to 16:9 before
+ * metadata is known or when the browser reports no size.
+ */
+export function videoDisplayRatio(width: number, height: number): number {
+    if (
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width <= 0 ||
+        height <= 0
+    ) {
+        return DEFAULT_VIDEO_RATIO;
+    }
+    return Math.min(MAX_VIDEO_RATIO, Math.max(MIN_VIDEO_RATIO, width / height));
+}
+
+/**
+ * `m:ss` (or `h:mm:ss`) for the idle-state duration badge. Returns "" for
+ * unknown/streamed durations, which would otherwise render `NaN:NaN`.
+ */
+export function formatVideoDuration(seconds: number): string {
+    if (!Number.isFinite(seconds) || seconds <= 0) return "";
+    const total = Math.round(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = total % 60;
+    const paddedRest = String(rest).padStart(2, "0");
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, "0")}:${paddedRest}`;
+    }
+    return `${minutes}:${paddedRest}`;
+}

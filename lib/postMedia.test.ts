@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    DEFAULT_VIDEO_RATIO,
     fileNames,
     formatFileSize,
+    formatVideoDuration,
+    videoDisplayRatio,
     videoExtension,
     videoFileError,
     VIDEO_MAX_BYTES,
@@ -141,5 +144,49 @@ describe("videoFirstFrameUrl", () => {
 
     test("returns an empty string for an empty URL", () => {
         expect(videoFirstFrameUrl("")).toBe("");
+    });
+});
+
+describe("videoDisplayRatio", () => {
+    test("follows the intrinsic ratio of landscape and portrait clips", () => {
+        expect(videoDisplayRatio(640, 360)).toBeCloseTo(16 / 9, 5);
+        expect(videoDisplayRatio(360, 640)).toBeCloseTo(9 / 16, 5);
+        expect(videoDisplayRatio(1080, 1080)).toBe(1);
+    });
+
+    test("clamps extremes to 9:16 .. 16:9", () => {
+        expect(videoDisplayRatio(1080, 2340)).toBeCloseTo(9 / 16, 5);
+        expect(videoDisplayRatio(2560, 1080)).toBeCloseTo(16 / 9, 5);
+    });
+
+    test("falls back to 16:9 before metadata is known", () => {
+        expect(DEFAULT_VIDEO_RATIO).toBeCloseTo(16 / 9, 5);
+        expect(videoDisplayRatio(0, 0)).toBe(DEFAULT_VIDEO_RATIO);
+        expect(videoDisplayRatio(Number.NaN, 640)).toBe(DEFAULT_VIDEO_RATIO);
+        expect(videoDisplayRatio(360, Number.POSITIVE_INFINITY)).toBe(
+            DEFAULT_VIDEO_RATIO,
+        );
+    });
+});
+
+describe("formatVideoDuration", () => {
+    test("uses m:ss below an hour", () => {
+        expect(formatVideoDuration(0.4)).toBe("0:00");
+        expect(formatVideoDuration(5)).toBe("0:05");
+        expect(formatVideoDuration(59.6)).toBe("1:00");
+        expect(formatVideoDuration(75)).toBe("1:15");
+        expect(formatVideoDuration(600)).toBe("10:00");
+    });
+
+    test("uses h:mm:ss at an hour and beyond", () => {
+        expect(formatVideoDuration(3600)).toBe("1:00:00");
+        expect(formatVideoDuration(3725)).toBe("1:02:05");
+    });
+
+    test("returns an empty badge for unknown or streamed durations", () => {
+        expect(formatVideoDuration(0)).toBe("");
+        expect(formatVideoDuration(-1)).toBe("");
+        expect(formatVideoDuration(Number.NaN)).toBe("");
+        expect(formatVideoDuration(Number.POSITIVE_INFINITY)).toBe("");
     });
 });
