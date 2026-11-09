@@ -132,7 +132,7 @@ export default function HomeFeed() {
     };
 
     const content = (
-        <section className="px-3 pb-24 pt-2">
+        <section className="px-3 pb-32 pt-2">
             {filtering && (
                 <div className="sticky top-0 z-20 -mx-3 mb-2 flex h-10 items-center justify-between gap-3 border-b border-border/60 bg-background/90 px-4 backdrop-blur">
                     <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">
@@ -311,22 +311,11 @@ export default function HomeFeed() {
                 </div>
             </div>
 
-            {/* Floating actions live above the feed's sticky day dividers
-                (z-10) and filter bar (z-20) so they stay visible and tappable
-                at every scroll offset; the bottom offset clears the nav bar
-                and the home indicator. */}
-            <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-[calc(1rem+env(safe-area-inset-left))] z-30">
-                <Button
-                    variant="secondary"
-                    size="icon"
-                    className="size-12 rounded-full border border-border/60 shadow-soft"
-                    onClick={() => setFindOpen(true)}
-                    aria-label="查找动态"
-                >
-                    <Search className="size-5" />
-                </Button>
-            </div>
-
+            {/* Floating actions share the right edge, away from the
+                left-aligned day dividers, so a date chip can never cover a
+                button. z-30 keeps them above the sticky date rows (z-10)
+                and the filter bar (z-20); the day rows are also
+                pointer-events-none so they cannot swallow taps. */}
             <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-30 flex flex-col items-center gap-2">
                 {showBackToTop && (
                     <Button
@@ -339,6 +328,15 @@ export default function HomeFeed() {
                         <ArrowUp className="size-5" />
                     </Button>
                 )}
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="size-12 rounded-full border border-border/60 shadow-soft"
+                    onClick={() => setFindOpen(true)}
+                    aria-label="查找动态"
+                >
+                    <Search className="size-5" />
+                </Button>
                 <Button
                     className="size-14 rounded-full p-0"
                     onClick={() => setComposer({ mode: "new" })}
