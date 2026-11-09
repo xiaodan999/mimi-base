@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { getFileUrl } from "@/lib/pb";
+import { formatFileSize, VIDEO_ACCEPT, videoFileError } from "@/lib/postMedia";
 import { preparePhoto } from "@/lib/prepareImage";
-import { showFilesPicker } from "@/lib/showFilePicker";
+import showFilePicker, { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 
 import {
@@ -12,11 +13,21 @@ import {
     type PostData,
     type PostLayout,
 } from "../data";
-import { buildPostImagesFields } from "../utils";
+import { buildPostImagesFields, buildPostVideoFields } from "../utils";
 
 export type PreviewImage =
     | { kind: "file"; file: File; thumb: File | null; url: string }
     | { kind: "existing"; name: string; url: string; thumb?: string };
+
+export type PreviewVideo =
+    | {
+          kind: "file";
+          file: File;
+          url: string;
+          name: string;
+          sizeLabel: string;
+      }
+    | { kind: "existing"; name: string; url: string };
 
 export const MAX_IMAGES = 9;
 
@@ -51,6 +62,7 @@ export function usePostDraft({
     const [text, setText] = useState("");
     const [layout, setLayout] = useState<PostLayout>("moments");
     const [images, setImages] = useState<PreviewImage[]>([]);
+    const [video, setVideo] = useState<PreviewVideo | null>(null);
     const [pendingCount, setPendingCount] = useState(0);
     const [publishing, setPublishing] = useState(false);
     const [preparing, setPreparing] = useState(false);
@@ -96,10 +108,21 @@ export function usePostDraft({
                     url: getFileUrl(fileRecord, image.name),
                 })),
             );
+            const videoName = editing.videos[0];
+            setVideo(
+                videoName
+                    ? {
+                          kind: "existing",
+                          name: videoName,
+                          url: getFileUrl(fileRecord, videoName),
+                      }
+                    : null,
+            );
         } else {
             setText("");
             setLayout("moments");
             setImages([]);
+            setVideo(null);
         }
         setSeededKey(key);
     }, [open, editing, seededKey]);
@@ -110,12 +133,17 @@ export function usePostDraft({
         setText("");
         setLayout("moments");
         setImages([]);
+        setVideo(null);
         setPendingCount(0);
         setPreviewIndex(null);
     };
 
     const pickImages = async () => {
-        if (preparing) return;
+        if (preparing || publishing) return;
+        if (video) {
+            toast.info("照片和视频只能选一种，先移除视频吧");
+            return;
+        }
 
         const remaining = MAX_IMAGES - images.length;
         if (remaining <= 0) {
@@ -187,12 +215,72 @@ export function usePostDraft({
         });
     };
 
+    const pickVideo = async () => {
+        if (preparing || publishing) return;
+        if (images.length > 0) {
+            toast.info("照片和视频只能选一种，先移除照片吧");
+            return;
+        }
+
+        let file: File;
+        try {
+            file = await showFilePicker(VIDEO_ACCEPT);
+        } catch {
+            // The user cancelled the file picker.
+            return;
+        }
+
+        const error = videoFileError(file);
+        if (error) {
+            toast.error(error);
+            return;
+        }
+
+        if (video?.kind === "file") {
+            URL.revokeObjectURL(video.url);
+            previewUrls.current = previewUrls.current.filter(
+                (url) => url !== video.url,
+            );
+        }
+        const url = URL.createObjectURL(file);
+        previewUrls.current.push(url);
+        setVideo({
+            kind: "file",
+            file,
+            url,
+            name: file.name,
+            sizeLabel: formatFileSize(file.size),
+        });
+    };
+
+    const removeVideo = () => {
+        if (video?.kind === "file") {
+            URL.revokeObjectURL(video.url);
+            previewUrls.current = previewUrls.current.filter(
+                (url) => url !== video.url,
+            );
+        }
+        setVideo(null);
+    };
+
     const publish = async () => {
         const value = text.trim();
-        if ((!value && images.length === 0) || publishing || preparing) return;
+        if (
+            (!value && images.length === 0 && !video) ||
+            publishing ||
+            preparing
+        )
+            return;
 
         const { keep, files, keepThumbs, thumbs } =
             buildPostImagesFields(images);
+        const videoFields = buildPostVideoFields(
+            video
+                ? video.kind === "file"
+                    ? { kind: "file", file: video.file }
+                    : { kind: "existing", name: video.name }
+                : null,
+        );
         setPublishing(true);
         try {
             if (editing) {
@@ -205,6 +293,8 @@ export function usePostDraft({
                         keepThumbs,
                         files,
                         thumbs,
+                        keepVideos: videoFields.keep,
+                        videoFiles: videoFields.files,
                     }),
                     {
                         loading: "保存中...",
@@ -222,6 +312,7 @@ export function usePostDraft({
                         layout,
                         images: files,
                         thumbs,
+                        videos: videoFields.files,
                     }),
                     {
                         loading: "发布中...",
@@ -241,10 +332,11 @@ export function usePostDraft({
     };
 
     const canPublish =
-        (text.trim().length > 0 || images.length > 0) &&
+        (text.trim().length > 0 || images.length > 0 || video !== null) &&
         !publishing &&
         !preparing;
     const showImages = images.length > 0 || preparing;
+    const showVideo = video !== null;
     const isEditing = mode === "edit";
 
     return {
@@ -255,6 +347,7 @@ export function usePostDraft({
         layout,
         setLayout,
         images,
+        video,
         pendingCount,
         publishing,
         preparing,
@@ -264,8 +357,11 @@ export function usePostDraft({
         setSeededKey,
         canPublish,
         showImages,
+        showVideo,
         pickImages,
         removeImage,
+        pickVideo,
+        removeVideo,
         publish,
     };
 }

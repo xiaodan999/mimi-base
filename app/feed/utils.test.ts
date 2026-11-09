@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     buildPostImagesFields,
+    buildPostVideoFields,
     formatMonthLabel,
     groupPostMonths,
     monthKeyOf,
@@ -53,6 +54,27 @@ describe("groupPostMonths", () => {
 
     test("skips invalid timestamps", () => {
         expect(groupPostMonths(["", "nope"])).toEqual([]);
+    });
+});
+
+describe("buildPostVideoFields", () => {
+    const video = new File(["clip"], "clip.mp4", { type: "video/mp4" });
+
+    test("keeps an uploaded video by filename when editing", () => {
+        expect(
+            buildPostVideoFields({ kind: "existing", name: "clip_123.mp4" }),
+        ).toEqual({ keep: ["clip_123.mp4"], files: [] });
+    });
+
+    test("uploads a newly picked video", () => {
+        expect(buildPostVideoFields({ kind: "file", file: video })).toEqual({
+            keep: [],
+            files: [video],
+        });
+    });
+
+    test("returns empty lists when the video was removed", () => {
+        expect(buildPostVideoFields(null)).toEqual({ keep: [], files: [] });
     });
 });
 

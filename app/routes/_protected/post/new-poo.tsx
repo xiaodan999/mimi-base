@@ -29,6 +29,7 @@ function Page() {
                         layout: "moments",
                         images: [],
                         thumbs: [],
+                        videos: [],
                     }),
                     {
                         loading: "记录💩中...",

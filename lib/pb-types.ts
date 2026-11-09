@@ -11,6 +11,7 @@
 import type { RecordModel } from "pocketbase";
 
 import { pairThumbs } from "@/lib/photoFiles";
+import { fileNames } from "@/lib/postMedia";
 
 /** The system fields every PocketBase row carries. */
 type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
@@ -67,6 +68,8 @@ export type PostData = {
     // Needed to build protected file URLs at render time.
     collectionId: string;
     images: PostImage[];
+    /** Video filenames (at most one); empty for photo/text posts. */
+    videos: string[];
     metrics: {
         likeCount: number;
         replyCount: number;
@@ -137,6 +140,11 @@ export type PostRecord = PbRecord & {
      * re-encode them as PNG.
      */
     thumbs?: string[];
+    /**
+     * One MP4 / WebM / MOV filename; mutually exclusive with `images`.
+     * A single-file field comes back as a string from PocketBase.
+     */
+    videos?: string | string[];
     layout?: string;
     expand?: {
         author_id?: User;
@@ -241,6 +249,7 @@ export function toPostData(
         layout: post.layout === "instagram" ? "instagram" : "moments",
         collectionId: post.collectionId,
         images: pairThumbs(post.images ?? [], post.thumbs ?? []),
+        videos: fileNames(post.videos),
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,

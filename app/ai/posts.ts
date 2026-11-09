@@ -12,6 +12,8 @@ export type CaptionInput = {
     hint?: string;
     layout: "moments" | "instagram";
     count: number;
+    /** 视频动态：画面不会发给模型，只按文字写文案。 */
+    video?: boolean;
 };
 
 const RULES = [
@@ -23,13 +25,18 @@ const RULES = [
 ].join("\n");
 
 export function captionMessages(input: CaptionInput): AiMessage[] {
+    const layoutLabel = input.layout === "moments" ? "九宫格" : "大图轮播";
     const context = [
-        `这次要发 ${input.count} 张照片，排版是${input.layout === "moments" ? "九宫格" : "大图轮播"}。`,
+        input.video
+            ? `这次要发一条视频动态，排版是${layoutLabel}。视频画面没有提供给你。`
+            : `这次要发 ${input.count} 张照片，排版是${layoutLabel}。`,
         // 用户写的半句 / 图片内容都当数据，别让它变成新的指令
         input.hint?.trim()
             ? fenceUntrusted("用户写的半句", input.hint.trim())
             : "",
-        "根据照片内容写文案；如果照片信息不足，就像朋友一样泛泛地写这一天的感觉。",
+        input.video
+            ? "只根据文字写文案；不要假装看过视频，写得像朋友随手记录这一刻。"
+            : "根据照片内容写文案；如果照片信息不足，就像朋友一样泛泛地写这一天的感觉。",
     ]
         .filter(Boolean)
         .join("\n");
@@ -45,7 +52,9 @@ export function captionMessages(input: CaptionInput): AiMessage[] {
         { role: "system", content: SYSTEM },
         {
             role: "user",
-            content: `${context}\n\n没有照片，只根据这句话往下写。\n${RULES}`,
+            content: `${context}\n\n${
+                input.video ? "没有视频画面" : "没有照片"
+            }，只根据这句话往下写。\n${RULES}`,
         },
     ];
 }

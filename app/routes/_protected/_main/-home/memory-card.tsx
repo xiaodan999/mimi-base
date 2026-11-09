@@ -127,7 +127,7 @@ export default function MemoryCard() {
 
 function firstText(posts: MemoryPost[]): string {
     const text = posts.find((post) => post.text.trim())?.text.trim() ?? "";
-    return text || "那天没有写什么，只有照片。";
+    return text || "那天没有写什么，只留下了照片或视频。";
 }
 
 function MemoryImage({ post }: { post: MemoryPost }) {

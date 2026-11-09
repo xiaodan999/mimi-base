@@ -34,6 +34,7 @@ export default function PostComposer({
         setText: draft.setText,
         layout: draft.layout,
         images: draft.images,
+        video: draft.video,
         seededKey: draft.seededKey,
     });
 
@@ -92,7 +93,9 @@ export default function PostComposer({
                 subtitle={
                     draft.images.length > 0
                         ? `参考了 ${Math.min(draft.images.length, 3)} 张照片`
-                        : "参考你写的半句话"
+                        : draft.video
+                          ? "视频不会发给 AI，只参考你写的文字"
+                          : "参考你写的半句话"
                 }
             >
                 <div className="space-y-2 pb-2">

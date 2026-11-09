@@ -17,10 +17,12 @@ import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
 import { InstagramCarousel, MomentsImageGrid } from "./post-images";
+import PostVideo from "./post-video";
 
 type PostProps = PostData & {
     onOpenComments: () => void;
     onOpenImage: (images: ViewerImage[], index: number) => void;
+    onOpenVideo: (url: string) => void;
     onEdit: () => void;
 };
 
@@ -34,8 +36,10 @@ export default function Post({
     layout,
     collectionId,
     images,
+    videos,
     onOpenComments,
     onOpenImage,
+    onOpenVideo,
     onEdit,
 }: PostProps) {
     const user = useCurrentUser();
@@ -63,6 +67,8 @@ export default function Post({
             index,
         );
     };
+    const videoName = videos[0] ?? "";
+    const videoUrl = videoName ? getFileUrl(fileRecord, videoName) : "";
 
     const avatar = <AvatarPreview size={40} user={author} />;
 
@@ -169,6 +175,16 @@ export default function Post({
                     {menu}
                 </div>
 
+                {videoUrl && (
+                    <div className="mt-3">
+                        <PostVideo
+                            url={videoUrl}
+                            layout="instagram"
+                            onOpenFullscreen={() => onOpenVideo(videoUrl)}
+                        />
+                    </div>
+                )}
+
                 {images.length > 0 && (
                     <div className="mt-3">
                         <InstagramCarousel
@@ -208,6 +224,14 @@ export default function Post({
                         <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                             {text}
                         </p>
+                    )}
+
+                    {videoUrl && (
+                        <PostVideo
+                            url={videoUrl}
+                            layout="moments"
+                            onOpenFullscreen={() => onOpenVideo(videoUrl)}
+                        />
                     )}
 
                     <MomentsImageGrid images={gridImages} onOpen={openImage} />

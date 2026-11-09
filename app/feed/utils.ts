@@ -15,6 +15,31 @@ export type PostImagesFields = {
     thumbs: File[];
 };
 
+export type ComposerVideoRef =
+    { kind: "file"; file: File } | { kind: "existing"; name: string };
+
+export type PostVideoFields = {
+    /** Existing filename to keep when editing, or [] to clear the field. */
+    keep: string[];
+    /** Newly picked file to upload. */
+    files: File[];
+};
+
+/**
+ * Mirrors `buildPostImagesFields` for the single `videos` field. A post has
+ * at most one video; omitting the field on update keeps the current file, so
+ * callers must send `videos: ""` when both lists are empty to remove it.
+ */
+export function buildPostVideoFields(
+    video: ComposerVideoRef | null,
+): PostVideoFields {
+    if (!video) return { keep: [], files: [] };
+    if (video.kind === "existing") {
+        return { keep: [video.name], files: [] };
+    }
+    return { keep: [], files: [video.file] };
+}
+
 /**
  * Splits the composer's previews into what PocketBase expects on update:
  * already-uploaded filenames to keep and new files to upload. An empty result

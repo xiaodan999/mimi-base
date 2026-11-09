@@ -12,6 +12,7 @@ import type { PostLayout } from "@/lib/pb-types";
 import { cn } from "@/lib/utils";
 
 import PostComposerImages from "./PostComposerImages";
+import PostComposerVideo from "./PostComposerVideo";
 import type { CaptionTask } from "./useCaptionTask";
 import type { PostDraft } from "./usePostDraft";
 
@@ -39,15 +40,19 @@ export default function PostComposerForm({
         layout,
         setLayout,
         images,
+        video,
         publishing,
         preparing,
         pendingCount,
         canPublish,
         showImages,
+        showVideo,
         setPreviewIndex,
         publish,
         pickImages,
         removeImage,
+        pickVideo,
+        removeVideo,
     } = draft;
 
     // Grow the textarea with its content, up to a comfortable ceiling.
@@ -159,18 +164,30 @@ export default function PostComposerForm({
                     </div>
                 </div>
 
-                <PostComposerImages
-                    images={images}
-                    showImages={showImages}
-                    preparing={preparing}
-                    pendingCount={pendingCount}
-                    layout={layout}
-                    onPick={() => void pickImages()}
-                    onRemove={removeImage}
-                    onPreview={(index) => setPreviewIndex(index)}
-                />
+                {/* 照片和视频二选一：选了视频就不再显示照片入口，反之亦然。 */}
+                {!showVideo && (
+                    <PostComposerImages
+                        images={images}
+                        showImages={showImages}
+                        preparing={preparing}
+                        pendingCount={pendingCount}
+                        layout={layout}
+                        onPick={() => void pickImages()}
+                        onRemove={removeImage}
+                        onPreview={(index) => setPreviewIndex(index)}
+                    />
+                )}
 
-                {images.length > 0 && (
+                {!showImages && (
+                    <PostComposerVideo
+                        video={video}
+                        preparing={preparing}
+                        onPick={() => void pickVideo()}
+                        onRemove={removeVideo}
+                    />
+                )}
+
+                {(images.length > 0 || video !== null) && (
                     <section className="mt-5" aria-labelledby="new-post-layout">
                         <h3
                             id="new-post-layout"

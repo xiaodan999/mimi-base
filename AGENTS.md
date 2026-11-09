@@ -35,7 +35,8 @@ Chinese; keep that style when adding user-facing text.
   `pocketbase/sandbox/`).
 - `app/feed/` — 动态 domain: `data.ts` (infinite query and post mutations),
   `utils.ts`, `comments.ts`, and `components/` (post, composer, comment sheet,
-  image viewer, find sheet). Home renders the feed through the lazy chunk
+  image viewer, video player/viewer, find sheet). Home renders the feed
+  through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
@@ -250,8 +251,8 @@ before your first commit.
   return 404.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
   Date literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
-- File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`)
-  store filenames, not URLs. They are protected, so build URLs with
+- File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`,
+  `posts.videos`) store filenames, not URLs. They are protected, so build URLs with
   `getFileUrl` (or `getUserAvatarUrl` / `getUserCircleUrl`), which appends the
   short-lived token; `AuthProvider` refreshes it. Never call
   `pb.files.getURL` directly for these files — `<img>` cannot send the auth
@@ -277,7 +278,13 @@ before your first commit.
   groups every descendant under its top-level comment and the UI shows
   `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).
 - `posts.images` holds up to 9 filenames; upload them as `FormData` fields in
-  the same request that creates the post. `posts.layout` is `moments`
+  the same request that creates the post. `posts.videos` holds at most one
+  MP4/WebM/MOV (50MB, protected) and is **mutually exclusive with images**:
+  the composer only offers one kind at a time. Upload the video in the same
+  create/update request; send `videos: ""` on update to clear it. The feed
+  never autoplays, and the first frame comes from `#t=0.1` on the protected
+  URL (`lib/postMedia.ts`). AI captions for video posts use the text hint
+  only — never send video bytes to the model. `posts.layout` is `moments`
   (朋友圈 square grid) or `instagram` (full-bleed carousel), picked per post.
   `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key

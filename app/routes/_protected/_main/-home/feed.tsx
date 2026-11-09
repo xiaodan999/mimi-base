@@ -18,6 +18,7 @@ import ImageViewer, {
 } from "@/app/feed/components/image-viewer";
 import Post from "@/app/feed/components/post";
 import PostComposer from "@/app/feed/components/post-composer";
+import VideoViewer from "@/app/feed/components/video-viewer";
 import { usePostsInfinite, type PostData } from "@/app/feed/data";
 import {
     formatDayDivider,
@@ -71,6 +72,7 @@ export default function HomeFeed() {
         images: ViewerImage[];
         index: number;
     } | null>(null);
+    const [videoViewer, setVideoViewer] = useState<string | null>(null);
 
     const { ref, inView } = useInView();
     // Reset to a single (newest) page instead of `refetch()`ing every loaded
@@ -204,6 +206,7 @@ export default function HomeFeed() {
                                             index: imageIndex,
                                         })
                                     }
+                                    onOpenVideo={setVideoViewer}
                                 />
                                 {showMemory && <MemoryCard />}
                             </Fragment>
@@ -377,6 +380,16 @@ export default function HomeFeed() {
                     open={viewer !== null}
                     onOpenChange={(open) => {
                         if (!open) setViewer(null);
+                    }}
+                />
+            )}
+
+            {videoViewer && (
+                <VideoViewer
+                    url={videoViewer}
+                    open={videoViewer !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setVideoViewer(null);
                     }}
                 />
             )}

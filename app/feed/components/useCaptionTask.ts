@@ -22,7 +22,11 @@ import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import type { PostLayout } from "@/lib/pb-types";
 
-import { previewImageBlob, type PreviewImage } from "./usePostDraft";
+import {
+    previewImageBlob,
+    type PreviewImage,
+    type PreviewVideo,
+} from "./usePostDraft";
 
 export type CaptionOption = { style: string; text: string };
 
@@ -32,6 +36,12 @@ type UseCaptionTaskArgs = {
     setText: Dispatch<SetStateAction<string>>;
     layout: PostLayout;
     images: PreviewImage[];
+    /**
+     * Only used to key the task and describe it. Video bytes are never sent
+     * to the model; a video post still gets a text-only caption from its
+     * hint.
+     */
+    video: PreviewVideo | null;
     seededKey: string | null;
 };
 
@@ -46,6 +56,7 @@ export function useCaptionTask({
     setText,
     layout,
     images,
+    video,
     seededKey,
 }: UseCaptionTaskArgs) {
     const { settings } = useAi();
@@ -67,11 +78,20 @@ export function useCaptionTask({
                     ? `file:${image.file.name}:${image.file.size}:${image.file.lastModified}`
                     : `existing:${image.name}`,
             )
+            .concat(
+                video
+                    ? [
+                          video.kind === "file"
+                              ? `video:${video.file.name}:${video.file.size}:${video.file.lastModified}`
+                              : `video:${video.name}`,
+                      ]
+                    : [],
+            )
             .join(",");
         return `captions:${hashText(
             `${text.trim()}|${layout}|${fingerprint}`,
         )}`;
-    }, [text, layout, images]);
+    }, [text, layout, images, video]);
 
     // 配文面板开着时不用再弹完成通知
     useEffect(() => {
@@ -140,7 +160,13 @@ export function useCaptionTask({
                 group: "captions",
                 force,
                 title: "AI 配文",
-                subtitle: text.trim().slice(0, 30) || `${images.length} 张照片`,
+                subtitle:
+                    text.trim().slice(0, 30) ||
+                    (images.length > 0
+                        ? `${images.length} 张照片`
+                        : video
+                          ? "视频动态"
+                          : "空动态"),
                 kind: "json",
                 summarize: (value) => `生成了 ${value.length} 条文案`,
                 run: async ({ signal }) => {
@@ -170,6 +196,7 @@ export function useCaptionTask({
                             hint: text,
                             layout,
                             count: images.length,
+                            video: video !== null,
                         }),
                         signal,
                     );

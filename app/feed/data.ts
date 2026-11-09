@@ -295,11 +295,13 @@ export function useNewPostMutation() {
             layout,
             images,
             thumbs,
+            videos,
         }: {
             text: string;
             layout: PostLayout;
             images: File[];
             thumbs: File[];
+            videos: File[];
         }) => {
             // PocketBase has no column default for author_id, send it. Files
             // upload in the same request as the record, thumbnails included so
@@ -310,6 +312,7 @@ export function useNewPostMutation() {
             formData.append("author_id", user.id);
             images.forEach((image) => formData.append("images", image));
             thumbs.forEach((thumb) => formData.append("thumbs", thumb));
+            videos.forEach((video) => formData.append("videos", video));
 
             const record = await pb
                 .collection("posts")
@@ -341,6 +344,8 @@ export function useUpdatePostMutation() {
             keepThumbs,
             files,
             thumbs,
+            keepVideos,
+            videoFiles,
         }: {
             id: string;
             text: string;
@@ -353,6 +358,10 @@ export function useUpdatePostMutation() {
             files: File[];
             /** Newly generated thumbnails. */
             thumbs: File[];
+            /** Existing video filename kept by the edit form. */
+            keepVideos: string[];
+            /** Newly picked video file. */
+            videoFiles: File[];
         }) => {
             const formData = new FormData();
             formData.append("text", text);
@@ -361,6 +370,8 @@ export function useUpdatePostMutation() {
             files.forEach((file) => formData.append("images", file));
             keepThumbs.forEach((name) => formData.append("thumbs", name));
             thumbs.forEach((file) => formData.append("thumbs", file));
+            keepVideos.forEach((name) => formData.append("videos", name));
+            videoFiles.forEach((file) => formData.append("videos", file));
 
             // Omitting a field from an update leaves its current files
             // untouched; an empty value is what clears them.
@@ -369,6 +380,9 @@ export function useUpdatePostMutation() {
             }
             if (keepThumbs.length === 0 && thumbs.length === 0) {
                 formData.append("thumbs", "");
+            }
+            if (keepVideos.length === 0 && videoFiles.length === 0) {
+                formData.append("videos", "");
             }
 
             const record = await pb
