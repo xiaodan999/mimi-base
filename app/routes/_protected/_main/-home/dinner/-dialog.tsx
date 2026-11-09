@@ -16,6 +16,7 @@ import { useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 import { useDinnerOptions } from "./-data";
 import { type DinnerOption, spinPlan, spinTurns } from "./options";
@@ -47,6 +48,14 @@ function DinnerPreparing() {
 }
 
 const SPIN_MS = 4200;
+
+/** Keep the winner name on at most two lines so the result slot stays fixed. */
+function resultNameClass(name: string): string {
+    const length = Array.from(name).length;
+    if (length > 16) return "text-xl";
+    if (length > 8) return "text-2xl";
+    return "text-3xl";
+}
 
 /** Fixed confetti burst; deterministic so rendering never jitters. */
 const CONFETTI = [
@@ -285,107 +294,120 @@ export default function DinnerLotteryDialog({
                                 </Button>
                             </div>
 
-                            {phase === "spinning" && (
-                                <div
-                                    role="status"
-                                    aria-live="polite"
-                                    className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-sm text-muted-foreground"
-                                >
-                                    <Loader2
-                                        className="size-4 animate-spin"
-                                        aria-hidden="true"
-                                    />
-                                    正在挑一个今晚的答案…
-                                </div>
-                            )}
-
-                            {phase === "idle" && (
-                                <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-center text-sm text-muted-foreground">
-                                    <Sparkles
-                                        className="size-4 text-amber-500"
-                                        aria-hidden="true"
-                                    />
-                                    点中间的「开转」，让运气决定今晚
-                                </div>
-                            )}
-
-                            {phase === "result" && picked && (
-                                <div
-                                    key={picked.id}
-                                    role="status"
-                                    aria-live="polite"
-                                    className="relative mt-3 overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft animate-in fade-in-0 slide-in-from-bottom-2"
-                                >
+                            {/* Reserve the result card's height up front: the
+                                sheet is bottom-anchored on phones, so growing
+                                it when the result appears pushes the wheel up
+                                and reads as a layout jump. */}
+                            <div className="mt-3 flex min-h-[12.5rem] flex-col justify-center">
+                                {phase === "spinning" && (
                                     <div
-                                        aria-hidden="true"
-                                        className="pointer-events-none absolute inset-0 overflow-hidden"
+                                        role="status"
+                                        aria-live="polite"
+                                        className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-sm text-muted-foreground"
                                     >
-                                        {CONFETTI.map((piece, index) => (
-                                            <span
-                                                key={index}
-                                                className="dinner-confetti absolute left-1/2 top-1/2 size-1.5 rounded-[1px]"
-                                                style={
-                                                    {
-                                                        backgroundColor: `hsl(var(--chart-${piece.color}))`,
-                                                        "--tx": `${piece.x}px`,
-                                                        "--ty": `${piece.y}px`,
-                                                        "--rot": `${piece.rot}deg`,
-                                                        animationDelay: `${piece.delay}ms`,
-                                                    } as CSSProperties
-                                                }
-                                            />
-                                        ))}
+                                        <Loader2
+                                            className="size-4 animate-spin"
+                                            aria-hidden="true"
+                                        />
+                                        正在挑一个今晚的答案…
                                     </div>
+                                )}
 
-                                    <div className="relative text-center">
-                                        <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
-                                            今晚就吃
-                                        </p>
-                                        <p className="mt-1 bg-gradient-to-r from-primary via-chart-2 to-chart-4 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
-                                            {picked.name}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            保存后会记一条 「[晚餐抽奖机]」动态
-                                        </p>
-                                        <div className="mt-3 flex gap-2">
-                                            <Button
-                                                type="button"
-                                                className="h-11 flex-1 gap-1.5 font-semibold"
-                                                disabled={saving}
-                                                onClick={() =>
-                                                    void handleSave()
-                                                }
+                                {phase === "idle" && (
+                                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-center text-sm text-muted-foreground">
+                                        <Sparkles
+                                            className="size-4 text-amber-500"
+                                            aria-hidden="true"
+                                        />
+                                        点中间的「开转」，让运气决定今晚
+                                    </div>
+                                )}
+
+                                {phase === "result" && picked && (
+                                    <div
+                                        key={picked.id}
+                                        role="status"
+                                        aria-live="polite"
+                                        className="relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft animate-in fade-in-0 slide-in-from-bottom-2"
+                                    >
+                                        <div
+                                            aria-hidden="true"
+                                            className="pointer-events-none absolute inset-0 overflow-hidden"
+                                        >
+                                            {CONFETTI.map((piece, index) => (
+                                                <span
+                                                    key={index}
+                                                    className="dinner-confetti absolute left-1/2 top-1/2 size-1.5 rounded-[1px]"
+                                                    style={
+                                                        {
+                                                            backgroundColor: `hsl(var(--chart-${piece.color}))`,
+                                                            "--tx": `${piece.x}px`,
+                                                            "--ty": `${piece.y}px`,
+                                                            "--rot": `${piece.rot}deg`,
+                                                            animationDelay: `${piece.delay}ms`,
+                                                        } as CSSProperties
+                                                    }
+                                                />
+                                            ))}
+                                        </div>
+
+                                        <div className="relative text-center">
+                                            <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
+                                                今晚就吃
+                                            </p>
+                                            <p
+                                                className={cn(
+                                                    "mt-1 bg-gradient-to-r from-primary via-chart-2 to-chart-4 bg-clip-text font-extrabold tracking-tight text-transparent",
+                                                    resultNameClass(
+                                                        picked.name,
+                                                    ),
+                                                )}
                                             >
-                                                {saving ? (
-                                                    <Loader2
-                                                        className="size-4 animate-spin"
-                                                        aria-hidden="true"
-                                                    />
-                                                ) : (
-                                                    <Carrot
+                                                {picked.name}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                保存后会记一条动态
+                                            </p>
+                                            <div className="mt-3 flex gap-2">
+                                                <Button
+                                                    type="button"
+                                                    className="h-11 flex-1 gap-1.5 font-semibold"
+                                                    disabled={saving}
+                                                    onClick={() =>
+                                                        void handleSave()
+                                                    }
+                                                >
+                                                    {saving ? (
+                                                        <Loader2
+                                                            className="size-4 animate-spin"
+                                                            aria-hidden="true"
+                                                        />
+                                                    ) : (
+                                                        <Carrot
+                                                            className="size-4"
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
+                                                    就吃这个
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-11 shrink-0 gap-1.5"
+                                                    disabled={saving}
+                                                    onClick={handleSpin}
+                                                >
+                                                    <RefreshCw
                                                         className="size-4"
                                                         aria-hidden="true"
                                                     />
-                                                )}
-                                                就吃这个
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="h-11 shrink-0 gap-1.5"
-                                                disabled={saving}
-                                                onClick={handleSpin}
-                                            >
-                                                <RefreshCw
-                                                    className="size-4"
-                                                    aria-hidden="true"
-                                                />
-                                                再抽一次
-                                            </Button>
+                                                    再抽一次
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </>
                     )}
                 </div>
