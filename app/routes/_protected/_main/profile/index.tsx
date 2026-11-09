@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
     BarChart3,
     Camera,
     ChevronRight,
     Info,
+    type LucideIcon,
     Pencil,
     Sparkles,
 } from "lucide-react";
@@ -62,6 +63,53 @@ async function pickImage(): Promise<File | null> {
         toast.error("获取图片失败");
         return null;
     }
+}
+
+/** Icon + title + description + chevron, shared by every grouped row. */
+function RowContent({
+    icon: Icon,
+    title,
+    description,
+    badge,
+}: {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+    badge?: ReactNode;
+}) {
+    return (
+        <>
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                <Icon className="size-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                    {title}
+                    {badge}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {description}
+                </span>
+            </span>
+            <ChevronRight
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+            />
+        </>
+    );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+    return (
+        <section className="mt-6">
+            <h2 className="px-1 text-xs font-semibold tracking-wide text-muted-foreground">
+                {title}
+            </h2>
+            <div className="mt-2 divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-soft">
+                {children}
+            </div>
+        </section>
+    );
 }
 
 function Page() {
@@ -132,6 +180,8 @@ function Page() {
                 </h1>
             </header>
 
+            {/* Identity first: avatar, nickname and ring are the page's
+                subject; settings and links are grouped below. */}
             <section className="mt-4 rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
                 <div className="flex flex-col items-center">
                     <button
@@ -190,78 +240,58 @@ function Page() {
                         更换头像框
                     </Button>
                 </div>
+
+                {/* Ring context stays next to the control it explains, as a
+                    compact note instead of its own full card. */}
+                <p className="mt-4 rounded-2xl bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+                    内置头像框是矢量绘制，任何尺寸都很清晰；星轨和霓虹会轻轻动起来（系统开启「减少动态效果」时会自动静止）。也可以上传自己的头像框。
+                </p>
             </section>
 
-            <section className="mt-4 rounded-3xl border border-border/60 bg-card p-5">
-                <h3 className="text-sm font-semibold">AI 设置</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    AI 由本站统一提供，登录即可用于记账、配文、学习和年度
-                    报告，不需要填 Key。这里可以调整完成通知和本机预算。
-                </p>
-                <Button
-                    className="mt-3 w-full"
-                    variant="outline"
+            <Section title="功能">
+                <Link
+                    to="/report"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        description="这一年被你过成了什么样"
+                        icon={BarChart3}
+                        title="年度报告"
+                    />
+                </Link>
+                <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-accent"
                     onClick={openSettings}
                 >
-                    <Sparkles className="mr-2 size-4" aria-hidden="true" />
-                    打开 AI 设置
-                </Button>
-            </section>
+                    <RowContent
+                        description="统一提供，无需填写 Key，可调通知和预算"
+                        icon={Sparkles}
+                        title="AI 设置"
+                    />
+                </button>
+            </Section>
 
-            <Link
-                to="/report"
-                className="mt-4 flex items-center gap-3 rounded-3xl border border-border/60 bg-card p-4 shadow-soft transition-transform active:scale-[0.99]"
-            >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                    <BarChart3 className="size-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">
-                        年度报告
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        这一年被你过成了什么样
-                    </span>
-                </span>
-                <ChevronRight
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                />
-            </Link>
-
-            <section className="mt-4 rounded-3xl border border-border/60 bg-card p-5">
-                <h3 className="text-sm font-semibold">关于头像框</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    内置头像框是矢量绘制，任何尺寸都很清晰；星轨和霓虹会轻轻动起来（系统开启“减少动态效果”时会自动静止）。也可以上传自己的头像框。
-                </p>
-            </section>
-
-            <Link
-                to="/about"
-                className="mt-4 flex items-center gap-3 rounded-3xl border border-border/60 bg-card p-4 shadow-soft transition-transform active:scale-[0.99]"
-            >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                    <Info className="size-5" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                        关于秘密基地
-                        {updateUnseen && (
-                            <span
-                                aria-label="有新的更新记录"
-                                className="size-2 shrink-0 rounded-full bg-primary"
-                            />
-                        )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        更新记录与构建信息
-                    </span>
-                </span>
-                <ChevronRight
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                />
-            </Link>
+            <Section title="关于">
+                <Link
+                    to="/about"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        badge={
+                            updateUnseen ? (
+                                <span
+                                    aria-label="有新的更新记录"
+                                    className="size-2 shrink-0 rounded-full bg-primary"
+                                />
+                            ) : undefined
+                        }
+                        description="更新记录与构建信息"
+                        icon={Info}
+                        title="关于秘密基地"
+                    />
+                </Link>
+            </Section>
 
             <RingPicker
                 open={ringOpen}
