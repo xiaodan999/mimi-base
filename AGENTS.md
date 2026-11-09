@@ -410,17 +410,20 @@ before your first commit.
   map enum values to fixed literal theme-token classes (`-chart-card.tsx`,
   `-ui-card.tsx`) so Tailwind emits them and dark mode works. Never accept
   free-form Tailwind classes, event handlers or external content on this path.
-- Chat data tools (`/ai/tools/{expenses,posts,memory,url}` in
+- Chat data tools (`/ai/tools/{expenses,posts,comments,memory,url}` in
   `pocketbase/ai-tools.ts`) are the only way the model reads site data, and
   **the server, not the persona prompt, is the security boundary**: the relay
   authenticates, rate-limits (30/min) and quotas (200/day) them, scopes rows
-  with explicit PB filters (ledger/posts are shared-scope on purpose — they
-  match the app's screens; `chat_memories` is owner-only with PB rules as the
-  backstop), and `read_url` resolves DNS and refuses private/reserved hosts
-  and redirects. The system prompt tells the model tool output is data, not
-  instructions — keep that line when editing `app/chat/prompt.ts`. Memories
-  (`chat_memories`) are injected into every run's system prompt (top 30) and
-  managed in the chat list header's 「AI 的记忆」 sheet.
+  with explicit PB filters (ledger/posts/comments are shared-scope on purpose
+  — they match the app's screens; `chat_memories` is owner-only with PB rules
+  as the backstop), and `read_url` resolves DNS and refuses private/reserved
+  hosts and redirects. `comments` reads recent comment rows (optional
+  `post_id` / `query` / `author`, capped `limit`, truncated text) with the
+  author, post context and parent author expanded. The system prompt tells the
+  model tool output is data, not instructions — keep that line when editing
+  `app/chat/prompt.ts`. Memories (`chat_memories`) are injected into every
+  run's system prompt (top 30) and managed in the chat list header's
+  「AI 的记忆」 sheet.
 - Built-in personas (`app/chat/personas.ts`, shown in the UI as 应用场景) are
   日常对话 / 写作润色 / 英语学习 / 基地管家, each with `starters` for the
   empty thread. A conversation snapshots persona name+prompt at creation, so

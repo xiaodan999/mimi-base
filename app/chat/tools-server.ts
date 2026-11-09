@@ -71,6 +71,37 @@ export type PostsToolResult = {
     }>;
 };
 
+export type CommentsToolResult = {
+    ok: boolean;
+    error?: string;
+    postId?: string;
+    query?: string;
+    author?: string;
+    limit?: number;
+    count?: number;
+    truncated?: boolean;
+    items?: Array<{
+        id: string;
+        /** Comment text, truncated server-side to a safe context size. */
+        text: string;
+        created: string;
+        images: number;
+        /** Parent comment id when this comment is a reply. */
+        parentId: string;
+        /** Display name of the parent comment's author (回复 @谁). */
+        replyTo: string;
+        /** Post the comment belongs to, with its text as context. */
+        postId: string;
+        postText: string;
+        /** users record id + tou_xiang filename for the author chip. */
+        authorId: string;
+        avatar: string;
+        /** Display name of the commenter (我 / 对方 fallback). */
+        by: string;
+        mine: boolean;
+    }>;
+};
+
 export type MemoryToolResult = {
     ok: boolean;
     error?: string;

@@ -13,5 +13,6 @@ export const TOOL_TITLES: Record<string, string> = {
     read_attachment: "读附件",
     get_expenses: "查账本",
     search_posts: "搜动态",
+    get_comments: "读评论",
     log_expense: "记账",
 };

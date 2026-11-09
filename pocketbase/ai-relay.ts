@@ -20,6 +20,7 @@ import {
     extractUploadedFile,
 } from "./ai-files";
 import {
+    AI_TOOLS_COMMENTS_PATH,
     AI_TOOLS_EXPENSES_PATH,
     AI_TOOLS_MEMORY_PATH,
     AI_TOOLS_POSTS_PATH,
@@ -305,6 +306,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const TOOL_PATHS = new Set<string>([
         AI_TOOLS_EXPENSES_PATH,
         AI_TOOLS_POSTS_PATH,
+        AI_TOOLS_COMMENTS_PATH,
         AI_TOOLS_MEMORY_PATH,
         AI_TOOLS_URL_PATH,
     ]);

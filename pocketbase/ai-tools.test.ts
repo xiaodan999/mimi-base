@@ -422,6 +422,216 @@ describe("ai tools service", () => {
         });
     });
 
+    test("comments return recent rows with author, post and reply context", async () => {
+        let filter = "";
+        let expand = "";
+        let sort = "";
+        let perPage = "";
+        const tools = service((url) => {
+            filter = url.searchParams.get("filter") ?? "";
+            expand = url.searchParams.get("expand") ?? "";
+            sort = url.searchParams.get("sort") ?? "";
+            perPage = url.searchParams.get("perPage") ?? "";
+            return json({
+                items: [
+                    {
+                        id: "c1",
+                        text: "好呀，我五点半下班。",
+                        created: "2026-11-09 03:08:49.526Z",
+                        parent_id: "c0",
+                        post_id: "p1",
+                        author_id: "user-1",
+                        expand: {
+                            author_id: {
+                                id: "user-1",
+                                user_name: "小海",
+                                tou_xiang: "h1.png",
+                            },
+                            post_id: {
+                                id: "p1",
+                                text: "新开的那家火锅店有人去过吗？",
+                            },
+                            parent_id: {
+                                author_id: "user-2",
+                                expand: {
+                                    author_id: { user_name: "小满" },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        id: "c2",
+                        text: "照片呢？别只发文字。",
+                        created: "2026-11-09 03:08:49.520Z",
+                        post_id: "p1",
+                        author_id: "user-2",
+                        expand: {
+                            author_id: { user_name: "小满" },
+                        },
+                    },
+                ],
+            });
+        });
+        const res = await tools({
+            pathname: "/ai/tools/comments",
+            body: {
+                post_id: "p1",
+                query: "火锅",
+                author: "小满",
+                limit: 5,
+            },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(sort).toBe("-created");
+        expect(perPage).toBe("5");
+        expect(expand).toBe("author_id,post_id,parent_id.author_id");
+        expect(filter).toBe(
+            '(post_id = "p1" && text ~ "火锅" && author_id.user_name ~ "小满")',
+        );
+        expect(res.body).toEqual({
+            ok: true,
+            postId: "p1",
+            query: "火锅",
+            author: "小满",
+            limit: 5,
+            count: 2,
+            truncated: false,
+            items: [
+                {
+                    id: "c1",
+                    text: "好呀，我五点半下班。",
+                    created: "2026-11-09 03:08:49.526Z",
+                    images: 0,
+                    parentId: "c0",
+                    replyTo: "小满",
+                    postId: "p1",
+                    postText: "新开的那家火锅店有人去过吗？",
+                    authorId: "user-1",
+                    avatar: "h1.png",
+                    by: "小海",
+                    mine: true,
+                },
+                {
+                    id: "c2",
+                    text: "照片呢？别只发文字。",
+                    created: "2026-11-09 03:08:49.520Z",
+                    images: 0,
+                    parentId: "",
+                    replyTo: "",
+                    postId: "p1",
+                    postText: "",
+                    authorId: "user-2",
+                    avatar: "",
+                    by: "小满",
+                    mine: false,
+                },
+            ],
+        });
+    });
+
+    test("comments accept a record id as the author filter", async () => {
+        let filter = "";
+        const tools = service((url) => {
+            filter = url.searchParams.get("filter") ?? "";
+            return json({ items: [] });
+        });
+        await tools({
+            pathname: "/ai/tools/comments",
+            body: { author: "u2abc123xyz4567" },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(filter).toBe('(author_id = "u2abc123xyz4567")');
+    });
+
+    test("comments strip filter-breaking characters and clamp the limit", async () => {
+        let filter = "";
+        let perPage = "";
+        const tools = service((url) => {
+            filter = url.searchParams.get("filter") ?? "";
+            perPage = url.searchParams.get("perPage") ?? "";
+            return json({ items: [] });
+        });
+        await tools({
+            pathname: "/ai/tools/comments",
+            body: { query: '他说"好" AND 1=1', limit: 999 },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(filter).toBe('(text ~ "他说好 AND 1=1")');
+        expect(perPage).toBe("60");
+        await tools({
+            pathname: "/ai/tools/comments",
+            body: { limit: 0 },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(perPage).toBe("20");
+    });
+
+    test("comments flag truncation at the requested limit", async () => {
+        const items = Array.from({ length: 3 }, (_, i) => ({
+            id: `c${i}`,
+            text: `评论 ${i}`,
+            created: "2026-11-09 03:00:00.000Z",
+            author_id: "user-1",
+        }));
+        const tools = service(() => json({ items }));
+        const res = await tools({
+            pathname: "/ai/tools/comments",
+            body: { limit: 3 },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(res.body).toMatchObject({
+            ok: true,
+            count: 3,
+            truncated: true,
+        });
+    });
+
+    test("comments reject malformed post ids before touching PB", async () => {
+        let called = false;
+        const tools = service(() => {
+            called = true;
+            return json({ items: [] });
+        });
+        const bad = await tools({
+            pathname: "/ai/tools/comments",
+            body: { post_id: "../etc/passwd" },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(bad.body).toEqual({
+            ok: false,
+            error: "post_id 不是有效的动态记录 id",
+        });
+        const wrongType = await tools({
+            pathname: "/ai/tools/comments",
+            body: { post_id: 123 },
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(wrongType.body).toEqual({
+            ok: false,
+            error: "post_id 应该是动态记录 id",
+        });
+        expect(called).toBe(false);
+    });
+
+    test("comments turn PB failures into a tool result", async () => {
+        const tools = service(() => json({ message: "boom" }, 500));
+        const res = await tools({
+            pathname: "/ai/tools/comments",
+            body: {},
+            uid: "user-1",
+            token: "pb-token",
+        });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ ok: false, error: "读不了评论" });
+    });
+
     test("read_url refuses private addresses without fetching", async () => {
         let fetched = 0;
         const tools = service(() => {
@@ -565,5 +775,52 @@ describe("tools relay wiring", () => {
             }),
         );
         expect(res?.status).toBe(400);
+    });
+
+    test("comments path is in the tools allowlist and needs auth", async () => {
+        const relay = relayHarness();
+        const anonymous = await relay(
+            new Request("http://relay.test/ai/tools/comments", {
+                method: "POST",
+                body: JSON.stringify({ limit: 1 }),
+            }),
+        );
+        expect(anonymous?.status).toBe(401);
+
+        const authed = await relay(
+            new Request("http://relay.test/ai/tools/comments", {
+                method: "POST",
+                headers: { Authorization: "good-token" },
+                body: JSON.stringify({ limit: 1 }),
+            }),
+        );
+        expect(authed?.status).toBe(200);
+        expect(await authed?.json()).toMatchObject({
+            ok: true,
+            count: 0,
+            items: [],
+        });
+    });
+
+    test("comments share the 30/min data-tool rate limit", async () => {
+        const relay = relayHarness();
+        for (let i = 0; i < 30; i += 1) {
+            const res = await relay(
+                new Request("http://relay.test/ai/tools/comments", {
+                    method: "POST",
+                    headers: { Authorization: "good-token" },
+                    body: JSON.stringify({ limit: 1 }),
+                }),
+            );
+            expect(res?.status).toBe(200);
+        }
+        const limited = await relay(
+            new Request("http://relay.test/ai/tools/comments", {
+                method: "POST",
+                headers: { Authorization: "good-token" },
+                body: JSON.stringify({ limit: 1 }),
+            }),
+        );
+        expect(limited?.status).toBe(429);
     });
 });

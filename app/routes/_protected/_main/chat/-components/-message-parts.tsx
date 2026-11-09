@@ -18,6 +18,7 @@ import {
     Image as ImageIcon,
     LayoutDashboard,
     Loader2,
+    MessageSquareText,
     Newspaper,
     Paperclip,
     Receipt,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { formatBytes, textArtifactInfo } from "@/app/chat/artifacts";
+import { commentPreviews } from "@/app/chat/tool-comments";
 import { TOOL_TITLES } from "@/app/chat/tool-labels";
 import {
     expensesPeople,
@@ -93,6 +95,7 @@ const TOOL_ICONS: Record<string, typeof Terminal> = {
     read_url: Globe,
     get_expenses: Wallet,
     search_posts: Newspaper,
+    get_comments: MessageSquareText,
     log_expense: Receipt,
 };
 
@@ -204,14 +207,19 @@ export function ToolCallPart({
             ? String(payload.artifact_error)
             : "";
     // Data tools store the raw tool JSON on the part (`result` IS the
-    // ExpensesToolResult / PostsToolResult); sandbox tools nest theirs under
-    // `result.result`. The person parsers expect the raw tool JSON.
+    // ExpensesToolResult / PostsToolResult / CommentsToolResult); sandbox
+    // tools nest theirs under `result.result`. The parsers expect the raw
+    // tool JSON.
     const people =
         toolName === "get_expenses"
             ? expensesPeople(payload)
-            : toolName === "search_posts"
+            : toolName === "search_posts" || toolName === "get_comments"
               ? postAuthors(payload)
               : [];
+    const comments =
+        toolName === "get_comments"
+            ? commentPreviews(payload)
+            : { items: [], total: 0 };
 
     if (toolName === "show_chart" || toolName === "render_ui") {
         // Both render while args stream in and from the persisted result after
@@ -298,6 +306,36 @@ export function ToolCallPart({
                             person={person}
                         />
                     ))}
+                </div>
+            )}
+            {!running && !failed && comments.items.length > 0 && (
+                <div className="space-y-1.5 border-t border-border/50 px-3 py-2">
+                    {comments.items.map((comment, index) => (
+                        <p
+                            key={
+                                comment.id !== ""
+                                    ? comment.id
+                                    : `${comment.by}-${index}`
+                            }
+                            className="line-clamp-2 text-[11.5px] leading-snug"
+                        >
+                            <span className="font-medium">{comment.by}</span>
+                            {comment.replyTo !== "" && (
+                                <span className="text-muted-foreground">
+                                    {" "}
+                                    回复 @{comment.replyTo}
+                                </span>
+                            )}
+                            <span className="text-muted-foreground">
+                                ：{comment.text}
+                            </span>
+                        </p>
+                    ))}
+                    {comments.total > comments.items.length && (
+                        <p className="text-[10px] text-muted-foreground">
+                            共 {comments.total} 条，展开可看全部
+                        </p>
+                    )}
                 </div>
             )}
             {!failed && changed.length > 0 && (

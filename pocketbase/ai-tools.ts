@@ -8,9 +8,9 @@
  *
  * Security policy for every endpoint:
  * - Scope is enforced here with explicit PB filters, never assumed. The
- *   ledger (`ji_zhang_biao`) and feed (`posts`) are deliberately shared
- *   between the two accounts, matching the app's own screens; memories are
- *   strictly owner-scoped (PB rules are the backstop).
+ *   ledger (`ji_zhang_biao`), feed (`posts`) and their comments (`comments`)
+ *   are deliberately shared between the two accounts, matching the app's own
+ *   screens; memories are strictly owner-scoped (PB rules are the backstop).
  * - `read_url` resolves DNS and refuses private/reserved addresses, follows
  *   only validated redirects, caps size and time, and strips HTML to text.
  * - Tool-level failures come back as `200 {ok:false}` so the model can react;
@@ -20,16 +20,24 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
+import { isRecordId } from "../lib/chat-files";
+
 export const AI_TOOLS_EXPENSES_PATH = "/ai/tools/expenses";
 export const AI_TOOLS_POSTS_PATH = "/ai/tools/posts";
+export const AI_TOOLS_COMMENTS_PATH = "/ai/tools/comments";
 export const AI_TOOLS_MEMORY_PATH = "/ai/tools/memory";
 export const AI_TOOLS_URL_PATH = "/ai/tools/url";
 
 const MAX_EXPENSE_ROWS = 200;
 const MAX_POST_ROWS = 30;
+const MAX_COMMENT_ROWS = 60;
 const MAX_MEMORIES = 100;
 const MAX_MEMORY_CHARS = 500;
 const MAX_POST_TEXT_CHARS = 300;
+const MAX_COMMENT_TEXT_CHARS = 600;
+const MAX_COMMENT_POST_TEXT_CHARS = 160;
+const MAX_COMMENT_QUERY_CHARS = 60;
+const MAX_COMMENT_AUTHOR_CHARS = 40;
 const MAX_ITEM_CHARS = 60;
 const MAX_URL_BODY_BYTES = 300 * 1024;
 const MAX_URL_TEXT_CHARS = 12_000;
@@ -143,6 +151,8 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
                     return await expenses(call);
                 case AI_TOOLS_POSTS_PATH:
                     return await posts(call);
+                case AI_TOOLS_COMMENTS_PATH:
+                    return await comments(call);
                 case AI_TOOLS_MEMORY_PATH:
                     return await memory(call);
                 case AI_TOOLS_URL_PATH:
@@ -332,6 +342,143 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
         });
     }
 
+    // ---------- /ai/tools/comments ----------
+
+    async function comments(call: AiToolsCall): Promise<AiToolsResult> {
+        if (
+            call.body.post_id !== undefined &&
+            typeof call.body.post_id !== "string"
+        ) {
+            return toolFail("post_id 应该是动态记录 id");
+        }
+        const postId =
+            typeof call.body.post_id === "string"
+                ? call.body.post_id.trim()
+                : "";
+        if (postId !== "" && !isRecordId(postId)) {
+            return toolFail("post_id 不是有效的动态记录 id");
+        }
+        const query =
+            typeof call.body.query === "string"
+                ? call.body.query
+                      .trim()
+                      .replace(/["\\]/g, "")
+                      .slice(0, MAX_COMMENT_QUERY_CHARS)
+                : "";
+        const author =
+            typeof call.body.author === "string"
+                ? call.body.author
+                      .trim()
+                      .replace(/["\\]/g, "")
+                      .slice(0, MAX_COMMENT_AUTHOR_CHARS)
+                : "";
+        const rawLimit = Number(call.body.limit);
+        const limit =
+            Number.isFinite(rawLimit) && rawLimit >= 1
+                ? Math.min(Math.floor(rawLimit), MAX_COMMENT_ROWS)
+                : 20;
+
+        // Comments are shared-scope like the feed itself (both accounts see
+        // every post); each filter value is quoted as a literal, never
+        // interpolated raw. `author` accepts a record id or a display name.
+        const conditions: string[] = [];
+        if (postId !== "") {
+            conditions.push(`post_id = ${filterLiteral(postId)}`);
+        }
+        if (query !== "") {
+            conditions.push(`text ~ ${filterLiteral(query)}`);
+        }
+        if (author !== "") {
+            conditions.push(
+                isRecordId(author)
+                    ? `author_id = ${filterLiteral(author)}`
+                    : `author_id.user_name ~ ${filterLiteral(author)}`,
+            );
+        }
+        const filter =
+            conditions.length > 0 ? `(${conditions.join(" && ")})` : "";
+
+        const res = await pbRequest("/api/collections/comments/records", {
+            method: "GET",
+            token: call.token,
+            query: {
+                ...(filter ? { filter } : {}),
+                sort: "-created",
+                perPage: String(limit),
+                // Author name/avatar, the post the comment belongs to, and
+                // the parent comment's author (the app renders replies as
+                // 回复 @name). The users viewRule lets both accounts read
+                // each other's profile.
+                expand: "author_id,post_id,parent_id.author_id",
+            },
+        });
+        if (!res.ok) return pbFail(res, "读不了评论");
+
+        const json = (await res.json()) as {
+            items?: Array<{
+                id?: unknown;
+                text?: unknown;
+                created?: unknown;
+                images?: unknown;
+                parent_id?: unknown;
+                post_id?: unknown;
+                author_id?: unknown;
+                expand?: {
+                    author_id?: ExpandUser;
+                    post_id?: { id?: unknown; text?: unknown };
+                    parent_id?: {
+                        author_id?: unknown;
+                        expand?: { author_id?: ExpandUser };
+                    };
+                };
+            }>;
+        };
+        const items = (json.items ?? []).map((row) => {
+            const mine = row.author_id === call.uid;
+            const parent = row.expand?.parent_id;
+            const parentAuthorId =
+                typeof parent?.author_id === "string" ? parent.author_id : "";
+            return {
+                id: typeof row.id === "string" ? row.id : "",
+                text: text(row.text, MAX_COMMENT_TEXT_CHARS),
+                created: typeof row.created === "string" ? row.created : "",
+                images: Array.isArray(row.images) ? row.images.length : 0,
+                // parentId lets the model see who replied to whom; replyTo
+                // names the parent comment's author for 「回复 @谁」 answers.
+                parentId:
+                    typeof row.parent_id === "string" ? row.parent_id : "",
+                replyTo: parent
+                    ? displayName(
+                          parent.expand?.author_id,
+                          parentAuthorId === call.uid,
+                      )
+                    : "",
+                postId: typeof row.post_id === "string" ? row.post_id : "",
+                postText: text(
+                    row.expand?.post_id?.text,
+                    MAX_COMMENT_POST_TEXT_CHARS,
+                ),
+                // id + avatar filename let the client render the commenter's
+                // real profile chip (tokened URL built at render time).
+                authorId:
+                    typeof row.author_id === "string" ? row.author_id : "",
+                avatar: avatarFile(row.expand?.author_id),
+                by: displayName(row.expand?.author_id, mine),
+                mine,
+            };
+        });
+        return toolOk({
+            ok: true,
+            ...(postId ? { postId } : {}),
+            ...(query ? { query } : {}),
+            ...(author ? { author } : {}),
+            limit,
+            count: items.length,
+            truncated: items.length >= limit,
+            items,
+        });
+    }
+
     // ---------- /ai/tools/memory ----------
 
     async function memory(call: AiToolsCall): Promise<AiToolsResult> {
@@ -504,6 +651,12 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
 }
 
 // ---------- shared helpers ----------
+
+/** A double-quoted PocketBase filter literal. Values are escaped rather than
+ * pasted raw into the filter expression. */
+export function filterLiteral(value: string): string {
+    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
 
 class UrlPolicyError extends Error {}
 

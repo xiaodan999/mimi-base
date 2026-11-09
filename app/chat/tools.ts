@@ -22,6 +22,7 @@ import {
     postTool,
     timezoneOffsetMinutes,
     type AttachmentPagesResult,
+    type CommentsToolResult,
     type ExpensesToolResult,
     type MemoryToolResult,
     type PostsToolResult,
@@ -373,6 +374,37 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
                     limit: {
                         type: "number",
                         description: "条数（1-30，默认 20）",
+                    },
+                },
+                additionalProperties: false,
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "get_comments",
+            description:
+                "读取共享动态下的评论和回复（两个人发的评论都在里面，每条带评论人 by、评论正文、时间、所属动态 postText，回复还带 parentId 和 replyTo）。想知道「最近大家在评论里聊什么」「谁回复了谁」「那条动态下大家怎么说」时用它；只看动态正文用 search_posts。可按动态 post_id、关键词 query 或评论人 author（名字或用户 id）筛选，默认按时间倒序取最近 20 条。",
+            parameters: {
+                type: "object",
+                properties: {
+                    post_id: {
+                        type: "string",
+                        description:
+                            "只看某条动态的评论（动态记录 id，可省略）",
+                    },
+                    query: {
+                        type: "string",
+                        description: "按评论正文关键词筛选，可省略",
+                    },
+                    author: {
+                        type: "string",
+                        description: "按评论人筛选：名字或用户 id，可省略",
+                    },
+                    limit: {
+                        type: "number",
+                        description: "条数（1-60，默认 20）",
                     },
                 },
                 additionalProperties: false,
@@ -787,6 +819,58 @@ async function runChatTool(
                         error instanceof Error
                             ? error.message
                             : "动态工具请求失败",
+                },
+                files,
+                isError: true,
+            };
+        }
+    }
+
+    if (name === "get_comments") {
+        const postId =
+            typeof args.post_id === "string" ? args.post_id.trim() : "";
+        // A guessed id would just return an empty list; fail fast with the
+        // corrective hint so the next round can call search_posts first.
+        if (postId !== "" && !isRecordId(postId)) {
+            return {
+                result: {
+                    ok: false,
+                    error: "post_id 不是动态记录 id：可先用 search_posts 查到动态 id 再筛选",
+                },
+                files,
+                isError: true,
+            };
+        }
+        try {
+            const data = await postTool<CommentsToolResult>("/tools/comments", {
+                ...(postId !== "" ? { post_id: postId } : {}),
+                ...(typeof args.query === "string" && args.query.trim() !== ""
+                    ? { query: args.query.trim().slice(0, 60) }
+                    : {}),
+                ...(typeof args.author === "string" && args.author.trim() !== ""
+                    ? { author: args.author.trim().slice(0, 40) }
+                    : {}),
+                ...(typeof args.limit === "number" &&
+                Number.isFinite(args.limit)
+                    ? { limit: args.limit }
+                    : {}),
+            });
+            if (!data.ok) {
+                return {
+                    result: { ok: false, error: data.error ?? "评论读不了" },
+                    files,
+                    isError: true,
+                };
+            }
+            return { result: data, files, isError: false };
+        } catch (error) {
+            return {
+                result: {
+                    ok: false,
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "评论工具请求失败",
                 },
                 files,
                 isError: true,
