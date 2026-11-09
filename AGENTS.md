@@ -38,13 +38,18 @@ Chinese; keep that style when adding user-facing text.
   image viewer, video player/viewer, find sheet). Home renders the feed
   through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
+- `app/feedback/` — 问题反馈 domain: `data.ts` (report create + supervisor
+  sync + report list), `error-buffer.ts` (20-entry console/page-error ring
+  buffer), `validation.ts`, `prompt.ts` (AI tidy-up). The page lives at
+  `_main/feedback/`; its entry point is the profile page's 功能 section.
 - `lib/` — `pb.ts` (PocketBase singleton + URL/date helpers), `auth.tsx`,
   `env.ts`, `toast-promise.ts`, `date.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
 - `pocketbase/` — server side: `server.ts` supervisor, `ai-files.ts`
-  attachment reader, `package.json` / `bun.lock` (server-only pdf.js +
-  canvas), `pb_migrations/` (schema), `pb_hooks/` (JSVM counters). Read
-  `pocketbase/README.md` before touching deploys or the server.
+  attachment reader, `feedback.ts` (report -> GitHub issue), `package.json` /
+  `bun.lock` (server-only pdf.js + canvas), `pb_migrations/` (schema),
+  `pb_hooks/` (JSVM counters). Read `pocketbase/README.md` before touching
+  deploys or the server.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
 - `scripts/server-setup.sh` — fresh-server bootstrap. `scripts/dev.ts` backs
   `bun run dev:all` on Linux, WSL2 and plain Windows. Under WSL it also runs
@@ -234,29 +239,45 @@ before your first commit.
   `post_likes`, `comment_likes` (schema only, unused by the UI),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
   `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`,
-  `chat_artifacts`, `dinner_options` (shared 晚餐抽奖机 menu); `tu_pian_xin_xi`
-  is legacy (its rows were migrated into `posts`).
+  `chat_artifacts`, `dinner_options` (shared 晚餐抽奖机 menu),
+  `feedback_reports` (问题反馈 / 功能建议); `tu_pian_xin_xi` is legacy (its rows
+  were migrated into `posts`).
 - Every data collection is auth-only (`@request.auth.id != ""`); keep `posts`
   that way. **This is deliberate, not a leak.** The product has exactly two
   accounts for one couple, sign-up is locked (`users.createRule = null` in
   `1792854446_updated_users.js`), and the shared feed / shared ledger _is_ the
   feature. Don't "fix" auth-only rules by owner-scoping posts or comments, and
   don't add a friends system. Scope today: `study_progress`,
-  `ji_zhang_category`, `tou_xiang_circle` and all `chat_*` collections
-  are owner-scoped; `ji_zhang_biao` is shared for reads but owner-scoped for
-  update/delete. If a third account is ever added, decide and migrate the
-  per-collection scope _before_ that account exists — auth-only rules would
-  expose every row to it.
+  `ji_zhang_category`, `tou_xiang_circle`, `feedback_reports` and all
+  `chat_*` collections are owner-scoped; `ji_zhang_biao` is shared for reads
+  but owner-scoped for update/delete. If a third account is ever added,
+  decide and migrate the per-collection scope _before_ that account exists —
+  auth-only rules would expose every row to it.
   File fields are `protected`, so unauthenticated requests to `/api/files/...`
   return 404.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
   Date literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
 - File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`,
-  `posts.videos`) store filenames, not URLs. They are protected, so build URLs with
-  `getFileUrl` (or `getUserAvatarUrl` / `getUserCircleUrl`), which appends the
-  short-lived token; `AuthProvider` refreshes it. Never call
-  `pb.files.getURL` directly for these files — `<img>` cannot send the auth
-  header, so a tokenless URL 404s.
+  `posts.videos`, `feedback_reports.screenshots`) store filenames, not URLs.
+  They are protected, so build URLs with `getFileUrl` (or `getUserAvatarUrl` /
+  `getUserCircleUrl`), which appends the short-lived token; `AuthProvider`
+  refreshes it. Never call `pb.files.getURL` directly for these files —
+  `<img>` cannot send the auth header, so a tokenless URL 404s.
+- 问题反馈 is a two-step flow: the client creates `feedback_reports` (with
+  protected screenshots and an optional `chat_conversations` relation) and
+  then POSTs `{ reportId }` to `/feedback/report`. The Bun supervisor
+  (`pocketbase/feedback.ts`) authenticates with the caller's PB token, re-reads
+  the row with that token (owner rule = server-side boundary), rate-limits
+  5/hour/user, and opens a GitHub issue with the server-only `GITHUB_TOKEN`
+  (`GITHUB_REPO`, optional `GITHUB_API_URL`). **Never** send the GitHub token
+  or the PB token to the browser. Missing token/repo still returns
+  `200 { issue: null }` and the row stays `stored` (UI:
+  已收到反馈，暂未同步 GitHub); GitHub failures set `status=failed` without
+  losing the report. The issue body is sanitized/truncated and includes a
+  server-fetched transcript of the last 20 chat messages / 10k chars when a
+  conversation is attached. Vite proxies only `/feedback/report` (never
+  `/feedback`, which is a client route); production reverse proxies must do
+  the same.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
   from `components/TouXiang/presets.tsx` (`""` = default ring, `"none"` hides
   it), and `users.circle` points at an uploaded `tou_xiang_circle` row whose
@@ -361,6 +382,11 @@ before your first commit.
     `opencode.ai` out of the dev proxy env. Prod: the reverse proxy must route
     `/ai/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too), and
     the Vercel build derives the relay from `VITE_POCKETBASE_URL`.
+    The feedback endpoint is `POST /feedback/report` on the same supervisor:
+    prod must proxy that exact path to :9001 while `/feedback` itself stays
+    the SPA route (Vite dev proxies only `/feedback/report`). `GITHUB_TOKEN`
+    / `GITHUB_REPO` / `GITHUB_API_URL` live in `.env.prod` (dev: `.env`);
+    `server.ts` carries them across a respawn.
 
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use
@@ -467,8 +493,9 @@ before your first commit.
 - AI entry points: 聊天, 记账 (natural-language + receipt parse, monthly review,
   category backfill), 动态 composer captions, Home (去年今天 inline in the
   feed; the daily line is computed locally), Study (wrong-answer overview,
-  targeted drill, sprint plan),
-  and the year report at `/report`. Data sent to the provider is only what the
+  targeted drill, sprint plan), the year report at `/report`, and 问题反馈's
+  「AI 帮我整理」 (rewrites the title/description; a 503 keeps the original
+  text and the form still submits). Data sent to the provider is only what the
   feature builds locally; nothing AI-related is written back to PocketBase
   except the user-confirmed expense rows/categories.
 - Adding a page: create `app/routes/_protected/_main/<name>/index.tsx` with

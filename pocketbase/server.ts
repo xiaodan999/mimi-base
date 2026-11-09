@@ -16,6 +16,10 @@
  *                       OpenCode Go key (see ai-relay.ts). The key comes from
  *                       OPENCODE_API_KEY and never reaches the browser.
  *   GET  /ai/health     relay status: key configured + model (no auth).
+ *   POST /feedback/report
+ *                       owner-scoped bug report -> GitHub issue via
+ *                       GITHUB_TOKEN/GITHUB_REPO (see feedback.ts). Missing
+ *                       token still accepts the stored report.
  *   POST /db/sync       git pull --ff-only -> stop PB -> pb_data snapshot ->
  *                       start PB -> respond only after /api/health passes.
  *                       A failed snapshot ABORTS the restart (PB stays down,
@@ -69,6 +73,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import { createAiRelay } from "./ai-relay";
+import { createFeedbackService } from "./feedback";
 import { createIpCityLookup } from "./geo-ip";
 import { resolveChatModels } from "./chat-models";
 import { createSandboxExecutor } from "./sandbox-exec";
@@ -636,6 +641,7 @@ const fileHash = async (p: string) =>
 const SUPERVISOR_MODULES = [
     "server.ts",
     "ai-relay.ts",
+    "feedback.ts",
     "ai-files.ts",
     "ai-tools.ts",
     "geo-ip.ts",
@@ -969,6 +975,9 @@ function scheduleRespawn(): void {
             "AI_DAILY_REQUESTS_PER_USER",
             "SANDBOX_BASE_IMAGE",
             "SANDBOX_BASE_IMAGE_NODE",
+            "GITHUB_TOKEN",
+            "GITHUB_REPO",
+            "GITHUB_API_URL",
         ]) {
             if (process.env[key] !== undefined) {
                 respawnEnv[key] = process.env[key];
@@ -1109,6 +1118,17 @@ function startHttpServer() {
         geoLookup: createIpCityLookup({ devEgress: !isProd }),
     });
 
+    // Bug reports are created in PocketBase by the client first; this only
+    // opens the GitHub issue. Without GITHUB_TOKEN the report is still
+    // accepted (`issue: null`) so a missing secret never loses feedback.
+    // GITHUB_API_URL is overridable so tests can point at a local mock.
+    const feedback = createFeedbackService({
+        pbBaseUrl: `http://127.0.0.1:${httpPort}`,
+        githubToken: process.env.GITHUB_TOKEN ?? "",
+        githubRepo: process.env.GITHUB_REPO ?? "",
+        githubApiUrl: process.env.GITHUB_API_URL?.trim() || undefined,
+    });
+
     const serve = () => {
         supervisorServer = Bun.serve({
             port: supervisorPort,
@@ -1125,6 +1145,9 @@ function startHttpServer() {
                     server.requestIP(req)?.address ?? "",
                 );
                 if (ai) return ai;
+
+                const report = await feedback(req);
+                if (report) return report;
 
                 // No deploy secret: deploy endpoints stay off, but the AI
                 // relay above keeps serving (it authenticates PB users).

@@ -15,7 +15,8 @@ export type UpdatePath =
     | "/jizhang"
     | "/study"
     | "/profile"
-    | "/report";
+    | "/report"
+    | "/feedback";
 
 export type UpdateLink = {
     label: string;
@@ -41,14 +42,15 @@ export type Update = {
 export const UPDATES: Update[] = [
     {
         date: "2026-11-09",
-        title: "视频、界面与实时同步",
-        summary: "动态能发视频，晚餐抽奖升级，另一台手机的改动实时出现。",
+        title: "视频、同步与问题反馈",
+        summary: "动态能发视频，另一台手机的改动实时同步，问题可直接反馈。",
         highlight:
             "动态现在可以发一段视频：支持 MP4、WebM 和 MOV，最大 50MB，和照片二选一，发布后能直接播放、暂停和全屏观看。",
         links: [
             { label: "去动态", to: "/home" },
             { label: "去聊天", to: "/chat" },
             { label: "去个人资料", to: "/profile" },
+            { label: "去反馈", to: "/feedback" },
         ],
         fixed: [
             "底部导航的选中效果改成整块高亮，图标和文字一起亮，按下时和松手后保持一致。",
@@ -65,6 +67,8 @@ export const UPDATES: Update[] = [
             "回到 App 或网络恢复后会自动刷新，减少看到旧数据的机会。",
         ],
         added: [
+            "个人资料页新增「问题反馈」：写下现象，附上最多 3 张截图和一条相关 AI 对话，页面、版本和最近的报错会自动带上；提交后自动创建 GitHub Issue，没配置 GitHub 时也会先保存在基地里。",
+            "反馈表单里有「AI 帮我整理」：把零散描述改写成标题、现象和复现步骤；AI 不可用时原文照常提交。",
             "AI 聊天现在能读评论了：问「最近大家在讨论什么」，它会翻出最近的评论和回复，按评论人整理，还能说明谁回复了谁。",
             "动态现在可以发一段视频：支持 MP4、WebM 和 MOV，最大 50MB，和照片二选一，发布后能直接播放、暂停和全屏观看。",
             "晚餐抽奖机升级成会转的彩色转盘：点中间的「开转」，转盘会慢慢停下并把今晚的晚餐放大展示。",

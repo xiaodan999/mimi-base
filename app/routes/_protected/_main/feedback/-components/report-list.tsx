@@ -1,0 +1,113 @@
+import { ExternalLink, ImageIcon, Inbox } from "lucide-react";
+
+import type { FeedbackReportRecord } from "@/app/feedback/data";
+import { Badge } from "@/components/ui/badge";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { formatDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
+
+function statusLabel(status: FeedbackReportRecord["status"]): string {
+    if (status === "issue_created") return "已建 Issue";
+    if (status === "failed") return "同步失败";
+    return "已收到";
+}
+
+function statusClass(status: FeedbackReportRecord["status"]): string {
+    if (status === "issue_created") {
+        return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    }
+    if (status === "failed") {
+        return "border-destructive/30 bg-destructive/10 text-destructive";
+    }
+    return "border-border bg-muted/50 text-muted-foreground";
+}
+
+export function ReportList({
+    reports,
+    loading,
+}: {
+    reports: FeedbackReportRecord[];
+    loading: boolean;
+}) {
+    if (loading) {
+        return (
+            <div className="mt-3 flex justify-center py-8">
+                <LoadingSpinner />
+            </div>
+        );
+    }
+    if (reports.length === 0) {
+        return (
+            <div className="mt-3 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
+                <Inbox
+                    className="size-6 text-muted-foreground"
+                    aria-hidden="true"
+                />
+                <p className="text-sm text-muted-foreground">
+                    还没有提交过反馈
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <ul className="mt-3 space-y-2">
+            {reports.map((report) => (
+                <li
+                    key={report.id}
+                    className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft"
+                >
+                    <div className="flex items-start gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-semibold">
+                            {report.title}
+                        </p>
+                        <Badge
+                            className={cn(
+                                "shrink-0 text-[10px]",
+                                statusClass(report.status),
+                            )}
+                            variant="outline"
+                        >
+                            {statusLabel(report.status)}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {report.description}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                        <span>{formatDate(report.created)}</span>
+                        {(report.screenshots?.length ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1">
+                                <ImageIcon
+                                    className="size-3"
+                                    aria-hidden="true"
+                                />
+                                {report.screenshots?.length} 张截图
+                            </span>
+                        )}
+                        {report.conversation && <span>附带 AI 对话</span>}
+                        {report.issue_url && (
+                            <a
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                                href={report.issue_url}
+                                rel="noreferrer"
+                                target="_blank"
+                            >
+                                查看 Issue
+                                <ExternalLink
+                                    className="size-3"
+                                    aria-hidden="true"
+                                />
+                            </a>
+                        )}
+                    </div>
+                    {report.status === "failed" && report.error && (
+                        <p className="mt-2 rounded-lg bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
+                            {report.error}
+                        </p>
+                    )}
+                </li>
+            ))}
+        </ul>
+    );
+}

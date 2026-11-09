@@ -61,6 +61,10 @@ export const qk = {
         ["year-report", userId, year] as const,
     /** Prefix for every year's report. */
     yearReportAll: ["year-report"] as const,
+    feedback: {
+        all: ["feedback"] as const,
+        reports: (userId: string) => ["feedback", "reports", userId] as const,
+    },
     chat: {
         all: ["chat"] as const,
         conversations: (userId: string) =>

@@ -3,6 +3,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { AiProvider } from "@/app/ai/AiContext";
 import { abortAllChatRuns } from "@/app/chat/run-store";
+import { FeedbackCapture } from "@/app/feedback/context";
 import NavButtons from "@/components/NavButtons";
 import OfflineBanner from "@/components/OfflineBanner";
 import { RouteError } from "@/components/RouteError";
@@ -24,6 +25,7 @@ function Layout() {
 
     return (
         <AiProvider>
+            <FeedbackCapture />
             <div className="flex h-full flex-col bg-background">
                 <a
                     href="#main-content"

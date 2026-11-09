@@ -6,6 +6,7 @@ import {
     ChevronRight,
     Info,
     type LucideIcon,
+    MessageSquareWarning,
     Pencil,
     Sparkles,
 } from "lucide-react";
@@ -270,6 +271,16 @@ function Page() {
                         title="AI 设置"
                     />
                 </button>
+                <Link
+                    to="/feedback"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        description="遇到问题？带上截图和 AI 对话告诉我们"
+                        icon={MessageSquareWarning}
+                        title="问题反馈"
+                    />
+                </Link>
             </Section>
 
             <Section title="关于">

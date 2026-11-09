@@ -152,6 +152,15 @@ export default defineConfig(({ mode }) => {
                     target: `http://127.0.0.1:${supervisorPort}`,
                     xfwd: true,
                 },
+                // Bug-report -> GitHub issue endpoint (Bun supervisor). Only
+                // the API path is proxied: `/feedback` itself is a client
+                // route and must keep the SPA history fallback. Production
+                // must route `/feedback/report` to the supervisor port (see
+                // AGENTS.md).
+                "/feedback/report": {
+                    target: `http://127.0.0.1:${supervisorPort}`,
+                    xfwd: true,
+                },
             },
         },
         // Vite 8 resolves tsconfig `paths` natively; no vite-tsconfig-paths plugin.

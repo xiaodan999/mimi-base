@@ -6,7 +6,8 @@ everything lives inside the repo clone:
 ```
 <mimi>/                          # wherever you clone it = the whole deployment
 ├── .env.prod                    # gitignored: SUPERUSER_*, DEPLOY_TOKEN,
-│                                #   PB_HTTP, OPENCODE_API_KEY (chmod 600)
+│                                #   PB_HTTP, OPENCODE_API_KEY, GITHUB_TOKEN,
+│                                #   GITHUB_REPO (chmod 600)
 ├── mimi-db.log                  # gitignored runtime log
 ├── scripts/server-setup.sh      # one-command server setup (idempotent)
 └── pocketbase/                  # this dir:
@@ -14,6 +15,7 @@ everything lives inside the repo clone:
     │                            #   serves the AI relay + token-protected
     │                            #   deploy endpoints on :9001
     ├── ai-relay.ts              # streaming /ai relay using the site key
+    ├── feedback.ts              # bug report -> GitHub issue (/feedback/report)
     ├── ai-files.ts              # server-side chat attachment reader
     ├── package.json / bun.lock  # server-only deps: pdf.js + @napi-rs/canvas
     ├── pb_migrations/           # committed schema (legacy_id carryover, counters)
@@ -81,9 +83,10 @@ first for that — then also update the GitHub `DEPLOY_TOKEN` secret and
 restart PB).
 
 Exposing the API to the internet (reverse proxy + TLS) is a separate
-concern; the requirements are that `/api/*`, `/ai/*`, `/db/sync` (and
-`/spa/*` when self-hosting the frontend) are reachable by your apps and the
-deploy pipeline.
+concern; the requirements are that `/api/*`, `/ai/*`, `/feedback/report`,
+`/db/sync` (and `/spa/*` when self-hosting the frontend) are reachable by
+your apps and the deploy pipeline. `/feedback/report` must go to the
+supervisor (:9001), while `/feedback` itself stays the SPA route.
 
 ## AI relay
 
@@ -179,6 +182,43 @@ The general chat (`/chat`) uses these routes:
 
 The Vercel build calls the relay at `${VITE_POCKETBASE_URL}/ai/...`, so the
 PB host's reverse proxy must expose `/ai/*` as well.
+
+## Bug reports -> GitHub
+
+`/feedback` writes a row into the owner-scoped `feedback_reports` collection
+(screenshots upload through PocketBase, protected files). The client then
+calls `POST /feedback/report` on the supervisor with `{ reportId }` and its
+PocketBase token. `feedback.ts`:
+
+- re-authenticates with `auth-refresh` and re-reads the report **with the
+  caller's token**, so PocketBase's owner rules decide access (another
+  owner's id is a 404);
+- limits each user to 5 submissions/hour (sliding window, in memory);
+- builds a sanitized/truncated Markdown issue (description, route, build
+  version + sha, UA, timestamp, screenshot names, last 20 console errors,
+  and a collapsed transcript of the last 20 chat messages / 10k chars when
+  a conversation is attached);
+- creates `[Bug] <title>` with labels `bug` + `from-app`, then writes
+  `status=issue_created`, `issue_url` and `issue_number` back onto the row.
+
+Config in `.env.prod` (or `.env` in dev): `GITHUB_TOKEN` (fine-grained token
+with `issues:write` on the target repo), `GITHUB_REPO=owner/repo`, and
+optionally `GITHUB_API_URL` (default `https://api.github.com`; used by tests
+against a local mock). The token never reaches the browser, PocketBase, or
+the logs. If `GITHUB_TOKEN` or `GITHUB_REPO` is missing the endpoint still
+returns `200 { issue: null }` and leaves the row `stored`, so the UI says
+已收到反馈，暂未同步 GitHub instead of failing the submission. A GitHub error
+writes `status=failed` + a short error and returns 502; the report is kept.
+
+Reverse proxy: route **only** `/feedback/report` to `127.0.0.1:9001`; do not
+proxy `/feedback` itself, or the SPA page stops loading:
+
+```nginx
+location = /feedback/report {
+    proxy_pass http://127.0.0.1:9001;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}
+```
 
 ## Code sandbox
 
