@@ -15,6 +15,7 @@
 
 ### 新增
 
+- 新增 `bun run preview`（`scripts/preview.mjs`）：构建生产包后静态托管 `build/`，把 `/db` 去掉前缀转发给 PocketBase、`/api` 转发给 supervisor，SPA 路由回退到 `index.html`，用于在内存吃紧的机器上用浏览器验证 UI，而不必常驻 Vite 开发服务器（后者约 430MB，这套约 120MB）。构建固定用 `VITE_POCKETBASE_URL=same-origin`；`PREVIEW_PORT` / `PB_PORT` / `SUPERVISOR_PORT` 可覆盖端口，`PREVIEW_BUILD=0` 复用现有 `build/`；已在跑的 PocketBase 会复用，Ctrl-C 会一并停掉后端。
 - 个人资料页新增「账号」区：新增「退出登录」入口，确认后清空查询缓存并回到登录页，方便同一台设备换另一个账号进入；取消则回到个人资料页。开发模式下的「开发账号」区仍可一键切换 `test` / `test2`，切换会直接替换会话（不再先退出），在飞行的聊天任务会先中止。
 
 ### 变更

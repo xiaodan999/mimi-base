@@ -64,6 +64,8 @@ Chinese; keep that style when adding user-facing text.
   `scripts/lan-proxy.mjs` with the Windows node to forward the Vite port to the
   VM (no admin or portproxy required). PocketBase stays on loopback; Vite
   proxies `/api` and dev runs with `VITE_POCKETBASE_URL=same-origin`.
+  `scripts/preview.mjs` backs `bun run preview` and `scripts/perf.mjs` the
+  Playwright perf harness; both serve `build/` the way the deployment does.
   `tmp/` is gitignored scratch (do not commit).
 
 ## Commands
@@ -79,6 +81,7 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # VITE_PORT/PB_PORT from .env; one instance per
                           # worktree is safe to run side by side
 bun run build             # vite build + bun check (app; no server deps needed)
+bun run preview           # build + serve build/ with /db and /api proxies
 bun run test              # bun test (whole repo; pure logic, no server needed)
 bun run typecheck         # bun check for the app + pocketbase/
 bun run lint              # biome lint (biome.json)
@@ -92,13 +95,38 @@ Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
 (`bun run typecheck`). There is no `bun lint`; don't reintroduce Prettier, an
 ESLint config, or a second linter. Unit tests use Bun's built-in runner and
 cover pure logic only; `bun test` scans the whole repo. Verify UI changes with
-`bun run build` and the dev server.
+`bun run build` and the dev server, or with `bun run preview` when a dev server
+cannot be left running (see Previewing the production build).
 
 Silence a rule with `// biome-ignore lint/<group>/<rule>: <reason>` on the line
 Biome reports — for hooks that means directly above the `useEffect`/`useMemo`
 call, not above the statement that looks wrong. Biome ignores
 `eslint-disable` comments, and an ignore that matches no finding is a hard
 error (`suppressions/unused`), so move the comment with the code.
+
+## Previewing the production build
+
+`bun run preview` (`scripts/preview.mjs`) is how to look at the UI without a dev
+server. It runs `bun run build` with `VITE_POCKETBASE_URL=same-origin`, starts
+PocketBase + the Bun supervisor, and serves `build/` exactly as the self-hosted
+deployment does: static files, SPA fallback, `/db` proxied to PocketBase with
+the prefix stripped, `/api` proxied to the supervisor.
+
+This matters on a memory-constrained machine (a 1–2GB container, say). A Vite
+dev server keeps a ~430MB process alive to serve the same thing; the preview
+server plus its backends stay around 120MB. The cost is one `bun run build` per
+change — there is no hot reload. Use it for visual checks and keep `bun run dev`
+for editing.
+
+- `PREVIEW_PORT` (4500), `PB_PORT` (8110) and `SUPERVISOR_PORT` (9110) override
+  the ports, so it can run next to a dev stack; `PREVIEW_BUILD=0` reuses the
+  existing `build/`. A PocketBase already answering on `PB_PORT` is reused.
+- The build must be the `same-origin` one. A bundle made for another origin
+  calls that origin directly and bypasses the `/db` proxy.
+- Log in with the dev seed account `test@mimi.local` / `mimi123456`.
+- Ctrl-C stops the preview and the backends it started.
+- `scripts/perf.mjs` is the same serving layout plus Playwright measurement —
+  the preview script is that minus the browser.
 
 ## Performance
 
