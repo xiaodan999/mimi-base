@@ -115,8 +115,13 @@ export function videoFirstFrameUrl(url: string): string {
 /** Used until the video reports its intrinsic size, so the box never collapses. */
 export const DEFAULT_VIDEO_RATIO = 16 / 9;
 
-/** Portrait phone clips stop at 9:16; taller ratios would eat the whole feed. */
-export const MIN_VIDEO_RATIO = 9 / 16;
+/**
+ * Portrait clips keep their own shape down to 2:5. x.com renders a 590×1280
+ * phone recording (0.46) at its native ratio; the old 9:16 cap letterboxed
+ * those with black side bars. The 75dvh height cap still stops one clip from
+ * eating the whole feed.
+ */
+export const MIN_VIDEO_RATIO = 2 / 5;
 
 /** Wider than 16:9 gets letterboxed inside a 16:9 box instead of letter-shaped. */
 export const MAX_VIDEO_RATIO = 16 / 9;
@@ -124,7 +129,7 @@ export const MAX_VIDEO_RATIO = 16 / 9;
 /**
  * Display aspect ratio (width / height) for a feed video. The box follows the
  * clip's intrinsic ratio — a portrait 9:16 clip fills the card instead of
- * sitting in a 16:9 box as a narrow pillar — clamped to a sane range so one
+ * sitting in a 16:9 box as a narrow pillar — clamped to 2:5..16:9 so one
  * extreme recording cannot dominate the feed. Falls back to 16:9 before
  * metadata is known or when the browser reports no size.
  */

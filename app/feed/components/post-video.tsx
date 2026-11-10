@@ -50,7 +50,7 @@ const AUTOPLAY_VISIBLE_RATIO = 0.6;
  * The box follows the clip's intrinsic aspect ratio (once metadata is known)
  * instead of forcing 16:9: a phone recording is usually portrait, and drawing
  * it in a wide box left it as a narrow pillar between two huge black bars.
- * Ratios are clamped to 9:16..16:9 and the height to 75dvh; `object-contain`
+ * Ratios are clamped to 2:5..16:9 and the height to 75dvh; `object-contain`
  * keeps the rest readable without ever cropping.
  */
 export default function PostVideo({

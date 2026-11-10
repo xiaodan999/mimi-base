@@ -167,8 +167,10 @@ describe("videoDisplayRatio", () => {
         expect(videoDisplayRatio(1080, 1080)).toBe(1);
     });
 
-    test("clamps extremes to 9:16 .. 16:9", () => {
-        expect(videoDisplayRatio(1080, 2340)).toBeCloseTo(9 / 16, 5);
+    test("keeps tall phone recordings, clamps only extremes", () => {
+        // x.com shows a 590x1280 screen recording at its native 0.46 ratio.
+        expect(videoDisplayRatio(590, 1280)).toBeCloseTo(590 / 1280, 5);
+        expect(videoDisplayRatio(1080, 3600)).toBeCloseTo(2 / 5, 5);
         expect(videoDisplayRatio(2560, 1080)).toBeCloseTo(16 / 9, 5);
     });
 
