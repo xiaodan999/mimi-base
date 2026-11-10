@@ -1,4 +1,11 @@
-import { type SyntheticEvent, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+    type SyntheticEvent,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -153,6 +160,9 @@ export function twitterNaturalAspect(width: number, height: number): number {
  */
 export function TwitterMedia({ images, onOpen }: ImageListProps) {
     const [ratios, setRatios] = useState<Record<number, number>>({});
+    const stripRef = useRef<HTMLDivElement>(null);
+    const [canPrev, setCanPrev] = useState(false);
+    const [canNext, setCanNext] = useState(false);
 
     const ratioAt = (index: number) =>
         ratios[index] ?? TWITTER_MEDIA_DEFAULT_ASPECT;
@@ -167,6 +177,41 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                 [index]: aspectOf(photo.naturalWidth, photo.naturalHeight),
             }));
         };
+
+    const pairMeasured = ratios[0] !== undefined && ratios[1] !== undefined;
+    const keepPair =
+        images.length === 2 &&
+        (!pairMeasured || twitterPairFits(ratios[0], ratios[1]));
+    const showStrip = images.length > 2 || (images.length === 2 && !keepPair);
+
+    /** Keep the hover arrows honest as the strip scrolls or resizes. */
+    const updateArrows = useCallback(() => {
+        const strip = stripRef.current;
+        if (!strip) return;
+        setCanPrev(strip.scrollLeft > 1);
+        setCanNext(
+            strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1,
+        );
+    }, []);
+
+    useEffect(() => {
+        if (!showStrip) return;
+        const strip = stripRef.current;
+        if (!strip) return;
+        updateArrows();
+        const observer = new ResizeObserver(updateArrows);
+        observer.observe(strip);
+        return () => observer.disconnect();
+    }, [showStrip, updateArrows]);
+
+    const scrollStrip = (direction: 1 | -1) => {
+        const strip = stripRef.current;
+        if (!strip) return;
+        const slide = strip.firstElementChild as HTMLElement | null;
+        // One slide plus the 4px gutter is exactly the next snap position.
+        const amount = (slide?.offsetWidth ?? strip.clientWidth) + 4;
+        strip.scrollBy({ left: amount * direction, behavior: "smooth" });
+    };
 
     if (images.length === 0) return null;
 
@@ -192,11 +237,6 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
             </div>
         );
     }
-
-    const pairMeasured = ratios[0] !== undefined && ratios[1] !== undefined;
-    const keepPair =
-        images.length === 2 &&
-        (!pairMeasured || twitterPairFits(ratios[0], ratios[1]));
 
     if (keepPair) {
         return (
@@ -243,10 +283,12 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
         // so the strip can run edge to edge, then pad the scroll content back
         // to that column: the first slide lines up with the text and the
         // neighbours peek out towards the card edges, as X does.
-        <div className="mt-3 -mr-4 -ml-[4.25rem]">
+        <div className="group relative mt-3 -mr-4 -ml-[4.25rem]">
             <div
+                ref={stripRef}
                 role="group"
                 aria-label="图片，左右滑动查看"
+                onScroll={updateArrows}
                 // `scroll-padding` matches the text-column offset, so a slide
                 // that snaps lands on the text edge instead of the card edge
                 // (X snaps its media strip the same way).
@@ -271,6 +313,39 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                     </button>
                 ))}
             </div>
+
+            {/* X shows these only on hover-capable devices, dimming the arrow
+                that cannot go further. v4's hover variants already live behind
+                `@media (hover: hover)`, so a tap on a phone never surfaces
+                them. Keyboard focus reveals the enabled one too. */}
+            <button
+                type="button"
+                disabled={!canPrev}
+                onClick={() => scrollStrip(-1)}
+                aria-label="上一张图片"
+                className={cn(
+                    "absolute top-1/2 left-[4.375rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-150 focus-visible:opacity-100",
+                    canPrev
+                        ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+                        : "pointer-events-none group-hover:opacity-50",
+                )}
+            >
+                <ChevronLeft className="size-5" aria-hidden="true" />
+            </button>
+            <button
+                type="button"
+                disabled={!canNext}
+                onClick={() => scrollStrip(1)}
+                aria-label="下一张图片"
+                className={cn(
+                    "absolute top-1/2 right-[1.125rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-150 focus-visible:opacity-100",
+                    canNext
+                        ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+                        : "pointer-events-none group-hover:opacity-50",
+                )}
+            >
+                <ChevronRight className="size-5" aria-hidden="true" />
+            </button>
         </div>
     );
 }

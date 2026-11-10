@@ -22,6 +22,7 @@ import {
     TwitterMedia,
 } from "./post-images";
 import PostVideo from "./post-video";
+import { TweetText } from "./tweet-text";
 
 type PostProps = PostData & {
     onOpenComments: () => void;
@@ -233,11 +234,7 @@ export default function Post({
                             {menu}
                         </div>
 
-                        {text && (
-                            <p className="mt-1.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
-                                {text}
-                            </p>
-                        )}
+                        {text && <TweetText text={text} />}
 
                         {videoUrl && (
                             <div className="mt-3">
