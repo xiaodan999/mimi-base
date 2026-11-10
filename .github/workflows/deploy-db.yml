@@ -41,19 +41,26 @@ jobs:
             # secret — it is the public site URL.
             PB_BASE_URL: ${{ vars.PB_BASE_URL }}
         steps:
-            # Gate on a configured secret so a fork / fresh box no-ops cleanly.
-            - name: Check deploy secret
+            # Always runs, so the armed path never shows a skipped step. It
+            # decides whether the deploy runs and explains why when it cannot.
+            - name: Check deploy configuration
               id: gate
               run: |
                   if [ -n "${PB_BASE_URL:-}" ] && [ -n "${DEPLOY_TOKEN:-}" ]; then
                       echo "armed=yes" >> "$GITHUB_OUTPUT"
+                      echo "Deploy configuration found — triggering /db/sync."
+                      echo "### Deploy configured" >> "$GITHUB_STEP_SUMMARY"
+                      echo "" >> "$GITHUB_STEP_SUMMARY"
+                      echo "/db/sync will run for ${PB_BASE_URL}." >> "$GITHUB_STEP_SUMMARY"
+                      echo "::notice title=Deploy configured::/db/sync will run for ${PB_BASE_URL}."
                   else
                       echo "armed=no" >> "$GITHUB_OUTPUT"
+                      echo "Deploy skipped: DEPLOY_TOKEN or PB_BASE_URL is missing, so /db/sync was not triggered."
+                      echo "### Deploy skipped" >> "$GITHUB_STEP_SUMMARY"
+                      echo "" >> "$GITHUB_STEP_SUMMARY"
+                      echo "DEPLOY_TOKEN or PB_BASE_URL is missing, so /db/sync was not triggered." >> "$GITHUB_STEP_SUMMARY"
+                      echo "::notice title=Deploy skipped::DEPLOY_TOKEN or PB_BASE_URL is missing; /db/sync was not triggered."
                   fi
-
-            - name: Skip (no deploy secret)
-              if: steps.gate.outputs.armed != 'yes'
-              run: echo "deploy secret or PB_BASE_URL not configured — skipping /db/sync"
 
             - name: Trigger /db/sync
               if: steps.gate.outputs.armed == 'yes'
