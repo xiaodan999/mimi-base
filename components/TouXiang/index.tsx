@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { SmileFill } from "antd-mobile-icons";
+import { Smile } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -99,7 +99,10 @@ export default function TouXiang({
                         src={touXiangUrl}
                     />
                 ) : (
-                    <SmileFill className="h-full w-full text-muted-foreground" />
+                    <Smile
+                        className="h-full w-full text-muted-foreground"
+                        strokeWidth={1.5}
+                    />
                 )}
             </div>
             <CircleRing

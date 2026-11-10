@@ -6,6 +6,7 @@
 
 ### 变更
 
+- 工具链瘦身：类型检查只保留 `bun check`，删除 `typecheck:tsc` 脚本和 pre-commit 钩子里的 `tsc` 步骤（`bun check` 与本仓库 `tsc --noEmit` 的差异测试输出一致，钩子从约 20s 降到约 3s）。同时移除 `rollup-plugin-visualizer`，`vite build` 不再每次生成 1.7MB 的 `tmp/stats.html`（构建 4.15s → 3.17s，峰值内存 1.69GB → 1.53GB），并移除 `antd-mobile-icons`：默认头像占位图标改用已有的 lucide `Smile`（`components/TouXiang/index.tsx`）。`AGENTS.md` / `CONTRIBUTING.md` 同步改写。
 - 反馈 Issue 状态写回数据库：新增迁移 `1796100000_feedback_issue_state.js`，给 `feedback_reports` 加 `issue_state`（`open` / `closed`）和 `issue_state_checked`。`POST /api/feedback/issue-state` 改为接收 `{ reportIds }`（最多 50 个），用调用者令牌重读每一行（集合规则仍是可见性边界），只为 `issue_created` 且未关闭的报告请求 GitHub，并把结果写回报告行；已保存的 `closed` 是终态，不再请求 GitHub（在 GitHub 重新打开也不会翻回）。状态仍缓存 60 秒，GitHub 失败只省略该编号，保留上次状态。写回优先使用 `.env.prod` 里已有的 `SUPERUSER_EMAIL` / `SUPERUSER_PASSWORD` 换取管理员令牌（共享的功能建议由另一账号查看时也能落库），管理员登录失败或无配置时退回调用者令牌，仅写自己的报告；开发环境默认使用 `dev_seed.pb.js` 的 `dev@mimi.local`。客户端 `ReportList` 先用行里的 `issue_state` 渲染，刷新结果再覆盖；`issue-state.ts` 新增 `parseRecordIssueState`，列表只提交尚未关闭的报告 id。测试覆盖管理员写回、终态跳过、GitHub 失败、不可读/未同步行、管理员回退、鉴权、50 条上限与缓存。
 
 ## 2026-11-09

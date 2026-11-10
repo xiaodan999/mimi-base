@@ -7,7 +7,6 @@ import path from "node:path";
 
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
 // `process.env.npm_package_version` is undefined outside an npm/bun script,
@@ -200,13 +199,6 @@ export default defineConfig(({ mode }) => {
             viteReact(),
             preconnectPocketBase,
             swVersionPlugin(),
-            // Keep the 1.2 MB report out of `build/`; it used to be deployed
-            // publicly at /stats.html. It now lands in the gitignored tmp/.
-            visualizer({
-                emitFile: false,
-                filename: "tmp/stats.html",
-                template: "treemap",
-            }),
         ],
         define: {
             APP_VERSION: JSON.stringify(pkg.version),

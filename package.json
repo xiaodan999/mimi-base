@@ -17,8 +17,7 @@
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
         "test": "bun test --path-ignore-patterns=\"tmp/**\"",
-        "typecheck": "bun check && cd pocketbase && bun check",
-        "typecheck:tsc": "tsc --noEmit && tsc -p pocketbase/tsconfig.json --noEmit"
+        "typecheck": "bun check && cd pocketbase && bun check"
     },
     "browserslist": {
         "production": [
@@ -50,7 +49,6 @@
         "@react-three/fiber": "^8",
         "@tanstack/react-query": "^5.59.14",
         "@tanstack/react-router": "^1.76.1",
-        "antd-mobile-icons": "^0.3.0",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.1.1",
         "compressorjs": "^1.2.1",
@@ -89,7 +87,6 @@
         "eslint-plugin-react-hooks": "^7.1.1",
         "globals": "^17.14.0",
         "postcss": "^8.4.47",
-        "rollup-plugin-visualizer": "^7",
         "tailwindcss": "^3.4.14",
         "typescript": "^5.6.3",
         "typescript-eslint": "^8.11.0",

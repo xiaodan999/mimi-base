@@ -79,7 +79,6 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
 bun run build             # vite build + bun check (app; no server deps needed)
 bun run test              # bun test (whole repo; pure logic, no server needed)
 bun run typecheck         # bun check for the app + pocketbase/
-bun run typecheck:tsc     # tsc --noEmit for both projects, also in hook
 bun run lint              # eslint (flat config)
 bun run format            # bun fmt
 bun run format:check      # bun fmt --check
@@ -87,8 +86,8 @@ bun run setup:hooks       # enable .githooks/pre-commit once per clone
 ```
 
 Formatting is Bun's native formatter (`bunfig.toml`), linting is the ESLint
-flat config (`eslint.config.js`), and typechecking runs both `bun check` and
-`tsc --noEmit`. There is no `bun lint`; don't reintroduce Prettier or
+flat config (`eslint.config.js`), and typechecking is `bun check`
+(`bun run typecheck`). There is no `bun lint`; don't reintroduce Prettier or
 `.eslintrc`. Unit tests use Bun's built-in runner and cover pure logic only;
 `bun test` scans the whole repo. Verify UI changes with `bun run build` and the
 dev server.
@@ -613,17 +612,19 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
 
 - Router context (`auth`, `queryClient`) is injected in `app/main.tsx`; add new
   root context keys in both the router and `__root.tsx`.
-- Two typecheckers, both run in the pre-commit hook: `bun run typecheck`
-  uses Bun's built-in `bun check` (bundled TypeScript, fast) for the app and
-  again inside `pocketbase/` for the server project, while
-  `bun run typecheck:tsc` runs the repo-pinned `typescript@^5.6.3`
-  `tsc --noEmit` for the app plus `tsc -p pocketbase/tsconfig.json`. The root
-  `tsconfig.json` excludes `pocketbase/`, so `bun run build` on Vercel/CI
-  does not need the server's own deps. Keep `"types": ["bun"]` and no
-  `baseUrl` in `tsconfig.json`.
+- Typechecking is `bun check` only: `bun run typecheck` runs it for the app and
+  again inside `pocketbase/` for the server project. There is no separate `tsc`
+  script or hook step — a differential run of `tsc --noEmit` against
+  `bun check` over this repo (and over a hand-written set of inference /
+  narrowing cases) produced the same diagnostics, so don't reintroduce one.
+  `typescript@^5.6.3` stays in devDependencies because `typescript-eslint` and
+  the Vite plugin need it, not for a typecheck. The root `tsconfig.json`
+  excludes `pocketbase/`, so `bun run build` on Vercel/CI does not need the
+  server's own deps. Keep `"types": ["bun"]` and no `baseUrl` in
+  `tsconfig.json`.
 - Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`,
-  which runs `bun fmt --staged`, `bun check`, `bun run typecheck:tsc`,
-  `bun run test`, `bun run lint`, and `bun run format:check`.
+  which runs `bun fmt --staged`, `bun run typecheck`, `bun run test`,
+  `bun run lint`, and `bun run format:check`.
 - `APP_VERSION` and `APP_SHA` are Vite `define` globals (declared in
   `vite-env.d.ts`), not environment variables. The app shows the build sha,
   not a version number: there is no release-bump step.
