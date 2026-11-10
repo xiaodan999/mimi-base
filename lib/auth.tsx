@@ -71,11 +71,12 @@ export function useCurrentUser(): User {
 
 /**
  * Ensure the browser is signed in as the dev account behind a `?dev=` key.
- * A different session is switched, not merged. Returns `ok: false` for an
- * unknown key (or a failed sign-in) so callers can fall back to the form.
+ * A different session is replaced in place (no intermediate anonymous state,
+ * so the protected shell keeps rendering). Returns `ok: false` for an unknown
+ * key (or a failed sign-in) so callers can fall back to the form.
  */
 export async function ensureDevSession(
-    auth: Pick<AuthContextType, "waitForAuth" | "login" | "logout">,
+    auth: Pick<AuthContextType, "waitForAuth" | "login">,
     key: string | null | undefined,
 ): Promise<
     | { ok: true; account: DevAccount }
@@ -91,8 +92,6 @@ export async function ensureDevSession(
     ) {
         return { ok: true, account };
     }
-
-    if (snapshot.status === "authenticated") await auth.logout();
 
     const { error } = await auth.login({
         email: account.email,

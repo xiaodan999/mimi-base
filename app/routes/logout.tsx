@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/logout")({
 
 function Page() {
     const { logout } = useAuth();
+    const queryClient = useQueryClient();
     const navigate = useNavigate();
     const [pending, setPending] = useState(false);
 
@@ -18,7 +20,10 @@ function Page() {
         setPending(true);
         try {
             await logout();
-            await navigate({ to: "/" });
+            // The next account must not see the previous one's cached rows.
+            queryClient.clear();
+            // Land on the login page so switching accounts is one more step.
+            await navigate({ href: "/login", replace: true });
         } catch {
             setPending(false);
         }
@@ -28,7 +33,7 @@ function Page() {
         <main className="mx-auto flex h-full max-w-md flex-col items-center justify-center gap-4 p-6 text-center">
             <h1 className="text-xl font-semibold">退出登录</h1>
             <p className="text-sm text-muted-foreground">
-                确定要离开秘密基地吗？下次进入需要重新登录。
+                退出后可以回到登录页，换另一个账号进入。
             </p>
             <div className="mt-2 flex w-full flex-col gap-2">
                 <Button
@@ -36,12 +41,12 @@ function Page() {
                     disabled={pending}
                     onClick={confirmLogout}
                 >
-                    {pending ? "正在退出…" : "确认退出"}
+                    {pending ? "正在退出…" : "退出当前账号"}
                 </Button>
                 <Button
                     variant="outline"
                     disabled={pending}
-                    onClick={() => navigate({ to: "/home" })}
+                    onClick={() => navigate({ to: "/profile" })}
                 >
                     取消
                 </Button>

@@ -420,12 +420,12 @@ before your first commit.
   `./pocketbase superuser upsert <email> <password>` run from `pocketbase/`.
   The hook only runs when `server.ts` sets `MIMI_DEV=1` (dev, i.e. no
   `.env.prod`); prod deletes that var, so none of them is created there.
-  The login page lists the two app accounts in dev (one click), and any
-  protected URL accepts `?dev=test` / `?dev=test2` to sign in as that account
-  and then replaces the URL without the param (`lib/dev-accounts.ts`,
-  `ensureDevSession` in `lib/auth.tsx`). `DEV_ACCOUNTS` is empty in a
-  production build, so neither entry appears. Documented in the root
-  `README.md`.
+  The login page lists the two app accounts in dev (one click), any protected
+  URL accepts `?dev=test` / `?dev=test2` to sign in as that account and then
+  replaces the URL without the param, and the profile page's 开发账号 section
+  switches between them in place (`lib/dev-accounts.ts`, `ensureDevSession` in
+  `lib/auth.tsx`). `DEV_ACCOUNTS` is empty in a production build, so none of
+  these entries appears. Documented in the root `README.md`.
 
 ## Frontend conventions
 
@@ -447,6 +447,11 @@ before your first commit.
   `useCurrentUser()`; route guards await `auth.waitForAuth()` and branch on
   `status` (`_protected.tsx`, `login.tsx`). Don't add `router.invalidate()`
   effects to paper over auth loading.
+- Account switching is logout-based for real users: 个人资料 → 账号 → 退出登录
+  goes to `/logout`, which clears the query cache and returns to `/login` (the
+  next login lands on `/home`). Dev builds also show a 开发账号 section that
+  switches between the seeded accounts in place; it replaces the session
+  without an intermediate anonymous state.
 - `vite.config.ts` enables `autoCodeSplitting`. Keep heavy feature data behind
   route imports (the study bank is its own chunk); don't import it from the
   app shell.

@@ -1,14 +1,18 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     BarChart3,
     Camera,
+    Check,
     ChevronRight,
     Info,
     Lightbulb,
+    LogOut,
     type LucideIcon,
     MessageSquareWarning,
     Pencil,
     Sparkles,
+    UserRound,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +20,7 @@ import { toast } from "sonner";
 import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
 import { UPDATES } from "@/app/about/updates";
 import { useAi } from "@/app/ai/AiContext";
+import { abortAllChatRuns } from "@/app/chat/run-store";
 import TouXiang from "@/components/TouXiang";
 import { CIRCLE_PRESETS, NO_RING } from "@/components/TouXiang/presets";
 import { Button } from "@/components/ui/button";
@@ -28,10 +33,17 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useCurrentUser, type User } from "@/lib/auth";
-import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import {
+    ensureDevSession,
+    useAuth,
+    useCurrentUser,
+    type User,
+} from "@/lib/auth";
+import { DEV_ACCOUNTS, type DevAccount } from "@/lib/dev-accounts";
+import pb, { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 import AvatarCropper from "./-components/avatar-cropper";
 import RingPicker from "./-components/ring-picker";
@@ -73,15 +85,24 @@ function RowContent({
     title,
     description,
     badge,
+    tone = "default",
 }: {
     icon: LucideIcon;
     title: string;
     description: string;
     badge?: ReactNode;
+    tone?: "default" | "destructive";
 }) {
     return (
         <>
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+            <span
+                className={cn(
+                    "grid size-10 shrink-0 place-items-center rounded-full",
+                    tone === "destructive"
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-primary/10 text-primary",
+                )}
+            >
                 <Icon className="size-5" aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
@@ -116,6 +137,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Page() {
     const user = useCurrentUser();
+    const auth = useAuth();
+    const queryClient = useQueryClient();
     const ring = getUserRing(user);
     const { openSettings } = useAi();
     // Read on mount: opening 关于 marks the update seen, and this page
@@ -127,9 +150,35 @@ function Page() {
     const [ringOpen, setRingOpen] = useState(false);
     const [nicknameOpen, setNicknameOpen] = useState(false);
     const [nickname, setNickname] = useState(user.user_name);
+    const [switching, setSwitching] = useState<string | null>(null);
 
     const setAvatar = useSetAvatar();
     const setNicknameMutation = useUpdateNickname();
+    const currentEmail = pb.authStore.record?.email ?? "";
+
+    const switchAccount = async (account: DevAccount) => {
+        if (account.email === currentEmail) return;
+        setSwitching(account.key);
+        try {
+            // An in-flight chat run belongs to the account we are leaving.
+            abortAllChatRuns();
+            const result = await ensureDevSession(auth, account.key);
+            if (!result.ok) {
+                toast.error(result.error ?? "切换账号失败");
+                return;
+            }
+            // Drop the previous account's cached rows before the page
+            // re-renders with the new identity.
+            queryClient.clear();
+            toast.success(`已切换到${account.name}`);
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : "切换账号失败",
+            );
+        } finally {
+            setSwitching(null);
+        }
+    };
 
     const chooseAvatar = async () => {
         const file = await pickImage();
@@ -294,6 +343,73 @@ function Page() {
                     />
                 </Link>
             </Section>
+
+            <Section title="账号">
+                <Link
+                    to="/logout"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        description="退出当前账号，回到登录页换人"
+                        icon={LogOut}
+                        title="退出登录"
+                        tone="destructive"
+                    />
+                </Link>
+            </Section>
+
+            {import.meta.env.DEV && DEV_ACCOUNTS.length > 0 ? (
+                <Section title="开发账号">
+                    {DEV_ACCOUNTS.map((account) => {
+                        const current = account.email === currentEmail;
+                        const pending = switching === account.key;
+                        return (
+                            <button
+                                key={account.key}
+                                type="button"
+                                aria-current={current ? "true" : undefined}
+                                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-accent disabled:cursor-default"
+                                disabled={current || switching !== null}
+                                onClick={() => void switchAccount(account)}
+                            >
+                                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                                    {current ? (
+                                        <Check
+                                            className="size-5"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <UserRound
+                                            className="size-5"
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2 text-sm font-semibold">
+                                        {account.name}
+                                        {current ? (
+                                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                                当前
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                        {account.email}
+                                    </span>
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                    {pending
+                                        ? "切换中…"
+                                        : current
+                                          ? ""
+                                          : "切换"}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </Section>
+            ) : null}
 
             <Section title="关于">
                 <Link

@@ -12,6 +12,10 @@
 - 首次启动解压 PocketBase 不再依赖 shell 里的 `tar`：`pocketbase/server.ts` 改为优先调用 `unzip`，只有没有 `unzip` 时才在 Windows 上回退到 `tar -xf`。原来的写法在 Windows 上固定用 `tar`，而 Git Bash 里的 `tar` 是 GNU tar、读不了 zip（只有 Windows 自带的 bsdtar 支持），于是在下载完二进制后报「This does not look like a tar archive」并退出；其它平台缺少 `unzip` 时现在会给出明确错误。
 - Windows 开发机上的沙箱执行修好了（之前稳定报「沙箱没有返回结果」或直接抛错），Linux 行为不变：`sandbox-exec.ts` 查找解释器时不再只取 `Bun.which` 的第一个匹配，而是按 PATH 顺序逐个执行 `--version` 验证，跳过 Windows 应用商店别名这类「存在但跑不起来」的入口；`runner.mjs` 在 `run` 后会 `chdir` 进沙箱目录，而 Windows 不允许删除进程当前所在的目录（EPERM），这个异常会吞掉 JSON 响应，现在清理前先切出该目录、清理失败也不影响响应；`runner.py` 显式把 stdin/stdout/stderr 改为 UTF-8（`-I` 会忽略 PYTHON* 环境变量，Windows 默认按控制台代码页编码，父进程按 UTF-8 解码会乱码），两个 runner 收集文件的 key 也统一用 `/`。`sandbox-write-append.test.ts` 改用同一套探测逻辑，没有可用的 Python 时跳过对应用例。
 
+### 新增
+
+- 个人资料页新增「账号」区：新增「退出登录」入口，确认后清空查询缓存并回到登录页，方便同一台设备换另一个账号进入；取消则回到个人资料页。开发模式下的「开发账号」区仍可一键切换 `test` / `test2`，切换会直接替换会话（不再先退出），在飞行的聊天任务会先中止。
+
 ### 变更
 
 - 桌面端可以刷新动态了：feed 的浮动操作区新增「刷新动态」按钮，只在 `(hover: hover)` 设备显示（`[@media(hover:hover)]:inline-flex`），复用下拉刷新的逻辑（`refresh()` 重置到最新一页并让首页统计失效），刷新时禁用并换成转圈图标；手机仍有下拉刷新，不重复显示按钮。

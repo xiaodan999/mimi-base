@@ -31,7 +31,7 @@ import { toInternalHref } from "@/lib/redirect";
 const FALLBACK = "/home";
 
 /** In-app target for the current `?redirect=` value. */
-function loginTarget(redirectTo: string) {
+function loginTarget(redirectTo: string | undefined) {
     return toInternalHref(redirectTo, window.location.origin) ?? FALLBACK;
 }
 
@@ -39,11 +39,14 @@ export const Route = createFileRoute("/login")({
     // Keep this route definition free of zod so the login chunk is not part
     // of the initial bundle (the route tree imports this module at startup).
     validateSearch: (search: Record<string, unknown>) => {
-        const redirect =
-            typeof search.redirect === "string" ? search.redirect : "";
-        return typeof search.dev === "string" && search.dev
-            ? { redirect, dev: search.dev }
-            : { redirect };
+        const result: { redirect?: string; dev?: string } = {};
+        if (typeof search.redirect === "string" && search.redirect) {
+            result.redirect = search.redirect;
+        }
+        if (typeof search.dev === "string" && search.dev) {
+            result.dev = search.dev;
+        }
+        return result;
     },
     beforeLoad: async ({ context, search }) => {
         // A dev key signs in before the form renders, so a magic URL lands on
