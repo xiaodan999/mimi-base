@@ -41,7 +41,7 @@ export default function VideoViewer({
             <DialogContent
                 overlayClassName="bg-black/95"
                 showCloseButton={false}
-                className="flex h-[100dvh] w-screen max-w-none !animate-none items-center justify-center rounded-none border-0 bg-black p-0 text-white data-[state=closed]:!animate-none data-[state=open]:!animate-none"
+                className="flex h-[100dvh] w-screen max-w-none animate-none! items-center justify-center rounded-none border-0 bg-black p-0 text-white data-[state=closed]:!animate-none data-[state=open]:!animate-none"
             >
                 <DialogTitle className="sr-only">播放视频</DialogTitle>
                 <DialogDescription className="sr-only">
@@ -61,7 +61,7 @@ export default function VideoViewer({
                     type="button"
                     onClick={() => onOpenChange(false)}
                     aria-label="关闭视频"
-                    className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-10 rounded-full bg-white/15 p-2 text-white active:bg-white/30"
+                    className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 z-10 rounded-full bg-white/15 p-2 text-white active:bg-white/30"
                 >
                     <X className="size-5" />
                 </button>

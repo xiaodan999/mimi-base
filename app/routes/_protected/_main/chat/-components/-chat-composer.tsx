@@ -47,7 +47,7 @@ export function ChatComposer({
             : null;
 
     return (
-        <div className="border-t border-border/70 bg-background/95 px-3 pb-2 pt-2 backdrop-blur-xl">
+        <div className="border-t border-border/70 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-xl">
             {docs.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1.5">
                     {docs.map((doc, index) => (
@@ -108,7 +108,7 @@ export function ChatComposer({
                                 type="button"
                                 aria-label="移除图片"
                                 onClick={() => onRemoveImage(index)}
-                                className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow"
+                                className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-foreground text-background shadow-sm"
                             >
                                 <X className="size-3" />
                             </button>
@@ -151,7 +151,7 @@ export function ChatComposer({
                     minRows={1}
                     maxRows={6}
                     disabled={disabled || inputPending}
-                    className="min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-none [scrollbar-width:none] placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden"
+                    className="min-h-9 flex-1 resize-none [scrollbar-width:none] bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-hidden placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden"
                 />
 
                 {running ? (

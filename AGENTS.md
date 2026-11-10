@@ -389,12 +389,13 @@ before your first commit.
 - `@/*` maps to the repo root; use it instead of deep relative imports.
 - Formatting: `bun fmt` using `bunfig.toml` (4 spaces, double quotes, 80 cols,
   trailing commas, Tailwind class sorting, import sorting). Lint rules live in
-  `biome.json`, which deliberately mirrors the old ESLint bar: the a11y, style
-  and React-Compiler-era rules stay off, `useExhaustiveDependencies` stays
-  `warn` with `reportUnnecessaryDependencies: false`, and CSS is parsed
-  (Tailwind directives) but not linted. `build/` and PocketBase scripts are
-  ignored; `components/ui/` is linted like the rest of the app (see "Forked
-  shadcn primitives"). `bun fmt` still skips it.
+  `biome.json`, which deliberately mirrors the old ESLint bar: the a11y,
+  React-Compiler-era and pure-style rules stay off, `useExhaustiveDependencies`
+  stays `warn` with `reportUnnecessaryDependencies: false`, and CSS is linted
+  with `noDescendingSpecificity` / `noImportantStyles` / `noUnknownAtRules`
+  off. `build/` and PocketBase scripts are ignored; `components/ui/` is linted
+  like the rest of the app (see "Forked shadcn primitives"). `bun fmt` still
+  skips it.
 - Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Define
   every key in `lib/query-keys.ts` (`qk.*`); per-user keys include the user id,
   and mutations invalidate the `qk.*.all` prefix. Don't import `queryClient`
@@ -563,10 +564,10 @@ before your first commit.
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.
 - Style with Tailwind + `components/ui` primitives + `cn()` from
   `lib/utils.ts`. There are no CSS modules; the nav uses lucide icons.
-- `hover:` styles only reach devices that can hover
-  (`future.hoverOnlyWhenSupported` in `tailwind.config.js`). A touch tap
-  latches `:hover` until the next tap, so a hover-only affordance looks stuck
-  on a phone; use `active:` or state classes for touch feedback.
+- `hover:` styles only reach devices that can hover — v4 emits them behind
+  `@media (hover: hover)` by default. A touch tap latches `:hover` until the
+  next tap, so a hover-only affordance looks stuck on a phone; use `active:`
+  or state classes for touch feedback.
 - Theme tokens live in `globals.css` (`:root` + `.dark`). Prefer semantic
   classes (`bg-card`, `text-muted-foreground`, `border-border`, `shadow-soft`)
   over raw colors so both schemes keep working. `ThemeProvider` is in
@@ -589,7 +590,7 @@ before your first commit.
 
 ## Forked shadcn primitives
 
-`components/ui/` is a **fork**, not pristine `shadcn add` output. Four files
+`components/ui/` is a **fork**, not pristine `shadcn add` output. Five files
 carry customizations that must survive any future `shadcn add` / `init` /
 primitives refresh:
 
@@ -600,6 +601,10 @@ primitives refresh:
 - `drawer.tsx` — the `Drawer` root calls `useBackDismiss` and defaults
   `repositionInputs={false}` (our own keyboard handling sizes the sheet).
 - `sonner.tsx` — theme-aware `Toaster` driven by `useTheme()`.
+- `form.tsx` — `FormItem` uses `[&>*+*]:mt-2` instead of `space-y-2`. v4's
+  `space-y-*` puts the gap on the preceding sibling, which is the inline
+  `<label>` where vertical margins are ignored; the arbitrary variant puts it
+  back on the input and keeps the v3 spacing.
 
 `components.json` records the fork (see its `x-mimi-fork` note), and Biome
 lint-checks `components/ui/` like the rest of the app. **Do not
@@ -609,12 +614,17 @@ re-pointing every importer). The customizations live inside the primitives
 today because all app imports point at `@/components/ui/*`; a full wrapper
 extraction would also require touching importers outside the UI layer.
 
-Tailwind v4 note: upgrading Tailwind does **not** rewrite these `.tsx` files —
-its real concerns are `darkMode: ["class"]` → `@custom-variant`,
-`hsl(var(--x))` tokens → `@theme inline`, `@tailwind` →
-`@import "tailwindcss"`, and `tailwindcss-animate`. v4 makes
-`hoverOnlyWhenSupported` the default, so the mobile hover fix (and the
-`active:` counterparts added to `buttonVariants`) stays valid.
+Tailwind is **v4 and CSS-first**: there is no `tailwind.config.js`. The theme
+lives in `globals.css` (`@theme inline` over the HSL triplets plus the
+`--radius` scale), dark mode is `@custom-variant dark (&:is(.dark *))`,
+`tw-animate-css` replaces `tailwindcss-animate`, and `@source` pins the content
+roots to `index.html` + `app/` + `components/` (the old `content` globs). Vite
+loads it through `@tailwindcss/vite`; there is no PostCSS config. Utilities
+keep the v3 look: `* { @apply border-border }` neutralizes v4's
+`currentColor` border default, and the `rounded-*` names still map to the
+app's own `--radius` scale (not v4's default one). The utilities v4 renamed
+are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
+**suffix** (`text-destructive!`).
 
 ## Gotchas
 

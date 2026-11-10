@@ -731,7 +731,7 @@ export default function ImageViewer({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 overlayClassName="bg-transparent"
-                className="flex h-[100dvh] w-screen max-w-none !animate-none items-center justify-center rounded-none border-0 bg-transparent p-0 text-white data-[state=closed]:!animate-none data-[state=open]:!animate-none [&>button]:hidden"
+                className="flex h-[100dvh] w-screen max-w-none animate-none! items-center justify-center rounded-none border-0 bg-transparent p-0 text-white data-[state=closed]:!animate-none data-[state=open]:!animate-none [&>button]:hidden"
                 onKeyDown={(event) => {
                     if (event.key === "ArrowLeft") {
                         event.preventDefault();
@@ -757,7 +757,7 @@ export default function ImageViewer({
 
                 <div
                     ref={layerRef}
-                    className="absolute inset-0 touch-none select-none overflow-hidden"
+                    className="absolute inset-0 touch-none overflow-hidden select-none"
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
@@ -788,7 +788,7 @@ export default function ImageViewer({
                                     draggable={false}
                                     decoding="async"
                                     onLoad={measure}
-                                    className="max-h-full max-w-full select-none object-contain [-webkit-touch-callout:none]"
+                                    className="max-h-full max-w-full object-contain select-none [-webkit-touch-callout:none]"
                                     style={
                                         imageIndex === current
                                             ? {
@@ -813,13 +813,13 @@ export default function ImageViewer({
                         type="button"
                         onClick={() => onOpenChange(false)}
                         aria-label="关闭"
-                        className="pointer-events-auto absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] rounded-full bg-white/15 p-2 active:bg-white/30"
+                        className="pointer-events-auto absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 rounded-full bg-white/15 p-2 active:bg-white/30"
                     >
                         <X className="size-5" />
                     </button>
 
                     {images.length > 1 && (
-                        <span className="absolute left-1/2 top-[calc(1rem+env(safe-area-inset-top))] -translate-x-1/2 text-sm text-white/80">
+                        <span className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 text-sm text-white/80">
                             {current + 1}/{images.length}
                         </span>
                     )}
@@ -829,7 +829,7 @@ export default function ImageViewer({
                             type="button"
                             onClick={() => goTo(current - 1)}
                             aria-label="上一张"
-                            className="pointer-events-auto absolute left-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
+                            className="pointer-events-auto absolute top-1/2 left-2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
                         >
                             <ChevronLeft className="size-5" />
                         </button>
@@ -839,7 +839,7 @@ export default function ImageViewer({
                             type="button"
                             onClick={() => goTo(current + 1)}
                             aria-label="下一张"
-                            className="pointer-events-auto absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
+                            className="pointer-events-auto absolute top-1/2 right-2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
                         >
                             <ChevronRight className="size-5" />
                         </button>

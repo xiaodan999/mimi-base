@@ -129,7 +129,7 @@ function About() {
             className="h-full overflow-y-auto overscroll-contain"
             data-scroll-restoration-id="about"
         >
-            <div className="mx-auto w-full max-w-md px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))]">
+            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))]">
                 <header className="flex items-center gap-1">
                     <Button
                         asChild
@@ -272,7 +272,7 @@ function About() {
                                 <div className="relative mt-2">
                                     <span
                                         aria-hidden="true"
-                                        className="absolute bottom-3 left-[5px] top-3 w-px bg-border"
+                                        className="absolute top-3 bottom-3 left-[5px] w-px bg-border"
                                     />
                                     <ol>
                                         {group.entries.map((update) => (
@@ -283,7 +283,7 @@ function About() {
                                                 <span
                                                     aria-hidden="true"
                                                     className={cn(
-                                                        "absolute left-0 top-4 size-[11px] rounded-full border-2 border-card",
+                                                        "absolute top-4 left-0 size-[11px] rounded-full border-2 border-card",
                                                         update.date ===
                                                             latestUpdate
                                                             ? "bg-primary"
@@ -377,7 +377,7 @@ function UpdateEntry({
                             {update.title ?? update.date}
                         </span>
                         {latest && (
-                            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-primary">
+                            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] leading-none font-medium text-primary">
                                 新
                             </span>
                         )}

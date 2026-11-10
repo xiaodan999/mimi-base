@@ -85,7 +85,7 @@ function Page() {
     const trend = useMemo(() => buildTrend(days, from, to), [days, from, to]);
 
     return (
-        <div className="px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
+        <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
             <header className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-xs font-medium text-muted-foreground">
@@ -468,7 +468,7 @@ function DayCard({
                                         <span>改分类</span>
                                     </ContextMenuItem>
                                     <ContextMenuItem
-                                        className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
+                                        className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive!"
                                         onClick={() => {
                                             toastPromise(
                                                 deleteMutation.mutateAsync(

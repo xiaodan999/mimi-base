@@ -111,7 +111,7 @@ const ThreadActionsContext = createContext<ThreadActions>({
 
 function UserText({ text }: { text: string }) {
     return (
-        <div className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+        <div className="text-[15px] leading-relaxed break-words whitespace-pre-wrap">
             {text}
         </div>
     );
@@ -147,7 +147,7 @@ function UserAttachmentCard({ data }: DataMessagePartProps) {
         >
             <FileText className="size-4 shrink-0" />
             <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium leading-tight">
+                <span className="block truncate text-[13px] leading-tight font-medium">
                     {part.name}
                 </span>
                 <span className="block text-[11px] leading-tight opacity-70">
@@ -253,13 +253,13 @@ function UserMessage() {
     return (
         <MessagePrimitive.Root className="group/message mb-5 flex flex-col items-end">
             <ComposerPrimitive.If editing>
-                <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-sm">
+                <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-xs">
                     <ComposerPrimitive.Input asChild>
                         <textarea
                             rows={3}
                             autoFocus
                             aria-label="编辑这条消息"
-                            className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none"
+                            className="w-full resize-none bg-transparent text-[15px] leading-relaxed outline-hidden"
                         />
                     </ComposerPrimitive.Input>
                     <div className="mt-1 flex justify-end gap-1.5">
@@ -287,7 +287,7 @@ function UserMessage() {
                 </div>
             </ComposerPrimitive.If>
             <ComposerPrimitive.If editing={false}>
-                <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
+                <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-xs">
                     <MessagePrimitive.Parts
                         components={{
                             Text: UserText,
@@ -354,7 +354,7 @@ function AssistantMessage() {
                 <div className="mt-1 min-h-7">
                     <ActionBarPrimitive.Root
                         hideWhenRunning
-                        className="flex items-center gap-0.5 opacity-70 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100"
+                        className="flex items-center gap-0.5 opacity-70 transition-opacity group-hover/message:opacity-100 focus-within:opacity-100"
                     >
                         <ActionBarPrimitive.Copy asChild>
                             <Button
@@ -433,7 +433,7 @@ function ThreadEmpty({
                             onClick={() =>
                                 void onSend([{ type: "text", text: starter }])
                             }
-                            className="rounded-xl border border-border/70 bg-card px-3 py-2 text-left text-[13px] leading-snug text-foreground/90 shadow-sm active:bg-accent"
+                            className="rounded-xl border border-border/70 bg-card px-3 py-2 text-left text-[13px] leading-snug text-foreground/90 shadow-xs active:bg-accent"
                         >
                             {starter}
                         </button>

@@ -84,7 +84,7 @@ function Page() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-md px-4 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10">
             <Link
                 to="/profile"
                 className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"

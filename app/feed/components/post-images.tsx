@@ -142,7 +142,7 @@ export function InstagramCarousel({ images, onOpen }: ImageListProps) {
             <div
                 ref={stripRef}
                 onScroll={handleScroll}
-                className="flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="flex snap-x snap-mandatory [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden"
             >
                 {images.map((image, imageIndex) => (
                     <button
@@ -164,7 +164,7 @@ export function InstagramCarousel({ images, onOpen }: ImageListProps) {
 
             {images.length > 1 && (
                 <>
-                    <span className="absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
+                    <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
                         {index + 1}/{images.length}
                     </span>
                     <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">

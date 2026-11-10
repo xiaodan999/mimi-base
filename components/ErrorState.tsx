@@ -19,7 +19,7 @@ export function ErrorState({
             <div className="max-w-sm">
                 <CircleAlert className="mx-auto size-9 text-warning" />
                 <h2 className="mt-3 text-base font-semibold">{title}</h2>
-                <p className="mt-1 break-words text-sm text-muted-foreground">
+                <p className="mt-1 text-sm break-words text-muted-foreground">
                     {message}
                 </p>
                 {onRetry && (

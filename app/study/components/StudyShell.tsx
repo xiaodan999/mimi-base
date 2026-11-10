@@ -35,13 +35,13 @@ export default function StudyShell({
             <header className="flex items-center gap-2 px-3 pt-3">
                 <Link
                     to="/study"
-                    className="grid size-9 place-items-center rounded-xl border border-border/60 bg-card shadow-sm"
+                    className="grid size-9 place-items-center rounded-xl border border-border/60 bg-card shadow-xs"
                     aria-label="返回学习基地"
                 >
                     <ChevronLeft className="size-5" />
                 </Link>
                 <div className="min-w-0 flex-1">
-                    <div className="truncate text-[15px] font-extrabold leading-tight">
+                    <div className="truncate text-[15px] leading-tight font-extrabold">
                         {subject.icon} {subject.title}
                     </div>
                     <div className="truncate text-[11px] text-muted-foreground">

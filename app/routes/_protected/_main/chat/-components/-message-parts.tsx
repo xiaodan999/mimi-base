@@ -72,7 +72,7 @@ export function ReasoningPart({ text, status }: ReasoningMessagePartProps) {
                 />
             </button>
             {open && (
-                <div className="whitespace-pre-wrap border-t border-border/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                <div className="border-t border-border/60 px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
                     {text}
                 </div>
             )}
@@ -135,7 +135,7 @@ function PersonChip({ person }: { person: ToolPerson }) {
             : null,
     );
     return (
-        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 py-0.5 pl-1 pr-2 text-[11px]">
+        <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 py-0.5 pr-2 pl-1 text-[11px]">
             {avatarUrl !== "" ? (
                 <img
                     src={avatarUrl}
@@ -150,7 +150,7 @@ function PersonChip({ person }: { person: ToolPerson }) {
             <span className="max-w-[8rem] truncate font-medium">
                 {person.name}
             </span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">
+            <span className="shrink-0 text-muted-foreground tabular-nums">
                 {person.detail}
             </span>
         </span>
@@ -237,7 +237,7 @@ export function ToolCallPart({
                         <summary className="cursor-pointer font-medium">
                             {isChart ? "图表数据有问题" : "卡片内容有问题"}
                         </summary>
-                        <pre className="mt-1.5 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px]">
+                        <pre className="mt-1.5 overflow-auto font-mono text-[11px] break-words whitespace-pre-wrap">
                             {pretty(args ?? argsText, 1500)}
                         </pre>
                     </details>
@@ -364,7 +364,7 @@ export function ToolCallPart({
                         <div className="mb-1 font-medium text-muted-foreground">
                             参数
                         </div>
-                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-2 font-mono text-[11.5px]">
+                        <pre className="max-h-48 overflow-auto rounded-lg bg-muted/50 p-2 font-mono text-[11.5px] break-words whitespace-pre-wrap">
                             {pretty(args ?? argsText, 3000)}
                         </pre>
                     </div>
@@ -373,7 +373,7 @@ export function ToolCallPart({
                             <div className="mb-1 font-medium text-muted-foreground">
                                 输出
                             </div>
-                            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-2 font-mono text-[11.5px]">
+                            <pre className="max-h-48 overflow-auto rounded-lg bg-muted/50 p-2 font-mono text-[11.5px] break-words whitespace-pre-wrap">
                                 {logs.join("\n")}
                             </pre>
                         </div>
@@ -384,7 +384,7 @@ export function ToolCallPart({
                                 <div className="mb-1 font-medium text-muted-foreground">
                                     结果
                                 </div>
-                                <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-2 font-mono text-[11.5px]">
+                                <pre className="max-h-48 overflow-auto rounded-lg bg-muted/50 p-2 font-mono text-[11.5px] break-words whitespace-pre-wrap">
                                     {pretty(payload.result)}
                                 </pre>
                             </div>

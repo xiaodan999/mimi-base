@@ -15,7 +15,7 @@ export function ResumeBanner({
     onDismiss: () => void;
 }) {
     return (
-        <div className="mx-4 mb-2 flex items-center gap-3 rounded-xl border border-border bg-card py-2 pl-3 pr-2">
+        <div className="mx-4 mb-2 flex items-center gap-3 rounded-xl border border-border bg-card py-2 pr-2 pl-3">
             <MessageSquareWarning className="size-4 shrink-0 text-amber-500" />
             <p className="min-w-0 flex-1 text-sm text-muted-foreground">
                 上一条回复没有完成

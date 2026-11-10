@@ -65,7 +65,7 @@ export default function FindSheet({
                     </DrawerDescription>
                 </DrawerHeader>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-6 pt-4">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pt-4 pb-6">
                     <form className="flex shrink-0 gap-2" onSubmit={submit}>
                         <Input
                             type="search"

@@ -50,7 +50,7 @@ type RingPreview = { circleUrl: string; preset: string };
 function RingThumb({ circleUrl, preset }: RingPreview) {
     return (
         <span className="relative block h-12 w-12">
-            <span className="absolute inset-0 rounded-full bg-gradient-to-br from-muted to-muted-foreground/25" />
+            <span className="absolute inset-0 rounded-full bg-linear-to-br from-muted to-muted-foreground/25" />
             <CircleRing
                 circleUrl={circleUrl}
                 preset={preset}
@@ -235,7 +235,7 @@ export default function RingPicker({
                     <span className="text-xs text-muted-foreground">预览</span>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-2">
                     <div className="grid grid-cols-4 gap-1">
                         <Tile
                             active={isSameSelection(draft, {
@@ -315,7 +315,7 @@ export default function RingPicker({
                                         <button
                                             type="button"
                                             aria-label={`删除头像框 ${ring.name}`}
-                                            className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
+                                            className="absolute -top-1 -right-1 grid h-5 w-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
                                             onClick={() => {
                                                 void handleDelete(ring);
                                             }}

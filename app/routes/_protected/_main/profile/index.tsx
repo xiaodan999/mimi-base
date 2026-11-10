@@ -173,7 +173,7 @@ function Page() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-md px-4 pb-8 pt-[calc(1rem+env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
             {/* 个人资料 is a bottom-nav tab root: no back arrow, same as the
                 other tab roots. The nav bar is the way back. */}
             <header>

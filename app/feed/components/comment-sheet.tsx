@@ -495,7 +495,7 @@ export default function CommentSheet({
                                                         />
                                                     ) : (
                                                         root.text && (
-                                                            <p className="whitespace-pre-wrap break-words text-sm">
+                                                            <p className="text-sm break-words whitespace-pre-wrap">
                                                                 {root.text}
                                                             </p>
                                                         )
@@ -620,7 +620,7 @@ export default function CommentSheet({
                                                                         />
                                                                     </>
                                                                 ) : (
-                                                                    <p className="whitespace-pre-wrap break-words">
+                                                                    <p className="break-words whitespace-pre-wrap">
                                                                         <span className="font-semibold">
                                                                             {reply
                                                                                 .author
@@ -773,7 +773,7 @@ export default function CommentSheet({
                                         />
                                         <button
                                             type="button"
-                                            className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
+                                            className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
                                             aria-label={`移除图片 ${index + 1}`}
                                             onClick={() => removeImage(index)}
                                         >

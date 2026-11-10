@@ -86,7 +86,7 @@ function Page() {
                         />
                         <span
                             aria-hidden="true"
-                            className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-soft"
+                            className="absolute -right-0.5 -bottom-0.5 grid h-4 w-4 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-soft"
                         >
                             <Camera className="size-2.5" />
                         </span>
@@ -200,12 +200,12 @@ function DinnerPicker() {
                 type="button"
                 aria-label="打开晚餐抽奖机"
                 onClick={() => setOpen(true)}
-                className="relative grid size-9 shrink-0 place-items-center rounded-full border border-amber-500/30 bg-gradient-to-br from-amber-400/25 via-amber-500/10 to-chart-3/15 text-lg leading-none shadow-soft transition-transform hover:scale-105 active:scale-90"
+                className="relative grid size-9 shrink-0 place-items-center rounded-full border border-amber-500/30 bg-linear-to-br from-amber-400/25 via-amber-500/10 to-chart-3/15 text-lg leading-none shadow-soft transition-transform hover:scale-105 active:scale-90"
             >
                 <span aria-hidden="true">🍜</span>
                 <Sparkles
                     aria-hidden="true"
-                    className="absolute -right-0.5 -top-0.5 size-3 text-amber-500"
+                    className="absolute -top-0.5 -right-0.5 size-3 text-amber-500"
                 />
             </button>
             {open && <DinnerLotteryDialog open={open} onOpenChange={setOpen} />}

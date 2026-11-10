@@ -91,7 +91,7 @@ function Block({ block }: { block: UiBlock }) {
                         TEXT_VARIANT[block.variant],
                         textTone(block.variant, block.tone),
                         ALIGN[block.align],
-                        "whitespace-pre-wrap break-words",
+                        "break-words whitespace-pre-wrap",
                     )}
                 >
                     {block.text}
@@ -151,7 +151,7 @@ function Block({ block }: { block: UiBlock }) {
                                 ) : null}
                             </div>
                             {item.value ? (
-                                <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                                <div className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
                                     {item.value}
                                 </div>
                             ) : null}
@@ -168,7 +168,7 @@ function Block({ block }: { block: UiBlock }) {
                                 {block.columns.map((column, index) => (
                                     <th
                                         key={index}
-                                        className="whitespace-nowrap px-1.5 py-1 font-medium text-muted-foreground"
+                                        className="px-1.5 py-1 font-medium whitespace-nowrap text-muted-foreground"
                                     >
                                         {column}
                                     </th>
@@ -185,7 +185,7 @@ function Block({ block }: { block: UiBlock }) {
                                         <td
                                             key={cellIndex}
                                             className={cn(
-                                                "whitespace-nowrap px-1.5 py-1.5",
+                                                "px-1.5 py-1.5 whitespace-nowrap",
                                                 cellIndex === 0
                                                     ? "text-foreground"
                                                     : "text-muted-foreground",
@@ -209,7 +209,7 @@ function Block({ block }: { block: UiBlock }) {
                 <div className="space-y-1">
                     <div className="flex items-baseline justify-between gap-2 text-xs">
                         <span className="min-w-0 truncate">{block.label}</span>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-muted-foreground tabular-nums">
                             {formatNumber(block.value)} /{" "}
                             {formatNumber(block.max)}
                         </span>

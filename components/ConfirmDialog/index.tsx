@@ -65,7 +65,7 @@ export function ConfirmDialog({
                     aria-hidden="true"
                     className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden"
                 />
-                <div className="px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 sm:px-0 sm:pb-0 sm:pt-0">
+                <div className="px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-0 sm:pt-0 sm:pb-0">
                     <DialogHeader>
                         <DialogTitle>{title}</DialogTitle>
                         <DialogDescription className="leading-relaxed">

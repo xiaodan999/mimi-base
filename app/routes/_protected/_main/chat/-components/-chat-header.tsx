@@ -111,7 +111,7 @@ export function ChatHeader({
                     <ArrowLeft className="size-4" />
                 </Link>
                 <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-sm font-semibold leading-tight">
+                    <h1 className="truncate text-sm leading-tight font-semibold">
                         {conversation.title}
                     </h1>
                     <p className="truncate text-[10px] leading-tight text-muted-foreground">

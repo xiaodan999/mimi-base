@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
@@ -190,6 +191,7 @@ export default defineConfig(({ mode }) => {
             },
         },
         plugins: [
+            tailwindcss(),
             tanstackRouter({
                 routesDirectory: "./app/routes",
                 generatedRouteTree: "./app/routeTree.gen.ts",

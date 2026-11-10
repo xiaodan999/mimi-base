@@ -65,7 +65,7 @@ export function ModelPicker({
                         {current?.label ?? "无可用模型"}
                     </span>
                     {thinking && (
-                        <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold leading-none text-primary">
+                        <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[10px] leading-none font-semibold text-primary">
                             {THINKING_LABELS[thinking] ?? thinking}
                         </span>
                     )}

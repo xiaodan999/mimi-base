@@ -35,7 +35,7 @@ export default function PostComposerVideo({
                 >
                     视频
                 </h3>
-                <span className="text-[11px] tabular-nums text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
                     {video ? "1/1" : "MP4 / WebM / MOV，最大 50MB"}
                 </span>
             </div>
@@ -59,7 +59,7 @@ export default function PostComposerVideo({
                         type="button"
                         onClick={onRemove}
                         aria-label="移除视频"
-                        className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80 active:bg-black/80"
+                        className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80 active:bg-black/80"
                     >
                         <X className="size-4" />
                     </button>

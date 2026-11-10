@@ -35,7 +35,7 @@ function Page() {
     const study = useMemo(() => buildStudyReport(summaries), [summaries]);
 
     return (
-        <div className="px-4 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
+        <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10">
             <Link
                 to="/home"
                 className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -44,7 +44,7 @@ function Page() {
                 返回首页
             </Link>
 
-            <section className="mt-3 overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-primary/15 via-card to-card p-5 shadow-soft">
+            <section className="mt-3 overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-primary/15 via-card to-card p-5 shadow-soft">
                 <p className="text-xs font-medium text-muted-foreground">
                     秘密基地 · 年度报告
                 </p>
@@ -113,7 +113,7 @@ function Page() {
                                                 <span className="font-medium">
                                                     {category.label}
                                                 </span>
-                                                <span className="tabular-nums text-muted-foreground">
+                                                <span className="text-muted-foreground tabular-nums">
                                                     {formatMoney(
                                                         category.total,
                                                         true,
@@ -163,7 +163,7 @@ function Page() {
                                     <span className="font-medium">
                                         {subject.title}
                                     </span>
-                                    <span className="tabular-nums text-muted-foreground">
+                                    <span className="text-muted-foreground tabular-nums">
                                         {subject.known}/{subject.total} 张卡
                                     </span>
                                 </li>
@@ -477,7 +477,7 @@ function ReportLetter({
             ) : error ? (
                 <p className="mt-3 text-xs leading-6 text-amber-700">{error}</p>
             ) : (
-                <p className="mt-3 whitespace-pre-line text-[13px] leading-6">
+                <p className="mt-3 text-[13px] leading-6 whitespace-pre-line">
                     {letter}
                 </p>
             )}

@@ -80,7 +80,13 @@ const FormItem = React.forwardRef<
 
 	return (
 		<FormItemContext.Provider value={{ id }}>
-			<div ref={ref} className={cn("space-y-2", className)} {...props} />
+			{/*
+			 * v3's `space-y-2` put the gap on the *following* sibling (the
+			 * input, a block) — v4 puts it on the preceding one, which here is
+			 * the inline <label>, where vertical margins do nothing. Giving the
+			 * later siblings their own margin-top keeps the v3 spacing.
+			 */}
+			<div ref={ref} className={cn("[&>*+*]:mt-2", className)} {...props} />
 		</FormItemContext.Provider>
 	);
 });

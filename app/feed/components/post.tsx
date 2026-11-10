@@ -137,7 +137,7 @@ export default function Post({
                     <span>编辑</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:!text-destructive"
+                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive!"
                     onClick={async () => {
                         try {
                             await toastPromise(
@@ -201,7 +201,7 @@ export default function Post({
                 <div className="px-4 pt-3">{actions}</div>
 
                 {text && (
-                    <p className="mt-1 whitespace-pre-wrap break-words px-4 pb-4 text-[15px] leading-relaxed">
+                    <p className="mt-1 px-4 pb-4 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
                         <span className="font-semibold">
                             {author.user_name || "朋友"}
                         </span>{" "}
@@ -234,7 +234,7 @@ export default function Post({
                         </div>
 
                         {text && (
-                            <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                            <p className="mt-1.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
                                 {text}
                             </p>
                         )}
@@ -280,7 +280,7 @@ export default function Post({
                     </div>
 
                     {text && (
-                        <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                        <p className="mt-1.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
                             {text}
                         </p>
                     )}

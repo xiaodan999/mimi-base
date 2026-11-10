@@ -262,7 +262,7 @@ export default function AiVariantSheet({
                                     {moduleName ?? item.m}
                                 </span>
                             </div>
-                            <div className="mt-2 text-[14px] font-bold leading-6">
+                            <div className="mt-2 text-[14px] leading-6 font-bold">
                                 {index + 1}. {item.stem}
                             </div>
                             <div className="mt-2 space-y-1">

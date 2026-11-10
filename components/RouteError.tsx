@@ -33,7 +33,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
             <div className="max-w-sm">
                 <AlertTriangle className="mx-auto size-10 text-warning" />
                 <h1 className="mt-3 text-lg font-semibold">{title}</h1>
-                <p className="mt-1 break-words text-sm text-muted-foreground">
+                <p className="mt-1 text-sm break-words text-muted-foreground">
                     {message}
                 </p>
                 <Button

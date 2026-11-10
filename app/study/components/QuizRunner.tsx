@@ -396,7 +396,7 @@ export default function QuizRunner({
 
     return (
         <div className="study-root kb-screen fixed inset-0 z-50 flex flex-col bg-[hsl(var(--background))]">
-            <div className="flex items-center gap-3 px-4 pb-2 pt-3">
+            <div className="flex items-center gap-3 px-4 pt-3 pb-2">
                 <div className="qprog">
                     <i style={{ width: `${progressPercent}%` }} />
                 </div>
@@ -404,7 +404,7 @@ export default function QuizRunner({
                     {index + 1}/{total}
                 </div>
                 <button
-                    className="grid size-8 place-items-center rounded-full bg-card shadow-sm"
+                    className="grid size-8 place-items-center rounded-full bg-card shadow-xs"
                     onClick={onExit}
                     aria-label="退出练习"
                 >

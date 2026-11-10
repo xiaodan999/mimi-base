@@ -10,9 +10,7 @@
             "!tmp",
             "!pb_data_snapshots",
             "!public/sw.js",
-            "!pocketbase",
-            "!tailwind.config.js",
-            "!postcss.config.js"
+            "!pocketbase"
         ]
     },
     "formatter": { "enabled": false },

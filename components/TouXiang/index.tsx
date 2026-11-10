@@ -39,7 +39,7 @@ export function CircleRing({ circleUrl, preset, className }: CircleRingProps) {
                 alt=""
                 aria-hidden="true"
                 className={cn(
-                    "pointer-events-none select-none object-contain",
+                    "pointer-events-none object-contain select-none",
                     className,
                 )}
                 draggable={false}
@@ -62,7 +62,7 @@ export function CircleRing({ circleUrl, preset, className }: CircleRingProps) {
             alt=""
             aria-hidden="true"
             className={cn(
-                "pointer-events-none select-none object-contain",
+                "pointer-events-none object-contain select-none",
                 className,
             )}
             draggable={false}

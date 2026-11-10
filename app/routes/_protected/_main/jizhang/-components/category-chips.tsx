@@ -79,7 +79,7 @@ export default function CategoryChips({
 
             {allowCreate &&
                 (creating ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/5 py-1 pl-3 pr-1">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/5 py-1 pr-1 pl-3">
                         <input
                             autoFocus
                             value={name}

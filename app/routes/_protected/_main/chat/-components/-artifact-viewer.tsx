@@ -224,7 +224,7 @@ export function ArtifactPreviewProvider({
                         <DialogContent
                             showCloseButton={false}
                             overlayClassName="bg-black/70"
-                            className="flex h-[100dvh] w-screen max-w-none !animate-none flex-col gap-0 rounded-none border-0 bg-background p-0 data-[state=closed]:!animate-none data-[state=open]:!animate-none sm:rounded-none"
+                            className="flex h-[100dvh] w-screen max-w-none animate-none! flex-col gap-0 rounded-none border-0 bg-background p-0 data-[state=closed]:!animate-none data-[state=open]:!animate-none sm:rounded-none"
                         >
                             <DialogTitle className="sr-only">
                                 {preview.name}
@@ -232,7 +232,7 @@ export function ArtifactPreviewProvider({
                             <DialogDescription className="sr-only">
                                 文件预览，脚本不会运行
                             </DialogDescription>
-                            <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+                            <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -287,7 +287,7 @@ export function ArtifactPreviewProvider({
                                     </div>
                                 ) : (
                                     <div className="h-full overflow-auto bg-background p-3">
-                                        <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed">
+                                        <pre className="font-mono text-[12.5px] leading-relaxed break-words whitespace-pre-wrap">
                                             {preview.type === "json"
                                                 ? prettyJson(preview.source)
                                                 : preview.source}

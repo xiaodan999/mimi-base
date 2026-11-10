@@ -128,17 +128,17 @@ export const markdownComponents: Components = {
         <p className="mb-2.5 whitespace-pre-wrap last:mb-0">{children}</p>
     ),
     h1: ({ children }) => (
-        <h1 className="mb-2 mt-4 text-lg font-semibold first:mt-0">
+        <h1 className="mt-4 mb-2 text-lg font-semibold first:mt-0">
             {children}
         </h1>
     ),
     h2: ({ children }) => (
-        <h2 className="mb-2 mt-4 text-base font-semibold first:mt-0">
+        <h2 className="mt-4 mb-2 text-base font-semibold first:mt-0">
             {children}
         </h2>
     ),
     h3: ({ children }) => (
-        <h3 className="mb-1.5 mt-3 text-[15px] font-semibold first:mt-0">
+        <h3 className="mt-3 mb-1.5 text-[15px] font-semibold first:mt-0">
             {children}
         </h3>
     ),
@@ -179,7 +179,7 @@ export const markdownComponents: Components = {
         <thead className="bg-muted/60 text-left">{children}</thead>
     ),
     th: ({ children }) => (
-        <th className="whitespace-nowrap border-b border-border/70 px-3 py-2 font-semibold">
+        <th className="border-b border-border/70 px-3 py-2 font-semibold whitespace-nowrap">
             {children}
         </th>
     ),

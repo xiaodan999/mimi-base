@@ -133,7 +133,7 @@ function Readout({
                 style={{ opacity: dotOpacity }}
             />
             <span className="min-w-0 truncate text-foreground/90">{label}</span>
-            <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
+            <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
                 {formatValue(value)}
                 {unit ? ` ${unit}` : ""}
                 {percent !== undefined ? ` · ${percent}%` : ""}
@@ -498,7 +498,7 @@ function PieChart({ spec }: { spec: ChartSpec }) {
                                 <span className="min-w-0 flex-1 truncate text-foreground/90">
                                     {truncateLabel(label, 8)}
                                 </span>
-                                <span className="min-w-0 max-w-[50%] shrink-0 truncate text-right tabular-nums text-muted-foreground">
+                                <span className="max-w-[50%] min-w-0 shrink-0 truncate text-right text-muted-foreground tabular-nums">
                                     {formatValue(spec.values[index])}
                                     {spec.unit ? ` ${spec.unit}` : ""}
                                 </span>
@@ -589,7 +589,7 @@ export function ChartCard({
                     {spec.title}
                 </span>
                 {(spec.type === "bar" || spec.type === "line") && (
-                    <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                    <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
                         合计 {formatValue(total)}
                         {spec.unit ? ` ${spec.unit}` : ""}
                     </span>

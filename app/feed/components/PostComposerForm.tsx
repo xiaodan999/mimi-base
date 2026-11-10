@@ -80,7 +80,7 @@ export default function PostComposerForm({
             {/* On tablets/desktop the sheet floats as a centered card instead
                 of stretching edge to edge; the tint fades straight down so it
                 never draws a band against the header divider. */}
-            <header className="relative shrink-0 overflow-hidden border-b border-border/60 bg-gradient-to-b from-primary/[0.08] to-primary/0 px-4 pb-4 pt-3 md:px-6">
+            <header className="relative shrink-0 overflow-hidden border-b border-border/60 bg-linear-to-b from-primary/[0.08] to-primary/0 px-4 pt-3 pb-4 md:px-6">
                 <div
                     aria-hidden="true"
                     className="mx-auto mb-3 h-1.5 w-24 rounded-full bg-muted-foreground/30 md:hidden"
@@ -90,7 +90,7 @@ export default function PostComposerForm({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="size-10 justify-self-start rounded-full border border-border/70 bg-background/70 text-foreground backdrop-blur"
+                        className="size-10 justify-self-start rounded-full border border-border/70 bg-background/70 text-foreground backdrop-blur-sm"
                         onClick={onClose}
                         aria-label="关闭"
                     >
@@ -98,7 +98,7 @@ export default function PostComposerForm({
                     </Button>
 
                     <div className="min-w-0 text-center">
-                        <DrawerTitle className="flex items-center justify-center gap-2 text-[21px] font-semibold leading-tight tracking-tight">
+                        <DrawerTitle className="flex items-center justify-center gap-2 text-[21px] leading-tight font-semibold tracking-tight">
                             <span
                                 aria-hidden="true"
                                 className="size-2 shrink-0 rounded-full bg-primary"
@@ -132,7 +132,7 @@ export default function PostComposerForm({
                 </div>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] [scrollbar-color:hsl(var(--muted-foreground)/0.35)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5">
+            <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:hsl(var(--muted-foreground)/0.35)_transparent] overflow-y-auto overscroll-contain px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-track]:bg-transparent">
                 <div className="flex gap-3 pt-4">
                     <TouXiang
                         className="shrink-0"
@@ -412,7 +412,7 @@ function LayoutOption({
             <Check
                 aria-hidden="true"
                 className={cn(
-                    "absolute right-2 top-2 size-3.5 text-primary transition-opacity duration-150",
+                    "absolute top-2 right-2 size-3.5 text-primary transition-opacity duration-150",
                     selected ? "opacity-100" : "opacity-0",
                 )}
             />

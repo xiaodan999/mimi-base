@@ -54,7 +54,7 @@ function ImagePreview({
             <button
                 type="button"
                 aria-label={`移除附件 ${file.name}`}
-                className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-black/60 text-white transition-colors active:bg-black/80"
+                className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white transition-colors active:bg-black/80"
                 disabled={disabled}
                 onClick={onRemove}
             >

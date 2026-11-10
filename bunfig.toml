@@ -12,7 +12,7 @@ arrowParens = "always"
 endOfLine = "lf"
 
 # Bun's native Tailwind sorter replaces prettier-plugin-tailwindcss.
-sortTailwindcss = true
+sortTailwindcss = { stylesheet = "globals.css" }
 # Imports are sorted by the formatter: Biome runs lint-only here, so one tool
 # owns every rewrite and nothing fights over a file.
 sortImports = true

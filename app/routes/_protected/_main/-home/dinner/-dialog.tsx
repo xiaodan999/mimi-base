@@ -191,14 +191,14 @@ export default function DinnerLotteryDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 mobileSheet
-                className="max-h-[92dvh] gap-0 overflow-y-auto overflow-x-hidden overscroll-contain p-0 sm:max-w-md"
+                className="max-h-[92dvh] gap-0 overflow-x-hidden overflow-y-auto overscroll-contain p-0 sm:max-w-md"
             >
                 <div
                     aria-hidden="true"
                     className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/30 sm:hidden"
                 />
 
-                <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-0 sm:pb-0 sm:pt-0">
+                <div className="px-5 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-0 sm:pt-0 sm:pb-0">
                     <div className="flex items-start gap-3 pr-8">
                         <div className="min-w-0 flex-1">
                             <DialogHeader className="space-y-1 text-left">
@@ -328,7 +328,7 @@ export default function DinnerLotteryDialog({
                                         key={picked.id}
                                         role="status"
                                         aria-live="polite"
-                                        className="relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft animate-in fade-in-0 slide-in-from-bottom-2"
+                                        className="relative w-full animate-in overflow-hidden rounded-2xl border border-primary/25 bg-linear-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft fade-in-0 slide-in-from-bottom-2"
                                     >
                                         <div
                                             aria-hidden="true"
@@ -337,7 +337,7 @@ export default function DinnerLotteryDialog({
                                             {CONFETTI.map((piece, index) => (
                                                 <span
                                                     key={index}
-                                                    className="dinner-confetti absolute left-1/2 top-1/2 size-1.5 rounded-[1px]"
+                                                    className="dinner-confetti absolute top-1/2 left-1/2 size-1.5 rounded-[1px]"
                                                     style={
                                                         {
                                                             backgroundColor: `hsl(var(--chart-${piece.color}))`,
@@ -357,7 +357,7 @@ export default function DinnerLotteryDialog({
                                             </p>
                                             <p
                                                 className={cn(
-                                                    "mt-1 bg-gradient-to-r from-primary via-chart-2 to-chart-4 bg-clip-text font-extrabold tracking-tight text-transparent",
+                                                    "mt-1 bg-linear-to-r from-primary via-chart-2 to-chart-4 bg-clip-text font-extrabold tracking-tight text-transparent",
                                                     resultNameClass(
                                                         picked.name,
                                                     ),

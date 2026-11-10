@@ -38,7 +38,7 @@ export default function PostComposerImages({
                 >
                     照片
                 </h3>
-                <span className="text-[11px] tabular-nums text-muted-foreground">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
                     {images.length > 0
                         ? `${images.length}/${MAX_IMAGES}`
                         : `最多 ${MAX_IMAGES} 张`}
@@ -94,7 +94,7 @@ export default function PostComposerImages({
                                 type="button"
                                 onClick={() => onRemove(index)}
                                 aria-label={`移除第 ${index + 1} 张照片`}
-                                className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                                className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
                             >
                                 <X className="size-3.5" />
                             </button>

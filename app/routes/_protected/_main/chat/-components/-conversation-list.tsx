@@ -158,7 +158,7 @@ export function ConversationList({
 
     return (
         <>
-            <div className="px-4 pb-3 pt-4">
+            <div className="px-4 pt-4 pb-3">
                 <div className="flex items-center justify-between gap-2">
                     <h1 className="min-w-0 text-xl font-bold tracking-tight">
                         聊天
@@ -251,7 +251,7 @@ export function ConversationList({
                     <>
                         {conversations.length > 0 && (
                             <div className="relative mt-3">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
                                     value={query}
                                     onChange={(event) =>
@@ -264,7 +264,7 @@ export function ConversationList({
                             </div>
                         )}
                         {chips.length > 1 && (
-                            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            <div className="mt-2 flex [scrollbar-width:none] gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                                 <FilterChip
                                     active={personaFilter === "all"}
                                     label="全部"
@@ -380,7 +380,7 @@ export function ConversationList({
                                 aria-checked={checked}
                                 onClick={() => toggleSelected(conversation.id)}
                                 className={cn(
-                                    "flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left shadow-sm transition-colors active:bg-accent",
+                                    "flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left shadow-xs transition-colors active:bg-accent",
                                     checked
                                         ? "border-primary/50 bg-primary/5"
                                         : "border-border/60 bg-card",
@@ -404,7 +404,7 @@ export function ConversationList({
                     return (
                         <div
                             key={conversation.id}
-                            className="flex items-center gap-1 rounded-2xl border border-border/60 bg-card px-3 py-2.5 shadow-sm"
+                            className="flex items-center gap-1 rounded-2xl border border-border/60 bg-card px-3 py-2.5 shadow-xs"
                         >
                             <Link
                                 to="/chat/$conversationId"

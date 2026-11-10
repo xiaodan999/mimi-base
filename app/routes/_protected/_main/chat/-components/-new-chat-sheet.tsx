@@ -208,7 +208,7 @@ export function NewChatSheet({
                                         </p>
                                     </button>
                                     {!persona.builtin && (
-                                        <div className="absolute -right-1 -top-1 flex gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-sm">
+                                        <div className="absolute -top-1 -right-1 flex gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-xs">
                                             <button
                                                 type="button"
                                                 aria-label={`编辑${persona.name}`}

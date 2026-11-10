@@ -270,7 +270,7 @@ export function DinnerWheel({
                 {/* Pointer: static, points into the top slice. */}
                 <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[42%]"
+                    className="pointer-events-none absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-[42%]"
                 >
                     <svg width="30" height="38" viewBox="0 0 30 38">
                         <path
@@ -291,7 +291,7 @@ export function DinnerWheel({
                         spinning ? "正在抽取今晚的晚餐" : "开始抽取今晚的晚餐"
                     }
                     aria-busy={spinning}
-                    className="absolute left-1/2 top-1/2 z-10 grid size-[23%] min-h-16 min-w-16 -translate-x-1/2 -translate-y-1/2 touch-manipulation place-items-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-[0_10px_24px_-8px_hsl(var(--primary)/0.75)] transition-transform active:scale-95 disabled:opacity-70"
+                    className="absolute top-1/2 left-1/2 z-10 grid size-[23%] min-h-16 min-w-16 -translate-x-1/2 -translate-y-1/2 touch-manipulation place-items-center rounded-full border-4 border-background bg-primary text-primary-foreground shadow-[0_10px_24px_-8px_hsl(var(--primary)/0.75)] transition-transform active:scale-95 disabled:opacity-70"
                 >
                     {spinning ? (
                         <Loader2
@@ -304,7 +304,7 @@ export function DinnerWheel({
                                 className="size-4 opacity-90"
                                 aria-hidden="true"
                             />
-                            <span className="text-sm font-bold leading-none tracking-wide">
+                            <span className="text-sm leading-none font-bold tracking-wide">
                                 开转
                             </span>
                         </span>

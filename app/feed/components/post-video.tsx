@@ -168,17 +168,17 @@ export default function PostVideo({
                         type="button"
                         onClick={() => void play()}
                         aria-label="播放视频"
-                        className="absolute inset-0 grid place-items-center bg-gradient-to-t from-black/45 via-black/5 to-black/20"
+                        className="absolute inset-0 grid place-items-center bg-linear-to-t from-black/45 via-black/5 to-black/20"
                     >
                         <span className="grid size-16 place-items-center rounded-full bg-black/45 text-white shadow-xl ring-1 ring-white/30 backdrop-blur-sm transition-transform active:scale-95">
-                            <Play className="ml-0.5 size-7 fill-current drop-shadow" />
+                            <Play className="ml-0.5 size-7 fill-current drop-shadow-sm" />
                         </span>
                     </button>
 
                     {!ready && (
                         <span
                             data-video-loading
-                            className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
+                            className="pointer-events-none absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
                         >
                             <Loader2
                                 className="size-3 animate-spin"
@@ -191,7 +191,7 @@ export default function PostVideo({
                     {durationLabel && (
                         <span
                             data-duration-badge
-                            className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium tabular-nums text-white backdrop-blur-sm"
+                            className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white tabular-nums backdrop-blur-sm"
                         >
                             {durationLabel}
                         </span>
@@ -200,7 +200,7 @@ export default function PostVideo({
             )}
 
             {started && !failed && (
-                <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-2.5 pt-10 animate-in fade-in-0">
+                <div className="absolute inset-x-0 bottom-0 z-10 animate-in bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pt-10 pb-2.5 fade-in-0">
                     <div className="flex items-center gap-1.5 text-white">
                         <button
                             type="button"
@@ -214,7 +214,7 @@ export default function PostVideo({
                                 <Play className="ml-0.5 size-4 fill-current" />
                             )}
                         </button>
-                        <span className="w-9 shrink-0 text-center text-[11px] font-medium tabular-nums text-white/90">
+                        <span className="w-9 shrink-0 text-center text-[11px] font-medium text-white/90 tabular-nums">
                             {currentLabel}
                         </span>
                         <input
@@ -229,7 +229,7 @@ export default function PostVideo({
                             aria-valuetext={`${currentLabel} / ${durationLabel || "未知"}`}
                             className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/30 accent-white disabled:opacity-50"
                         />
-                        <span className="w-9 shrink-0 text-center text-[11px] font-medium tabular-nums text-white/90">
+                        <span className="w-9 shrink-0 text-center text-[11px] font-medium text-white/90 tabular-nums">
                             {durationLabel || "--:--"}
                         </span>
                         <button
@@ -279,7 +279,7 @@ export default function PostVideo({
                     type="button"
                     onClick={openFullscreen}
                     aria-label="全屏播放视频"
-                    className="absolute right-2 top-2 grid size-9 place-items-center rounded-full bg-black/55 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-black/75 active:bg-black/75"
+                    className="absolute top-2 right-2 grid size-9 place-items-center rounded-full bg-black/55 text-white shadow-xs backdrop-blur-sm transition-colors hover:bg-black/75 active:bg-black/75"
                 >
                     <Maximize2 className="size-4" />
                 </button>

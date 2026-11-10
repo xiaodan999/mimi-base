@@ -62,7 +62,7 @@ export default function PostComposer({
                     pushes the header out of the sheet when the draft grows.
                     The primitive's handle is replaced by one inside the header
                     so the tint reaches the sheet's top edge. */}
-                <DrawerContent className="kb-max-h mx-auto w-full max-w-2xl overflow-clip rounded-t-3xl border-x-0 border-b-0 border-t border-border/70 p-0 shadow-lift md:mb-5 md:rounded-3xl md:border md:[--kb-max-offset:28px] [&>div:first-child]:hidden">
+                <DrawerContent className="kb-max-h mx-auto w-full max-w-2xl overflow-clip rounded-t-3xl border-x-0 border-t border-b-0 border-border/70 p-0 shadow-lift md:mb-5 md:rounded-3xl md:border md:[--kb-max-offset:28px] [&>div:first-child]:hidden">
                     <PostComposerForm
                         draft={draft}
                         caption={caption}
