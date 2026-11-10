@@ -7,6 +7,7 @@
 ### 修复
 
 - 推文排版的图片按张数改成 X 的排版：`TwitterImageGrid` 的 1–4 张裁切拼图换成 `TwitterMedia`。1 张留在正文列内按原图比例显示（新增 `twitterNaturalAspect`，只在超过 1:2.5–2.5 的极端全景时夹取，9:16 截图保持完整）；2 张也在正文列内并排，但不裁成同一比例——每张按自己的比例设置 `flexGrow` 和 `aspect-ratio`，宽度按比例分配、高度自然一致；比例和显示都必须用原图 `image.url`，600px 缩略图是方形裁切，拿它测比例会把两张都变成正方形；3 张以上才用卡片内通栏的 scroll-snap 图片条（`-ml-[4.25rem] -mr-4` 跳出头像+正文列）：滚动内容再留出 `pl-[4.25rem] pr-4`，默认状态第一张与正文左对齐、相邻照片向卡片边缘露出，单张占正文列 63% 宽并居中吸附，所有 slide 共用首图 `onLoad` 读到的高度（`twitterMediaAspect` 夹在 3:4–16:9）并用 `object-cover` 裁切；超过 4 张不再折叠成 +N，全部可滑。点按图片仍打开现有的全屏查看器。新增 `app/feed/components/post-images.test.ts` 覆盖两种比例夹取和无效输入回退。
+- 首次启动解压 PocketBase 不再依赖 shell 里的 `tar`：`pocketbase/server.ts` 改为优先调用 `unzip`，只有没有 `unzip` 时才在 Windows 上回退到 `tar -xf`。原来的写法在 Windows 上固定用 `tar`，而 Git Bash 里的 `tar` 是 GNU tar、读不了 zip（只有 Windows 自带的 bsdtar 支持），于是在下载完二进制后报「This does not look like a tar archive」并退出；其它平台缺少 `unzip` 时现在会给出明确错误。
 
 ### 变更
 

@@ -282,6 +282,22 @@ function matchesPinnedVersion(candidate: string): boolean {
     }
 }
 
+/**
+ * Windows 10+ ships bsdtar, which reads zip archives, and Linux uses unzip.
+ * Prefer unzip anyway: under Git Bash on Windows `tar` resolves to GNU tar,
+ * which cannot read zip, so the bsdtar fallback only works when unzip is
+ * missing.
+ */
+function extractCommand(): string {
+    try {
+        execSync("unzip -v", { stdio: "ignore" });
+        return "unzip -o pocketbase.zip";
+    } catch {
+        if (isWindows) return "tar -xf pocketbase.zip";
+        throw new Error("unzip is required to extract PocketBase");
+    }
+}
+
 async function ensureBinary() {
     if (existsSync(bin)) {
         seedCache(bin);
@@ -313,11 +329,7 @@ async function ensureBinary() {
     if (!res.ok) throw new Error(`download failed: ${res.status} ${url}`);
     const zip = path.join(dir, "pocketbase.zip");
     await Bun.write(zip, res);
-    // Windows 10+ ships bsdtar, which reads zip archives; Linux uses unzip.
-    execSync(isWindows ? "tar -xf pocketbase.zip" : "unzip -o pocketbase.zip", {
-        cwd: dir,
-        stdio: "inherit",
-    });
+    execSync(extractCommand(), { cwd: dir, stdio: "inherit" });
     unlinkSync(zip);
     chmodSync(bin, 0o755);
     seedCache(bin);
