@@ -98,20 +98,30 @@ export function twitterMediaAspect(width: number, height: number): number {
 }
 
 /**
- * X-style tweet media. One photo and a pair stay inside the text column (the
- * single photo at its natural shape, the pair as an even 2-up grid); three or
- * more photos become a full-bleed, horizontally swipeable filmstrip whose
- * slides share one aspect ratio and let the neighbours peek in. Tapping a
- * photo always opens the full-screen viewer.
+ * X-style tweet media. A single photo stays inside the text column at its
+ * natural shape; a pair sits there too, side by side at the same height but
+ * with each photo keeping its own width ratio; three or more become a
+ * full-bleed, horizontally swipeable filmstrip whose slides share one aspect
+ * ratio and let the neighbours peek in. Tapping a photo opens the viewer.
  */
 export function TwitterMedia({ images, onOpen }: ImageListProps) {
-    const [aspect, setAspect] = useState(TWITTER_MEDIA_DEFAULT_ASPECT);
+    const [ratios, setRatios] = useState<Record<number, number>>({});
 
-    /** The first photo fixes the height of the whole media block. */
-    const measureFirst = (event: SyntheticEvent<HTMLImageElement>) => {
-        const photo = event.currentTarget;
-        setAspect(twitterMediaAspect(photo.naturalWidth, photo.naturalHeight));
-    };
+    const ratioAt = (index: number) =>
+        ratios[index] ?? TWITTER_MEDIA_DEFAULT_ASPECT;
+
+    /** Remember each photo's real shape as it loads. */
+    const measure =
+        (index: number) => (event: SyntheticEvent<HTMLImageElement>) => {
+            const photo = event.currentTarget;
+            setRatios((previous) => ({
+                ...previous,
+                [index]: twitterMediaAspect(
+                    photo.naturalWidth,
+                    photo.naturalHeight,
+                ),
+            }));
+        };
 
     if (images.length === 0) return null;
 
@@ -123,14 +133,14 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                     type="button"
                     onClick={() => onOpen(0)}
                     aria-label="查看图片"
-                    style={{ aspectRatio: String(aspect) }}
+                    style={{ aspectRatio: String(ratioAt(0)) }}
                     className="relative w-full overflow-hidden rounded-xl bg-muted"
                 >
                     <img
                         src={image.url}
                         alt=""
                         loading="lazy"
-                        onLoad={measureFirst}
+                        onLoad={measure(0)}
                         className="size-full object-cover"
                     />
                 </button>
@@ -140,28 +150,40 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
 
     if (images.length === 2) {
         return (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-                {images.map((image, index) => (
-                    <button
-                        key={image.name}
-                        type="button"
-                        onClick={() => onOpen(index)}
-                        aria-label={`查看第 ${index + 1} 张图片，共 2 张`}
-                        style={{ aspectRatio: String(aspect) }}
-                        className="relative overflow-hidden rounded-xl bg-muted"
-                    >
-                        <img
-                            src={image.thumbUrl}
-                            alt=""
-                            loading="lazy"
-                            onLoad={index === 0 ? measureFirst : undefined}
-                            className="size-full object-cover"
-                        />
-                    </button>
-                ))}
+            // Growing each photo by its own ratio keeps both heights equal
+            // while the widths stay proportional, so neither is cropped to the
+            // other's shape (X's two-up layout).
+            <div className="mt-3 flex items-stretch gap-2">
+                {images.map((image, index) => {
+                    const ratio = ratioAt(index);
+                    return (
+                        <button
+                            key={image.name}
+                            type="button"
+                            onClick={() => onOpen(index)}
+                            aria-label={`查看第 ${index + 1} 张图片，共 2 张`}
+                            style={{
+                                aspectRatio: String(ratio),
+                                flexBasis: 0,
+                                flexGrow: ratio,
+                            }}
+                            className="relative min-w-0 overflow-hidden rounded-xl bg-muted"
+                        >
+                            <img
+                                src={image.thumbUrl}
+                                alt=""
+                                loading="lazy"
+                                onLoad={measure(index)}
+                                className="size-full object-cover"
+                            />
+                        </button>
+                    );
+                })}
             </div>
         );
     }
+
+    const aspect = ratioAt(0);
 
     return (
         // Break out of the tweet's text column (card padding + avatar + gap)
@@ -185,7 +207,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                             src={image.url}
                             alt=""
                             loading="lazy"
-                            onLoad={index === 0 ? measureFirst : undefined}
+                            onLoad={index === 0 ? measure(0) : undefined}
                             className="size-full object-cover"
                         />
                     </button>

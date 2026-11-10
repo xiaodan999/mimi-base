@@ -6,7 +6,7 @@
 
 ### 修复
 
-- 推文排版的图片按张数改成 X 的排版：`TwitterImageGrid` 的 1–4 张裁切拼图换成 `TwitterMedia`。1 张留在正文列内按原图比例显示（`twitterMediaAspect` 把比例夹在 3:4–16:9，无效尺寸回退 4:3），2 张是同一正文列内的 2 列等高网格，3 张以上才用卡片内通栏的 scroll-snap 图片条（`-ml-[4.25rem] -mr-4` 跳出头像+正文列）：单张占 63% 宽并居中吸附，两侧露出相邻照片，所有 slide 共用首图 `onLoad` 读到的高度并用 `object-cover` 裁切；超过 4 张不再折叠成 +N，全部可滑。点按图片仍打开现有的全屏查看器。新增 `app/feed/components/post-images.test.ts` 覆盖比例夹取和无效输入回退。
+- 推文排版的图片按张数改成 X 的排版：`TwitterImageGrid` 的 1–4 张裁切拼图换成 `TwitterMedia`。1 张留在正文列内按原图比例显示（`twitterMediaAspect` 把比例夹在 3:4–16:9，无效尺寸回退 4:3）；2 张也在正文列内并排，但不裁成同一比例——每张按自己的比例设置 `flexGrow` 和 `aspect-ratio`，宽度按比例分配、高度自然一致；3 张以上才用卡片内通栏的 scroll-snap 图片条（`-ml-[4.25rem] -mr-4` 跳出头像+正文列）：单张占 63% 宽并居中吸附，两侧露出相邻照片，所有 slide 共用首图 `onLoad` 读到的高度并用 `object-cover` 裁切；超过 4 张不再折叠成 +N，全部可滑。点按图片仍打开现有的全屏查看器。新增 `app/feed/components/post-images.test.ts` 覆盖比例夹取和无效输入回退。
 
 ### 变更
 
