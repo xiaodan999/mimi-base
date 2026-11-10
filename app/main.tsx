@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
 import LoadingPage from "@/components/LoadingPage";
 import { RouteError } from "@/components/RouteError";
-import { AuthProvider, useAuth } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { reloadOnce } from "@/lib/chunk-load-error";
 import { registerServiceWorker } from "@/lib/service-worker";
 import { ThemeProvider } from "@/lib/theme";
@@ -43,12 +43,18 @@ export const queryClient = new QueryClient({
     },
 });
 
-// Set up a Router instance
+// Restore the session in parallel with the first route load. Guards await
+// `waitForAuth()`, which joins this read instead of branching on "loading".
+void auth.hydrate();
+
+// Set up a Router instance. The context holds the singleton auth store, so it
+// never changes identity: auth updates reach components through `useAuth()`,
+// never by re-creating the router context.
 const router = createRouter({
     routeTree,
     context: {
         queryClient,
-        auth: null!,
+        auth,
     },
     defaultPreload: "intent",
     // Since we're using React Query, we don't want loader calls to ever be stale
@@ -71,19 +77,6 @@ declare module "@tanstack/react-router" {
     }
 }
 
-function InnerApp() {
-    const auth = useAuth();
-    // Keep the router context stable between auth changes; a new object on
-    // every render makes the router re-read its context unnecessarily.
-    const routerContext = useMemo(() => ({ auth, queryClient }), [auth]);
-
-    return (
-        <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} context={routerContext} />
-        </QueryClientProvider>
-    );
-}
-
 function App() {
     // The static splash in index.html covers the first paint; hand the
     // screen over once React has committed the first frame.
@@ -93,9 +86,9 @@ function App() {
 
     return (
         <ThemeProvider>
-            <AuthProvider>
-                <InnerApp />
-            </AuthProvider>
+            <QueryClientProvider client={queryClient}>
+                <RouterProvider router={router} />
+            </QueryClientProvider>
         </ThemeProvider>
     );
 }

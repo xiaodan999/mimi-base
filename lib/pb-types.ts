@@ -46,6 +46,10 @@ export type Circle = {
 
 export type User = {
     id: string;
+    // Auth collections carry it; an expanded relation always does. Kept on the
+    // view model so screens can tell which account is signed in without going
+    // back to `pb.authStore.record`.
+    email?: string;
     user_name: string;
     // file filename ("" when unset); the URL comes from pb.files.getURL
     tou_xiang: string;
@@ -182,6 +186,7 @@ export type PostLikeRecord = PbRecord & {
 };
 
 export type UserRecord = PbRecord & {
+    email?: string;
     user_name?: string;
     tou_xiang?: string;
     circle?: string;
@@ -235,6 +240,7 @@ export function toUser(record: UserRecord): User {
         collectionId: record.collectionId,
         collectionName: record.collectionName,
     };
+    if (record.email) user.email = record.email;
     if (record.circle_preset !== undefined) {
         user.circle_preset = record.circle_preset;
     }

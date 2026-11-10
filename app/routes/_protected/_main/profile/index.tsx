@@ -40,7 +40,7 @@ import {
     type User,
 } from "@/lib/auth";
 import { DEV_ACCOUNTS, type DevAccount } from "@/lib/dev-accounts";
-import pb, { getUserAvatarUrl, getUserRing } from "@/lib/pb";
+import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
@@ -154,7 +154,7 @@ function Page() {
 
     const setAvatar = useSetAvatar();
     const setNicknameMutation = useUpdateNickname();
-    const currentEmail = pb.authStore.record?.email ?? "";
+    const currentEmail = user.email ?? "";
 
     const switchAccount = async (account: DevAccount) => {
         if (account.email === currentEmail) return;

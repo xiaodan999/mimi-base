@@ -28,8 +28,6 @@ import { ensureDevSession, useAuth } from "@/lib/auth";
 import { DEV_ACCOUNTS, type DevAccount } from "@/lib/dev-accounts";
 import { toLoginTarget } from "@/lib/redirect";
 
-const DEV_LOGIN_TIMEOUT_MS = 15_000;
-
 // Module-level so React Hook Form does not see a new schema/resolver/defaults
 // object on every render; that made its internal effect update state in a loop
 // after the dev button's setDevPending render.
@@ -111,13 +109,8 @@ function Login() {
 
     async function onDevLogin(account: DevAccount) {
         setDevPending(account.key);
-        // A dev convenience must never leave the button spinning forever if
-        // the request stalls; reset the UI and let the user retry.
-        const timeout = window.setTimeout(() => {
-            setDevPending(null);
-            toast.error("登录超时，请重试");
-        }, DEV_LOGIN_TIMEOUT_MS);
         try {
+            // `login` is bounded end to end, so the button always resets.
             const { error } = await login({
                 email: account.email,
                 password: account.password,
@@ -131,7 +124,6 @@ function Login() {
                 replace: true,
             });
         } finally {
-            window.clearTimeout(timeout);
             setDevPending(null);
         }
     }

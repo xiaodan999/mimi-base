@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
     DEFAULT_LOGIN_TARGET,
+    hrefWithoutDev,
     toInternalHref,
     toLoginTarget,
 } from "./redirect";
@@ -30,6 +31,45 @@ describe("toInternalHref", () => {
         expect(toInternalHref("", ORIGIN)).toBeNull();
         expect(toInternalHref(null, ORIGIN)).toBeNull();
         expect(toInternalHref(undefined, ORIGIN)).toBeNull();
+    });
+});
+
+describe("hrefWithoutDev", () => {
+    test("drops the dev key and keeps the rest of the location", () => {
+        expect(
+            hrefWithoutDev({
+                pathname: "/jizhang",
+                searchStr: "?month=11&dev=test",
+                hash: "",
+            }),
+        ).toBe("/jizhang?month=11");
+        expect(
+            hrefWithoutDev({
+                pathname: "/home",
+                searchStr: "?dev=test2",
+                hash: "",
+            }),
+        ).toBe("/home");
+        expect(
+            hrefWithoutDev({
+                pathname: "/chat/abc",
+                searchStr: "",
+                hash: "msg-2",
+            }),
+        ).toBe("/chat/abc#msg-2");
+    });
+
+    test("never leaves a redirect that would sign in again", () => {
+        expect(
+            toLoginTarget(
+                hrefWithoutDev({
+                    pathname: "/home",
+                    searchStr: "?dev=test",
+                    hash: "",
+                }),
+                ORIGIN,
+            ),
+        ).toBe("/home");
     });
 });
 

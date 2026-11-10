@@ -4,7 +4,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 import { Toaster } from "@/components/ui/sonner";
 import { useVisualViewport } from "@/hooks/use-visual-viewport";
-import type { AuthContextType } from "@/lib/auth";
+import type { AuthStore } from "@/lib/auth-store";
 
 import "@/globals.css";
 
@@ -20,7 +20,7 @@ function RootComponent() {
 }
 
 export const Route = createRootRouteWithContext<{
-    auth: AuthContextType;
+    auth: AuthStore;
     queryClient: QueryClient;
 }>()({
     component: RootComponent,

@@ -20,6 +20,28 @@ export function toInternalHref(
     }
 }
 
+/** The parts of a router location this module needs. */
+export type RouteLocation = {
+    pathname: string;
+    searchStr: string;
+    hash: string;
+};
+
+/**
+ * The in-app href for a location without the dev-only `?dev=` key.
+ *
+ * `?dev=` is a one-shot sign-in hint: it must never survive into a redirect
+ * target or into the URL after signing in, otherwise the next render would
+ * try the same sign-in again.
+ */
+export function hrefWithoutDev(location: RouteLocation): string {
+    const params = new URLSearchParams(location.searchStr);
+    params.delete("dev");
+    const search = params.toString();
+    const hash = location.hash ? `#${location.hash}` : "";
+    return `${location.pathname}${search ? `?${search}` : ""}${hash}`;
+}
+
 export const DEFAULT_LOGIN_TARGET = "/home";
 
 /**

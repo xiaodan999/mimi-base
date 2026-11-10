@@ -9,7 +9,8 @@ const pb = new PocketBase(ENV.POCKETBASE_URL);
 pb.autoCancellation(false);
 
 // Protected file URLs need a short-lived token because <img> can't send the
-// Authorization header. AuthProvider keeps this fresh while signed in.
+// Authorization header. The auth store (lib/auth.tsx) keeps it fresh while
+// signed in.
 let fileToken = "";
 let fileTokenExpiresAt = 0;
 let pendingFileToken: Promise<string> | null = null;
