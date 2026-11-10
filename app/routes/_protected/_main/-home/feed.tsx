@@ -5,6 +5,7 @@ import {
     ArrowUp,
     MessageCircle,
     Pencil,
+    RotateCw,
     Search,
     SearchX,
 } from "lucide-react";
@@ -75,15 +76,24 @@ export default function HomeFeed() {
     const [videoViewer, setVideoViewer] = useState<string | null>(null);
 
     const { ref, inView } = useInView();
+    const [refreshingFeed, setRefreshingFeed] = useState(false);
     // Reset to a single (newest) page instead of `refetch()`ing every loaded
     // page of the infinite feed. The header's stats live outside this chunk,
-    // so refresh them too.
-    const pull = usePullToRefresh(async () => {
-        await Promise.all([
-            refresh(),
-            queryClient.invalidateQueries({ queryKey: qk.homeStats.all }),
-        ]);
-    });
+    // so refresh them too. Shared by the phone pull gesture and the desktop
+    // refresh button.
+    const refreshFeed = async () => {
+        if (refreshingFeed) return;
+        setRefreshingFeed(true);
+        try {
+            await Promise.all([
+                refresh(),
+                queryClient.invalidateQueries({ queryKey: qk.homeStats.all }),
+            ]);
+        } finally {
+            setRefreshingFeed(false);
+        }
+    };
+    const pull = usePullToRefresh(refreshFeed);
     const pullProgress = Math.min(1, pull.distance / PULL_THRESHOLD);
     const { visible: showBackToTop, scrollToTop } = useScrollToTop();
 
@@ -331,6 +341,22 @@ export default function HomeFeed() {
                         <ArrowUp className="size-5" />
                     </Button>
                 )}
+                {/* Phones refresh with the pull gesture; a mouse needs a
+                    visible target, so only hover-capable devices show this. */}
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    className="hidden size-11 rounded-full border border-border/60 shadow-soft [@media(hover:hover)]:inline-flex"
+                    onClick={() => void refreshFeed()}
+                    disabled={refreshingFeed}
+                    aria-label="刷新动态"
+                >
+                    {refreshingFeed ? (
+                        <LoadingSpinner size={18} />
+                    ) : (
+                        <RotateCw className="size-5" />
+                    )}
+                </Button>
                 <Button
                     variant="secondary"
                     size="icon"
