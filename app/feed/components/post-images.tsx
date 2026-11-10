@@ -187,12 +187,14 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
 
     return (
         // Break out of the tweet's text column (card padding + avatar + gap)
-        // so the strip runs edge to edge inside the card, as X does.
+        // so the strip can run edge to edge, then pad the scroll content back
+        // to that column: the first slide lines up with the text and the
+        // neighbours peek out towards the card edges, as X does.
         <div className="mt-3 -mr-4 -ml-[4.25rem]">
             <div
                 role="group"
                 aria-label="图片，左右滑动查看"
-                className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
+                className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-[4.25rem] [&::-webkit-scrollbar]:hidden"
             >
                 {images.map((image, index) => (
                     <button
