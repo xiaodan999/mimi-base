@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
+import { createAiRelay } from "./ai-relay";
 import {
     AI_TOOLS_MEMORY_PATH,
+    type AiToolsDeps,
     createAiToolsService,
     dayRangeUtc,
     htmlToText,
     isPrivateIp,
-    type AiToolsDeps,
 } from "./ai-tools";
-import { createAiRelay } from "./ai-relay";
 
 const PB_BASE = "http://127.0.0.1:8090";
 

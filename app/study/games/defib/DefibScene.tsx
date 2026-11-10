@@ -1,17 +1,17 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber 的 JSX 属性不在 react 规则表里 */
-import { useState } from "react";
 import { OrbitControls, useCursor } from "@react-three/drei";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { useState } from "react";
 import { DoubleSide } from "three";
 
 import {
+    type BodyZone,
     LEAD_DEFS,
     LEAD_ZONES,
-    PAD_TARGETS,
-    PAD_ZONES,
-    type BodyZone,
     type LeadDef,
     type LeadId,
+    PAD_TARGETS,
+    PAD_ZONES,
     type PadTarget,
 } from "./data";
 

@@ -1,0 +1,59 @@
+{
+    "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+    "files": {
+        "includes": [
+            "**",
+            "!app/routeTree.gen.ts",
+            "!build",
+            "!build.next",
+            "!build.old",
+            "!tmp",
+            "!pb_data_snapshots",
+            "!public/sw.js",
+            "!pocketbase",
+            "!tailwind.config.js",
+            "!postcss.config.js"
+        ]
+    },
+    "formatter": { "enabled": false },
+    "assist": { "enabled": false },
+    "css": {
+        "linter": { "enabled": false },
+        "parser": { "tailwindDirectives": true }
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "preset": "recommended",
+            "a11y": { "recommended": false },
+            "complexity": {
+                "noImportantStyles": "off",
+                "noUselessFragments": "off",
+                "useLiteralKeys": "off",
+                "useOptionalChain": "off"
+            },
+            "correctness": {
+                "noComponentHookFactories": "off",
+                "noUnusedFunctionParameters": "off",
+                "useExhaustiveDependencies": {
+                    "level": "warn",
+                    "options": { "reportUnnecessaryDependencies": false }
+                }
+            },
+            "security": { "noDangerouslySetInnerHtml": "off" },
+            "style": {
+                "noDescendingSpecificity": "off",
+                "noNonNullAssertion": "off",
+                "useImportType": "off",
+                "useTemplate": "off"
+            },
+            "suspicious": {
+                "noArrayIndexKey": "off",
+                "noAssignInExpressions": "off",
+                "noControlCharactersInRegex": "off",
+                "noImplicitAnyLet": "off",
+                "useIterableCallbackReturn": "off"
+            }
+        }
+    }
+}

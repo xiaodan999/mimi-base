@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
+import type { ReactNode } from "react";
 
 // 完整的 study.css 跟着 /study/$subjectId 的 lazy 布局一起加载。
 // app shell 只引入 ai-tokens.css 的精简 token，不再把这份 60KB 样式带给每页。

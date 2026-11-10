@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 
 import { useStudy } from "../components/StudyContext";
 import {
-    DAILY_BONUS_XP,
     cardStats,
+    DAILY_BONUS_XP,
     dailyTaskStatus,
     daysLeft,
     questionStats,
@@ -14,11 +14,11 @@ import { toast } from "../toast";
 import type { Progress } from "../types";
 import { BADGES, evaluateBadges, rankFor, totalPlays } from "./meta";
 import {
-    GAMES,
     gameForModule,
+    type GameMeta,
+    GAMES,
     isGameUnlocked,
     unlockText,
-    type GameMeta,
 } from "./registry";
 import "./games.css";
 

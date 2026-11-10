@@ -1,14 +1,20 @@
-import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
+import { useStudy } from "../../components/StudyContext";
+import { fmtTime, shuffle } from "../../engine";
+import { toast } from "../../toast";
+import ResultPanel from "../components/ResultPanel";
+import { type GameOutcome, recordGame } from "../meta";
+import WardScene from "../ward/WardScene";
 import {
     SHIFT_EVENTS,
     SHIFT_RESOLVE_SAFETY,
     SHIFT_RETRY_SAFETY,
     SHIFT_TOTAL_SECONDS,
     SHIFT_WRONG_SAFETY,
-    shiftHazard,
     type ShiftEventDef,
+    shiftHazard,
 } from "./events";
 import {
     GAME_ICON,
@@ -18,12 +24,6 @@ import {
     GAME_TITLE,
 } from "./meta";
 import { shiftScore } from "./scoring";
-import { useStudy } from "../../components/StudyContext";
-import { fmtTime, shuffle } from "../../engine";
-import { toast } from "../../toast";
-import ResultPanel from "../components/ResultPanel";
-import { recordGame, type GameOutcome } from "../meta";
-import WardScene from "../ward/WardScene";
 // 通用实战样式（ResultPanel 的 .gr-* / .g-btn）与本 lazy chunk 一起加载。
 import "../games.css";
 import "./shift.css";

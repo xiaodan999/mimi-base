@@ -1,11 +1,11 @@
-import { useMemo } from "react";
 import {
-    useExternalStoreRuntime,
-    WebSpeechSynthesisAdapter,
     type AppendMessage,
     type MessageStatus,
     type ThreadMessageLike,
+    useExternalStoreRuntime,
+    WebSpeechSynthesisAdapter,
 } from "@assistant-ui/react";
+import { useMemo } from "react";
 
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
 

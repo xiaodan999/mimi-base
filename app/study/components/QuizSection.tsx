@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
 
-import { TYPE_ICON, TYPE_NAME, shuffle } from "../engine";
+import { shuffle, TYPE_ICON, TYPE_NAME } from "../engine";
 import { dueCount, dueQueue } from "../scheduling";
 import { toast } from "../toast";
 import type { QuizItem, QuizType } from "../types";
@@ -49,11 +49,11 @@ export default function QuizSection({ quick }: { quick?: boolean }) {
         setSession({ items, mode: "practice", title: "智能复习" });
     };
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!quick || autoStarted) return;
         setAutoStarted(true);
         startQuick();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [quick, autoStarted]);
 
     const startAiVariant = () => {

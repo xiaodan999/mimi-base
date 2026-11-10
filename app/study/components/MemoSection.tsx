@@ -1,5 +1,5 @@
-import { useStudy } from "./StudyContext";
 import { renderRichText } from "./rich-text";
+import { useStudy } from "./StudyContext";
 
 export default function MemoSection() {
     const { subject } = useStudy();

@@ -1,25 +1,15 @@
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
-import {
     ActionBarPrimitive,
+    type AppendMessage,
     AssistantRuntimeProvider,
     ComposerPrimitive,
+    type DataMessagePartProps,
+    type EmptyMessagePartProps,
+    type ImageMessagePartProps,
     MessagePrimitive,
     ThreadPrimitive,
     useAui,
     useAuiState,
-    type AppendMessage,
-    type DataMessagePartProps,
-    type EmptyMessagePartProps,
-    type ImageMessagePartProps,
 } from "@assistant-ui/react";
 import {
     ArrowDown,
@@ -35,18 +25,28 @@ import {
     Volume2,
     VolumeX,
 } from "lucide-react";
+import {
+    createContext,
+    type ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { toast } from "sonner";
 
 import { imagesToDataUrls } from "@/app/ai/image";
 import { formatBytes } from "@/app/chat/artifacts";
 import {
     attachmentPartFromRecord,
+    type AttachmentRecord,
     extractAttachment,
-    withExtracted,
     FILE_ACCEPT,
     MAX_ATTACHMENTS,
-    type AttachmentRecord,
     type PendingAttachment,
+    withExtracted,
 } from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
 import type {

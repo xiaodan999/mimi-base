@@ -13,11 +13,13 @@
 
 import { createHash } from "node:crypto";
 
+import { isRecordId, MAX_FILE_BYTES } from "../lib/chat-files";
+import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
     AI_FILES_PATH,
-    FileReadError,
     extractPdfPageImages,
     extractUploadedFile,
+    FileReadError,
 } from "./ai-files";
 import {
     AI_TOOLS_COMMENTS_PATH,
@@ -25,25 +27,23 @@ import {
     AI_TOOLS_MEMORY_PATH,
     AI_TOOLS_POSTS_PATH,
     AI_TOOLS_URL_PATH,
-    createAiToolsService,
     type AiToolsCall,
+    createAiToolsService,
 } from "./ai-tools";
-import { MAX_FILE_BYTES, isRecordId } from "../lib/chat-files";
-import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
 import {
-    createIpCityLookup,
-    resolveClientIp,
-    type IpCityLookup,
-} from "./geo-ip";
-import {
+    type ChatModelInfo,
     findChatModel,
     hasImagePart,
     normalizeModelId,
     normalizeThinkingLevel,
     pickDefaultChatModel,
     resolveChatModels,
-    type ChatModelInfo,
 } from "./chat-models";
+import {
+    createIpCityLookup,
+    type IpCityLookup,
+    resolveClientIp,
+} from "./geo-ip";
 
 export const AI_RELAY_PREFIX = "/api/ai";
 export const AI_CHAT_PATH = "/api/ai/opencode/v1/chat/completions";

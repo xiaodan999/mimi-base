@@ -1,16 +1,16 @@
 // 通用实战样式随 lazy chunk 一起加载（以前由静态引入的 GameHub 顺带提供）。
 import "../games.css";
 
-import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { BLOOD_STEPS, type BloodStep } from "./steps";
 import { useStudy } from "../../components/StudyContext";
 import { fmtTime, shuffle } from "../../engine";
 import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
-import { recordGame, type GameOutcome } from "../meta";
+import { type GameOutcome, recordGame } from "../meta";
 import { bloodScore } from "../scoring";
+import { BLOOD_STEPS, type BloodStep } from "./steps";
 
 type Phase = "intro" | "playing" | "result";
 

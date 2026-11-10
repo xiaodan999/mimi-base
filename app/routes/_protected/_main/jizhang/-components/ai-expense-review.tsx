@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import { format } from "date-fns/esm";
+import { useMemo } from "react";
 import { DateRange } from "react-day-picker";
 
 import AiPanel from "@/app/ai/AiPanel";
@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/lib/auth";
 
 import { getExpenseCategory } from "../-categories";
 import { useExpenseCategories } from "../-data";
-import { summarizeDays, type ExpenseDay } from "../-summary";
+import { type ExpenseDay, summarizeDays } from "../-summary";
 
 export default function AiExpenseReview({
     open,

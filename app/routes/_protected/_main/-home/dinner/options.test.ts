@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
     DINNER_SEED,
-    MAX_DINNER_NAME_LENGTH,
-    WHEEL_LABEL_LIMIT,
-    WHEEL_LABEL_TARGET,
     dinnerNameError,
+    MAX_DINNER_NAME_LENGTH,
     normalizeAngle,
     normalizeDinnerName,
     randomIndex,
@@ -14,6 +12,8 @@ import {
     segmentPaletteIndex,
     shouldDrawWheelLabel,
     spinPlan,
+    WHEEL_LABEL_LIMIT,
+    WHEEL_LABEL_TARGET,
     wheelLabel,
     wheelLabelFontSize,
     wheelLabelStride,

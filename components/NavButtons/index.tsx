@@ -2,10 +2,10 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
     BookOpen,
     House,
+    type LucideIcon,
     MessageSquareText,
     UserRound,
     Wallet,
-    type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";

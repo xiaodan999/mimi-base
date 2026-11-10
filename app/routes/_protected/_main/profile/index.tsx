@@ -1,5 +1,4 @@
-import { useState, type ReactNode } from "react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     BarChart3,
     Camera,
@@ -11,6 +10,7 @@ import {
     Pencil,
     Sparkles,
 } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 
 import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
@@ -28,7 +28,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { type User, useCurrentUser } from "@/lib/auth";
+import { useCurrentUser, type User } from "@/lib/auth";
 import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";

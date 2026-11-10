@@ -23,19 +23,19 @@ import path from "node:path";
 
 import {
     describeError,
-    normalizeSandboxLanguage,
-    normalizeSandboxPath,
-    sanitizeArtifacts,
-    sanitizeFiles,
-    validateSandboxCode,
     MAX_ARTIFACT_BYTES,
     MAX_ARTIFACT_TOTAL_BYTES,
     MAX_FILE_CHARS,
+    normalizeSandboxLanguage,
+    normalizeSandboxPath,
     SANDBOX_TIMEOUT_MS,
     type SandboxFiles,
     type SandboxLanguage,
     type SandboxRequest,
     type SandboxResponse,
+    sanitizeArtifacts,
+    sanitizeFiles,
+    validateSandboxCode,
 } from "../lib/sandbox-protocol";
 
 const MAX_STDOUT_BYTES = 256 * 1024;

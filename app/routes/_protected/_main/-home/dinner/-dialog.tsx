@@ -1,7 +1,7 @@
-import type { CSSProperties } from "react";
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Carrot, Loader2, RefreshCw, Settings2, Sparkles } from "lucide-react";
+import type { CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {

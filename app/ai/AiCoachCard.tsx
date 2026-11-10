@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { dayKey } from "@/app/study/engine";
 import { gameForModule } from "@/app/study/games/registry";
@@ -8,7 +8,7 @@ import type { Progress, StudySubject } from "@/app/study/types";
 import { useAi } from "./AiContext";
 import { readAiCache } from "./cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
-import { planMessages, type AiPlan } from "./prompts";
+import { type AiPlan, planMessages } from "./prompts";
 import { decideAiRestore } from "./restore";
 import type { AiTask } from "./task-store";
 import { useAiTasks } from "./tasks";
@@ -109,9 +109,9 @@ export default function AiCoachCard({ subject, progress }: Props) {
         }
     };
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         restore(find(cacheKey));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cacheKey]);
 
     // 卡片在页面上时，用户看得到计划，不用再弹完成通知
@@ -121,10 +121,10 @@ export default function AiCoachCard({ subject, progress }: Props) {
 
     // 后台任务状态变化（跑完 / 失败 / 取消）也接上
     const activeTask = tasks.find((task) => task.key === cacheKey);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!activeTask) return;
         restore(activeTask);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTask]);
 
     const generate = useCallback(

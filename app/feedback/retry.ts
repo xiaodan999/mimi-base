@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { toastPromise } from "@/lib/toast-promise";
 
-import { useRetryFeedbackReport, type FeedbackReportRecord } from "./data";
+import { type FeedbackReportRecord, useRetryFeedbackReport } from "./data";
 
 /**
  * Shared retry action for the feedback list. One pending report at a time is

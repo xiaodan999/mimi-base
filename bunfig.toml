@@ -13,8 +13,9 @@ endOfLine = "lf"
 
 # Bun's native Tailwind sorter replaces prettier-plugin-tailwindcss.
 sortTailwindcss = true
-# Import grouping stays owned by ESLint's import/order rule.
-sortImports = false
+# Imports are sorted by the formatter: Biome runs lint-only here, so one tool
+# owns every rewrite and nothing fights over a file.
+sortImports = true
 
 ignorePatterns = [
     "app/routeTree.gen.ts",

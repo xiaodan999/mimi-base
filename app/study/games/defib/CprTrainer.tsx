@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+    type BeatGrade,
     CPR_BPM,
     CPR_DURATION_MS,
     gradeBeatDelta,
     rhythmBeatCount,
     rhythmBeatInterval,
-    scoreRhythm,
-    type BeatGrade,
     type RhythmResult,
+    scoreRhythm,
 } from "./scoring";
 
 type Status = "ready" | "countdown" | "running" | "done";

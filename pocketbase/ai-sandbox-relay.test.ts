@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { AI_SANDBOX_PATH, createAiRelay, type AiRelayDeps } from "./ai-relay";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
+import { AI_SANDBOX_PATH, type AiRelayDeps, createAiRelay } from "./ai-relay";
 
 const PB_BASE = "http://127.0.0.1:8090";
 

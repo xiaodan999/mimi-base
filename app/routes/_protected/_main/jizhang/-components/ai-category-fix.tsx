@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Tags } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
@@ -19,9 +19,9 @@ import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
 import {
+    type ExpenseCategory,
     needsExpenseCategory,
     normalizeCategoryValue,
-    type ExpenseCategory,
 } from "../-categories";
 import { useExpenseCategories } from "../-data";
 
@@ -136,6 +136,7 @@ export default function AiCategoryFix({
             Object.keys(value).length > 0,
     });
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open) {
             setIncludeOther(false);
@@ -149,12 +150,12 @@ export default function AiCategoryFix({
         setGuesses(decision.kind === "ready" ? decision.value : {});
         setGuessing(decision.kind === "running");
         if (decision.kind === "error") setMessage(decision.message);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, includeOther, cacheKey, find]);
 
     // 后台猜完或从别的页面回来时，接上任务状态
     const activeTask = tasks.find((task) => task.key === cacheKey);
     const appliedRef = useRef<string | null>(null);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open || !activeTask) return;
         const decision = decideAiRestore<Record<string, string>>(
@@ -171,7 +172,6 @@ export default function AiCategoryFix({
         } else if (decision.kind === "error") {
             setMessage(decision.message);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey, activeTask]);
 
     useEffect(() => {

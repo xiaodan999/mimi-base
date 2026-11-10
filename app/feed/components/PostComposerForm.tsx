@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { ArrowUp, Check, Sparkles, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import TouXiang from "@/components/TouXiang";
 import { Button } from "@/components/ui/button";

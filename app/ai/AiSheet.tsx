@@ -1,6 +1,6 @@
-import { type ReactNode, type RefObject } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { type ReactNode, type RefObject } from "react";
 
 import { useBackDismiss } from "@/lib/useBackDismiss";
 import { cn } from "@/lib/utils";

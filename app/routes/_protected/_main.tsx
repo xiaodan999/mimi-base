@@ -1,5 +1,5 @@
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { AiProvider } from "@/app/ai/AiContext";
 import { abortAllChatRuns } from "@/app/chat/run-store";

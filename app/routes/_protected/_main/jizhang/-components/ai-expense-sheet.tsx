@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Camera,
     ChevronRight,
@@ -7,6 +6,7 @@ import {
     Trash2,
     Wand2,
 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
@@ -14,10 +14,10 @@ import { hashText, readAiCache, removeAiCache } from "@/app/ai/cache";
 import {
     AiError,
     aiErrorText,
+    type AiMessage,
     chatJSON,
     isAiCanceled,
     throwIfAborted,
-    type AiMessage,
 } from "@/app/ai/client";
 import { expenseReceiptMessages, expenseTextMessages } from "@/app/ai/expense";
 import { imageToDataUrl } from "@/app/ai/image";
@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 
-import { normalizeCategoryValue, type ExpenseCategory } from "../-categories";
+import { type ExpenseCategory, normalizeCategoryValue } from "../-categories";
 import { useAddJiZhang, useExpenseCategories } from "../-data";
 
 type DraftRow = {
@@ -123,6 +123,7 @@ export default function AiExpenseSheet({
     /** rows 属于哪一次解析；换了描述后旧 rows 不能被当成新结果。 */
     const rowsKeyRef = useRef<string | null>(null);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open) {
             // 关着的时候还在解析，就保留这一笔，重新打开还能直接保存。
@@ -175,7 +176,6 @@ export default function AiExpenseSheet({
                 setReceipt(null);
                 return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     useEffect(() => {

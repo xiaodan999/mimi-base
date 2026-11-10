@@ -13,16 +13,16 @@
 
 import {
     closeSync,
+    mkdirSync,
     openSync,
+    readdirSync,
     readFileSync,
     readSync,
-    readdirSync,
+    realpathSync,
     rmSync,
     statSync,
-    writeFileSync,
-    mkdirSync,
-    realpathSync,
     unlinkSync,
+    writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import util from "node:util";

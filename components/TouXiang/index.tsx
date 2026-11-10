@@ -1,9 +1,9 @@
-import type { CSSProperties } from "react";
 import { Smile } from "lucide-react";
+import type { CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { CirclePresetRing, NO_RING, isCirclePreset } from "./presets";
+import { CirclePresetRing, isCirclePreset, NO_RING } from "./presets";
 
 const DEFAULT_CIRCLE = "/images/blue-circle.png";
 

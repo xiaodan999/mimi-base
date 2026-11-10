@@ -4,9 +4,9 @@ import path from "node:path";
 
 import { MAX_FILE_CHARS, PDF_NO_TEXT_LAYER_CODE } from "../lib/chat-files";
 import {
-    FileReadError,
     extractPdfPageImages,
     extractUploadedFile,
+    FileReadError,
 } from "./ai-files";
 
 const fixtures = path.join(import.meta.dir, "__fixtures__/chat-files");

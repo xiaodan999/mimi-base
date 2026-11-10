@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
-    MAX_ERROR_MESSAGE_CHARS,
-    MAX_FEEDBACK_ERRORS,
     appendFeedbackError,
     clearFeedbackErrors,
+    type FeedbackErrorEntry,
     formatFeedbackErrorText,
     getFeedbackErrors,
     installFeedbackCapture,
+    MAX_ERROR_MESSAGE_CHARS,
+    MAX_FEEDBACK_ERRORS,
     pushFeedbackError,
     readLastRoute,
     rememberRoute,
     subscribeFeedbackErrors,
-    type FeedbackErrorEntry,
 } from "./error-buffer";
 
 function entry(index: number): FeedbackErrorEntry {

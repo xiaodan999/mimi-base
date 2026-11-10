@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
+import type { Card } from "../../types";
 import { Checklist, Note, ScoreBox, StepList, WidgetShell } from "./kit";
 import { useWidgetState } from "./useWidget";
-import type { Card } from "../../types";
 
 /* -------------------------------------------------------------------------- */
 /* 通用流程                                                                    */

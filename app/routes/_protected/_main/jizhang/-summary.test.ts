@@ -3,9 +3,9 @@ import { describe, expect, test } from "bun:test";
 import type { JiZhangItemData } from "./-data";
 import {
     buildTrend,
+    type ExpenseDay,
     sumExpenses,
     summarizeDays,
-    type ExpenseDay,
 } from "./-summary";
 
 function expense(price: number, itemName = "测试"): JiZhangItemData {

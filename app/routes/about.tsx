@@ -1,16 +1,16 @@
-import { type ReactNode, useEffect, useState } from "react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
     ArrowUpRight,
     Check,
     ChevronDown,
     Copy,
+    type LucideIcon,
     RefreshCw,
     Sparkles,
     Wrench,
-    type LucideIcon,
 } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { markUpdateSeen } from "@/app/about/seen";

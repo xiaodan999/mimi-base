@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber 的 JSX 属性不在 react 规则表里 */
-import { useState } from "react";
 import { OrbitControls, useCursor } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
+import { useState } from "react";
 
 import type { Hazard } from "./hazards";
 import {
@@ -27,11 +27,11 @@ import {
     Rail,
     Shoes,
     Sink,
+    type Vec3,
     Vials,
     WarningTag,
     Wheelchair,
     Wristband,
-    type Vec3,
 } from "./models";
 
 type Props = {

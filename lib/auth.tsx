@@ -1,6 +1,6 @@
 import {
-    type ReactNode,
     createContext,
+    type ReactNode,
     useCallback,
     useContext,
     useEffect,
@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import pb, { clearFileToken, ensureFileToken } from "./pb";
-import { toUser, type Circle, type User, type UserRecord } from "./pb-types";
+import { type Circle, toUser, type User, type UserRecord } from "./pb-types";
 
 // `User` / `Circle` are centralized in lib/pb-types.ts; re-export them so the
 // rest of the app keeps importing them from `@/lib/auth`.

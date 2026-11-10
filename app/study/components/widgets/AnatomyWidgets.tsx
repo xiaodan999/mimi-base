@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 
-import { ChipRow, Note, WidgetShell } from "./kit";
-import { useWidgetState } from "./useWidget";
 import { DEMOS } from "../../demos";
 import type { Card } from "../../types";
-import { SvgMarkup } from "../SvgMarkup";
 import { renderRichText } from "../rich-text";
+import { SvgMarkup } from "../SvgMarkup";
+import { ChipRow, Note, WidgetShell } from "./kit";
+import { useWidgetState } from "./useWidget";
 
 /* -------------------------------------------------------------------------- */
 /* 心电监护五色导联                                                             */

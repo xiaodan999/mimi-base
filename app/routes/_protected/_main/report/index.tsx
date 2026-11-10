@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronLeft, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import { hashText, readAiCache } from "@/app/ai/cache";
@@ -16,7 +16,7 @@ import { formatMoney } from "@/lib/money";
 import { getFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
-import { buildStudyReport, useYearReport, type TopPost } from "./-data";
+import { buildStudyReport, type TopPost, useYearReport } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/report/")({
     component: Page,
@@ -360,6 +360,7 @@ function ReportLetter({
         hasValue: (value: string) => value.trim().length > 0,
     });
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     const run = useCallback(
         async (force: boolean) => {
             const ticket = ++ticketRef.current;
@@ -406,12 +407,12 @@ function ReportLetter({
                 if (ticketRef.current === ticket) setLoading(false);
             }
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [find, getResult, input, key, runTask, settings, year],
     );
 
     // 打开 / 换 key 时统一决策：永远先看缓存（移除旧的 nonce===0 gate），
     // 之后即使某次重新写失败，好缓存也不会被藏起来。
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (empty) return;
         const decision = decideAiRestore<string>(restoreInput(find(key)));
@@ -433,7 +434,6 @@ function ReportLetter({
         }
         // running / none：run() 会接上同一个任务或开一个新的
         void run(false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, empty]);
 
     // 在报告页上看着呢，完成时就不用再弹通知了

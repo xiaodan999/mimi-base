@@ -1,5 +1,5 @@
-import * as React from "react";
 import { Check, Plus, X } from "lucide-react";
+import * as React from "react";
 
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";

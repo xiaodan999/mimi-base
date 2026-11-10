@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns/esm";
 import { History } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import { hashText, readAiCache } from "@/app/ai/cache";
@@ -12,7 +12,7 @@ import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";
 import { getFileUrl } from "@/lib/pb";
 
-import { useOnThisDay, type MemoryPost } from "../-home-data";
+import { type MemoryPost, useOnThisDay } from "../-home-data";
 
 export default function MemoryCard() {
     const user = useCurrentUser();
@@ -32,6 +32,7 @@ export default function MemoryCard() {
     }, [data, user.id]);
     const group = `memory:${user.id}`;
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!key || !data?.length) {
             setLine("");
@@ -79,7 +80,6 @@ export default function MemoryCard() {
             .catch(() => {
                 // 回忆卡没有旁白也能用
             });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, settings, data]);
 
     useEffect(() => {

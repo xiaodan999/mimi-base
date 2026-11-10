@@ -1,6 +1,6 @@
-import { Suspense, lazy, type ReactNode } from "react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { lazy, type ReactNode, Suspense } from "react";
 
 import { useStudy } from "@/app/study/components/StudyContext";
 import { getGame, isGameUnlocked } from "@/app/study/games/registry";

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
@@ -15,9 +15,9 @@ import { toastPromise } from "@/lib/toast-promise";
 
 import { normalizeCategoryValue } from "../-categories";
 import {
+    type JiZhangItemData,
     useExpenseCategories,
     useUpdateJiZhang,
-    type JiZhangItemData,
 } from "../-data";
 import CategoryChips from "./category-chips";
 

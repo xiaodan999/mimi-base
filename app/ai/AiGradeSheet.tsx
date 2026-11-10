@@ -9,7 +9,7 @@ import AiMarkdown from "./AiMarkdown";
 import AiSheet from "./AiSheet";
 import { hashText, readAiCache } from "./cache";
 import { aiErrorText, chatJSON, isAiCanceled } from "./client";
-import { gradeMessages, userAnswerText, type AiGrade } from "./prompts";
+import { type AiGrade, gradeMessages, userAnswerText } from "./prompts";
 import { decideAiRestore } from "./restore";
 import { useAiTasks } from "./tasks";
 
@@ -102,6 +102,7 @@ export default function AiGradeSheet({
         [answer, cacheKey, item, moduleName, runTask, settings, subject],
     );
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open || !item) {
             startedRef.current = null;
@@ -136,7 +137,6 @@ export default function AiGradeSheet({
         // running：run() 会接上同一个任务；none：开一个新的。
         setGrade(null);
         void run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey]);
 
     // 批改面板开着时，完成通知是多余的

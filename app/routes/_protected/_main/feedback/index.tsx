@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Bug, ChevronLeft, Lightbulb } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 

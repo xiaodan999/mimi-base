@@ -57,7 +57,13 @@
  * verifying the new supervisor (and its PB) are healthy. The supervisor is
  * started detached by scripts/server-setup.sh; nothing restarts it on its own.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import {
+    type ChildProcess,
+    execFileSync,
+    execSync,
+    spawn,
+} from "node:child_process";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
     chmodSync,
     copyFileSync,
@@ -65,8 +71,8 @@ import {
     lstatSync,
     mkdirSync,
     openSync,
-    readFileSync,
     readdirSync,
+    readFileSync,
     readlinkSync,
     renameSync,
     rmSync,
@@ -75,17 +81,15 @@ import {
     unlinkSync,
     writeFileSync,
 } from "node:fs";
-import { execFileSync, execSync } from "node:child_process";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 
 import { createAiRelay } from "./ai-relay";
+import { resolveChatModels } from "./chat-models";
 import { createFeedbackService } from "./feedback";
 import { createIpCityLookup } from "./geo-ip";
-import { createVideoService } from "./video";
-import { resolveChatModels } from "./chat-models";
 import { createSandboxExecutor } from "./sandbox-exec";
+import { createVideoService } from "./video";
 
 const PB_VERSION = "0.40.6";
 const isWindows = process.platform === "win32";

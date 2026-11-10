@@ -1,21 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-    FEEDBACK_ISSUE_STATE_PATH,
-    FEEDBACK_REPORT_PATH,
-    FEEDBACK_UPLOAD_PATH,
     asAttachmentArray,
     buildIssueBody,
     buildIssueTitle,
     buildTranscript,
     cleanText,
     createFeedbackService,
+    FEEDBACK_ISSUE_STATE_PATH,
+    FEEDBACK_REPORT_PATH,
+    FEEDBACK_UPLOAD_PATH,
+    type FeedbackDeps,
+    type FeedbackReport,
     formatBytes,
     formatConsoleErrors,
     messageText,
     sanitizeAssetName,
-    type FeedbackDeps,
-    type FeedbackReport,
 } from "./feedback";
 
 const PB_BASE = "http://127.0.0.1:8090";

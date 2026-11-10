@@ -25,8 +25,8 @@ Chinese; keep that style when adding user-facing text.
 - `components/ui/` — shadcn/ui primitives. These are a **fork** (see
   "Forked shadcn primitives" below): `dialog.tsx`, `sheet.tsx`, `drawer.tsx`,
   `sonner.tsx` carry hand-applied customizations and must not be regenerated.
-  ESLint now checks this directory (scoped override in `eslint.config.js`);
-  `bun fmt` still skips it.
+  Biome lints this directory too (rules in `biome.json`); `bun fmt` still
+  skips it.
 - `components/` — app components (`NavButtons`, `TouXiang`, `LoadingPage`).
 - `app/chat/` — general-chat domain logic: `api.ts` (relay URLs and allowlist
   fetch), `stream.ts` and `sse.ts` (streaming/tool-call parsing), `prompt.ts`,
@@ -79,16 +79,16 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
 bun run build             # vite build + bun check (app; no server deps needed)
 bun run test              # bun test (whole repo; pure logic, no server needed)
 bun run typecheck         # bun check for the app + pocketbase/
-bun run lint              # eslint (flat config)
+bun run lint              # biome lint (biome.json)
 bun run format            # bun fmt
 bun run format:check      # bun fmt --check
 bun run setup:hooks       # enable .githooks/pre-commit once per clone
 ```
 
-Formatting is Bun's native formatter (`bunfig.toml`), linting is the ESLint
-flat config (`eslint.config.js`), and typechecking is `bun check`
-(`bun run typecheck`). There is no `bun lint`; don't reintroduce Prettier or
-`.eslintrc`. Unit tests use Bun's built-in runner and cover pure logic only;
+Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
+(`biome.json`, lint only), and typechecking is `bun check`
+(`bun run typecheck`). There is no `bun lint`; don't reintroduce Prettier, an
+ESLint config, or a second linter. Unit tests use Bun's built-in runner and cover pure logic only;
 `bun test` scans the whole repo. Verify UI changes with `bun run build` and the
 dev server.
 
@@ -382,11 +382,13 @@ before your first commit.
 
 - `@/*` maps to the repo root; use it instead of deep relative imports.
 - Formatting: `bun fmt` using `bunfig.toml` (4 spaces, double quotes, 80 cols,
-  trailing commas, Tailwind class sorting). Import order is owned by ESLint;
-  keep `sortImports = false`. Lint rules live in the flat `eslint.config.js`.
-  `build/` and PocketBase scripts are ignored by ESLint; `components/ui/` is
-  checked via a scoped override (see "Forked shadcn primitives"). `bun fmt`
-  still skips it.
+  trailing commas, Tailwind class sorting, import sorting). Lint rules live in
+  `biome.json`, which deliberately mirrors the old ESLint bar: the a11y, style
+  and React-Compiler-era rules stay off, `useExhaustiveDependencies` stays
+  `warn` with `reportUnnecessaryDependencies: false`, and CSS is parsed
+  (Tailwind directives) but not linted. `build/` and PocketBase scripts are
+  ignored; `components/ui/` is linted like the rest of the app (see "Forked
+  shadcn primitives"). `bun fmt` still skips it.
 - Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Define
   every key in `lib/query-keys.ts` (`qk.*`); per-user keys include the user id,
   and mutations invalidate the `qk.*.all` prefix. Don't import `queryClient`
@@ -593,8 +595,8 @@ primitives refresh:
   `repositionInputs={false}` (our own keyboard handling sizes the sheet).
 - `sonner.tsx` — theme-aware `Toaster` driven by `useTheme()`.
 
-`components.json` records the fork (see its `x-mimi-fork` note), and the ESLint
-override in `eslint.config.js` now lint-checks `components/ui/`. **Do not
+`components.json` records the fork (see its `x-mimi-fork` note), and Biome
+lint-checks `components/ui/` like the rest of the app. **Do not
 regenerate these files** with the shadcn CLI without re-applying the
 customizations above (or moving them into `components/overlays/` wrappers and
 re-pointing every importer). The customizations live inside the primitives
@@ -617,8 +619,8 @@ its real concerns are `darkMode: ["class"]` → `@custom-variant`,
   script or hook step — a differential run of `tsc --noEmit` against
   `bun check` over this repo (and over a hand-written set of inference /
   narrowing cases) produced the same diagnostics, so don't reintroduce one.
-  `typescript@^5.6.3` stays in devDependencies because `typescript-eslint` and
-  the Vite plugin need it, not for a typecheck. The root `tsconfig.json`
+  That is also why the `typescript` package is gone: nothing loads it any more
+  (Vite resolves tsconfig `paths` itself, the router plugin does not need it). The root `tsconfig.json`
   excludes `pocketbase/`, so `bun run build` on Vercel/CI does not need the
   server's own deps. Keep `"types": ["bun"]` and no `baseUrl` in
   `tsconfig.json`.

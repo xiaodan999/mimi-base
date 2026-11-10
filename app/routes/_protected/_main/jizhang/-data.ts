@@ -1,13 +1,13 @@
-import { useCallback, useMemo } from "react";
 import {
     keepPreviousData,
+    type QueryClient,
     queryOptions,
     useMutation,
     useQuery,
     useQueryClient,
-    type QueryClient,
 } from "@tanstack/react-query";
 import { endOfDay, startOfDay, startOfMonth } from "date-fns/esm";
+import { useCallback, useMemo } from "react";
 import { DateRange } from "react-day-picker";
 
 import { useCurrentUser } from "@/lib/auth";
@@ -24,10 +24,10 @@ import { qk } from "@/lib/query-keys";
 import {
     BUILTIN_EXPENSE_CATEGORIES,
     categoryFromRecord,
-    guessCategoryIcon,
-    resolveExpenseCategory,
     type ExpenseCategory,
     type ExpenseCategoryRecord,
+    guessCategoryIcon,
+    resolveExpenseCategory,
 } from "./-categories";
 
 // The view-model shape now lives in lib/pb-types.ts; keep re-exporting it so

@@ -1,6 +1,6 @@
-import { Suspense, lazy, useState } from "react";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Camera, Sparkles } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
 
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
@@ -12,9 +12,9 @@ import { formatMoney } from "@/lib/money";
 import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
+import { useHomeStats } from "./-home-data";
 import DailyLine from "./-home/daily-line";
 import DinnerLotteryDialog from "./-home/dinner/-dialog";
-import { useHomeStats } from "./-home-data";
 
 // The feed owns the post, composer, comment and viewer chunks; keeping it in
 // its own bundle lets the greeting header paint before they load.

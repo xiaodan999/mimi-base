@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useStudy } from "../../components/StudyContext";
 import { shuffle } from "../../engine";
 import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
-import { recordGame, type GameOutcome } from "../meta";
-import SkinScene, { type SceneView } from "./SkinScene";
+import { type GameOutcome, recordGame } from "../meta";
 import {
     BASE_TISSUE_COLORS,
     SKIN_LAYERS,
@@ -15,15 +14,16 @@ import {
 } from "./anatomy";
 import {
     SKIN_CASES,
+    type SkinCase,
     STAGE_LABELS,
     STAGE_OPTIONS,
-    TREATMENTS,
-    stageOption,
-    type SkinCase,
     type StageKey,
+    stageOption,
     type TreatmentId,
+    TREATMENTS,
 } from "./cases";
 import { casePoints, scoreSkinRun, type SkinScore } from "./scoring";
+import SkinScene, { type SceneView } from "./SkinScene";
 // 通用实战样式（ResultPanel 的 .gr-* / .g-btn）与本 lazy chunk 一起加载。
 import "../games.css";
 import "./skin.css";

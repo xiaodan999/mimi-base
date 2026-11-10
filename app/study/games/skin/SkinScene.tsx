@@ -1,16 +1,16 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber 的 JSX 属性不在 react 规则表里 */
-import { useEffect, useRef } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useRef } from "react";
 import type { Group } from "three";
 
 import {
     BASE_TISSUE_COLORS,
+    type BruiseKind,
     SKIN_DEPTH,
     SKIN_LAYERS,
     SKIN_TOP,
     SKIN_WIDTH,
-    type BruiseKind,
     type SkinLayer,
     type WoundProfile,
 } from "./anatomy";

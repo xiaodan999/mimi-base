@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
+import type { Card } from "../../types";
+import { renderRichText } from "../rich-text";
 import {
     Checklist,
     Note,
@@ -10,8 +12,6 @@ import {
     WidgetShell,
 } from "./kit";
 import { useWidgetState } from "./useWidget";
-import type { Card } from "../../types";
-import { renderRichText } from "../rich-text";
 
 /* -------------------------------------------------------------------------- */
 /* 疼痛 NRS：拖滑杆 / 点表情                                                   */

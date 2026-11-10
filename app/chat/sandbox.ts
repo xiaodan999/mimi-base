@@ -1,8 +1,8 @@
 import {
-    sanitizeArtifacts,
-    sanitizeFiles,
     type SandboxRequest,
     type SandboxResponse,
+    sanitizeArtifacts,
+    sanitizeFiles,
 } from "@/lib/sandbox-protocol";
 
 import { aiUrl, chatHeaders, readChatError } from "./api";

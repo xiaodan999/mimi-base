@@ -1,12 +1,11 @@
-import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
 import AiCoachCard from "@/app/ai/AiCoachCard";
 import AiPanel from "@/app/ai/AiPanel";
-import { WEEKLY_CHIPS, weekKey, weeklyMessages } from "@/app/ai/prompts";
+import { weekKey, WEEKLY_CHIPS, weeklyMessages } from "@/app/ai/prompts";
 import { sprintPlanMessages } from "@/app/ai/study";
 
-import { useStudy } from "./StudyContext";
 import {
     cardStats,
     dayKey,
@@ -15,6 +14,7 @@ import {
     streakDays,
 } from "../engine";
 import { starText } from "../lib";
+import { useStudy } from "./StudyContext";
 
 export default function SubjectHome() {
     const { subject, progress } = useStudy();

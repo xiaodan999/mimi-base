@@ -1,4 +1,4 @@
-import { NO_RING, isCirclePreset } from "@/components/TouXiang/presets";
+import { isCirclePreset, NO_RING } from "@/components/TouXiang/presets";
 
 export type RingSelection =
     | { kind: "default" }

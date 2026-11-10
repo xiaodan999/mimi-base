@@ -1,18 +1,18 @@
-import { useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import AiGradeSheet from "@/app/ai/AiGradeSheet";
 import AiPanel from "@/app/ai/AiPanel";
 import { hashText } from "@/app/ai/cache";
 import {
-    WRONG_CHIPS,
     diagnoseWrongMessages,
     userAnswerText,
+    WRONG_CHIPS,
 } from "@/app/ai/prompts";
 import { useBackDismiss } from "@/lib/useBackDismiss";
 
-import { TYPE_NAME, answerText, isAnswerCorrect } from "../engine";
+import { answerText, isAnswerCorrect, TYPE_NAME } from "../engine";
 import { gameForModule } from "../games/registry";
 import { recordQuizAnswer } from "../progress-reducers";
 import { toast } from "../toast";

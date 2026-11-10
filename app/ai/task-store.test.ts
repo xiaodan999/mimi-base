@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, test } from "bun:test";
 
 import {
     clearInterruptibleTask,
-    readInterruptibleTasks,
     type InterruptedTaskEntry,
+    readInterruptibleTasks,
 } from "./interrupted";
 import { createAiTaskStore } from "./task-store";
 

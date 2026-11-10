@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
     AlertCircle,
@@ -13,6 +12,7 @@ import {
     Sparkles,
     X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import AiMarkdown from "./AiMarkdown";

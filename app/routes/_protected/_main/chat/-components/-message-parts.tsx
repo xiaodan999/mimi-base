@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type {
     DataMessagePartProps,
     ReasoningMessagePartProps,
@@ -26,6 +25,7 @@ import {
     Terminal,
     Wallet,
 } from "lucide-react";
+import { useState } from "react";
 
 import { formatBytes, textArtifactInfo } from "@/app/chat/artifacts";
 import { commentPreviews } from "@/app/chat/tool-comments";

@@ -1,10 +1,10 @@
 import {
     createContext,
+    type ReactNode,
     useCallback,
     useContext,
     useMemo,
     useState,
-    type ReactNode,
 } from "react";
 
 // AI sheets live in the app shell and reuse the study design tokens (`st-*`).
@@ -19,10 +19,10 @@ import pb from "@/lib/pb";
 
 import AiSettingsSheet from "./AiSettings";
 import {
+    type AiSettings,
     openCodeRelayBaseUrl,
     readAiSettings,
     writeAiSettings,
-    type AiSettings,
 } from "./config";
 import { setAiRelayBaseUrlProvider } from "./endpoint";
 import { setAiAuthTokenProvider } from "./pb-token";

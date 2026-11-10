@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { DAILY_BONUS_XP, bumpDaily, dailyTaskStatus, dayKey } from "../engine";
+import { bumpDaily, DAILY_BONUS_XP, dailyTaskStatus, dayKey } from "../engine";
 import { emptyProgress } from "../types";
 import {
     evaluateBadges,
+    type GameResult,
     gameXp,
     rankFor,
     recordGame,
-    type GameResult,
 } from "./meta";
 
 const perfect: GameResult = {

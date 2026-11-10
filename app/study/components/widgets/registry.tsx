@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ComponentType, type ElementType } from "react";
+import { type ComponentType, type ElementType, lazy, Suspense } from "react";
 
 import type { Card } from "../../types";
 

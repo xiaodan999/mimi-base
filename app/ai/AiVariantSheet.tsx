@@ -7,7 +7,7 @@ import { useAi } from "./AiContext";
 import AiSheet from "./AiSheet";
 import { readAiCache } from "./cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
-import { variantMessages, type AiVariantPayload } from "./prompts";
+import { type AiVariantPayload, variantMessages } from "./prompts";
 import { decideAiRestore } from "./restore";
 import { useAiTasks } from "./tasks";
 
@@ -165,6 +165,7 @@ export default function AiVariantSheet({
         [cacheKey, find, moduleName, runTask, settings, source, subject],
     );
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open || !source) {
             startedRef.current = null;
@@ -200,7 +201,6 @@ export default function AiVariantSheet({
         // running：run() 会接上同一个任务；none：开一个新的。
         setItems([]);
         void run();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, source, cacheKey]);
 
     useEffect(() => {

@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
     useCallback,
     useEffect,
@@ -5,7 +6,6 @@ import {
     useRef,
     useState,
 } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 import {
     Dialog,
@@ -23,12 +23,12 @@ import {
     DOUBLE_TAP_SCALE,
     midpoint,
     panLimits,
+    type Point,
     resolveSwipe,
     shouldDismiss,
+    type Size,
     SNAP_BACK_SCALE,
     zoomAtPoint,
-    type Point,
-    type Size,
     type ZoomTransform,
 } from "./viewer-gestures";
 

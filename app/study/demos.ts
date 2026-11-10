@@ -9,7 +9,7 @@
  * 里完全可信的硬编码字符串，不含任何用户输入）；题库文本一律走
  * `rich-text.tsx` 的 `renderRichText`。
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* biome-ignore-all lint/suspicious/noExplicitAny: 演示函数的参数由调用方随意传入，取用前都按字符串处理 */
 type DemoFn = (...args: any[]) => string;
 
 /* ---- 压疮分层剖面 ---- */

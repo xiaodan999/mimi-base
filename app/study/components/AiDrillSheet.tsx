@@ -5,7 +5,7 @@ import AiSheet from "@/app/ai/AiSheet";
 import { readAiCache } from "@/app/ai/cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { decideAiRestore } from "@/app/ai/restore";
-import { drillPickMessages, type DrillCandidate } from "@/app/ai/study";
+import { type DrillCandidate, drillPickMessages } from "@/app/ai/study";
 import { useAiTasks } from "@/app/ai/tasks";
 
 import { dayKey, shuffle } from "../engine";
@@ -193,6 +193,7 @@ export default function AiDrillSheet({
     );
 
     // 打开时用统一决策接上后台任务 / 缓存结果（running 优先，再结果→缓存）。
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open) return;
         const byId = new Map(subject.bank.map((item) => [item.id, item]));
@@ -228,7 +229,6 @@ export default function AiDrillSheet({
         }
         // running：pick() 会接上同一个任务；none：开一个新的
         void pick();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     useEffect(() => {

@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 
 import {
-    VIDEO_COMPRESS_PATH,
     createVideoService,
+    VIDEO_COMPRESS_PATH,
     type VideoCompressDeps,
     type VideoCompressResult,
 } from "./video";

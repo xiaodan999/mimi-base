@@ -16,7 +16,7 @@
  *   bun run dev:all
  *   VITE_PORT=3005 PB_PORT=8091 bun run dev:all
  */
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import net from "node:net";
 import { networkInterfaces } from "node:os";

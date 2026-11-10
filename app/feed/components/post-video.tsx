@@ -1,4 +1,3 @@
-import { useRef, useState, type ChangeEvent } from "react";
 import {
     Loader2,
     Maximize2,
@@ -8,6 +7,7 @@ import {
     Volume2,
     VolumeX,
 } from "lucide-react";
+import { type ChangeEvent, useRef, useState } from "react";
 
 import type { PostLayout } from "@/lib/pb-types";
 import {

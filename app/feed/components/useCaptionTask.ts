@@ -1,10 +1,10 @@
 import {
+    type Dispatch,
+    type SetStateAction,
     useEffect,
     useMemo,
     useRef,
     useState,
-    type Dispatch,
-    type SetStateAction,
 } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
@@ -23,8 +23,8 @@ import { useAiTasks } from "@/app/ai/tasks";
 import type { PostLayout } from "@/lib/pb-types";
 
 import {
-    previewImageBlob,
     type PreviewImage,
+    previewImageBlob,
     type PreviewVideo,
 } from "./usePostDraft";
 
@@ -233,6 +233,7 @@ export function useCaptionTask({
 
     // 生成途中关掉草稿时 AI 面板也会关掉，任务继续在后台跑；
     // 回来时把已经生成（或还在生成）的配文重新摆出来。
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open) {
             restoredOpenRef.current = false;
@@ -246,7 +247,6 @@ export function useCaptionTask({
         if (!find(captionKey)) return;
         void suggestCaptions({ restore: true });
         // 只在草稿重新打开时恢复一次，不跟输入内容联动。
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, captionKey, seededKey]);
 
     const applyCaption = (caption: string) => {

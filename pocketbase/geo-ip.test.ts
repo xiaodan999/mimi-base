@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { AI_GEO_IP_PATH, createAiRelay, type AiRelayDeps } from "./ai-relay";
+import { AI_GEO_IP_PATH, type AiRelayDeps, createAiRelay } from "./ai-relay";
 import { createIpCityLookup, isPrivateIp, resolveClientIp } from "./geo-ip";
 
 const PB_BASE = "http://127.0.0.1:8090";

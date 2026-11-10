@@ -138,7 +138,7 @@ PocketBase，互不影响；终端里会打印这一个是哪个地址。
 | `bun run dev`          | 只启动页面                         |
 | `bun run build`        | 打包正式版本，并检查代码有没有错误 |
 | `bun run typecheck`    | 只检查代码类型（bun check）        |
-| `bun run lint`         | 检查代码规范（ESLint）             |
+| `bun run lint`         | 检查代码规范（Biome）              |
 | `bun run format`       | 自动整理代码格式（bun fmt）        |
 | `bun run format:check` | 检查代码格式                       |
 | `bun run test`         | 运行单元测试                       |

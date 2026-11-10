@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber 的 JSX 属性不在 react 规则表里 */
-import { useEffect, useRef, type ReactNode } from "react";
 import { Html } from "@react-three/drei";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent, useFrame } from "@react-three/fiber";
+import { type ReactNode, useEffect, useRef } from "react";
 import { DoubleSide, Group, Mesh, Vector3 } from "three";
 
 export type Vec3 = [number, number, number];

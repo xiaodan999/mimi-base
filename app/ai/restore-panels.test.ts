@@ -1,7 +1,6 @@
+import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
-import { describe, expect, test } from "bun:test";
 
 /**
  * 回归测试：每个可关闭的 AI 面板都必须用 decideAiRestore 决定「重开时显示

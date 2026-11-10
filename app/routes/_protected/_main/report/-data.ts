@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
     categoryFromRecord,
-    getExpenseCategory,
     type ExpenseCategoryRecord,
+    getExpenseCategory,
 } from "@/app/routes/_protected/_main/jizhang/-categories";
 import { cardStatsFromMeta, streakDays } from "@/app/study/engine";
 import { SUBJECT_META } from "@/app/study/meta";

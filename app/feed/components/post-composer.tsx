@@ -4,8 +4,8 @@ import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 import { type PostData } from "../data";
-import PostComposerForm from "./PostComposerForm";
 import ImageViewer from "./image-viewer";
+import PostComposerForm from "./PostComposerForm";
 import { useCaptionTask } from "./useCaptionTask";
 import { usePostDraft } from "./usePostDraft";
 

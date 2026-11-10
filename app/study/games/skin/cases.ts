@@ -6,9 +6,9 @@
  */
 
 import {
-    SKIN_TOP,
-    floorYAt,
     type BruiseKind,
+    floorYAt,
+    SKIN_TOP,
     type WoundProfile,
 } from "./anatomy";
 

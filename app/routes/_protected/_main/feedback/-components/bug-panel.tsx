@@ -1,4 +1,3 @@
-import { useSyncExternalStore, useState } from "react";
 import {
     Bug,
     MessageSquare,
@@ -7,15 +6,16 @@ import {
     Sparkles,
     X,
 } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { useAi } from "@/app/ai/AiContext";
 import { AiError, aiErrorText, chatJSON } from "@/app/ai/client";
 import {
+    type FeedbackIssue,
     useFeedbackConversations,
     useFeedbackReports,
     useSubmitFeedback,
-    type FeedbackIssue,
 } from "@/app/feedback/data";
 import {
     clearFeedbackErrors,
@@ -42,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 
 import { AttachmentPicker } from "./attachment-picker";
-import { ContextChip, appVersionLabel, browserLabel } from "./context-chips";
+import { appVersionLabel, browserLabel, ContextChip } from "./context-chips";
 import { PagePicker } from "./page-picker";
 import { ReportList } from "./report-list";
 import { SuccessCard } from "./success-card";

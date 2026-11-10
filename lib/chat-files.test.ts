@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import {
     FILE_ACCEPT,
-    MAX_FILE_BYTES,
     isAllowedFileSize,
     isPdfFileName,
     isRecordId,
     isSupportedFileName,
+    MAX_FILE_BYTES,
     parsePageSpec,
     sanitizeFileName,
 } from "./chat-files";

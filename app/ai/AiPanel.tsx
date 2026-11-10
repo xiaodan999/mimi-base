@@ -8,9 +8,9 @@ import AiSheet from "./AiSheet";
 import { hashText, readAiCache } from "./cache";
 import {
     aiErrorText,
+    type AiMessage,
     isAiCanceled,
     streamChat,
-    type AiMessage,
 } from "./client";
 import { decideAiRestore } from "./restore";
 import type { AiTaskHref } from "./task-store";
@@ -153,6 +153,7 @@ export default function AiPanel({
         [cacheKey, cancel, href, runTask, settings, subtitle, title],
     );
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!open) {
             startedRef.current = null;
@@ -192,7 +193,6 @@ export default function AiPanel({
                 void run(messages, []);
                 return;
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, cacheKey]);
 
     // 后台任务（包括追问）还在跑时，重新打开面板也能看到进度

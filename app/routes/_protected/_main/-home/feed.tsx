@@ -1,4 +1,3 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
@@ -9,6 +8,7 @@ import {
     Search,
     SearchX,
 } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useInView } from "react-intersection-observer";
 
 import CommentSheet from "@/app/feed/components/comment-sheet";
@@ -19,7 +19,7 @@ import ImageViewer, {
 import Post from "@/app/feed/components/post";
 import PostComposer from "@/app/feed/components/post-composer";
 import VideoViewer from "@/app/feed/components/video-viewer";
-import { usePostsInfinite, type PostData } from "@/app/feed/data";
+import { type PostData, usePostsInfinite } from "@/app/feed/data";
 import {
     formatDayDivider,
     formatMonthLabel,

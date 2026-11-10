@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
 import { StudyProvider } from "@/app/study/components/StudyContext";

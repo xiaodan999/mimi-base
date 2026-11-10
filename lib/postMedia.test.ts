@@ -6,10 +6,10 @@ import {
     fileNames,
     formatFileSize,
     formatVideoDuration,
+    VIDEO_MAX_BYTES,
     videoDisplayRatio,
     videoExtension,
     videoFileError,
-    VIDEO_MAX_BYTES,
     videoFirstFrameUrl,
 } from "./postMedia";
 

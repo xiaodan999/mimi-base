@@ -1,7 +1,6 @@
+import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-
-import { describe, expect, test } from "bun:test";
 
 import { UPDATES } from "./updates";
 

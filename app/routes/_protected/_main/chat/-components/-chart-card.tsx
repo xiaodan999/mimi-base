@@ -1,14 +1,14 @@
 import {
-    useId,
-    useState,
     type MouseEvent as ReactMouseEvent,
     type PointerEvent as ReactPointerEvent,
+    useId,
+    useState,
 } from "react";
 
 import {
+    type ChartSpec,
     normalizeChartSpec,
     pieGeometry,
-    type ChartSpec,
 } from "@/app/chat/chart";
 import { cn } from "@/lib/utils";
 

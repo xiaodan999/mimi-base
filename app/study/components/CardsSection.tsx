@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 
 import AiPanel from "@/app/ai/AiPanel";
 import { CARD_CHIPS, explainCardMessages } from "@/app/ai/prompts";
@@ -10,8 +10,8 @@ import { toast } from "../toast";
 import type { Card, QuizItem } from "../types";
 import CardDemo from "./CardDemo";
 import QuizRunner from "./QuizRunner";
-import { useStudy } from "./StudyContext";
 import { renderRichText } from "./rich-text";
+import { useStudy } from "./StudyContext";
 
 const TAG_CLASS: Record<string, string> = {
     易错: "r",

@@ -1,19 +1,19 @@
-import { useState } from "react";
 import { Lightbulb, Package, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { useAi } from "@/app/ai/AiContext";
 import { AiError, aiErrorText, chatJSON } from "@/app/ai/client";
 import {
+    type FeedbackIssue,
     useFeatureSuggestions,
     useSubmitFeedback,
-    type FeedbackIssue,
 } from "@/app/feedback/data";
 import { readLastRoute } from "@/app/feedback/error-buffer";
 import { selectFeatureSuggestions } from "@/app/feedback/filters";
 import {
-    FEEDBACK_POLISH_SCHEMA,
     featurePolishMessages,
+    FEEDBACK_POLISH_SCHEMA,
     sanitizePolishedFeedback,
 } from "@/app/feedback/prompt";
 import { useFeedbackRetry } from "@/app/feedback/retry";
@@ -29,7 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/lib/auth";
 
 import { AttachmentPicker } from "./attachment-picker";
-import { ContextChip, appVersionLabel } from "./context-chips";
+import { appVersionLabel, ContextChip } from "./context-chips";
 import { PagePicker } from "./page-picker";
 import { ReportList } from "./report-list";
 import { SuccessCard } from "./success-card";

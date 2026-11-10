@@ -1,7 +1,7 @@
-import { BANK } from "./bank";
-import { CARDS, MODULES } from "./cards";
 import { NURSING_QC_META } from "../../meta";
 import type { StudySubject } from "../../types";
+import { BANK } from "./bank";
+import { CARDS, MODULES } from "./cards";
 
 // 元数据（标题 / 图标 / 考试日期 / 数量）只维护在 meta.ts 一份；这里只补上
 // 真正的题库、知识卡和模块内容。cardCount / bankCount 是元数据字段，

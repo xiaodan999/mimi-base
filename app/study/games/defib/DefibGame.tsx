@@ -1,26 +1,26 @@
-import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useCallback, useRef, useState } from "react";
 
 import { useStudy } from "../../components/StudyContext";
 import { shuffle } from "../../engine";
 import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
-import { recordGame, type GameOutcome } from "../meta";
+import { type GameOutcome, recordGame } from "../meta";
 import CprTrainer from "./CprTrainer";
-import DefibScene, { supportsWebGL } from "./DefibScene";
 import {
+    type BodyZone,
     getLead,
     LEAD_DEFS,
     LEAD_ZONES,
+    type LeadDef,
+    type LeadId,
     PAD_TARGETS,
     PAD_ZONES,
     SHOCK_ORDER_LABEL,
     SHOCK_STEPS,
-    type BodyZone,
-    type LeadDef,
-    type LeadId,
     type ShockStepId,
 } from "./data";
+import DefibScene, { supportsWebGL } from "./DefibScene";
 // 通用实战样式（.g-btn / .game-loading 等）与本 lazy chunk 一起加载。
 import "../games.css";
 import "./defib.css";

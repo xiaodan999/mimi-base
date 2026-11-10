@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { AppendMessage } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
 import {
@@ -12,6 +12,7 @@ import { messageText, previewText } from "@/app/chat/records";
 import {
     appendChatRunMessage,
     beginChatRun,
+    type ChatRunOutcome,
     endChatRun,
     getChatRunFiles,
     isChatRunActive,
@@ -22,7 +23,6 @@ import {
     updateChatRunOptimistic,
     useChatRun,
     watchChatRun,
-    type ChatRunOutcome,
 } from "@/app/chat/run-store";
 import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
@@ -32,8 +32,8 @@ import {
     isInteractiveTool,
     pendingRequestFromToolCall,
     resolveInteractiveToolResult,
-    toolsForModel,
     type ToolHooks,
+    toolsForModel,
 } from "@/app/chat/tools";
 import type {
     ChatArtifactPart,

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { HelpCircle, Loader2, MapPin } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { aiUrl, chatHeaders } from "@/app/chat/api";
 import { getIpCity, type IpLocation } from "@/app/chat/location";

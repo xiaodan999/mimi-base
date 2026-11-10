@@ -12,11 +12,11 @@ import {
     BEAT_PERFECT_MS,
     CPR_BPM,
     defibScore,
+    type DefibScoreInput,
     gradeBeatDelta,
     rhythmBeatCount,
     rhythmBeatInterval,
     scoreRhythm,
-    type DefibScoreInput,
 } from "./scoring";
 
 function onBeat(count: number, bpm = CPR_BPM): number[] {

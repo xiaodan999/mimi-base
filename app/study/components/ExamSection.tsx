@@ -1,23 +1,23 @@
-import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import AiGradeSheet from "@/app/ai/AiGradeSheet";
 
-import { useStudy } from "./StudyContext";
 import {
-    EXAM_PRESETS,
-    TYPE_ICON,
-    TYPE_NAME,
     answerText,
     buildExam,
     bumpDaily,
-    fmtTime,
-    scoreExam,
+    EXAM_PRESETS,
     type ExamPreset,
     type ExamResult,
+    fmtTime,
+    scoreExam,
+    TYPE_ICON,
+    TYPE_NAME,
 } from "../engine";
 import { gameForModule } from "../games/registry";
 import type { Answer, QuizItem } from "../types";
+import { useStudy } from "./StudyContext";
 
 export default function ExamSection() {
     const { subject, progress, update } = useStudy();
@@ -90,6 +90,7 @@ export default function ExamSection() {
     };
 
     // 倒计时：每次 tick 重新排一个 1s 定时器，到点自动交卷
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         if (!preset || result) return;
         if (left <= 0) {
@@ -98,7 +99,6 @@ export default function ExamSection() {
         }
         const timer = window.setTimeout(() => setLeft((v) => v - 1), 1000);
         return () => window.clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [preset, result, left]);
 
     /* ---------------- 选卷 ---------------- */

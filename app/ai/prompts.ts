@@ -1,10 +1,10 @@
 import {
-    TYPE_NAME,
     answerText,
     cardStats,
     daysLeft,
     questionStats,
     streakDays,
+    TYPE_NAME,
 } from "@/app/study/engine";
 import type {
     Answer,

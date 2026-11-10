@@ -3,12 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { SKIN_CASES, STAGE_OPTIONS } from "./cases";
 import {
     CASE_POINTS,
-    STAGE_POINTS,
-    TREATMENT_POINTS,
     casePoints,
+    type CaseVerdict,
     scoreCases,
     scoreSkinRun,
-    type CaseVerdict,
+    STAGE_POINTS,
+    TREATMENT_POINTS,
 } from "./scoring";
 
 function run(stageOk: boolean, treatmentOk: boolean, count = 6): CaseVerdict[] {

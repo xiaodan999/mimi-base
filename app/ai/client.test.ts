@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
     AiError,
+    type AiMessage,
     chatJSON,
     chatText,
     createSseParser,
@@ -9,7 +10,6 @@ import {
     parseRetryAfter,
     parseSseEvent,
     streamChat,
-    type AiMessage,
 } from "./client";
 import type { AiSettings } from "./config";
 import { setAiRelayBaseUrlProvider } from "./endpoint";

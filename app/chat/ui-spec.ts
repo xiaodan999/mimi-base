@@ -1,8 +1,8 @@
 import {
     CHART_LEGENDS,
     CHART_PALETTES,
-    normalizeChartSpec,
     type ChartSpec,
+    normalizeChartSpec,
 } from "./chart";
 
 /**

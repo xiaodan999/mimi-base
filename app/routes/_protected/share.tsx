@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 import { DEFAULT_PERSONA_ID, resolvePersona } from "@/app/chat/personas";
 import LoadingPage from "@/components/LoadingPage";

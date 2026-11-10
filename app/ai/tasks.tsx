@@ -1,12 +1,12 @@
 import {
     createContext,
+    type ReactNode,
     useContext,
     useEffect,
     useMemo,
     useRef,
     useState,
     useSyncExternalStore,
-    type ReactNode,
 } from "react";
 import { toast } from "sonner";
 
@@ -18,8 +18,8 @@ import {
 } from "./interrupted";
 import { showSystemNotification } from "./notify";
 import {
-    createAiTaskStore,
     type AiTask,
+    createAiTaskStore,
     type StartAiTaskOptions,
 } from "./task-store";
 

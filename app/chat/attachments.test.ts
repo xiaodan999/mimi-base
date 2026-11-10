@@ -4,10 +4,10 @@ import { PDF_NO_TEXT_LAYER_CODE } from "@/lib/chat-files";
 
 import {
     attachmentPartFromRecord,
+    type AttachmentReadPost,
     parseUploadedFileResponse,
     readAttachmentText,
     withExtracted,
-    type AttachmentReadPost,
 } from "./attachments";
 
 describe("parseUploadedFileResponse", () => {

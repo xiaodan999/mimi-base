@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { MAX_FILE_BYTES, PDF_NO_TEXT_LAYER_CODE } from "../lib/chat-files";
 import { AI_FILES_PATH } from "./ai-files";
 import {
     AI_CHAT_PATH,
     AI_HEALTH_PATH,
-    createAiRelay,
     type AiRelayDeps,
+    createAiRelay,
 } from "./ai-relay";
-import { MAX_FILE_BYTES, PDF_NO_TEXT_LAYER_CODE } from "../lib/chat-files";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UPSTREAM = "https://opencode.ai/zen/go/v1/chat/completions";

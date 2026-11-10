@@ -1,12 +1,12 @@
-import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { useAuth } from "@/lib/auth";
 import pb from "@/lib/pb";
 import {
     ALL_REALTIME_INVALIDATION_KEYS,
-    REALTIME_COLLECTIONS,
     createInvalidationBatcher,
+    REALTIME_COLLECTIONS,
     realtimeInvalidationKeys,
 } from "@/lib/realtime";
 

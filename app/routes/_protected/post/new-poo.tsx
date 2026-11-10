@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
 import { useNewPostMutation } from "@/app/feed/data";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ function Page() {
     // Bumping the attempt re-runs the effect for the retry button.
     const [attempt, setAttempt] = useState(0);
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
         let mounted = true;
         setLoading(true);
@@ -51,7 +52,6 @@ function Page() {
         return () => {
             mounted = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attempt]);
 
     const retry = () => setAttempt((value) => value + 1);

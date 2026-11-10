@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
     ArrowLeft,
@@ -12,6 +11,7 @@ import {
     Trash2,
     X,
 } from "lucide-react";
+import { useState } from "react";
 
 import { DEFAULT_PERSONA_NAME } from "@/app/chat/personas";
 import type { ChatConversation, ChatModel } from "@/app/chat/types";

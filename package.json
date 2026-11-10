@@ -12,7 +12,7 @@
         "format": "bun fmt",
         "format:check": "bun fmt --check",
         "install:server": "cd pocketbase && bun install --frozen-lockfile",
-        "lint": "eslint .",
+        "lint": "biome lint .",
         "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
@@ -71,7 +71,7 @@
         "zod": "^4.6.7"
     },
     "devDependencies": {
-        "@eslint/js": "^9",
+        "@biomejs/biome": "2.6.6",
         "@tanstack/router-plugin": "^1.73.1",
         "@types/bun": "^1.4.4",
         "@types/node": "^22.7.5",
@@ -80,16 +80,8 @@
         "@types/three": "^0.187.0",
         "@vitejs/plugin-react": "^6",
         "autoprefixer": "^10.4.20",
-        "eslint": "^9",
-        "eslint-import-resolver-typescript": "^4.4.5",
-        "eslint-plugin-import": "^2.32.0",
-        "eslint-plugin-react": "^7.37.5",
-        "eslint-plugin-react-hooks": "^7.1.1",
-        "globals": "^17.14.0",
         "postcss": "^8.4.47",
         "tailwindcss": "^3.4.14",
-        "typescript": "^5.6.3",
-        "typescript-eslint": "^8.11.0",
         "vite": "^8"
     }
 }

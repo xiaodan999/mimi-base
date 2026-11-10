@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import {
+    type ErrorComponentProps,
     Link,
     useRouter,
-    type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { AlertTriangle, Compass, RotateCcw } from "lucide-react";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { isChunkLoadError, reloadOnce } from "@/lib/chunk-load-error";

@@ -21,15 +21,15 @@ import path from "node:path";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import {
-    MAX_FILE_BYTES,
-    MAX_FILE_CHARS,
-    MAX_PDF_PAGES,
-    MAX_PAGE_IMAGES,
-    PDF_NO_TEXT_LAYER_CODE,
     isAllowedFileSize,
     isPdfFileName,
     isSupportedFileName,
+    MAX_FILE_BYTES,
+    MAX_FILE_CHARS,
+    MAX_PAGE_IMAGES,
+    MAX_PDF_PAGES,
     parsePageSpec,
+    PDF_NO_TEXT_LAYER_CODE,
     sanitizeFileName,
 } from "../lib/chat-files";
 

@@ -23,8 +23,8 @@ bun run dev       # Vite，默认 3000
 ## 代码约定
 
 - UI 文案使用中文；样式优先用 Tailwind 语义类与 `components/ui` 原语。
-- 格式化用 `bun fmt`，lint 用 `eslint`，类型检查用 `bun check`
-  （`bun run typecheck`）。
+- 格式化用 `bun fmt`（含 Tailwind 类名与 import 排序），lint 用 `biome`，
+  类型检查用 `bun check`（`bun run typecheck`）。
 - `components/ui/` 下的部分是手工改造过的 fork，重新生成前务必阅读
   `AGENTS.md` 并重新套用改造。
 - 数据集合与过滤器规则见 `AGENTS.md` 的 Backend / data rules 一节。

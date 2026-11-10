@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
 
 /** Slim bar above the bottom nav while the browser reports no connection. */
 export default function OfflineBanner() {

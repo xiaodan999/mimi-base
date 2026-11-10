@@ -3,10 +3,10 @@ import { describe, expect, test } from "bun:test";
 import { qk } from "./query-keys";
 import {
     ALL_REALTIME_INVALIDATION_KEYS,
-    REALTIME_COLLECTIONS,
     createInvalidationBatcher,
     dedupeQueryKeys,
     queryKeyFingerprint,
+    REALTIME_COLLECTIONS,
     realtimeInvalidationKeys,
     type RealtimeQueryKey,
 } from "./realtime";

@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 
-import { Note, WidgetShell } from "./kit";
-import { useWidgetState } from "./useWidget";
 import type { Card, CardTable } from "../../types";
 import { renderRichText } from "../rich-text";
+import { Note, WidgetShell } from "./kit";
+import { useWidgetState } from "./useWidget";
 
 type Part =
     | { type: "html"; html: string }

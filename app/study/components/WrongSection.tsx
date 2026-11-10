@@ -1,17 +1,17 @@
-import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 
 import AiPanel from "@/app/ai/AiPanel";
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
 import { hashText } from "@/app/ai/cache";
-import { WRONG_CHIPS, diagnoseWrongMessages } from "@/app/ai/prompts";
+import { diagnoseWrongMessages, WRONG_CHIPS } from "@/app/ai/prompts";
 import { wrongOverviewMessages } from "@/app/ai/study";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
-import AiDrillSheet from "./AiDrillSheet";
-import QuizRunner from "./QuizRunner";
 import { gameForModule } from "../games/registry";
 import type { QuizItem } from "../types";
+import AiDrillSheet from "./AiDrillSheet";
+import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";
 
 export default function WrongSection() {

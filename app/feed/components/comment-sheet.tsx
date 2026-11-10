@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, SendHorizontal, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,11 @@ import {
 } from "../comment-edit";
 import {
     buildCommentThreads,
+    type CommentData,
     useComments,
     useDeleteCommentMutation,
     useEditCommentMutation,
     useNewCommentMutation,
-    type CommentData,
 } from "../comments";
 import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";

@@ -1,6 +1,6 @@
-import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { createRouter, RouterProvider } from "@tanstack/react-router";
+import { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
 import LoadingPage from "@/components/LoadingPage";

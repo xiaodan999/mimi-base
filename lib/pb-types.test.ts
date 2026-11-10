@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { toPostData, type PostRecord } from "./pb-types";
+import { type PostRecord, toPostData } from "./pb-types";
 
 function record(layout?: string): PostRecord {
     return {

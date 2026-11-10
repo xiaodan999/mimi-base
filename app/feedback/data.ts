@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-    toChatConversation,
     type ChatConversationRecord,
+    toChatConversation,
 } from "@/app/chat/records";
 import type { ChatConversation } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
@@ -11,12 +11,12 @@ import pb from "@/lib/pb";
 import type { UserRecord } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-import { parseAttachmentList, type FeedbackAttachment } from "./attachments";
+import { type FeedbackAttachment, parseAttachmentList } from "./attachments";
 import { getFeedbackErrors } from "./error-buffer";
 import {
+    type FeedbackIssueStates,
     parseFeedbackIssueStates,
     parseRecordIssueState,
-    type FeedbackIssueStates,
 } from "./issue-state";
 
 export type FeedbackStatus = "stored" | "issue_created" | "failed";

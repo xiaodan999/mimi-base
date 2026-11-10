@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from "bun:test";
 
 import {
     clearInterruptibleTask,
+    type InterruptedTaskEntry,
     markInterruptibleRestored,
     readInterruptibleTasks,
     recordInterruptibleTask,
-    type InterruptedTaskEntry,
 } from "./interrupted";
 
 let store: Map<string, string>;

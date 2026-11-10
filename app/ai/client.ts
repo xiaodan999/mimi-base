@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { getAiSessionId, type AiSettings } from "./config";
+import { type AiSettings, getAiSessionId } from "./config";
 import { AI_MODEL } from "./constants";
 import { getAiRelayBaseUrl } from "./endpoint";
 import { getAiAuthToken } from "./pb-token";
-import { isOverBudget, recordUsage, type AiUsage } from "./usage";
+import { type AiUsage, isOverBudget, recordUsage } from "./usage";
 
 /*
  * 站点统一提供 AI：浏览器只带自己的 PocketBase 令牌调用 `/ai` 中转，

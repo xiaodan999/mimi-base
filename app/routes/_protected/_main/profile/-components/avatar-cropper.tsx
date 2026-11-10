@@ -1,11 +1,11 @@
+import { Move, ZoomIn } from "lucide-react";
 import {
+    type PointerEvent as ReactPointerEvent,
     useEffect,
     useMemo,
     useRef,
     useState,
-    type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Move, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 
 import { CircleRing } from "@/components/TouXiang";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-import { clampOffset, coverScale, cropRect, type CropOffset } from "./crop";
+import { clampOffset, coverScale, type CropOffset, cropRect } from "./crop";
 
 const VIEWPORT = 264;
 const OUTPUT = 512;

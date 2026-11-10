@@ -1,4 +1,4 @@
-import { visionMessage, type AiMessage } from "./client";
+import { type AiMessage, visionMessage } from "./client";
 import { fenceUntrusted, systemPrompt } from "./prompt-base";
 
 const SYSTEM = systemPrompt(

@@ -4,8 +4,8 @@ import { useAuth, useCurrentUser } from "@/lib/auth";
 import pb from "@/lib/pb";
 import {
     type MyRing,
-    type TouXiangCircleRecord,
     toMyRing,
+    type TouXiangCircleRecord,
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 

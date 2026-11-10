@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,9 @@ import {
     useRenameDinnerOption,
 } from "./-data";
 import {
-    MAX_DINNER_NAME_LENGTH,
-    type DinnerOption,
     dinnerNameError,
+    type DinnerOption,
+    MAX_DINNER_NAME_LENGTH,
     normalizeDinnerName,
 } from "./options";
 

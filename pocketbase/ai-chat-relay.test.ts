@@ -4,8 +4,8 @@ import {
     AI_CHAT_COMPLETIONS_PATH,
     AI_CHAT_PATH,
     AI_MODELS_PATH,
-    createAiRelay,
     type AiRelayDeps,
+    createAiRelay,
 } from "./ai-relay";
 import type { ChatModelInfo } from "./chat-models";
 

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
 import { Ban, Plus, X } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import TouXiang, { CircleRing } from "@/components/TouXiang";
@@ -26,17 +26,17 @@ import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
 import {
+    type MyRing,
     useDeleteRing,
     useMyRings,
     useSetRing,
     useUploadRing,
-    type MyRing,
 } from "../-data";
 import {
     isSameSelection,
     ringPayload,
-    selectionFromUser,
     type RingSelection,
+    selectionFromUser,
 } from "./ring-selection";
 
 type RingPickerProps = {
