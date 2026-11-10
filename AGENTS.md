@@ -64,9 +64,8 @@ Chinese; keep that style when adding user-facing text.
   `scripts/lan-proxy.mjs` with the Windows node to forward the Vite port to the
   VM (no admin or portproxy required). PocketBase stays on loopback; Vite
   proxies `/api` and dev runs with `VITE_POCKETBASE_URL=same-origin`.
-  `scripts/preview.mjs` backs `bun run preview`, `scripts/screenshot.mjs`
-  `bun run screenshot`, and `scripts/perf.mjs` the perf harness; all three serve
-  `build/` the way the deployment does.
+  `scripts/preview.mjs` backs `bun run preview` and `scripts/perf.mjs` the perf
+  harness; both serve `build/` the way the deployment does.
   `tmp/` is gitignored scratch (do not commit).
 
 ## Commands
@@ -83,7 +82,6 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # worktree is safe to run side by side
 bun run build             # vite build + bun check (app; no server deps needed)
 bun run preview           # build + serve build/ with /db and /api proxies
-bun run screenshot        # log in and capture routes from the preview to PNGs
 bun run test              # bun test (whole repo; pure logic, no server needed)
 bun run typecheck         # bun check for the app + pocketbase/
 bun run lint              # biome lint (biome.json)
@@ -130,24 +128,14 @@ for editing.
 - `scripts/perf.mjs` is the same serving layout plus Playwright measurement —
   the preview script is that minus the browser.
 
-### Screenshots
+### Driving the browser
 
-`bun run screenshot` (`scripts/screenshot.mjs`) drives the preview with
-`playwright-core` and the **system** Chromium, logs in as the dev seed account,
-and writes `tmp/shots/<route>.png` at a 430x932 viewport. Routes go on the
-command line (`bun run screenshot /home /chat`); `PREVIEW_URL`,
-`CHROMIUM_PATH`, `SCREENSHOT_DIR` and `SCREENSHOT_SCALE` override the defaults.
-Log in through the form: the 开发账号 quick-login card is
-`import.meta.env.DEV`-gated, and a production build hides it.
-
-**Do not `bun add -d playwright`.** Its downloaded browsers are glibc builds: on
-Alpine/musl (the dev container)
-`/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome --version` prints its
-version and then segfaults. That is why the dependency is `playwright-core`
-(JavaScript only, no browsers) and the executable comes from the system —
-`/usr/bin/chromium` on the container. The launch args include `--no-sandbox`
-(root) and `--disable-dev-shm-usage` (only 64MB `/dev/shm` there); without the
-latter Chromium crashes on real pages.
+There is no screenshot script — drive `playwright-core` directly. It ships no
+browsers, so pass `executablePath` for a system Chromium plus `--no-sandbox`
+and `--disable-dev-shm-usage` (a container often has a small `/dev/shm`).
+Never `bun add -d playwright`: its downloaded browsers are glibc builds that
+print a version and then segfault on Alpine/musl, which is why the dependency
+here is the browser-less `playwright-core`.
 
 ## Performance
 
@@ -155,10 +143,10 @@ latter Chromium crashes on real pages.
 self-hosted deployment does (gzip, SPA fallback, `/db` and `/api` proxies) and
 measures the routes in Chromium at 390x844@2x with Fast 3G (1.6Mbps, 150ms
 RTT) and a 4x CPU slowdown. `playwright-core` (no browser download) is a dev
-dependency for `scripts/screenshot.mjs`; the full `playwright` package is still
-not one, so `bun run perf` prints the two commands if it is missing. Never rely
-on `playwright`'s bundled browsers: they are glibc builds and segfault on
-Alpine/musl (see Previewing the production build).
+dependency so an agent can drive a system browser; the full `playwright` package
+is still not one, so `bun run perf` prints the two commands if it is missing.
+Never rely on `playwright`'s bundled browsers: they are glibc builds and
+segfault on Alpine/musl (see Driving the browser).
 
 Measured 2026-11-10, after the Tailwind v4 and date-fns work:
 

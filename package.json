@@ -15,7 +15,6 @@
         "lint": "biome lint .",
         "perf": "bun scripts/perf.mjs",
         "preview": "bun scripts/preview.mjs",
-        "screenshot": "bun scripts/screenshot.mjs",
         "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
