@@ -123,6 +123,11 @@ bun run dev:all
 - Ports auto-skip when busy on the host (and on the Windows side under WSL).
   Pin them per worktree in `.env` (`VITE_PORT`, `PB_PORT`) if you want stable
   URLs; shell env wins.
+- `MIMI_DEV_LOWMEM=1` in `.env` (or the shell) starts Vite with
+  `RAYON_NUM_THREADS=1` if that is not already set. Rolldown's worker pool is
+  most of the dev server's memory: `dev:all` peaks around 1.96GB with the
+  default pool and 1.55GB with one thread, at the cost of roughly 10% on the
+  first page load. Opt in on the machine that is short on RAM.
 - `dev:all` prints the LAN URL for phone testing. PocketBase stays on loopback;
   Vite proxies `/api` and dev uses `VITE_POCKETBASE_URL=same-origin`.
 - One PocketBase per checkout is enforced: a second `dev:all` in the same

@@ -58,6 +58,16 @@ const requestedSupervisorPort =
     Number(process.env.SUPERVISOR_PORT ?? env.SUPERVISOR_PORT) || 9001;
 let pbPort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
 
+/**
+ * Rolldown's worker pool is most of the dev server's memory: ~1.6GB with the
+ * default pool on this repo, ~1.3GB with one thread. The single thread costs
+ * about 12% on the first page load, so it stays opt-in for the machine that
+ * is short on RAM. Set MIMI_DEV_LOWMEM=1 in the worktree's `.env` (or the
+ * shell) to turn it on; an explicit RAYON_NUM_THREADS always wins.
+ */
+const lowMemory =
+    process.env.MIMI_DEV_LOWMEM === "1" || env.MIMI_DEV_LOWMEM === "1";
+
 function portFree(port: number, host = "0.0.0.0"): Promise<boolean> {
     return new Promise((resolve) => {
         const server = net.createServer();
@@ -385,11 +395,19 @@ const vitePort = await pickVitePort();
 log(
     `starting Vite on 0.0.0.0:${vitePort} (API via /api -> 127.0.0.1:${pbPort}, AI via /ai -> 127.0.0.1:${supervisorPort})`,
 );
+if (lowMemory) {
+    log(
+        `low-memory mode: RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS ?? 1}`,
+    );
+}
 const vite = spawn(process.execPath, ["run", "dev"], {
     cwd: repo,
     stdio: "inherit",
     env: {
         ...process.env,
+        ...(lowMemory && !process.env.RAYON_NUM_THREADS
+            ? { RAYON_NUM_THREADS: "1" }
+            : {}),
         VITE_PORT: String(vitePort),
         PB_PORT: String(pbPort),
         SUPERVISOR_PORT: String(supervisorPort),

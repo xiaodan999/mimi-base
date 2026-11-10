@@ -126,6 +126,15 @@ PB_PORT=8091
 之后照常 `bun run dev:all`。每个 worktree 的 Vite 只代理到自己的
 PocketBase，互不影响；终端里会打印这一个是哪个地址。
 
+内存吃紧的机器可以再加一行，让打包器只用一个线程：
+
+```dotenv
+MIMI_DEV_LOWMEM=1
+```
+
+`dev:all` 的峰值内存会从约 1.9GB 降到约 1.5GB，代价是首次打开页面慢
+一成左右（想自己定线程数就设 `RAYON_NUM_THREADS`，它优先）。
+
 分开启动时，`bun run dev` 默认代理到 8090；数据库换了端口就加
 `PB_PORT=8091 bun run dev`。
 
