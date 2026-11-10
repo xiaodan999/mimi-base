@@ -8,6 +8,7 @@ import {
     mapStoredImageOrder,
     monthKeyOf,
     moveArrayItem,
+    sortTargetAt,
 } from "./utils";
 
 /** Local-time timestamp so the test never depends on the runner's zone. */
@@ -207,6 +208,32 @@ describe("moveArrayItem", () => {
         const moved = moveArrayItem(items, 1, 3);
         expect(items).toEqual(["a", "b", "c", "d"]);
         expect(moved).toEqual(["a", "c", "d", "b"]);
+    });
+});
+
+describe("sortTargetAt", () => {
+    const slots = [
+        { index: 0, left: 0, top: 0, right: 100, bottom: 100 },
+        { index: 1, left: 108, top: 0, right: 208, bottom: 100 },
+        { index: 2, left: 0, top: 108, right: 100, bottom: 208 },
+    ];
+
+    test("returns the slot under the pointer", () => {
+        expect(sortTargetAt(slots, 10, 10)).toBe(0);
+        expect(sortTargetAt(slots, 150, 50)).toBe(1);
+        expect(sortTargetAt(slots, 50, 150)).toBe(2);
+    });
+
+    test("treats the slot edges as inside", () => {
+        expect(sortTargetAt(slots, 100, 100)).toBe(0);
+        expect(sortTargetAt(slots, 108, 0)).toBe(1);
+    });
+
+    test("returns null in the gap or outside the grid", () => {
+        expect(sortTargetAt(slots, 104, 50)).toBeNull();
+        expect(sortTargetAt(slots, -1, 50)).toBeNull();
+        expect(sortTargetAt(slots, 50, 300)).toBeNull();
+        expect(sortTargetAt([], 10, 10)).toBeNull();
     });
 });
 

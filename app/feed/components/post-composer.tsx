@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import AiSheet from "@/app/ai/AiSheet";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
@@ -6,6 +8,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { type PostData } from "../data";
 import ImageViewer from "./image-viewer";
 import PostComposerForm from "./PostComposerForm";
+import PostImageSort from "./PostImageSort";
 import { useCaptionTask } from "./useCaptionTask";
 import { usePostDraft } from "./usePostDraft";
 
@@ -28,6 +31,7 @@ export default function PostComposer({
     editing = null,
 }: PostComposerProps) {
     const draft = usePostDraft({ open, editing, onOpenChange });
+    const [sortOpen, setSortOpen] = useState(false);
     const caption = useCaptionTask({
         open,
         text: draft.text,
@@ -40,6 +44,7 @@ export default function PostComposer({
 
     const handleOpenChange = (next: boolean) => {
         if (!next) {
+            setSortOpen(false);
             draft.setPreviewIndex(null);
             // The caption sheet lives outside the drawer's portal; leaving it
             // open would strand a dead sheet over the feed.
@@ -67,10 +72,20 @@ export default function PostComposer({
                         draft={draft}
                         caption={caption}
                         open={open}
+                        onSort={() => setSortOpen(true)}
                         onClose={() => handleOpenChange(false)}
                     />
                 </DrawerContent>
             </Drawer>
+
+            {sortOpen && draft.images.length > 1 && (
+                <PostImageSort
+                    images={draft.images}
+                    layout={draft.layout}
+                    onMove={draft.moveImage}
+                    onClose={() => setSortOpen(false)}
+                />
+            )}
 
             {draft.previewIndex !== null && (
                 <ImageViewer

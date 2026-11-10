@@ -6,6 +6,7 @@
 
 ### 修复
 
+- 编辑动态时手机隐藏键盘后照片顺序界面错位（#72）：`PostComposerImages` 不再在每张照片上叠四个 `backdrop-blur` 按钮，主网格只留序号和移除按钮；新增全屏的「调整顺序」面板（`PostImageSort`），支持触摸/鼠标拖动和方向键移动，打开前先 `blur()` 当前输入框、让键盘彻底收起，编辑动态也不再自动聚焦文本框。`sortTargetAt` 用拖动开始时记录的槽位矩形判定目标位置，`utils.test.ts` 覆盖槽位命中、边界与间隙。`useVisualViewport` 在键盘收起动画后补测一次（150ms/400ms），避免 CSS 变量停留在键盘展开时的高度。
 - 首屏加载状态改成 X 式的居中 spinner：删除 `FeedSkeleton`（固定 3 张占位卡、每张 3 个方块，和真实卡片/媒体形状都不一致，换成 feed 时会跳），新增 `components/FeedLoading.tsx`，首页懒加载的 Suspense fallback 和 feed 的 `isPending` 都用它；转圈消失时不会移动其它内容。
 - 动态媒体首屏不再跳动：`posts` 新增 `media_meta` JSON 字段（`1796200000_add_post_media_meta.js`），按 `images` 顺序存每张图的 `{width,height}` 和视频尺寸。`preparePhoto` 在生成缩略图的那次 `createImageBitmap` 里顺带返回原图尺寸，`readVideoSize` 读取视频元数据；新建/编辑动态把尺寸随 `media_meta` 一起提交（编辑时按 PocketBase 的 keep-then-new 文件顺序写，缺失的旧图用 null 占位）。推文排版先用存储的尺寸设置 `aspect-ratio`，图片/视频加载完仍会用真实尺寸校正；没有 `media_meta` 的旧动态维持原来的加载后测量。`parsePostMediaMeta` 校验手改/旧数据，`postMedia.test.ts` 和 `utils.test.ts` 覆盖位置映射、非法尺寸和 keep-then-new 顺序。本地 X 帖已回填尺寸，实测首屏布局偏移为 0，未加载的下方图片也已按真实比例占位。
 - 退出后立刻登录另一个账号不再卡在「登录中…」：认证状态收敛成 `lib/auth-store.ts` 里的单一快照，路由守卫和 `useAuth()` 读的是同一个值，不会再出现守卫看到已登录、页面还渲染未登录而互相重定向的情况。受保护布局也不再在跳转过程中把 `/login` 自己当作登录后的目标（`toLoginTarget` 把 `/login` 和站外地址统一回退到首页），否则 `?redirect=` 会层层嵌套。

@@ -20,6 +20,8 @@ type PostComposerFormProps = {
     draft: PostDraft;
     caption: CaptionTask;
     open: boolean;
+    /** Open the full-screen photo sorter (owned by PostComposer). */
+    onSort: () => void;
     /** Close via the drawer handler so the caption sheet unwinds too. */
     onClose: () => void;
 };
@@ -30,6 +32,7 @@ export default function PostComposerForm({
     draft,
     caption,
     open,
+    onSort,
     onClose,
 }: PostComposerFormProps) {
     const user = useCurrentUser();
@@ -53,7 +56,6 @@ export default function PostComposerForm({
         publish,
         pickImages,
         removeImage,
-        moveImage,
         pickVideo,
         removeVideo,
     } = draft;
@@ -68,13 +70,25 @@ export default function PostComposerForm({
 
     // Tapping "发布动态" means the user wants to type right away, but wait
     // for the sheet slide-in so the keyboard doesn't fight the animation.
+    // Editing starts from an existing post: the keyboard covers the photos
+    // the user came to reorder, and hiding it mid-edit used to leave Android
+    // repainting the sheet in pieces, so only raise it on an explicit tap.
     useEffect(() => {
-        if (!open) return;
+        if (!open || isEditing) return;
         const timer = window.setTimeout(() => {
             textareaRef.current?.focus({ preventScroll: true });
         }, 240);
         return () => window.clearTimeout(timer);
-    }, [open]);
+    }, [open, isEditing]);
+
+    const openSort = () => {
+        // Drop the keyboard before the full-screen surface mounts, so its
+        // size is measured against the final viewport (see #72).
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        onSort();
+    };
 
     return (
         <>
@@ -177,7 +191,7 @@ export default function PostComposerForm({
                         layout={layout}
                         onPick={() => void pickImages()}
                         onRemove={removeImage}
-                        onMove={moveImage}
+                        onSort={openSort}
                         onPreview={(index) => setPreviewIndex(index)}
                     />
                 )}

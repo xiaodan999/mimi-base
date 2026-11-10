@@ -89,7 +89,15 @@ export function useVisualViewport() {
         const handleResize = () => {
             update();
             window.clearTimeout(scrollTimer);
-            scrollTimer = window.setTimeout(revealActiveElement, 150);
+            window.clearTimeout(settleTimer);
+            // The layout keeps settling while the keyboard animates; one
+            // measure at the event edge can still see the old height, so
+            // re-measure once the animation should be over.
+            scrollTimer = window.setTimeout(() => {
+                update();
+                revealActiveElement();
+            }, 150);
+            settleTimer = window.setTimeout(update, 400);
         };
 
         // A few browsers open the keyboard without firing a resize event, so

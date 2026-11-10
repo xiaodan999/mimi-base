@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ImagePlus, Plus, X } from "lucide-react";
+import { ArrowUpDown, ImagePlus, Plus, X } from "lucide-react";
 
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { PostLayout } from "@/lib/pb-types";
@@ -13,7 +13,7 @@ type PostComposerImagesProps = {
     layout: PostLayout;
     onPick: () => void;
     onRemove: (index: number) => void;
-    onMove: (from: number, to: number) => void;
+    onSort: () => void;
     onPreview: (index: number) => void;
 };
 
@@ -25,7 +25,7 @@ export default function PostComposerImages({
     layout,
     onPick,
     onRemove,
-    onMove,
+    onSort,
     onPreview,
 }: PostComposerImagesProps) {
     return (
@@ -40,10 +40,22 @@ export default function PostComposerImages({
                 >
                     照片
                 </h3>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {images.length > 0
-                        ? `${images.length}/${MAX_IMAGES}`
-                        : `最多 ${MAX_IMAGES} 张`}
+                <span className="flex items-center gap-3 text-[11px] text-muted-foreground tabular-nums">
+                    {images.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={onSort}
+                            className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-primary active:bg-primary/10"
+                        >
+                            <ArrowUpDown className="size-3" />
+                            调整顺序
+                        </button>
+                    )}
+                    <span>
+                        {images.length > 0
+                            ? `${images.length}/${MAX_IMAGES}`
+                            : `最多 ${MAX_IMAGES} 张`}
+                    </span>
                 </span>
             </div>
 
@@ -88,7 +100,7 @@ export default function PostComposerImages({
 
                             <span
                                 aria-hidden="true"
-                                className="pointer-events-none absolute top-1.5 left-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-black/55 px-1.5 text-[10px] font-semibold text-white backdrop-blur-sm"
+                                className="pointer-events-none absolute top-1.5 left-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-black/65 px-1.5 text-[10px] font-semibold text-white"
                             >
                                 {layout === "instagram" && index === 0
                                     ? "封面"
@@ -99,33 +111,10 @@ export default function PostComposerImages({
                                 type="button"
                                 onClick={() => onRemove(index)}
                                 aria-label={`移除第 ${index + 1} 张照片`}
-                                className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                                className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/80"
                             >
                                 <X className="size-3.5" />
                             </button>
-
-                            {images.length > 1 && (
-                                <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        disabled={index === 0}
-                                        onClick={() => onMove(index, index - 1)}
-                                        aria-label={`把第 ${index + 1} 张照片前移`}
-                                        className="grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 disabled:opacity-30"
-                                    >
-                                        <ChevronLeft className="size-3.5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={index === images.length - 1}
-                                        onClick={() => onMove(index, index + 1)}
-                                        aria-label={`把第 ${index + 1} 张照片后移`}
-                                        className="grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 disabled:opacity-30"
-                                    >
-                                        <ChevronRight className="size-3.5" />
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     ))}
 
@@ -158,7 +147,7 @@ export default function PostComposerImages({
 
             {images.length > 1 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                    用照片右下角的箭头调整顺序
+                    点「调整顺序」可以拖动照片排序
                 </p>
             )}
         </section>

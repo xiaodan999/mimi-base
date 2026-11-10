@@ -123,6 +123,40 @@ export function buildPostImagesFields(
 }
 
 /**
+ * A photo slot's viewport box while a drag gesture is in progress.
+ */
+export type SortSlotRect = {
+    index: number;
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+};
+
+/**
+ * Which photo slot a pointer is over. The slots are captured when the drag
+ * starts, so reordering the photos underneath the finger cannot move the
+ * target out from under it.
+ */
+export function sortTargetAt(
+    slots: readonly SortSlotRect[],
+    x: number,
+    y: number,
+): number | null {
+    for (const slot of slots) {
+        if (
+            x >= slot.left &&
+            x <= slot.right &&
+            y >= slot.top &&
+            y <= slot.bottom
+        ) {
+            return slot.index;
+        }
+    }
+    return null;
+}
+
+/**
  * Move one item to a new index without mutating the input. Invalid moves and
  * no-ops return the original array so React skips a pointless re-render.
  */
