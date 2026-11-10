@@ -71,52 +71,97 @@ export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
     );
 }
 
+/** The tallest and widest shapes the tweet media strip will render. */
+export const TWITTER_MEDIA_MIN_ASPECT = 3 / 4;
+export const TWITTER_MEDIA_MAX_ASPECT = 16 / 9;
+/** Placeholder until the first photo reports its real size. */
+export const TWITTER_MEDIA_DEFAULT_ASPECT = 4 / 3;
+
 /**
- * Twitter-style media: one large preview, two squares side by side, or a
- * 2x2 mosaic. More than four images collapse into a +N tile; the viewer still
- * opens the full list.
+ * The shared viewport shape of the tweet media strip: derived from the first
+ * photo and clamped so one extreme image cannot make the whole card huge or a
+ * thin sliver. Invalid sizes fall back to 4:3.
  */
-export function TwitterImageGrid({ images, onOpen }: ImageListProps) {
+export function twitterMediaAspect(width: number, height: number): number {
+    if (
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width <= 0 ||
+        height <= 0
+    ) {
+        return TWITTER_MEDIA_DEFAULT_ASPECT;
+    }
+    return Math.min(
+        TWITTER_MEDIA_MAX_ASPECT,
+        Math.max(TWITTER_MEDIA_MIN_ASPECT, width / height),
+    );
+}
+
+/**
+ * X-style inline media: a horizontally swipeable filmstrip. Each slide is a
+ * little under two thirds of the card, so the neighbouring photos peek from
+ * both edges while the current one snaps to the centre; a single photo simply
+ * fills the card. The strip is full-bleed inside the card, and every slide
+ * shares the first photo's aspect ratio (clamped) so the row keeps one
+ * height. Tapping a slide opens the full-screen viewer.
+ */
+export function TwitterImageCarousel({ images, onOpen }: ImageListProps) {
+    const [aspect, setAspect] = useState(TWITTER_MEDIA_DEFAULT_ASPECT);
+
     if (images.length === 0) return null;
 
-    const visible = images.slice(0, 4);
-    const count = images.length;
+    const multiple = images.length > 1;
 
     return (
-        <div
-            className={cn(
-                "mt-3 grid gap-1",
-                count === 1 ? "grid-cols-1" : "grid-cols-2",
-            )}
-        >
-            {visible.map((image, index) => (
-                <button
-                    key={image.name}
-                    type="button"
-                    onClick={() => onOpen(index)}
-                    aria-label={`查看第 ${index + 1} 张图片`}
-                    className={cn(
-                        "relative overflow-hidden rounded-xl bg-muted",
-                        count === 1
-                            ? "aspect-[4/3]"
-                            : count === 3 && index === 0
-                              ? "col-span-2 aspect-[16/9]"
-                              : "aspect-square",
-                    )}
-                >
-                    <img
-                        src={image.thumbUrl}
-                        alt=""
-                        loading="lazy"
-                        className="size-full object-cover"
-                    />
-                    {index === 3 && count > 4 && (
-                        <span className="absolute inset-0 grid place-items-center bg-black/55 text-lg font-semibold text-white">
-                            +{count - 4}
-                        </span>
-                    )}
-                </button>
-            ))}
+        // Break out of the tweet's text column (card padding + avatar + gap)
+        // so the strip runs edge to edge inside the card, as X does.
+        <div className="mt-3 -mr-4 -ml-[4.25rem]">
+            <div
+                role={multiple ? "group" : undefined}
+                aria-label={multiple ? "图片，左右滑动查看" : undefined}
+                className={cn(
+                    multiple &&
+                        "flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden",
+                )}
+            >
+                {images.map((image, index) => (
+                    <button
+                        key={image.name}
+                        type="button"
+                        onClick={() => onOpen(index)}
+                        aria-label={
+                            multiple
+                                ? `查看第 ${index + 1} 张图片，共 ${images.length} 张`
+                                : "查看图片"
+                        }
+                        style={{ aspectRatio: String(aspect) }}
+                        className={cn(
+                            "relative shrink-0 overflow-hidden rounded-xl bg-muted",
+                            multiple ? "w-[63%] snap-center" : "w-full",
+                        )}
+                    >
+                        <img
+                            src={image.url}
+                            alt=""
+                            loading="lazy"
+                            onLoad={
+                                index === 0
+                                    ? (event) => {
+                                          const photo = event.currentTarget;
+                                          setAspect(
+                                              twitterMediaAspect(
+                                                  photo.naturalWidth,
+                                                  photo.naturalHeight,
+                                              ),
+                                          );
+                                      }
+                                    : undefined
+                            }
+                            className="size-full object-cover"
+                        />
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }

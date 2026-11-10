@@ -19,7 +19,7 @@ import type { ViewerImage } from "./image-viewer";
 import {
     InstagramCarousel,
     MomentsImageGrid,
-    TwitterImageGrid,
+    TwitterImageCarousel,
 } from "./post-images";
 import PostVideo from "./post-video";
 
@@ -252,7 +252,7 @@ export default function Post({
                         )}
 
                         {images.length > 0 && (
-                            <TwitterImageGrid
+                            <TwitterImageCarousel
                                 images={gridImages}
                                 onOpen={openImage}
                             />

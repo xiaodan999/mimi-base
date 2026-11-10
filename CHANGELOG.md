@@ -4,6 +4,10 @@
 
 ## 2026-11-10
 
+### 修复
+
+- 推文排版的图片改为 X 风格横向图片条：`TwitterImageGrid` 的 1–4 张裁切拼图换成 `TwitterImageCarousel`，卡片内通栏（用 `-ml-[4.25rem] -mr-4` 跳出头像+正文列），scroll-snap 横向滚动，单张占 63% 宽并居中吸附，两侧露出相邻照片；首图 `onLoad` 读取真实宽高，新增 `twitterMediaAspect` 把比例夹在 3:4–16:9（无效尺寸回退 4:3），所有 slide 共用同一高度并用 `object-cover` 裁切；单图仍整宽显示，超过 4 张不再折叠成 +N，全部可滑。点按 slide 仍打开现有的全屏查看器。新增 `app/feed/components/post-images.test.ts` 覆盖比例夹取和无效输入回退。
+
 ### 变更
 
 - Tailwind 升到 v4（CSS-first）：删除 `tailwind.config.js`、`postcss.config.js` 和 `tailwindcss` / `postcss` / `autoprefixer` / `tailwindcss-animate` 依赖，改用 `@tailwindcss/vite` 插件；主题搬进 `globals.css` 的 `@theme inline`（HSL 三元组与 `--radius` 刻度不变），暗色改用 `@custom-variant`，动画交给 `tw-animate-css`，`tailwind-merge` 升到 v3，`@source` 仍然只扫 `index.html` / `app` / `components`。`vite build` 2.49s → 1.27s（Tailwind 本身 1.33s → 0.23s，峰值 311MB → 109MB）；CSS 产物 76KB → 115KB（gzip 14.0KB → 17.8KB），增量来自 v4 给 `color-mix()` 生成的 `@supports` 回退。按 v4 语义改写 49 处类名（`outline-hidden`、`shadow-xs`、`bg-linear-to-*`、`!` 改后缀）；`components/ui/form.tsx` 的 `FormItem` 换成 `[&>*+*]:mt-2`，因为 v4 的 `space-y-*` 把间距放在前一个兄弟节点上，而 `<label>` 是行内元素、纵向 margin 不生效，否则每个表单项会少 8px。用 Playwright 在 390×844 下对 15 个页面/浮层做新旧像素对比：登录、聊天、学习、头像框 0 差异，其余差异只有 1–2px 的行高舍入（v4 给 `text-[Npx]` 附带比例行高）和 `color-mix` 取整。

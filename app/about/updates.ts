@@ -42,10 +42,16 @@ export type Update = {
 export const UPDATES: Update[] = [
     {
         date: "2026-11-10",
-        title: "反馈状态留档",
-        summary: "反馈卡片会记住 Issue 状态，关闭后不再反复查询。",
-        links: [{ label: "去反馈", to: "/feedback" }],
+        title: "反馈状态与推文图片",
+        summary: "反馈状态会留档，推文排版也能横向滑动看图片。",
+        highlight:
+            "推文排版的图片改成横向滑动：一次看一张，两边露出相邻照片，点一下还能看大图。",
+        links: [
+            { label: "去反馈", to: "/feedback" },
+            { label: "去动态", to: "/home" },
+        ],
         changed: [
+            "推文排版的图片改成横向滑动：一次看一张，两边露出相邻照片，点一下还能看大图。",
             "反馈卡片会记住 GitHub Issue 的最新状态：打开列表就能直接看到「已建 Issue」或「已关闭」，Issue 关闭后也不再反复查询。",
         ],
     },
