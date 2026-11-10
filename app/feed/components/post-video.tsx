@@ -234,10 +234,7 @@ export default function PostVideo({
     return (
         <div
             className={cn(
-                "relative overflow-hidden bg-black",
-                layout === "moments"
-                    ? "mt-3 w-full max-w-[320px] rounded-xl"
-                    : "w-full",
+                "relative w-full overflow-hidden bg-black",
                 isTweet && "rounded-[16px]",
             )}
             // Inline because the ratio is runtime data. Keep the video element

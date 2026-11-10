@@ -435,9 +435,10 @@ before your first commit.
   image's and the video's intrinsic `{width, height}` positionally so the
   feed can reserve the real box before the protected files load; the composer
   fills it at upload (old rows without it measure on load). `posts.layout` is
-  `moments` (朋友圈 square grid), `instagram` (full-bleed carousel) or
-  `twitter` (compact timeline with the action row under the media), picked
-  per post. `/posts` and `/photos` now redirect to `/home`.
+  `instagram` (full-bleed carousel) or `twitter` (compact timeline with the
+  action row under the media), picked per post; the retired `moments`
+  (朋友圈 square grid) value is folded into `twitter` by `toPostData`.
+  `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
   (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,
   `other`, defined in

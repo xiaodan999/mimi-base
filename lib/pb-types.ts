@@ -20,7 +20,11 @@ type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
 // App-facing view models
 // ---------------------------------------------------------------------------
 
-export type PostLayout = "moments" | "instagram" | "twitter";
+/**
+ * Feed presentation for a post. The old `moments` (朋友圈九宫格) layout was
+ * retired: rows that still carry it are mapped to `twitter` by `toPostData`.
+ */
+export type PostLayout = "instagram" | "twitter";
 
 export type PostImage = {
     name: string;
@@ -272,12 +276,7 @@ export function toPostData(
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
         createdAt: post.created,
         liked: likedPostIds.has(post.id),
-        layout:
-            post.layout === "instagram"
-                ? "instagram"
-                : post.layout === "twitter"
-                  ? "twitter"
-                  : "moments",
+        layout: post.layout === "instagram" ? "instagram" : "twitter",
         collectionId: post.collectionId,
         images,
         videos: fileNames(post.videos),

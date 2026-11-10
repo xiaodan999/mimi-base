@@ -16,19 +16,19 @@ function record(layout?: string): PostRecord {
 }
 
 describe("toPostData layout", () => {
-    test("keeps the three known layouts", () => {
-        expect(toPostData(record("moments"), new Set()).layout).toBe("moments");
+    test("keeps the two supported layouts", () => {
         expect(toPostData(record("instagram"), new Set()).layout).toBe(
             "instagram",
         );
         expect(toPostData(record("twitter"), new Set()).layout).toBe("twitter");
     });
 
-    test("falls back to moments for old or empty values", () => {
-        expect(toPostData(record(""), new Set()).layout).toBe("moments");
+    test("renders retired moments rows and empty values as twitter", () => {
+        expect(toPostData(record("moments"), new Set()).layout).toBe("twitter");
+        expect(toPostData(record(""), new Set()).layout).toBe("twitter");
         expect(toPostData(record("something"), new Set()).layout).toBe(
-            "moments",
+            "twitter",
         );
-        expect(toPostData(record(), new Set()).layout).toBe("moments");
+        expect(toPostData(record(), new Set()).layout).toBe("twitter");
     });
 });

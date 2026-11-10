@@ -24,7 +24,7 @@ type PostComposerFormProps = {
     onClose: () => void;
 };
 
-const LAYOUT_ORDER: PostLayout[] = ["moments", "instagram", "twitter"];
+const LAYOUT_ORDER: PostLayout[] = ["instagram", "twitter"];
 
 export default function PostComposerForm({
     draft,
@@ -202,7 +202,7 @@ export default function PostComposerForm({
                         <div
                             role="radiogroup"
                             aria-labelledby="new-post-layout"
-                            className="mt-2.5 grid grid-cols-3 gap-2"
+                            className="mt-2.5 grid grid-cols-2 gap-2"
                             onKeyDown={(event) => {
                                 const keys = [
                                     "ArrowLeft",
@@ -244,14 +244,6 @@ export default function PostComposerForm({
                             }}
                         >
                             <LayoutOption
-                                value="moments"
-                                current={layout}
-                                onSelect={setLayout}
-                                title="九宫格"
-                                caption="朋友圈样式"
-                                preview="grid"
-                            />
-                            <LayoutOption
                                 value="instagram"
                                 current={layout}
                                 onSelect={setLayout}
@@ -285,7 +277,7 @@ type LayoutOptionProps = {
     onSelect: (value: PostLayout) => void;
     title: string;
     caption: string;
-    preview: "grid" | "wide" | "tweet";
+    preview: "wide" | "tweet";
 };
 
 /**
@@ -324,21 +316,7 @@ function LayoutOption({
                     selected ? "bg-primary/10" : "bg-muted",
                 )}
             >
-                {preview === "grid" ? (
-                    <span className="grid grid-cols-3 gap-[3px]">
-                        {Array.from({ length: 9 }).map((_, index) => (
-                            <span
-                                key={index}
-                                className={cn(
-                                    "size-1.5 rounded-[2px]",
-                                    selected
-                                        ? "bg-primary/70"
-                                        : "bg-muted-foreground/40",
-                                )}
-                            />
-                        ))}
-                    </span>
-                ) : preview === "wide" ? (
+                {preview === "wide" ? (
                     <span className="flex flex-col items-center gap-[3px]">
                         <span
                             className={cn(

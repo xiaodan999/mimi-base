@@ -16,11 +16,7 @@ import { PostData, useDeletePostMutation, usePostLikeMutation } from "../data";
 import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
-import {
-    InstagramCarousel,
-    MomentsImageGrid,
-    TwitterMedia,
-} from "./post-images";
+import { InstagramCarousel, TwitterMedia } from "./post-images";
 import PostVideo from "./post-video";
 import { TweetText } from "./tweet-text";
 
@@ -220,97 +216,48 @@ export default function Post({
         );
     }
 
-    if (layout === "twitter") {
-        return (
-            <article className="mb-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
-                <div className="flex gap-3">
-                    {avatar}
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="flex min-w-0 items-baseline gap-1.5">
-                                <span className="truncate text-sm font-semibold">
-                                    {author.user_name || "朋友"}
-                                </span>
-                                <time
-                                    className="shrink-0 text-xs text-muted-foreground"
-                                    dateTime={createdAt}
-                                >
-                                    {formatRelativeTime(createdAt)}
-                                </time>
-                            </div>
-                            {menu}
-                        </div>
-
-                        {text && <TweetText text={text} />}
-
-                        {videoUrl && (
-                            <div className="mt-3">
-                                <PostVideo
-                                    url={videoUrl}
-                                    layout="twitter"
-                                    videoWidth={videoSize?.width}
-                                    videoHeight={videoSize?.height}
-                                    onOpenFullscreen={() =>
-                                        onOpenVideo(videoUrl)
-                                    }
-                                />
-                            </div>
-                        )}
-
-                        {images.length > 0 && (
-                            <TwitterMedia
-                                images={gridImages}
-                                onOpen={openImage}
-                            />
-                        )}
-
-                        {/* X has no divider above the action row. */}
-                        <div className="mt-3 flex items-center">{actions}</div>
-                    </div>
-                </div>
-            </article>
-        );
-    }
-
+    // Everything else is the compact tweet card; `toPostData` folds the
+    // retired moments layout into `twitter`.
     return (
         <article className="mb-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
             <div className="flex gap-3">
                 {avatar}
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="truncate font-semibold">
-                            {author.user_name || "朋友"}
-                        </span>
+                    <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-baseline gap-1.5">
+                            <span className="truncate text-sm font-semibold">
+                                {author.user_name || "朋友"}
+                            </span>
+                            <time
+                                className="shrink-0 text-xs text-muted-foreground"
+                                dateTime={createdAt}
+                            >
+                                {formatRelativeTime(createdAt)}
+                            </time>
+                        </div>
                         {menu}
                     </div>
 
-                    {text && (
-                        <p className="mt-1.5 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
-                            {text}
-                        </p>
-                    )}
+                    {text && <TweetText text={text} />}
 
                     {videoUrl && (
-                        <PostVideo
-                            url={videoUrl}
-                            layout="moments"
-                            videoWidth={videoSize?.width}
-                            videoHeight={videoSize?.height}
-                            onOpenFullscreen={() => onOpenVideo(videoUrl)}
-                        />
+                        <div className="mt-3">
+                            <PostVideo
+                                url={videoUrl}
+                                layout="twitter"
+                                videoWidth={videoSize?.width}
+                                videoHeight={videoSize?.height}
+                                onOpenFullscreen={() => onOpenVideo(videoUrl)}
+                            />
+                        </div>
                     )}
 
-                    <MomentsImageGrid images={gridImages} onOpen={openImage} />
+                    {images.length > 0 && (
+                        <TwitterMedia images={gridImages} onOpen={openImage} />
+                    )}
 
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                        <time
-                            className="text-xs text-muted-foreground"
-                            dateTime={createdAt}
-                        >
-                            {formatRelativeTime(createdAt)}
-                        </time>
-                        {actions}
-                    </div>
+                    {/* X has no divider above the action row. */}
+                    <div className="mt-3 flex items-center">{actions}</div>
                 </div>
             </div>
         </article>

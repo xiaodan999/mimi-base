@@ -21,6 +21,7 @@
 
 ### 变更
 
+- 去掉 /home 的九宫格（朋友圈）帖子排版（#71）：`PostLayout` 收敛为 `instagram` / `twitter`，`toPostData` 把旧的 `moments` 行（以及空值/未知值）映射成 `twitter`，`Post` 删除九宫格分支与 `MomentsImageGrid`，composer 的排版选择改为两列（大图 / 推文）并默认推文，AI 配文提示词、💩 快捷发帖和 `AGENTS.md` 的布局说明同步更新；`pb-types.test.ts` 覆盖旧值回落。数据库里旧行的 `layout` 值不改写，编辑并保存时自然写成 `twitter`。
 - 行尾统一成 LF：`.gitattributes` 从逐个扩展名的 `eol=lf` 改成 `* text=auto eol=lf`。Windows 上 `core.autocrlf=true` 之前会把 Markdown、HTML、`.gitignore`、Dockerfile、`robots.txt` 和 PDF 测试文件签出成 CRLF，于是没人改过的 `CONTRIBUTING.md`、`index.html`、`pocketbase/README.md`、`SECURITY.md` 一直让 `bun run format:check` 报错；现在整个仓库都能通过。已经签出成 CRLF 的文件删掉重新 `git checkout` 即可，文件内容不变。
 - 桌面端可以刷新动态了：feed 的浮动操作区新增「刷新动态」按钮，只在 `(hover: hover)` 设备显示（`[@media(hover:hover)]:inline-flex`），复用下拉刷新的逻辑（`refresh()` 重置到最新一页并让首页统计失效），刷新时禁用并换成转圈图标；手机仍有下拉刷新，不重复显示按钮。
 - 认证层重写：新增 `lib/auth-store.ts`（纯 TypeScript，不依赖 React 和 `pb` 单例），用 `useSyncExternalStore` 暴露唯一的 `{ status, user }` 快照。PocketBase 只保存凭据，带 `expand.circle` 的资料由 store 读取并发布，删掉 `AuthProvider`、`snapshotRef` / `renderedRef` / 等待队列，以及 `main.tsx` 里随 auth 变化的 router context memo——路由 context 现在创建一次就不再变化，auth 变化也不会再触发 `router.update()`。`login()` 的超时改为覆盖「令牌 + 资料」整次登录，登录页开发账号按钮自带的 15 秒兜底计时器随之删除；资料读取失败按未登录处理，`generation` 保证先发起、后返回的读取不会覆盖刚登录的账号。登录后的目标统一由 `lib/redirect.ts` 拼接（新增 `hrefWithoutDev`，守卫和登录页共用），`_protected` 里针对 `/login` 的防御分支不再需要。新增 `lib/auth-store.test.ts`（14 个用例：并发读取去重、过期读取、超时、心跳、dispose 等）。

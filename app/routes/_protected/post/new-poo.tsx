@@ -27,7 +27,7 @@ function Page() {
                 await toastPromise(
                     newPostMutation.mutateAsync({
                         text: "💩",
-                        layout: "moments",
+                        layout: "twitter",
                         images: [],
                         thumbs: [],
                         videos: [],

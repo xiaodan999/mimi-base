@@ -10,7 +10,7 @@ export type CaptionInput = {
     imageUrls: string[];
     /** 用户已经写下的半句话，作为语气参考 */
     hint?: string;
-    layout: "moments" | "instagram" | "twitter";
+    layout: "instagram" | "twitter";
     count: number;
     /** 视频动态：画面不会发给模型，只按文字写文案。 */
     video?: boolean;
@@ -25,12 +25,7 @@ const RULES = [
 ].join("\n");
 
 export function captionMessages(input: CaptionInput): AiMessage[] {
-    const layoutLabel =
-        input.layout === "moments"
-            ? "九宫格"
-            : input.layout === "instagram"
-              ? "大图轮播"
-              : "推文样式";
+    const layoutLabel = input.layout === "instagram" ? "大图轮播" : "推文样式";
     const context = [
         input.video
             ? `这次要发一条视频动态，排版是${layoutLabel}。视频画面没有提供给你。`

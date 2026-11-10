@@ -28,62 +28,6 @@ type ImageListProps = {
     onOpen: (index: number) => void;
 };
 
-/**
- * 朋友圈-style square grid. 1 image keeps a single large square, 4 uses a
- * 2x2 grid, everything else uses 3 columns (9 max, the rest is counted).
- */
-export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
-    if (images.length === 0) return null;
-
-    const visible = images.slice(0, 9);
-    const columns =
-        visible.length === 1
-            ? 1
-            : visible.length === 2 || visible.length === 4
-              ? 2
-              : 3;
-    const width =
-        columns === 1
-            ? "max-w-[220px]"
-            : columns === 2
-              ? "max-w-[170px]"
-              : "max-w-[240px]";
-
-    return (
-        <div
-            className={cn(
-                "mt-3 grid w-full gap-1.5",
-                width,
-                columns === 1 && "grid-cols-1",
-                columns === 2 && "grid-cols-2",
-                columns === 3 && "grid-cols-3",
-            )}
-        >
-            {visible.map((image, index) => (
-                <button
-                    key={image.name}
-                    type="button"
-                    onClick={() => onOpen(index)}
-                    aria-label={`查看第 ${index + 1} 张图片`}
-                    className="relative aspect-square overflow-hidden rounded-lg bg-muted"
-                >
-                    <img
-                        src={image.thumbUrl}
-                        alt=""
-                        loading="lazy"
-                        className="size-full object-cover"
-                    />
-                    {index === 8 && images.length > 9 && (
-                        <span className="absolute inset-0 grid place-items-center bg-black/50 text-sm font-medium text-white">
-                            +{images.length - 9}
-                        </span>
-                    )}
-                </button>
-            ))}
-        </div>
-    );
-}
-
 /** The tallest and widest shapes the tweet media strip will render. */
 export const TWITTER_MEDIA_MIN_ASPECT = 3 / 4;
 export const TWITTER_MEDIA_MAX_ASPECT = 16 / 9;

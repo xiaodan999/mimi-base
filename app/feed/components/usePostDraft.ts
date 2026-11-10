@@ -96,7 +96,7 @@ export function usePostDraft({
     const updatePostMutation = useUpdatePostMutation();
     const [mode, setMode] = useState<"new" | "edit">("new");
     const [text, setText] = useState("");
-    const [layout, setLayout] = useState<PostLayout>("moments");
+    const [layout, setLayout] = useState<PostLayout>("twitter");
     const [images, setImages] = useState<PreviewImage[]>([]);
     const [video, setVideo] = useState<PreviewVideo | null>(null);
     const [pendingCount, setPendingCount] = useState(0);
@@ -160,7 +160,7 @@ export function usePostDraft({
             );
         } else {
             setText("");
-            setLayout("moments");
+            setLayout("twitter");
             setImages([]);
             setVideo(null);
         }
@@ -171,7 +171,7 @@ export function usePostDraft({
         previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
         previewUrls.current = [];
         setText("");
-        setLayout("moments");
+        setLayout("twitter");
         setImages([]);
         setVideo(null);
         setPendingCount(0);
