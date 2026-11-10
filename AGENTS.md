@@ -98,6 +98,34 @@ call, not above the statement that looks wrong. Biome ignores
 `eslint-disable` comments, and an ignore that matches no finding is a hard
 error (`suppressions/unused`), so move the comment with the code.
 
+## Performance
+
+`bun run perf` builds the app, boots PocketBase, serves `build/` the way the
+self-hosted deployment does (gzip, SPA fallback, `/db` and `/api` proxies) and
+measures the routes in Chromium at 390x844@2x with Fast 3G (1.6Mbps, 150ms
+RTT) and a 4x CPU slowdown. Playwright is deliberately not a repo dependency;
+the script prints the two commands if it is missing.
+
+Measured 2026-11-10, after the Tailwind v4 and date-fns work:
+
+| route      | LCP  | FCP   | CLS | long tasks | requests | transfer |
+| ---------- | ---- | ----- | --- | ---------- | -------- | -------- |
+| `/home`    | 2.2s | 0.95s | 0   | 2 / 272ms  | 74       | 159KB    |
+| `/jizhang` | 1.8s | 0.95s | 0   | 2 / 269ms  | 58       | 155KB    |
+| `/chat`    | 1.7s | 0.95s | 0   | 2 / 184ms  | 51       | 152KB    |
+| `/study`   | 1.5s | 0.84s | 0   | 1 / 133ms  | 34       | 150KB    |
+
+- Every route pays for the same shell: ~131KB of gzipped JS plus 18KB of CSS.
+  LCP on `/home` is a feed paragraph, i.e. it waits for the feed query; the
+  greeting card paints at FCP.
+- A repeat visit is much faster because the service worker serves the shell:
+  `/home` LCP drops to ~0.9s once the worker controls the page.
+- Chunk granularity is already one chunk per route (139 chunks, 53 under 3KB).
+  Merging the router's component/pending/error split groups changed nothing
+  measurable (139 → 138), so don't bother.
+- If you add a heavy route, keep it lazy and re-run `bun run perf` before and
+  after; the table above is the budget to beat.
+
 ## Worktrees
 
 Do feature work in its own worktree so `master` stays deployable.

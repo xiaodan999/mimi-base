@@ -13,6 +13,7 @@
         "format:check": "bun fmt --check",
         "install:server": "cd pocketbase && bun install --frozen-lockfile",
         "lint": "biome lint .",
+        "perf": "bun scripts/perf.mjs",
         "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
