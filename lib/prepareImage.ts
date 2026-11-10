@@ -24,6 +24,14 @@ export default async function prepareImage(
     return new File([compressed], `${Date.now()}-${index}.${ext}`, { type });
 }
 
+type ThumbnailResult = {
+    /** The encoded square thumb, or null when it could not be produced. */
+    thumb: File | null;
+    /** Intrinsic size of the source photo, for the feed's reserved box. */
+    width: number;
+    height: number;
+};
+
 /**
  * A square 600px crop encoded in the browser.
  *
@@ -32,17 +40,23 @@ export default async function prepareImage(
  * one here keeps the image in WebP and costs ~45KB instead of ~500KB.
  *
  * The bitmap is decoded from the picked file, not from the compressed upload,
- * so the thumbnail is not a re-encode of an already lossy image.
+ * so the thumbnail is not a re-encode of an already lossy image. The same
+ * decode reports the source size for `posts.media_meta`.
  */
-async function makeThumbnail(file: File): Promise<File | null> {
+async function makeThumbnail(file: File): Promise<ThumbnailResult | null> {
     try {
         const bitmap = await createImageBitmap(file);
+        const width = bitmap.width;
+        const height = bitmap.height;
         const canvas = document.createElement("canvas");
         canvas.width = THUMB_SIZE;
         canvas.height = THUMB_SIZE;
 
         const context = canvas.getContext("2d");
-        if (!context) return null;
+        if (!context) {
+            bitmap.close();
+            return { thumb: null, width, height };
+        }
 
         // Same framing as the grid's `object-cover`: fill the square and crop
         // the overflow from the centre.
@@ -50,14 +64,14 @@ async function makeThumbnail(file: File): Promise<File | null> {
             THUMB_SIZE / bitmap.width,
             THUMB_SIZE / bitmap.height,
         );
-        const width = bitmap.width * scale;
-        const height = bitmap.height * scale;
+        const drawnWidth = bitmap.width * scale;
+        const drawnHeight = bitmap.height * scale;
         context.drawImage(
             bitmap,
-            (THUMB_SIZE - width) / 2,
-            (THUMB_SIZE - height) / 2,
-            width,
-            height,
+            (THUMB_SIZE - drawnWidth) / 2,
+            (THUMB_SIZE - drawnHeight) / 2,
+            drawnWidth,
+            drawnHeight,
         );
         bitmap.close();
 
@@ -65,12 +79,16 @@ async function makeThumbnail(file: File): Promise<File | null> {
         const blob = await new Promise<Blob | null>((resolve) =>
             canvas.toBlob(resolve, type, THUMB_QUALITY),
         );
-        if (!blob) return null;
+        if (!blob) return { thumb: null, width, height };
 
         const blobType = blob.type || type;
-        return new File([blob], `thumb.${extensionOf(blobType)}`, {
-            type: blobType,
-        });
+        return {
+            thumb: new File([blob], `thumb.${extensionOf(blobType)}`, {
+                type: blobType,
+            }),
+            width,
+            height,
+        };
     } catch {
         // A missing thumbnail is survivable: the grid falls back to the full
         // image. Never block the upload over it.
@@ -83,6 +101,9 @@ export type PreparedPhoto = {
     main: File;
     /** 600px square WebP, or null when the browser could not produce one. */
     thumb: File | null;
+    /** Source size; 0/0 when the browser could not decode it. */
+    width: number;
+    height: number;
 };
 
 /**
@@ -92,7 +113,7 @@ export type PreparedPhoto = {
  */
 export async function preparePhoto(file: File): Promise<PreparedPhoto> {
     const token = photoToken();
-    const [compressed, thumbnail] = await Promise.all([
+    const [compressed, metadata] = await Promise.all([
         compressImage(file),
         makeThumbnail(file),
     ]);
@@ -104,6 +125,7 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
         { type: mainType },
     );
 
+    const thumbnail = metadata?.thumb ?? null;
     const thumb = thumbnail
         ? new File(
               [thumbnail],
@@ -112,5 +134,10 @@ export async function preparePhoto(file: File): Promise<PreparedPhoto> {
           )
         : null;
 
-    return { main, thumb };
+    return {
+        main,
+        thumb,
+        width: metadata?.width ?? 0,
+        height: metadata?.height ?? 0,
+    };
 }

@@ -16,6 +16,7 @@ import {
     type PostRecord,
     toPostData,
 } from "@/lib/pb-types";
+import type { PostMediaMeta } from "@/lib/postMedia";
 import { qk } from "@/lib/query-keys";
 
 import { groupPostMonths } from "./utils";
@@ -296,12 +297,14 @@ export function useNewPostMutation() {
             images,
             thumbs,
             videos,
+            mediaMeta,
         }: {
             text: string;
             layout: PostLayout;
             images: File[];
             thumbs: File[];
             videos: File[];
+            mediaMeta: PostMediaMeta;
         }) => {
             // PocketBase has no column default for author_id, send it. Files
             // upload in the same request as the record, thumbnails included so
@@ -310,6 +313,7 @@ export function useNewPostMutation() {
             formData.append("text", text);
             formData.append("layout", layout);
             formData.append("author_id", user.id);
+            formData.append("media_meta", JSON.stringify(mediaMeta));
             images.forEach((image) => formData.append("images", image));
             thumbs.forEach((thumb) => formData.append("thumbs", thumb));
             videos.forEach((video) => formData.append("videos", video));
@@ -346,6 +350,7 @@ export function useUpdatePostMutation() {
             thumbs,
             keepVideos,
             videoFiles,
+            mediaMeta,
         }: {
             id: string;
             text: string;
@@ -362,10 +367,12 @@ export function useUpdatePostMutation() {
             keepVideos: string[];
             /** Newly picked video file. */
             videoFiles: File[];
+            mediaMeta: PostMediaMeta;
         }) => {
             const formData = new FormData();
             formData.append("text", text);
             formData.append("layout", layout);
+            formData.append("media_meta", JSON.stringify(mediaMeta));
             keepImages.forEach((name) => formData.append("images", name));
             files.forEach((file) => formData.append("images", file));
             keepThumbs.forEach((name) => formData.append("thumbs", name));

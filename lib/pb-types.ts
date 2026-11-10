@@ -11,7 +11,7 @@
 import type { RecordModel } from "pocketbase";
 
 import { pairThumbs } from "@/lib/photoFiles";
-import { fileNames } from "@/lib/postMedia";
+import { fileNames, type MediaSize, parsePostMediaMeta } from "@/lib/postMedia";
 
 /** The system fields every PocketBase row carries. */
 type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
@@ -26,6 +26,9 @@ export type PostImage = {
     name: string;
     /** 600px grid thumbnail; absent on posts uploaded before thumbnails. */
     thumb?: string;
+    /** Intrinsic size recorded at upload time; absent on old posts. */
+    width?: number;
+    height?: number;
 };
 
 export type Circle = {
@@ -70,6 +73,8 @@ export type PostData = {
     images: PostImage[];
     /** Video filenames (at most one); empty for photo/text posts. */
     videos: string[];
+    /** Intrinsic size of the stored video, when the uploader recorded it. */
+    videoSize?: MediaSize;
     metrics: {
         likeCount: number;
         replyCount: number;
@@ -145,6 +150,8 @@ export type PostRecord = PbRecord & {
      * A single-file field comes back as a string from PocketBase.
      */
     videos?: string | string[];
+    /** Positional intrinsic sizes, so the feed can reserve media boxes. */
+    media_meta?: unknown;
     layout?: string;
     expand?: {
         author_id?: User;
@@ -240,7 +247,20 @@ export function toPostData(
     post: PostRecord,
     likedPostIds: Set<string>,
 ): PostData {
-    return {
+    const media = parsePostMediaMeta(post.media_meta);
+    const images = pairThumbs(post.images ?? [], post.thumbs ?? []).map(
+        (image, index) => {
+            const size = media.images[index];
+            return size
+                ? {
+                      ...image,
+                      width: size.width,
+                      height: size.height,
+                  }
+                : image;
+        },
+    );
+    const data: PostData = {
         id: post.id,
         text: post.text,
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
@@ -253,13 +273,15 @@ export function toPostData(
                   ? "twitter"
                   : "moments",
         collectionId: post.collectionId,
-        images: pairThumbs(post.images ?? [], post.thumbs ?? []),
+        images,
         videos: fileNames(post.videos),
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,
         },
     };
+    if (media.video) data.videoSize = media.video;
+    return data;
 }
 
 export function toCommentData(record: CommentRecord): CommentData {

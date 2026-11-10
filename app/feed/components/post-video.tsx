@@ -22,6 +22,12 @@ type PostVideoProps = {
     /** Protected file URL, already carrying the short-lived token. */
     url: string;
     layout: PostLayout;
+    /**
+     * Intrinsic size recorded at upload, so the first frame already reserves
+     * the real box instead of starting at 16:9 and jumping on metadata.
+     */
+    videoWidth?: number;
+    videoHeight?: number;
     onOpenFullscreen: () => void;
 };
 
@@ -56,6 +62,8 @@ const AUTOPLAY_VISIBLE_RATIO = 0.6;
 export default function PostVideo({
     url,
     layout,
+    videoWidth,
+    videoHeight,
     onOpenFullscreen,
 }: PostVideoProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -66,7 +74,11 @@ export default function PostVideo({
     const [muted, setMuted] = useState(layout === "twitter");
     const [failed, setFailed] = useState(false);
     const [ready, setReady] = useState(false);
-    const [ratio, setRatio] = useState(DEFAULT_VIDEO_RATIO);
+    const [ratio, setRatio] = useState(() =>
+        videoWidth && videoHeight
+            ? videoDisplayRatio(videoWidth, videoHeight)
+            : DEFAULT_VIDEO_RATIO,
+    );
     const [duration, setDuration] = useState<number | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
 
@@ -77,6 +89,14 @@ export default function PostVideo({
         duration === null ? "" : formatVideoDuration(duration);
     const currentLabel =
         currentTime > 0 ? formatVideoDuration(currentTime) : "0:00";
+
+    // A post opened from the cache keeps its stored size; follow it if the
+    // clip is replaced while editing. Real metadata still wins over both.
+    useEffect(() => {
+        if (videoWidth && videoHeight) {
+            setRatio(videoDisplayRatio(videoWidth, videoHeight));
+        }
+    }, [videoWidth, videoHeight]);
 
     // Watch the video itself, not the card: the feed scrolls inside `_main`,
     // and viewport intersection is what X's "play when visible" means.

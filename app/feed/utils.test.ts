@@ -63,18 +63,38 @@ describe("buildPostVideoFields", () => {
     test("keeps an uploaded video by filename when editing", () => {
         expect(
             buildPostVideoFields({ kind: "existing", name: "clip_123.mp4" }),
-        ).toEqual({ keep: ["clip_123.mp4"], files: [] });
+        ).toEqual({ keep: ["clip_123.mp4"], files: [], size: null });
     });
 
     test("uploads a newly picked video", () => {
         expect(buildPostVideoFields({ kind: "file", file: video })).toEqual({
             keep: [],
             files: [video],
+            size: null,
+        });
+    });
+
+    test("carries the intrinsic size for the reserved box", () => {
+        expect(
+            buildPostVideoFields({
+                kind: "file",
+                file: video,
+                width: 1280,
+                height: 720,
+            }),
+        ).toEqual({
+            keep: [],
+            files: [video],
+            size: { width: 1280, height: 720 },
         });
     });
 
     test("returns empty lists when the video was removed", () => {
-        expect(buildPostVideoFields(null)).toEqual({ keep: [], files: [] });
+        expect(buildPostVideoFields(null)).toEqual({
+            keep: [],
+            files: [],
+            size: null,
+        });
     });
 });
 
@@ -96,7 +116,33 @@ describe("buildPostImagesFields", () => {
             files: [newFile],
             keepThumbs: [],
             thumbs: [],
+            meta: [null, null, null],
         });
+    });
+
+    test("records sizes in the order PocketBase stores the files", () => {
+        // Kept files first, new uploads after, matching the multipart order.
+        expect(
+            buildPostImagesFields([
+                {
+                    kind: "existing",
+                    name: "kept-1.jpg",
+                    width: 100,
+                    height: 200,
+                },
+                {
+                    kind: "file",
+                    file: newFile,
+                    width: 300,
+                    height: 400,
+                },
+                { kind: "existing", name: "kept-2.jpg" },
+            ]).meta,
+        ).toEqual([
+            { width: 100, height: 200 },
+            null,
+            { width: 300, height: 400 },
+        ]);
     });
 
     test("collects existing and new thumbnails separately", () => {
@@ -116,6 +162,7 @@ describe("buildPostImagesFields", () => {
             files: [newFile, newFile],
             keepThumbs: ["b2_thumbnail_y.webp"],
             thumbs: [newThumb],
+            meta: [null, null, null],
         });
     });
 
@@ -125,6 +172,7 @@ describe("buildPostImagesFields", () => {
             files: [],
             keepThumbs: [],
             thumbs: [],
+            meta: [],
         });
     });
 });

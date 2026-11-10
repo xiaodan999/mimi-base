@@ -15,6 +15,12 @@ export type PostImageView = {
     url: string;
     /** 600px grid thumbnail, or the original when the post has no thumb. */
     thumbUrl: string;
+    /**
+     * Intrinsic size recorded at upload. When present the media box is
+     * painted at its real aspect, so loading the photo cannot shift the feed.
+     */
+    width?: number;
+    height?: number;
 };
 
 type ImageListProps = {
@@ -164,8 +170,25 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
     const [canPrev, setCanPrev] = useState(false);
     const [canNext, setCanNext] = useState(false);
 
-    const ratioAt = (index: number) =>
-        ratios[index] ?? TWITTER_MEDIA_DEFAULT_ASPECT;
+    const sizeAt = (index: number) => {
+        const image = images[index];
+        return image?.width && image.height
+            ? { width: image.width, height: image.height }
+            : null;
+    };
+
+    /**
+     * The aspect to paint before the photo loads: a measured value wins, then
+     * the size recorded with the post, then the 4:3 placeholder for old posts.
+     */
+    const ratioAt = (index: number, aspectOf = twitterMediaAspect) => {
+        const measured = ratios[index];
+        if (measured !== undefined) return measured;
+        const size = sizeAt(index);
+        return size
+            ? aspectOf(size.width, size.height)
+            : TWITTER_MEDIA_DEFAULT_ASPECT;
+    };
 
     /** Remember each photo's real shape as it loads. */
     const measure =
@@ -178,10 +201,16 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
             }));
         };
 
-    const pairMeasured = ratios[0] !== undefined && ratios[1] !== undefined;
+    const pairKnown =
+        (ratios[0] !== undefined || sizeAt(0) !== null) &&
+        (ratios[1] !== undefined || sizeAt(1) !== null);
     const keepPair =
         images.length === 2 &&
-        (!pairMeasured || twitterPairFits(ratios[0], ratios[1]));
+        (!pairKnown ||
+            twitterPairFits(
+                ratioAt(0, twitterNaturalAspect),
+                ratioAt(1, twitterNaturalAspect),
+            ));
     const showStrip = images.length > 2 || (images.length === 2 && !keepPair);
 
     /** Keep the hover arrows honest as the strip scrolls or resizes. */
@@ -223,7 +252,9 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                     type="button"
                     onClick={() => onOpen(0)}
                     aria-label="查看图片"
-                    style={{ aspectRatio: String(ratioAt(0)) }}
+                    style={{
+                        aspectRatio: String(ratioAt(0, twitterNaturalAspect)),
+                    }}
                     className="relative w-full overflow-hidden rounded-[16px] bg-muted"
                 >
                     <img
@@ -245,7 +276,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
             // other's shape (X's two-up layout, 4px gutter).
             <div className="mt-3 flex items-stretch gap-1">
                 {images.map((image, index) => {
-                    const ratio = ratioAt(index);
+                    const ratio = ratioAt(index, twitterNaturalAspect);
                     return (
                         <button
                             key={image.name}

@@ -6,6 +6,9 @@ import {
     fileNames,
     formatFileSize,
     formatVideoDuration,
+    parsePostMediaMeta,
+    readVideoSize,
+    toMediaSize,
     VIDEO_MAX_BYTES,
     videoDisplayRatio,
     videoExtension,
@@ -203,5 +206,83 @@ describe("formatVideoDuration", () => {
         expect(formatVideoDuration(-1)).toBe("");
         expect(formatVideoDuration(Number.NaN)).toBe("");
         expect(formatVideoDuration(Number.POSITIVE_INFINITY)).toBe("");
+    });
+});
+
+describe("toMediaSize", () => {
+    test("keeps positive finite sizes", () => {
+        expect(toMediaSize({ width: 1600, height: 900 })).toEqual({
+            width: 1600,
+            height: 900,
+        });
+    });
+
+    test("drops anything a hand-edited row could contain", () => {
+        expect(toMediaSize(null)).toBeNull();
+        expect(toMediaSize("1600x900")).toBeNull();
+        expect(toMediaSize({})).toBeNull();
+        expect(toMediaSize({ width: 0, height: 900 })).toBeNull();
+        expect(toMediaSize({ width: 1600, height: -1 })).toBeNull();
+        expect(toMediaSize({ width: "1600", height: 900 })).toBeNull();
+        expect(toMediaSize({ width: Number.NaN, height: 900 })).toBeNull();
+    });
+});
+
+describe("parsePostMediaMeta", () => {
+    test("keeps positional image slots and the video size", () => {
+        expect(
+            parsePostMediaMeta({
+                images: [
+                    { width: 1600, height: 900 },
+                    null,
+                    { width: 900, height: 1600 },
+                ],
+                video: { width: 1280, height: 720 },
+            }),
+        ).toEqual({
+            images: [
+                { width: 1600, height: 900 },
+                null,
+                { width: 900, height: 1600 },
+            ],
+            video: { width: 1280, height: 720 },
+        });
+    });
+
+    test("treats a missing field and old posts as empty", () => {
+        expect(parsePostMediaMeta(undefined)).toEqual({
+            images: [],
+            video: null,
+        });
+        expect(parsePostMediaMeta(null)).toEqual({
+            images: [],
+            video: null,
+        });
+        expect(parsePostMediaMeta({})).toEqual({
+            images: [],
+            video: null,
+        });
+    });
+
+    test("validates every entry instead of trusting the JSON", () => {
+        expect(
+            parsePostMediaMeta({
+                images: [
+                    { width: 10, height: 20 },
+                    { width: -1, height: 2 },
+                ],
+                video: { width: 0, height: 0 },
+            }),
+        ).toEqual({
+            images: [{ width: 10, height: 20 }, null],
+            video: null,
+        });
+    });
+});
+
+describe("readVideoSize", () => {
+    test("returns null without a DOM (tests/SSR)", async () => {
+        const file = new File(["clip"], "clip.mp4", { type: "video/mp4" });
+        expect(await readVideoSize(file)).toBeNull();
     });
 });

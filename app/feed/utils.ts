@@ -1,8 +1,28 @@
+import type { MediaSize } from "@/lib/postMedia";
+
 const MINUTE = 60 * 1000;
 
 export type ComposerImageRef =
-    | { kind: "file"; file: File; thumb?: File | null }
-    | { kind: "existing"; name: string; thumb?: string };
+    | {
+          kind: "file";
+          file: File;
+          thumb?: File | null;
+          width?: number;
+          height?: number;
+      }
+    | {
+          kind: "existing";
+          name: string;
+          thumb?: string;
+          width?: number;
+          height?: number;
+      };
+
+function sizeOf(image: ComposerImageRef): MediaSize | null {
+    return image.width && image.height
+        ? { width: image.width, height: image.height }
+        : null;
+}
 
 export type PostImagesFields = {
     /** Existing filenames to keep, in the order they appear in the composer. */
@@ -13,16 +33,25 @@ export type PostImagesFields = {
     keepThumbs: string[];
     /** Newly generated thumbnails to upload. */
     thumbs: File[];
+    /**
+     * One intrinsic size per stored image, in the final order PocketBase
+     * writes: kept files first, then new uploads. A null entry keeps the
+     * position of an image whose size was never recorded.
+     */
+    meta: (MediaSize | null)[];
 };
 
 export type ComposerVideoRef =
-    { kind: "file"; file: File } | { kind: "existing"; name: string };
+    | { kind: "file"; file: File; width?: number; height?: number }
+    | { kind: "existing"; name: string; width?: number; height?: number };
 
 export type PostVideoFields = {
     /** Existing filename to keep when editing, or [] to clear the field. */
     keep: string[];
     /** Newly picked file to upload. */
     files: File[];
+    /** Intrinsic size for the reserved video box. */
+    size: MediaSize | null;
 };
 
 /**
@@ -33,11 +62,15 @@ export type PostVideoFields = {
 export function buildPostVideoFields(
     video: ComposerVideoRef | null,
 ): PostVideoFields {
-    if (!video) return { keep: [], files: [] };
+    if (!video) return { keep: [], files: [], size: null };
+    const size =
+        video.width && video.height
+            ? { width: video.width, height: video.height }
+            : null;
     if (video.kind === "existing") {
-        return { keep: [video.name], files: [] };
+        return { keep: [video.name], files: [], size };
     }
-    return { keep: [], files: [video.file] };
+    return { keep: [], files: [video.file], size };
 }
 
 /**
@@ -57,18 +90,28 @@ export function buildPostImagesFields(
     const files: File[] = [];
     const keepThumbs: string[] = [];
     const thumbs: File[] = [];
+    const keepMeta: (MediaSize | null)[] = [];
+    const fileMeta: (MediaSize | null)[] = [];
 
     for (const image of images) {
         if (image.kind === "existing") {
             keep.push(image.name);
+            keepMeta.push(sizeOf(image));
             if (image.thumb) keepThumbs.push(image.thumb);
         } else {
             files.push(image.file);
+            fileMeta.push(sizeOf(image));
             if (image.thumb) thumbs.push(image.thumb);
         }
     }
 
-    return { keep, files, keepThumbs, thumbs };
+    return {
+        keep,
+        files,
+        keepThumbs,
+        thumbs,
+        meta: [...keepMeta, ...fileMeta],
+    };
 }
 
 function startOfDay(date: Date) {

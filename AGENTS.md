@@ -389,10 +389,13 @@ before your first commit.
   and honouring `prefers-reduced-motion`); the other layouts never autoplay.
   The first frame comes from `#t=0.1` on the protected
   URL (`lib/postMedia.ts`). AI captions for video posts use the text hint
-  only — never send video bytes to the model. `posts.layout` is `moments`
-  (朋友圈 square grid), `instagram` (full-bleed carousel) or `twitter`
-  (compact timeline with the action row under the media), picked per post.
-  `/posts` and `/photos` now redirect to `/home`.
+  only — never send video bytes to the model. `posts.media_meta` stores each
+  image's and the video's intrinsic `{width, height}` positionally so the
+  feed can reserve the real box before the protected files load; the composer
+  fills it at upload (old rows without it measure on load). `posts.layout` is
+  `moments` (朋友圈 square grid), `instagram` (full-bleed carousel) or
+  `twitter` (compact timeline with the action row under the media), picked
+  per post. `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
   (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,
   `other`, defined in

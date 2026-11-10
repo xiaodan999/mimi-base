@@ -6,7 +6,13 @@ import {
     VIDEO_COMPRESS_MIN_BYTES,
 } from "@/lib/compressVideo";
 import { getFileUrl } from "@/lib/pb";
-import { formatFileSize, VIDEO_ACCEPT, videoFileError } from "@/lib/postMedia";
+import {
+    formatFileSize,
+    type PostMediaMeta,
+    readVideoSize,
+    VIDEO_ACCEPT,
+    videoFileError,
+} from "@/lib/postMedia";
 import { preparePhoto } from "@/lib/prepareImage";
 import showFilePicker, { showFilesPicker } from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
@@ -20,8 +26,22 @@ import {
 import { buildPostImagesFields, buildPostVideoFields } from "../utils";
 
 export type PreviewImage =
-    | { kind: "file"; file: File; thumb: File | null; url: string }
-    | { kind: "existing"; name: string; url: string; thumb?: string };
+    | {
+          kind: "file";
+          file: File;
+          thumb: File | null;
+          url: string;
+          width: number;
+          height: number;
+      }
+    | {
+          kind: "existing";
+          name: string;
+          url: string;
+          thumb?: string;
+          width?: number;
+          height?: number;
+      };
 
 export type PreviewVideo =
     | {
@@ -30,8 +50,16 @@ export type PreviewVideo =
           url: string;
           name: string;
           sizeLabel: string;
+          width: number;
+          height: number;
       }
-    | { kind: "existing"; name: string; url: string };
+    | {
+          kind: "existing";
+          name: string;
+          url: string;
+          width?: number;
+          height?: number;
+      };
 
 export const MAX_IMAGES = 9;
 
@@ -110,6 +138,8 @@ export function usePostDraft({
                     name: image.name,
                     thumb: image.thumb,
                     url: getFileUrl(fileRecord, image.name),
+                    width: image.width,
+                    height: image.height,
                 })),
             );
             const videoName = editing.videos[0];
@@ -119,6 +149,8 @@ export function usePostDraft({
                           kind: "existing",
                           name: videoName,
                           url: getFileUrl(fileRecord, videoName),
+                          width: editing.videoSize?.width,
+                          height: editing.videoSize?.height,
                       }
                     : null,
             );
@@ -192,10 +224,17 @@ export function usePostDraft({
                 );
             }
 
-            const next = prepared.map(({ main, thumb }) => {
+            const next = prepared.map(({ main, thumb, width, height }) => {
                 const url = URL.createObjectURL(main);
                 previewUrls.current.push(url);
-                return { kind: "file" as const, file: main, thumb, url };
+                return {
+                    kind: "file" as const,
+                    file: main,
+                    thumb,
+                    url,
+                    width,
+                    height,
+                };
             });
             setImages((previous) => [...previous, ...next]);
         } catch {
@@ -254,6 +293,22 @@ export function usePostDraft({
             url,
             name: file.name,
             sizeLabel: formatFileSize(file.size),
+            width: 0,
+            height: 0,
+        });
+        // Read the intrinsic size in the background so the feed can reserve
+        // the right box; the preview appears immediately either way.
+        void readVideoSize(file).then((size) => {
+            if (!size) return;
+            setVideo((current) =>
+                current?.kind === "file" && current.file === file
+                    ? {
+                          ...current,
+                          width: size.width,
+                          height: size.height,
+                      }
+                    : current,
+            );
         });
     };
 
@@ -276,8 +331,13 @@ export function usePostDraft({
         )
             return;
 
-        const { keep, files, keepThumbs, thumbs } =
-            buildPostImagesFields(images);
+        const {
+            keep,
+            files,
+            keepThumbs,
+            thumbs,
+            meta: imageMeta,
+        } = buildPostImagesFields(images);
         setPublishing(true);
         let compressionToast: ReturnType<typeof toast.loading> | undefined;
         try {
@@ -317,10 +377,24 @@ export function usePostDraft({
             const videoFields = buildPostVideoFields(
                 video
                     ? video.kind === "file"
-                        ? { kind: "file", file: videoFile ?? video.file }
-                        : { kind: "existing", name: video.name }
+                        ? {
+                              kind: "file",
+                              file: videoFile ?? video.file,
+                              width: video.width,
+                              height: video.height,
+                          }
+                        : {
+                              kind: "existing",
+                              name: video.name,
+                              width: video.width,
+                              height: video.height,
+                          }
                     : null,
             );
+            const mediaMeta: PostMediaMeta = {
+                images: imageMeta,
+                video: videoFields.size,
+            };
 
             if (editing) {
                 await toastPromise(
@@ -334,6 +408,7 @@ export function usePostDraft({
                         thumbs,
                         keepVideos: videoFields.keep,
                         videoFiles: videoFields.files,
+                        mediaMeta,
                     }),
                     {
                         loading: "保存中...",
@@ -352,6 +427,7 @@ export function usePostDraft({
                         images: files,
                         thumbs,
                         videos: videoFields.files,
+                        mediaMeta,
                     }),
                     {
                         loading: "发布中...",

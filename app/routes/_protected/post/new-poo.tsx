@@ -31,6 +31,7 @@ function Page() {
                         images: [],
                         thumbs: [],
                         videos: [],
+                        mediaMeta: { images: [], video: null },
                     }),
                     {
                         loading: "记录💩中...",

@@ -42,6 +42,7 @@ export default function Post({
     collectionId,
     images,
     videos,
+    videoSize,
     onOpenComments,
     onOpenImage,
     onOpenVideo,
@@ -62,6 +63,10 @@ export default function Post({
         // the original WebP. The 600px WebP preview is uploaded by the
         // composer; posts from before that simply reuse the full image.
         thumbUrl: getFileUrl(fileRecord, image.thumb ?? image.name),
+        // Recorded at upload time so the feed can reserve the real box before
+        // the protected file loads (old posts have none and measure on load).
+        width: image.width,
+        height: image.height,
     }));
     const openImage = (index: number) => {
         onOpenImage(
@@ -185,6 +190,8 @@ export default function Post({
                         <PostVideo
                             url={videoUrl}
                             layout="instagram"
+                            videoWidth={videoSize?.width}
+                            videoHeight={videoSize?.height}
                             onOpenFullscreen={() => onOpenVideo(videoUrl)}
                         />
                     </div>
@@ -241,6 +248,8 @@ export default function Post({
                                 <PostVideo
                                     url={videoUrl}
                                     layout="twitter"
+                                    videoWidth={videoSize?.width}
+                                    videoHeight={videoSize?.height}
                                     onOpenFullscreen={() =>
                                         onOpenVideo(videoUrl)
                                     }
@@ -285,6 +294,8 @@ export default function Post({
                         <PostVideo
                             url={videoUrl}
                             layout="moments"
+                            videoWidth={videoSize?.width}
+                            videoHeight={videoSize?.height}
                             onOpenFullscreen={() => onOpenVideo(videoUrl)}
                         />
                     )}

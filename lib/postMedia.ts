@@ -161,3 +161,88 @@ export function formatVideoDuration(seconds: number): string {
     }
     return `${minutes}:${paddedRest}`;
 }
+
+// ---------------------------------------------------------------------------
+// Stored media sizes (posts.media_meta)
+// ---------------------------------------------------------------------------
+
+export type MediaSize = { width: number; height: number };
+
+/** Validate one size from the posts.media_meta JSON field. */
+export function toMediaSize(value: unknown): MediaSize | null {
+    if (!value || typeof value !== "object") return null;
+    const { width, height } = value as { width?: unknown; height?: unknown };
+    if (
+        typeof width !== "number" ||
+        typeof height !== "number" ||
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width <= 0 ||
+        height <= 0
+    ) {
+        return null;
+    }
+    return { width, height };
+}
+
+export type PostMediaMeta = {
+    /** Positional sizes for `posts.images`; null keeps an unknown slot. */
+    images: (MediaSize | null)[];
+    video: MediaSize | null;
+};
+
+/**
+ * Read the positional media sizes stored with a post. Old posts have no field
+ * and a hand-edited row can be anything, so every entry is validated instead
+ * of trusted; a missing entry only means "fall back to measuring on load".
+ */
+export function parsePostMediaMeta(value: unknown): PostMediaMeta {
+    if (!value || typeof value !== "object") {
+        return { images: [], video: null };
+    }
+    const meta = value as { images?: unknown; video?: unknown };
+    return {
+        images: Array.isArray(meta.images)
+            ? meta.images.map((entry) => toMediaSize(entry))
+            : [],
+        video: toMediaSize(meta.video),
+    };
+}
+
+/**
+ * Read a video file's intrinsic size by letting the browser parse its
+ * metadata, so publishing can store the box the feed should reserve. Returns
+ * null when the browser cannot decode it (the feed then measures as before).
+ */
+export function readVideoSize(file: File): Promise<MediaSize | null> {
+    if (
+        typeof document === "undefined" ||
+        typeof URL.createObjectURL !== "function"
+    ) {
+        return Promise.resolve(null);
+    }
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    let timer: number | undefined;
+    return new Promise((resolve) => {
+        const finish = (size: MediaSize | null) => {
+            if (timer !== undefined) window.clearTimeout(timer);
+            video.removeAttribute("src");
+            video.load();
+            URL.revokeObjectURL(url);
+            resolve(size);
+        };
+        video.preload = "metadata";
+        video.muted = true;
+        video.onloadedmetadata = () =>
+            finish(
+                toMediaSize({
+                    width: video.videoWidth,
+                    height: video.videoHeight,
+                }),
+            );
+        video.onerror = () => finish(null);
+        timer = window.setTimeout(() => finish(null), 8000);
+        video.src = url;
+    });
+}
