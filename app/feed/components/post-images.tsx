@@ -314,20 +314,22 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                 ))}
             </div>
 
-            {/* X shows these only on hover-capable devices, dimming the arrow
-                that cannot go further. v4's hover variants already live behind
-                `@media (hover: hover)`, so a tap on a phone never surfaces
-                them. Keyboard focus reveals the enabled one too. */}
+            {/* X shows these only on hover-capable devices and fades out the
+                arrow that cannot go further (there is no left arrow on the
+                first slide or right arrow on the last). v4's hover variants
+                already live behind `@media (hover: hover)`, so a tap on a
+                phone never surfaces them. Keyboard focus reveals the enabled
+                one too. */}
             <button
                 type="button"
                 disabled={!canPrev}
                 onClick={() => scrollStrip(-1)}
                 aria-label="上一张图片"
                 className={cn(
-                    "absolute top-1/2 left-[4.375rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-150 focus-visible:opacity-100",
+                    "absolute top-1/2 left-[4.375rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-200 focus-visible:opacity-100",
                     canPrev
                         ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
-                        : "pointer-events-none group-hover:opacity-50",
+                        : "pointer-events-none",
                 )}
             >
                 <ChevronLeft className="size-5" aria-hidden="true" />
@@ -338,10 +340,10 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                 onClick={() => scrollStrip(1)}
                 aria-label="下一张图片"
                 className={cn(
-                    "absolute top-1/2 right-[1.125rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-150 focus-visible:opacity-100",
+                    "absolute top-1/2 right-[1.125rem] z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-200 focus-visible:opacity-100",
                     canNext
                         ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
-                        : "pointer-events-none group-hover:opacity-50",
+                        : "pointer-events-none",
                 )}
             >
                 <ChevronRight className="size-5" aria-hidden="true" />
