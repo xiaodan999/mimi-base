@@ -24,6 +24,10 @@ function sizeOf(image: ComposerImageRef): MediaSize | null {
         : null;
 }
 
+/** One composer image, addressed inside the split keep/files lists. */
+export type PostImageOrderEntry =
+    { kind: "existing"; index: number } | { kind: "file"; index: number };
+
 export type PostImagesFields = {
     /** Existing filenames to keep, in the order they appear in the composer. */
     keep: string[];
@@ -34,11 +38,13 @@ export type PostImagesFields = {
     /** Newly generated thumbnails to upload. */
     thumbs: File[];
     /**
-     * One intrinsic size per stored image, in the final order PocketBase
-     * writes: kept files first, then new uploads. A null entry keeps the
-     * position of an image whose size was never recorded.
+     * One intrinsic size per image in composer order. PocketBase writes kept
+     * files before new uploads in one request, so the update mutation sends a
+     * second, filename-only update when a mixed draft was reordered.
      */
     meta: (MediaSize | null)[];
+    /** The composer's visual order as indices into `keep` / `files`. */
+    order: PostImageOrderEntry[];
 };
 
 export type ComposerVideoRef =
@@ -90,17 +96,18 @@ export function buildPostImagesFields(
     const files: File[] = [];
     const keepThumbs: string[] = [];
     const thumbs: File[] = [];
-    const keepMeta: (MediaSize | null)[] = [];
-    const fileMeta: (MediaSize | null)[] = [];
+    const meta: (MediaSize | null)[] = [];
+    const order: PostImageOrderEntry[] = [];
 
     for (const image of images) {
+        meta.push(sizeOf(image));
         if (image.kind === "existing") {
+            order.push({ kind: "existing", index: keep.length });
             keep.push(image.name);
-            keepMeta.push(sizeOf(image));
             if (image.thumb) keepThumbs.push(image.thumb);
         } else {
+            order.push({ kind: "file", index: files.length });
             files.push(image.file);
-            fileMeta.push(sizeOf(image));
             if (image.thumb) thumbs.push(image.thumb);
         }
     }
@@ -110,8 +117,55 @@ export function buildPostImagesFields(
         files,
         keepThumbs,
         thumbs,
-        meta: [...keepMeta, ...fileMeta],
+        meta,
+        order,
     };
+}
+
+/**
+ * Move one item to a new index without mutating the input. Invalid moves and
+ * no-ops return the original array so React skips a pointless re-render.
+ */
+export function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
+    if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= items.length ||
+        to >= items.length
+    ) {
+        return items;
+    }
+    const next = items.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+}
+
+/**
+ * Translate the composer's visual order into stored filenames after an
+ * update. PocketBase keeps submitted names first and appends new uploads, so
+ * `keep` is exactly the prefix of `stored` and the new files follow in upload
+ * order. Returns null when the record does not contain every requested file,
+ * which tells the caller to leave the saved order alone rather than write a
+ * partial list.
+ */
+export function mapStoredImageOrder(
+    order: PostImageOrderEntry[],
+    keep: string[],
+    stored: string[],
+): string[] | null {
+    const desired: string[] = [];
+    let newFileIndex = 0;
+    for (const entry of order) {
+        const name =
+            entry.kind === "existing"
+                ? keep[entry.index]
+                : stored[keep.length + newFileIndex++];
+        if (!name) return null;
+        desired.push(name);
+    }
+    return desired;
 }
 
 function startOfDay(date: Date) {

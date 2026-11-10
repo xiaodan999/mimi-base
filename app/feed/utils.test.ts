@@ -5,7 +5,9 @@ import {
     buildPostVideoFields,
     formatMonthLabel,
     groupPostMonths,
+    mapStoredImageOrder,
     monthKeyOf,
+    moveArrayItem,
 } from "./utils";
 
 /** Local-time timestamp so the test never depends on the runner's zone. */
@@ -117,11 +119,15 @@ describe("buildPostImagesFields", () => {
             keepThumbs: [],
             thumbs: [],
             meta: [null, null, null],
+            order: [
+                { kind: "existing", index: 0 },
+                { kind: "file", index: 0 },
+                { kind: "existing", index: 1 },
+            ],
         });
     });
 
-    test("records sizes in the order PocketBase stores the files", () => {
-        // Kept files first, new uploads after, matching the multipart order.
+    test("records sizes in the composer's visual order", () => {
         expect(
             buildPostImagesFields([
                 {
@@ -140,8 +146,8 @@ describe("buildPostImagesFields", () => {
             ]).meta,
         ).toEqual([
             { width: 100, height: 200 },
-            null,
             { width: 300, height: 400 },
+            null,
         ]);
     });
 
@@ -163,6 +169,11 @@ describe("buildPostImagesFields", () => {
             keepThumbs: ["b2_thumbnail_y.webp"],
             thumbs: [newThumb],
             meta: [null, null, null],
+            order: [
+                { kind: "existing", index: 0 },
+                { kind: "file", index: 0 },
+                { kind: "file", index: 1 },
+            ],
         });
     });
 
@@ -173,6 +184,75 @@ describe("buildPostImagesFields", () => {
             keepThumbs: [],
             thumbs: [],
             meta: [],
+            order: [],
         });
+    });
+});
+
+describe("moveArrayItem", () => {
+    const items = ["a", "b", "c", "d"];
+
+    test("moves an item forward and backward", () => {
+        expect(moveArrayItem(items, 0, 2)).toEqual(["b", "c", "a", "d"]);
+        expect(moveArrayItem(items, 3, 1)).toEqual(["a", "d", "b", "c"]);
+    });
+
+    test("keeps the original array for no-ops and invalid indexes", () => {
+        expect(moveArrayItem(items, 1, 1)).toBe(items);
+        expect(moveArrayItem(items, -1, 2)).toBe(items);
+        expect(moveArrayItem(items, 0, 4)).toBe(items);
+    });
+
+    test("does not mutate the input", () => {
+        const moved = moveArrayItem(items, 1, 3);
+        expect(items).toEqual(["a", "b", "c", "d"]);
+        expect(moved).toEqual(["a", "c", "d", "b"]);
+    });
+});
+
+describe("mapStoredImageOrder", () => {
+    test("puts a new upload between two kept photos", () => {
+        // Composer: kept B, new X, kept A. PocketBase stores B, A, X first.
+        expect(
+            mapStoredImageOrder(
+                [
+                    { kind: "existing", index: 0 },
+                    { kind: "file", index: 0 },
+                    { kind: "existing", index: 1 },
+                ],
+                ["B", "A"],
+                ["B", "A", "X"],
+            ),
+        ).toEqual(["B", "X", "A"]);
+    });
+
+    test("keeps several new uploads in their upload order", () => {
+        expect(
+            mapStoredImageOrder(
+                [
+                    { kind: "file", index: 0 },
+                    { kind: "existing", index: 0 },
+                    { kind: "file", index: 1 },
+                ],
+                ["B"],
+                ["B", "X", "Y"],
+            ),
+        ).toEqual(["X", "B", "Y"]);
+    });
+
+    test("returns null when the saved record is missing a file", () => {
+        expect(
+            mapStoredImageOrder(
+                [
+                    { kind: "existing", index: 0 },
+                    { kind: "file", index: 0 },
+                ],
+                ["B"],
+                ["B"],
+            ),
+        ).toBeNull();
+        expect(
+            mapStoredImageOrder([{ kind: "existing", index: 1 }], ["B"], ["B"]),
+        ).toBeNull();
     });
 });

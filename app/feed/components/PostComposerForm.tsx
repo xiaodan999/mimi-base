@@ -53,6 +53,7 @@ export default function PostComposerForm({
         publish,
         pickImages,
         removeImage,
+        moveImage,
         pickVideo,
         removeVideo,
     } = draft;
@@ -176,6 +177,7 @@ export default function PostComposerForm({
                         layout={layout}
                         onPick={() => void pickImages()}
                         onRemove={removeImage}
+                        onMove={moveImage}
                         onPreview={(index) => setPreviewIndex(index)}
                     />
                 )}

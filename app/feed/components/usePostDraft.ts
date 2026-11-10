@@ -23,7 +23,11 @@ import {
     useNewPostMutation,
     useUpdatePostMutation,
 } from "../data";
-import { buildPostImagesFields, buildPostVideoFields } from "../utils";
+import {
+    buildPostImagesFields,
+    buildPostVideoFields,
+    moveArrayItem,
+} from "../utils";
 
 export type PreviewImage =
     | {
@@ -258,6 +262,11 @@ export function usePostDraft({
         });
     };
 
+    /** Move one photo in the visual order; the feed stores images by index. */
+    const moveImage = (from: number, to: number) => {
+        setImages((previous) => moveArrayItem(previous, from, to));
+    };
+
     const pickVideo = async () => {
         if (preparing || publishing) return;
         if (images.length > 0) {
@@ -337,6 +346,7 @@ export function usePostDraft({
             keepThumbs,
             thumbs,
             meta: imageMeta,
+            order: imageOrder,
         } = buildPostImagesFields(images);
         setPublishing(true);
         let compressionToast: ReturnType<typeof toast.loading> | undefined;
@@ -406,6 +416,7 @@ export function usePostDraft({
                         keepThumbs,
                         files,
                         thumbs,
+                        imageOrder,
                         keepVideos: videoFields.keep,
                         videoFiles: videoFields.files,
                         mediaMeta,
@@ -476,6 +487,7 @@ export function usePostDraft({
         showVideo,
         pickImages,
         removeImage,
+        moveImage,
         pickVideo,
         removeVideo,
         publish,

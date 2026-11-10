@@ -19,7 +19,11 @@ import {
 import type { PostMediaMeta } from "@/lib/postMedia";
 import { qk } from "@/lib/query-keys";
 
-import { groupPostMonths } from "./utils";
+import {
+    groupPostMonths,
+    mapStoredImageOrder,
+    type PostImageOrderEntry,
+} from "./utils";
 
 // The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
 // components importing from `./-data` don't need to change.
@@ -348,6 +352,7 @@ export function useUpdatePostMutation() {
             keepThumbs,
             files,
             thumbs,
+            imageOrder,
             keepVideos,
             videoFiles,
             mediaMeta,
@@ -363,6 +368,8 @@ export function useUpdatePostMutation() {
             files: File[];
             /** Newly generated thumbnails. */
             thumbs: File[];
+            /** Composer order as indices into keepImages / files. */
+            imageOrder: PostImageOrderEntry[];
             /** Existing video filename kept by the edit form. */
             keepVideos: string[];
             /** Newly picked video file. */
@@ -398,6 +405,38 @@ export function useUpdatePostMutation() {
             // Same empty-200 trap as create: a save that returns no record
             // never reached the database.
             if (!record?.id) {
+                throw new Error("保存失败：服务器没有返回动态");
+            }
+
+            // PocketBase writes kept filenames before new uploads in one
+            // request, so a draft that interleaves them needs a second,
+            // filename-only update to store the visual order. Reordering only
+            // existing photos already lands correctly in the first request.
+            const storedImages = Array.isArray(record.images)
+                ? record.images
+                : [];
+            const desiredImages = mapStoredImageOrder(
+                imageOrder,
+                keepImages,
+                storedImages,
+            );
+            if (!desiredImages) return;
+            const alreadyStored =
+                desiredImages.length === storedImages.length &&
+                desiredImages.every(
+                    (name, index) => name === storedImages[index],
+                );
+            if (alreadyStored) return;
+
+            const orderForm = new FormData();
+            for (const name of desiredImages) {
+                orderForm.append("images", name);
+            }
+            orderForm.append("media_meta", JSON.stringify(mediaMeta));
+            const ordered = await pb
+                .collection("posts")
+                .update<PostRecord>(id, orderForm);
+            if (!ordered?.id) {
                 throw new Error("保存失败：服务器没有返回动态");
             }
         },
