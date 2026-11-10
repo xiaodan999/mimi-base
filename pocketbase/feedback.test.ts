@@ -115,7 +115,7 @@ function submit(token: string | null = "pb-token", id = REPORT_ID) {
 }
 
 function issueStateRequest(
-    numbers: unknown[],
+    reportIds: unknown[],
     token: string | null = "pb-token",
 ) {
     const headers: Record<string, string> = {
@@ -125,8 +125,96 @@ function issueStateRequest(
     return new Request(`http://supervisor${FEEDBACK_ISSUE_STATE_PATH}`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ numbers }),
+        body: JSON.stringify({ reportIds }),
     });
+}
+
+/** 15-char PocketBase-style id; `index` keeps each row distinct. */
+function issueReportId(index: number): string {
+    return `report${String(index).padStart(9, "0")}`;
+}
+
+/** A synced report row as PocketBase would return it. */
+function syncedReport(
+    index: number,
+    number: number,
+    overrides: Partial<FeedbackReport> = {},
+): FeedbackReport {
+    return report({
+        id: issueReportId(index),
+        status: "issue_created",
+        issue_url: `https://github.test/owner/repo/issues/${number}`,
+        issue_number: number,
+        ...overrides,
+    });
+}
+
+/**
+ * PB report rows + superuser auth + GitHub issue reads for the state tests.
+ * `state` is mutable so assertions can inspect PATCHes and request counts.
+ */
+function issueStatePb(input: {
+    rows?: FeedbackReport[];
+    github?: (number: number) => Response;
+    adminStatus?: number;
+    patchStatus?: number;
+}) {
+    const state = {
+        patches: [] as Array<{
+            id: string;
+            body: Record<string, unknown>;
+            auth: string;
+        }>,
+        adminAuths: 0,
+        githubCalls: 0,
+    };
+    const rows = new Map(
+        (input.rows ?? []).map((row) => [row.id, row] as const),
+    );
+    const handler = (url: URL, init?: RequestInit): Response => {
+        if (
+            url.pathname === "/api/collections/_superusers/auth-with-password"
+        ) {
+            state.adminAuths += 1;
+            const status = input.adminStatus ?? 200;
+            return status === 200
+                ? json({ token: "admin-token" })
+                : json({}, status);
+        }
+        const record = url.pathname.match(
+            /^\/api\/collections\/feedback_reports\/records\/([a-z0-9]+)$/,
+        );
+        if (record) {
+            if (init?.method === "PATCH") {
+                const headers = (init.headers ?? {}) as Record<string, string>;
+                state.patches.push({
+                    id: record[1],
+                    body: JSON.parse(String(init.body)) as Record<
+                        string,
+                        unknown
+                    >,
+                    auth: headers.Authorization ?? "",
+                });
+                const status = input.patchStatus ?? 200;
+                return status === 200
+                    ? json({ id: record[1] })
+                    : json({}, status);
+            }
+            const row = rows.get(record[1]);
+            return row ? json(row) : json({}, 404);
+        }
+        const issue = url.pathname.match(
+            /^\/repos\/owner\/repo\/issues\/(\d+)$/,
+        );
+        if (issue) {
+            state.githubCalls += 1;
+            return input.github
+                ? input.github(Number(issue[1]))
+                : json({ state: "open" });
+        }
+        return json({}, 404);
+    };
+    return { state, handler };
 }
 
 /** PB report fetch + option transcript rows + optional GitHub/PATCH hooks. */
@@ -954,65 +1042,176 @@ describe("feedback service", () => {
 });
 
 describe("feedback issue state service", () => {
-    test("returns live open/closed state and ignores invalid numbers", async () => {
-        let githubCalls = 0;
-        const { service, calls } = setup((url) => {
-            const match = url.pathname.match(
-                /^\/repos\/owner\/repo\/issues\/(\d+)$/,
-            );
-            if (!match) return json({}, 404);
-            githubCalls += 1;
-            return json({
-                state: Number(match[1]) === 8 ? "closed" : "open",
-            });
+    test("reads each pending report and persists the state with the admin token", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7), syncedReport(2, 8)],
+            github: (number) =>
+                json({ state: number === 8 ? "closed" : "open" }),
         });
+        const { service } = setup(handler, {
+            pbAdminEmail: "admin@test",
+            pbAdminPassword: "pw",
+        });
+
         const res = await service(
-            issueStateRequest([7, 8, 7, -1, 0, 3.5, "8"]),
+            issueStateRequest([issueReportId(1), issueReportId(2)]),
         );
         expect(res?.status).toBe(200);
-        const body = (await res!.json()) as {
-            states: Record<string, string>;
-        };
-        expect(body.states).toEqual({ "7": "open", "8": "closed" });
-        expect(githubCalls).toBe(2);
-        // The endpoint is read-only: it must not reread or PATCH reports.
-        expect(
-            calls.filter((call) =>
-                call.url.pathname.includes("feedback_reports"),
-            ),
-        ).toHaveLength(0);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: { "7": "open", "8": "closed" },
+        });
+        expect(state.githubCalls).toBe(2);
+        expect(state.adminAuths).toBe(1);
+        expect(state.patches.map((patch) => patch.auth)).toEqual([
+            "admin-token",
+            "admin-token",
+        ]);
+        const bodies = new Map(
+            state.patches.map((patch) => [patch.id, patch.body]),
+        );
+        expect(bodies.get(issueReportId(1))).toMatchObject({
+            issue_state: "open",
+        });
+        expect(bodies.get(issueReportId(2))).toMatchObject({
+            issue_state: "closed",
+        });
+        expect(typeof bodies.get(issueReportId(2))?.issue_state_checked).toBe(
+            "string",
+        );
+    });
+
+    test("never asks GitHub again once an issue is persisted as closed", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 8, { issue_state: "closed" })],
+            github: () => json({ state: "open" }),
+        });
+        const { service } = setup(handler);
+
+        const res = await service(issueStateRequest([issueReportId(1)]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: { "8": "closed" },
+        });
+        expect(state.githubCalls).toBe(0);
+        expect(state.patches).toHaveLength(0);
+    });
+
+    test("keeps the persisted state when GitHub cannot resolve an issue", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7)],
+            github: () => json({ message: "boom" }, 500),
+        });
+        const { service } = setup(handler);
+
+        const res = await service(issueStateRequest([issueReportId(1)]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({ ok: true, states: {} });
+        expect(state.githubCalls).toBe(1);
+        // Nothing confirmed means nothing written: the last badge survives.
+        expect(state.patches).toHaveLength(0);
+    });
+
+    test("skips unreadable, unsynced and invalid reports", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [
+                syncedReport(2, 9, { status: "stored" }),
+                syncedReport(3, 10, { issue_number: 0 }),
+            ],
+        });
+        const { service } = setup(handler);
+
+        // 1 is another owner's row (PB answers 404); "short" is not an id.
+        const res = await service(
+            issueStateRequest([
+                issueReportId(1),
+                issueReportId(2),
+                issueReportId(3),
+                "short",
+                issueReportId(2),
+            ]),
+        );
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({ ok: true, states: {} });
+        expect(state.githubCalls).toBe(0);
+        expect(state.patches).toHaveLength(0);
+    });
+
+    test("falls back to the caller token when the admin login fails", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7)],
+            adminStatus: 401,
+        });
+        const { service } = setup(handler, {
+            pbAdminEmail: "admin@test",
+            pbAdminPassword: "pw",
+        });
+
+        const res = await service(issueStateRequest([issueReportId(1)]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: { "7": "open" },
+        });
+        expect(state.adminAuths).toBe(1);
+        expect(state.patches.map((patch) => patch.auth)).toEqual(["pb-token"]);
+    });
+
+    test("still answers the state when the caller cannot persist the row", async () => {
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7)],
+            patchStatus: 403,
+        });
+        const { service } = setup(handler);
+
+        const res = await service(issueStateRequest([issueReportId(1)]));
+        expect(res?.status).toBe(200);
+        expect(await res!.json()).toEqual({
+            ok: true,
+            states: { "7": "open" },
+        });
+        // No admin configured: the shared suggestion is read but not written.
+        expect(state.patches.map((patch) => patch.auth)).toEqual(["pb-token"]);
     });
 
     test("caches each issue state for a minute", async () => {
         let clock = 1_000;
-        let githubCalls = 0;
-        const { service } = setup(
-            (url) => {
-                if (!/\/issues\/\d+$/.test(url.pathname)) return json({}, 404);
-                githubCalls += 1;
-                return json({ state: "open" });
-            },
-            { now: () => clock },
-        );
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7)],
+            github: () => json({ state: "open" }),
+        });
+        const { service } = setup(handler, { now: () => clock });
 
-        expect((await service(issueStateRequest([7])))?.status).toBe(200);
-        expect((await service(issueStateRequest([7])))?.status).toBe(200);
-        expect(githubCalls).toBe(1);
+        expect(
+            (await service(issueStateRequest([issueReportId(1)])))?.status,
+        ).toBe(200);
+        expect(
+            (await service(issueStateRequest([issueReportId(1)])))?.status,
+        ).toBe(200);
+        expect(state.githubCalls).toBe(1);
 
         clock += 60_001;
-        expect((await service(issueStateRequest([7])))?.status).toBe(200);
-        expect(githubCalls).toBe(2);
+        expect(
+            (await service(issueStateRequest([issueReportId(1)])))?.status,
+        ).toBe(200);
+        expect(state.githubCalls).toBe(2);
     });
 
     test("requires auth and stays quiet when GitHub is unconfigured", async () => {
         const { service, calls } = setup((url) => json({}, 404));
-        expect((await service(issueStateRequest([7], null)))?.status).toBe(401);
+        expect(
+            (await service(issueStateRequest([issueReportId(1)], null)))
+                ?.status,
+        ).toBe(401);
         expect(calls).toHaveLength(0);
 
         const unconfigured = setup((url) => json({}, 404), {
             githubToken: "",
         });
-        const res = await unconfigured.service(issueStateRequest([7]));
+        const res = await unconfigured.service(
+            issueStateRequest([issueReportId(1)]),
+        );
         expect(res?.status).toBe(200);
         expect(await res!.json()).toEqual({
             ok: true,
@@ -1027,17 +1226,48 @@ describe("feedback issue state service", () => {
     });
 
     test("omits issues GitHub cannot resolve instead of failing the list", async () => {
-        const { service } = setup((url) => {
-            if (url.pathname.endsWith("/issues/7")) return json({}, 500);
-            if (url.pathname.endsWith("/issues/8")) return json({ state: "x" });
-            return json({ state: "closed" });
+        const { state, handler } = issueStatePb({
+            rows: [syncedReport(1, 7), syncedReport(2, 8), syncedReport(3, 9)],
+            github: (number) => {
+                if (number === 7) return json({ message: "boom" }, 500);
+                if (number === 8) return json({ state: "x" });
+                return json({ state: "closed" });
+            },
         });
-        const res = await service(issueStateRequest([7, 8, 9]));
+        const { service } = setup(handler);
+
+        const res = await service(
+            issueStateRequest([
+                issueReportId(1),
+                issueReportId(2),
+                issueReportId(3),
+            ]),
+        );
         expect(res?.status).toBe(200);
         expect(await res!.json()).toEqual({
             ok: true,
             states: { "9": "closed" },
         });
+        expect(state.githubCalls).toBe(3);
+        expect(state.patches.map((patch) => patch.id)).toEqual([
+            issueReportId(3),
+        ]);
+    });
+
+    test("caps one request at 50 reports", async () => {
+        const rows = Array.from({ length: 55 }, (_, index) =>
+            syncedReport(index + 1, index + 1),
+        );
+        const { state, handler } = issueStatePb({ rows });
+        const { service } = setup(handler);
+
+        const res = await service(issueStateRequest(rows.map((row) => row.id)));
+        expect(res?.status).toBe(200);
+        const body = (await res!.json()) as {
+            states: Record<string, string>;
+        };
+        expect(Object.keys(body.states)).toHaveLength(50);
+        expect(state.githubCalls).toBe(50);
     });
 
     test("rejects a malformed body", async () => {
@@ -1049,7 +1279,7 @@ describe("feedback issue state service", () => {
                     Authorization: "pb-token",
                     "content-type": "application/json",
                 },
-                body: JSON.stringify({ numbers: "7" }),
+                body: JSON.stringify({ reportIds: issueReportId(1) }),
             }),
         );
         expect(res?.status).toBe(400);

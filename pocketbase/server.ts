@@ -1134,12 +1134,23 @@ function startHttpServer() {
     // accepted (`issue: null`) but the upload endpoint answers 503.
     // GITHUB_API_URL / GITHUB_UPLOADS_URL are overridable so tests can point
     // at a local mock.
+    //
+    // Issue-state write-back reuses the superuser `server-setup.sh` already
+    // puts in `.env.prod` (SUPERUSER_EMAIL / SUPERUSER_PASSWORD), so a shared
+    // feature suggestion persists even when the caller is not its owner. Dev
+    // falls back to the superuser seeded by dev_seed.pb.js; if neither works
+    // the service silently writes with the caller's token instead.
     const feedback = createFeedbackService({
         pbBaseUrl: `http://127.0.0.1:${httpPort}`,
         githubToken: process.env.GITHUB_TOKEN ?? "",
         githubRepo: process.env.GITHUB_REPO ?? "",
         githubApiUrl: process.env.GITHUB_API_URL?.trim() || undefined,
         githubUploadsUrl: process.env.GITHUB_UPLOADS_URL?.trim() || undefined,
+        pbAdminEmail:
+            process.env.SUPERUSER_EMAIL?.trim() ||
+            (isProd ? "" : "dev@mimi.local"),
+        pbAdminPassword:
+            process.env.SUPERUSER_PASSWORD || (isProd ? "" : "mimi123456"),
     });
 
     // Video compression uses the caller's PB token and an optional ffmpeg

@@ -1,6 +1,21 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseFeedbackIssueStates } from "./issue-state";
+import { parseFeedbackIssueStates, parseRecordIssueState } from "./issue-state";
+
+describe("parseRecordIssueState", () => {
+    test("accepts the two persisted values", () => {
+        expect(parseRecordIssueState("open")).toBe("open");
+        expect(parseRecordIssueState("closed")).toBe("closed");
+    });
+
+    test("treats empty and unknown values as not known yet", () => {
+        expect(parseRecordIssueState("")).toBeUndefined();
+        expect(parseRecordIssueState(undefined)).toBeUndefined();
+        expect(parseRecordIssueState(null)).toBeUndefined();
+        expect(parseRecordIssueState("merged")).toBeUndefined();
+        expect(parseRecordIssueState(1)).toBeUndefined();
+    });
+});
 
 describe("parseFeedbackIssueStates", () => {
     test("keeps valid issue numbers and known states", () => {

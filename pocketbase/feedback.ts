@@ -23,10 +23,16 @@
  *      creates the issue with the server-held `GITHUB_TOKEN`,
  *   4. writes `status` / `issue_url` / `issue_number` back onto the report.
  *
- * `POST /api/feedback/issue-state` is read-only: the feedback lists ask for
- * the current GitHub state of their issues so a closed issue stops showing
- *「已建 Issue」. It accepts at most 50 numbers, caches each result for a
- * minute, and never mutates the report row.
+ * `POST /api/feedback/issue-state` keeps the report's `issue_state` in sync
+ * with GitHub. The feedback lists send at most 50 report ids; the service
+ * re-reads each row with the caller's token, asks GitHub only for reports
+ * that are `issue_created` and not already known `closed`, and writes the
+ * result back (`issue_state` / `issue_state_checked`). Closed is terminal:
+ * those rows are never checked again. Results are cached for a minute so two
+ * visits in a row cost one GitHub request. The write uses a PocketBase
+ * superuser token when one is configured, because feature suggestions are
+ * readable by both accounts but only their owner may PATCH the row; without
+ * it the caller's token is used and only owned rows persist.
  *
  * Feature suggestions use `[Feature]` + `enhancement`/`from-app` and never
  * require a conversation. Re-syncing a stored/failed row rebuilds the body
@@ -53,7 +59,7 @@ export const FEEDBACK_PREFIX = "/api/feedback";
 export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
 /** POST multipart `files` — upload attachments, return their public URLs. */
 export const FEEDBACK_UPLOAD_PATH = "/api/feedback/upload";
-/** POST { numbers } — read the current GitHub open/closed state. */
+/** POST { reportIds } — sync the GitHub open/closed state onto the rows. */
 export const FEEDBACK_ISSUE_STATE_PATH = "/api/feedback/issue-state";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -71,7 +77,7 @@ const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 500;
 const CONNECT_TIMEOUT_MS = 10_000;
 /** Bound one state request; the feedback lists never exceed 50 reports. */
-const MAX_ISSUE_STATE_NUMBERS = 50;
+const MAX_ISSUE_STATE_REPORTS = 50;
 /** GitHub issue state is read for display only; a minute is plenty fresh. */
 const ISSUE_STATE_CACHE_MS = 60_000;
 const ISSUE_STATE_CONCURRENCY = 5;
@@ -109,6 +115,9 @@ export type FeedbackReport = {
     status?: string;
     issue_url?: string;
     issue_number?: number;
+    /** Persisted GitHub state; `closed` is terminal for the refresh. */
+    issue_state?: string;
+    issue_state_checked?: string;
     error?: string;
     /** JSON field: `[{ name, url, size, type }]`, stored by the client. */
     attachments?: unknown;
@@ -144,6 +153,13 @@ export type FeedbackDeps = {
     githubApiUrl?: string;
     /** GitHub asset-upload base; override a local mock in tests. */
     githubUploadsUrl?: string;
+    /**
+     * PocketBase superuser used to persist issue state on shared feature
+     * suggestions (their owner is the other account). Empty falls back to
+     * the caller's token, which can only update the caller's own rows.
+     */
+    pbAdminEmail?: string;
+    pbAdminPassword?: string;
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
@@ -545,6 +561,12 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     const authCacheMs = deps.authCacheMs ?? AUTH_CACHE_MS;
     const authCache = new Map<string, { uid: string; expiresAt: number }>();
     const configured = token !== "" && repo !== "";
+    const adminEmail = (deps.pbAdminEmail ?? "").trim();
+    const adminPassword = deps.pbAdminPassword ?? "";
+    const adminConfigured = adminEmail !== "" && adminPassword !== "";
+    /** Minted on the first state write; cleared on a 401 and re-minted once. */
+    let adminToken = "";
+    let adminAuthInFlight: Promise<string> | null = null;
     /** Release id resolved once; every upload reuses this single prerelease. */
     let releaseId: number | null = null;
     /** Concurrent first uploads must not create two releases. */
@@ -630,11 +652,11 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         }
     }
 
-    async function pbPatch(
+    async function pbPatchStatus(
         path: string,
         body: Record<string, unknown>,
         pbToken: string,
-    ): Promise<boolean> {
+    ): Promise<number> {
         try {
             const res = await fetchImpl(`${deps.pbBaseUrl}${path}`, {
                 method: "PATCH",
@@ -645,10 +667,93 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
                 body: JSON.stringify(body),
                 signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
             });
-            return res.ok;
+            return res.status;
         } catch {
-            return false;
+            return 0;
         }
+    }
+
+    async function pbPatch(
+        path: string,
+        body: Record<string, unknown>,
+        pbToken: string,
+    ): Promise<boolean> {
+        const status = await pbPatchStatus(path, body, pbToken);
+        return status >= 200 && status < 300;
+    }
+
+    /**
+     * Mint (and cache) a PocketBase superuser token. Only used to persist
+     * issue state on feature suggestions the caller may read but not update.
+     * Failures stay silent: the caller-token PATCH below still covers owned
+     * reports, and issue state is display-only.
+     */
+    async function getAdminToken(): Promise<string> {
+        if (!adminConfigured) return "";
+        if (adminToken) return adminToken;
+        if (adminAuthInFlight) return adminAuthInFlight;
+        const pending = (async () => {
+            try {
+                const res = await fetchImpl(
+                    `${deps.pbBaseUrl}/api/collections/_superusers/auth-with-password`,
+                    {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({
+                            identity: adminEmail,
+                            password: adminPassword,
+                        }),
+                        signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+                    },
+                );
+                if (!res.ok) return "";
+                const data = (await res.json()) as { token?: unknown };
+                const value = typeof data.token === "string" ? data.token : "";
+                if (value) adminToken = value;
+                return value;
+            } catch {
+                return "";
+            }
+        })();
+        adminAuthInFlight = pending;
+        try {
+            return await pending;
+        } finally {
+            if (adminAuthInFlight === pending) adminAuthInFlight = null;
+        }
+    }
+
+    /**
+     * Write `issue_state` with the admin token when possible, re-minting it
+     * once after a 401. Without admin credentials (or after a failure) the
+     * caller's token is used: PB's owner-only update rule still lets the
+     * caller persist their own reports, which is the pre-existing behavior.
+     */
+    async function patchIssueState(
+        path: string,
+        body: Record<string, unknown>,
+        callerToken: string,
+    ): Promise<boolean> {
+        const admin = await getAdminToken();
+        if (admin) {
+            const status = await pbPatchStatus(path, body, admin);
+            if (status >= 200 && status < 300) return true;
+            if (status === 401 || status === 403) {
+                adminToken = "";
+                const retried = await getAdminToken();
+                if (retried) {
+                    const retriedStatus = await pbPatchStatus(
+                        path,
+                        body,
+                        retried,
+                    );
+                    if (retriedStatus >= 200 && retriedStatus < 300) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return pbPatch(path, body, callerToken);
     }
 
     function githubHeaders(
@@ -665,7 +770,8 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
 
     /**
      * Read one issue's live state. Failures (deleted issue, GitHub down,
-     * rate limit) are non-fatal: the UI keeps its last「已建 Issue」 label.
+     * rate limit) are non-fatal: the row keeps its persisted state (or the
+     * UI keeps「已建 Issue」) instead of turning the list into an error.
      * A short cache avoids spending a GitHub request for every list render.
      */
     async function readIssueState(
@@ -880,27 +986,39 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         };
     }
 
-    async function handleIssueStates(req: Request): Promise<Response> {
-        let body: { numbers?: unknown };
+    /**
+     * Sync the GitHub state of the reports currently on screen.
+     *
+     * Rows are re-read with the caller's token, so the collection rules stay
+     * the visibility boundary (a shared feature suggestion is readable, the
+     * other account's bug report is not). Only `issue_created` rows with a
+     * usable issue number are considered. A persisted `closed` is terminal
+     * and never spends a GitHub request; an `open`/unknown row is refreshed
+     * (one minute of in-memory caching) and written back for the next visit.
+     * GitHub failures omit the number, leaving the persisted badge alone.
+     */
+    async function handleIssueStates(
+        req: Request,
+        auth: AuthOk,
+    ): Promise<Response> {
+        let body: { reportIds?: unknown };
         try {
             body = JSON.parse(await req.text()) as typeof body;
         } catch {
             return badRequest("请求内容不是合法 JSON");
         }
-        if (!Array.isArray(body.numbers)) {
-            return badRequest("缺少 Issue 编号");
+        if (!Array.isArray(body.reportIds)) {
+            return badRequest("缺少反馈编号");
         }
-        const numbers = Array.from(
+        const reportIds = Array.from(
             new Set(
-                body.numbers.filter(
-                    (value): value is number =>
-                        typeof value === "number" &&
-                        Number.isInteger(value) &&
-                        value > 0,
+                body.reportIds.filter(
+                    (value): value is string =>
+                        typeof value === "string" && RECORD_ID_RE.test(value),
                 ),
             ),
-        ).slice(0, MAX_ISSUE_STATE_NUMBERS);
-        if (numbers.length === 0) return json({ ok: true, states: {} });
+        ).slice(0, MAX_ISSUE_STATE_REPORTS);
+        if (reportIds.length === 0) return json({ ok: true, states: {} });
         if (!configured) {
             return json({
                 ok: true,
@@ -912,20 +1030,50 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         const states: Record<string, FeedbackIssueState> = {};
         for (
             let index = 0;
-            index < numbers.length;
+            index < reportIds.length;
             index += ISSUE_STATE_CONCURRENCY
         ) {
-            const chunk = numbers.slice(index, index + ISSUE_STATE_CONCURRENCY);
+            const chunk = reportIds.slice(
+                index,
+                index + ISSUE_STATE_CONCURRENCY,
+            );
             const results = await Promise.all(
-                chunk.map(async (number) => ({
-                    number,
-                    state: await readIssueState(number),
-                })),
+                chunk.map(async (reportId) => {
+                    const fetched = await pbGet<FeedbackReport>(
+                        `/api/collections/feedback_reports/records/${reportId}`,
+                        auth.token,
+                    );
+                    // Unreadable rows are another owner's bug reports (or
+                    // deleted ones): skip them without exposing anything.
+                    if (!fetched.ok) return null;
+                    const report = fetched.data;
+                    if (report.status !== "issue_created") return null;
+                    const number = report.issue_number;
+                    if (
+                        typeof number !== "number" ||
+                        !Number.isInteger(number) ||
+                        number <= 0
+                    ) {
+                        return null;
+                    }
+                    if (report.issue_state === "closed") {
+                        return { number, state: "closed" as const };
+                    }
+                    const state = await readIssueState(number);
+                    if (!state) return null;
+                    await patchIssueState(
+                        `/api/collections/feedback_reports/records/${report.id}`,
+                        {
+                            issue_state: state,
+                            issue_state_checked: new Date(now()).toISOString(),
+                        },
+                        auth.token,
+                    );
+                    return { number, state };
+                }),
             );
             for (const result of results) {
-                if (result.state) {
-                    states[String(result.number)] = result.state;
-                }
+                if (result) states[String(result.number)] = result.state;
             }
         }
         return json({ ok: true, states });
@@ -1134,7 +1282,7 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
         if (uploading) return handleUpload(req);
-        if (readingStates) return handleIssueStates(req);
+        if (readingStates) return handleIssueStates(req, auth);
 
         let body: { reportId?: unknown };
         try {

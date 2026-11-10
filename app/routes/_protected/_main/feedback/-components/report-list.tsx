@@ -16,7 +16,10 @@ import {
     useFeedbackIssueStates,
     type FeedbackReportRecord,
 } from "@/app/feedback/data";
-import type { FeedbackIssueState } from "@/app/feedback/issue-state";
+import {
+    parseRecordIssueState,
+    type FeedbackIssueState,
+} from "@/app/feedback/issue-state";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,7 +104,8 @@ export function ReportList({
                 const authorName = author?.user_name || "朋友";
                 const attachments = parseAttachmentList(report.attachments);
                 const issueState = report.issue_number
-                    ? issueStates[report.issue_number]
+                    ? (issueStates[report.issue_number] ??
+                      parseRecordIssueState(report.issue_state))
                     : undefined;
                 return (
                     <li

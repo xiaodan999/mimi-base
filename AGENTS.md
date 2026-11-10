@@ -40,8 +40,9 @@ Chinese; keep that style when adding user-facing text.
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
 - `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
   upload + bug/feature report create + supervisor sync + owner-only bug list +
-  shared suggestion query + live GitHub issue state), `attachments.ts`
-  (metadata parse/display), `issue-state.ts` (issue state response parser),
+  shared suggestion query + persisted/refreshed GitHub issue state),
+  `attachments.ts` (metadata parse/display), `issue-state.ts` (issue state
+  parsers for the row field and the supervisor response),
   `filters.ts` (visibility helpers mirroring the PB rules),
   `error-buffer.ts` (20-entry console/page-error ring buffer),
   `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
@@ -308,10 +309,16 @@ before your first commit.
   大家的建议 is shared; the bug tab's 我的反馈 stays owner-only. Realtime
   subscriptions are row-filtered by PocketBase, so the other account receives
   feature events only. Closing an issue happens on GitHub, so
-  `POST /api/feedback/issue-state` (auth-only, max 50 numbers, one-minute
-  server cache) reads the live `open`/`closed` state for the numbers on screen;
-  the list badge shows「已关闭」instead of「已建 Issue」, and a GitHub read
-  failure leaves the existing label untouched. Vite proxies `/api` (Bun) and
+  `POST /api/feedback/issue-state` (auth-only, max 50 report ids) re-reads the
+  rows with the caller's token and syncs `issue_state` / `issue_state_checked`
+  back onto them; only `issue_created` rows not already `closed` are refreshed
+  (one-minute in-memory cache), and a stored `closed` is terminal — reopening
+  the issue on GitHub does not flip the badge back. The badge paints from the
+  persisted value, shows「已关闭」instead of「已建 Issue」, and a GitHub read
+  failure leaves the stored label untouched. Writes use the `SUPERUSER_EMAIL` /
+  `SUPERUSER_PASSWORD` already in `.env.prod` (dev: seeded `dev@mimi.local`)
+  so shared suggestions persist for the non-owner; without it the caller's
+  token only updates their own reports. Vite proxies `/api` (Bun) and
   `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`
   to PocketBase after stripping the prefix, while `/feedback` stays a client
   route.
@@ -421,8 +428,9 @@ before your first commit.
     `/api/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too),
     and the Vercel build derives the API origin from `VITE_POCKETBASE_URL`.
     The feedback endpoints are `POST /api/feedback/upload` (attachments),
-    `POST /api/feedback/report` and `POST /api/feedback/issue-state` (live
-    GitHub state) on the same supervisor, so the `/api/*` rule covers them;
+    `POST /api/feedback/report` and `POST /api/feedback/issue-state` (syncs
+    the GitHub state onto the report row) on the same supervisor, so the
+    `/api/*` rule covers them;
     `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
     `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.prod`
     (dev: `.env`); `server.ts` carries them across a respawn. Video posts use

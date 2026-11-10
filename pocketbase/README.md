@@ -253,11 +253,23 @@ PocketBase token. `feedback.ts`:
 
 The row's `status` never changes when someone closes the issue on GitHub, so
 the feedback lists call `POST /api/feedback/issue-state` with the
-`{ numbers }` currently on screen (at most 50). It authenticates the same way,
-reads each issue's live `state` with the server token, caches each result for
-60 seconds, and returns `{ states: { "7": "open", "8": "closed" } }`. Numbers
-GitHub cannot resolve are omitted, and the UI keeps its「已建 Issue」label;
-this endpoint never writes to PocketBase.
+`{ reportIds }` currently on screen (at most 50). It authenticates the same
+way, re-reads each row with the caller's token (so the collection rules stay
+the visibility boundary), and refreshes only reports that are
+`issue_created` and not already known `closed`. New results are written back
+as `issue_state` (`open` / `closed`) and `issue_state_checked`, and returned
+as `{ states: { "7": "open", "8": "closed" } }`. A stored `closed` is
+terminal: that report never costs another GitHub request (reopening the
+issue on GitHub does not flip the badge back). Each state is also cached in
+memory for 60 seconds; numbers GitHub cannot resolve are omitted, so the UI
+keeps the persisted label.
+
+The write-back uses a PocketBase superuser token when one is available,
+because feature suggestions are readable by both accounts but only their
+owner may PATCH the row. The supervisor reuses `SUPERUSER_EMAIL` /
+`SUPERUSER_PASSWORD` from `.env.prod` (dev falls back to the superuser seeded
+by `dev_seed.pb.js`); if neither works it PATCHes with the caller's token
+instead, which still persists the caller's own reports.
 
 Config in `.env.prod` (or `.env` in dev): `GITHUB_TOKEN` (fine-grained token
 with `issues:write` and `contents:write` on the target repo — release assets

@@ -15,6 +15,7 @@ import { parseAttachmentList, type FeedbackAttachment } from "./attachments";
 import { getFeedbackErrors } from "./error-buffer";
 import {
     parseFeedbackIssueStates,
+    parseRecordIssueState,
     type FeedbackIssueStates,
 } from "./issue-state";
 
@@ -35,6 +36,10 @@ export type FeedbackReportRecord = {
     status: FeedbackStatus;
     issue_url?: string;
     issue_number?: number;
+    /** Persisted GitHub state; `closed` stops further refreshes. */
+    issue_state?: string;
+    /** When the supervisor last confirmed the GitHub state. */
+    issue_state_checked?: string;
     error?: string;
     /** Public GitHub URLs + display metadata; no file bytes live in PB. */
     attachments?: FeedbackAttachment[];
@@ -329,31 +334,29 @@ export function useFeatureSuggestions() {
 }
 
 /**
- * Resolve the live GitHub state of the issues currently listed. Reports stay
- * `issue_created` in PocketBase after GitHub closes an issue, so the badge
- * needs this separate read. Failures are silent: the badge keeps its
- * existing「已建 Issue」label instead of turning the list into an error state.
+ * Keep the GitHub state on the reports currently listed. The persisted
+ * `issue_state` is what the badge paints first; this refreshes rows that are
+ * still `issue_created` and not already known closed. The supervisor skips
+ * GitHub for closed rows and writes new results back, and failures are
+ * silent so a GitHub outage never turns the list into an error state.
  */
 export function useFeedbackIssueStates(reports: FeedbackReportRecord[]) {
     const user = useCurrentUser();
-    const numbers = Array.from(
-        new Set(
-            reports
-                .filter((report) => report.status === "issue_created")
-                .map((report) => report.issue_number)
-                .filter(
-                    (number): number is number =>
-                        typeof number === "number" &&
-                        Number.isInteger(number) &&
-                        number > 0,
-                ),
-        ),
-    ).sort((a, b) => a - b);
-    const key = numbers.join(",");
+    const reportIds = reports
+        .filter(
+            (report) =>
+                report.status === "issue_created" &&
+                typeof report.issue_number === "number" &&
+                Number.isInteger(report.issue_number) &&
+                report.issue_number > 0 &&
+                parseRecordIssueState(report.issue_state) !== "closed",
+        )
+        .map((report) => report.id);
+    const key = reportIds.join(",");
 
     return useQuery({
         queryKey: qk.feedback.issueStates(user.id, key),
-        enabled: numbers.length > 0,
+        enabled: reportIds.length > 0,
         queryFn: async (): Promise<FeedbackIssueStates> => {
             const token = pb.authStore.token;
             if (!token) return {};
@@ -365,7 +368,7 @@ export function useFeedbackIssueStates(reports: FeedbackReportRecord[]) {
                         "content-type": "application/json",
                         Authorization: token,
                     },
-                    body: JSON.stringify({ numbers }),
+                    body: JSON.stringify({ reportIds }),
                 });
             } catch {
                 return {};
