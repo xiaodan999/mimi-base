@@ -1,15 +1,5 @@
-# Normalise line endings across platforms (Windows core.autocrlf=true would
-# otherwise break the executable pre-commit hook and shell scripts).
-*.js    eol=lf
-*.jsx   eol=lf
-*.ts    eol=lf
-*.tsx   eol=lf
-*.json  eol=lf
-*.css   eol=lf
-*.sh    eol=lf
-*.yml   eol=lf
-*.yaml  eol=lf
-*.mjs   eol=lf
-*.toml  eol=lf
-bun.lock eol=lf
-.githooks/pre-commit eol=lf
+# Check every tracked text file out with LF endings. Windows defaults to
+# core.autocrlf=true, which otherwise turns Markdown, HTML and dotfiles into
+# CRLF in the working tree and makes `bun fmt --check` fail on files nobody
+# touched. `text=auto` leaves detected binaries alone.
+* text=auto eol=lf
