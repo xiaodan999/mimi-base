@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type SyntheticEvent, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -98,65 +98,94 @@ export function twitterMediaAspect(width: number, height: number): number {
 }
 
 /**
- * X-style inline media: a horizontally swipeable filmstrip. Each slide is a
- * little under two thirds of the card, so the neighbouring photos peek from
- * both edges while the current one snaps to the centre; a single photo simply
- * fills the card. The strip is full-bleed inside the card, and every slide
- * shares the first photo's aspect ratio (clamped) so the row keeps one
- * height. Tapping a slide opens the full-screen viewer.
+ * X-style tweet media. One photo and a pair stay inside the text column (the
+ * single photo at its natural shape, the pair as an even 2-up grid); three or
+ * more photos become a full-bleed, horizontally swipeable filmstrip whose
+ * slides share one aspect ratio and let the neighbours peek in. Tapping a
+ * photo always opens the full-screen viewer.
  */
-export function TwitterImageCarousel({ images, onOpen }: ImageListProps) {
+export function TwitterMedia({ images, onOpen }: ImageListProps) {
     const [aspect, setAspect] = useState(TWITTER_MEDIA_DEFAULT_ASPECT);
+
+    /** The first photo fixes the height of the whole media block. */
+    const measureFirst = (event: SyntheticEvent<HTMLImageElement>) => {
+        const photo = event.currentTarget;
+        setAspect(twitterMediaAspect(photo.naturalWidth, photo.naturalHeight));
+    };
 
     if (images.length === 0) return null;
 
-    const multiple = images.length > 1;
+    if (images.length === 1) {
+        const image = images[0];
+        return (
+            <div className="mt-3">
+                <button
+                    type="button"
+                    onClick={() => onOpen(0)}
+                    aria-label="查看图片"
+                    style={{ aspectRatio: String(aspect) }}
+                    className="relative w-full overflow-hidden rounded-xl bg-muted"
+                >
+                    <img
+                        src={image.url}
+                        alt=""
+                        loading="lazy"
+                        onLoad={measureFirst}
+                        className="size-full object-cover"
+                    />
+                </button>
+            </div>
+        );
+    }
+
+    if (images.length === 2) {
+        return (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+                {images.map((image, index) => (
+                    <button
+                        key={image.name}
+                        type="button"
+                        onClick={() => onOpen(index)}
+                        aria-label={`查看第 ${index + 1} 张图片，共 2 张`}
+                        style={{ aspectRatio: String(aspect) }}
+                        className="relative overflow-hidden rounded-xl bg-muted"
+                    >
+                        <img
+                            src={image.thumbUrl}
+                            alt=""
+                            loading="lazy"
+                            onLoad={index === 0 ? measureFirst : undefined}
+                            className="size-full object-cover"
+                        />
+                    </button>
+                ))}
+            </div>
+        );
+    }
 
     return (
         // Break out of the tweet's text column (card padding + avatar + gap)
         // so the strip runs edge to edge inside the card, as X does.
         <div className="mt-3 -mr-4 -ml-[4.25rem]">
             <div
-                role={multiple ? "group" : undefined}
-                aria-label={multiple ? "图片，左右滑动查看" : undefined}
-                className={cn(
-                    multiple &&
-                        "flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden",
-                )}
+                role="group"
+                aria-label="图片，左右滑动查看"
+                className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden"
             >
                 {images.map((image, index) => (
                     <button
                         key={image.name}
                         type="button"
                         onClick={() => onOpen(index)}
-                        aria-label={
-                            multiple
-                                ? `查看第 ${index + 1} 张图片，共 ${images.length} 张`
-                                : "查看图片"
-                        }
+                        aria-label={`查看第 ${index + 1} 张图片，共 ${images.length} 张`}
                         style={{ aspectRatio: String(aspect) }}
-                        className={cn(
-                            "relative shrink-0 overflow-hidden rounded-xl bg-muted",
-                            multiple ? "w-[63%] snap-center" : "w-full",
-                        )}
+                        className="relative w-[63%] shrink-0 snap-center overflow-hidden rounded-xl bg-muted"
                     >
                         <img
                             src={image.url}
                             alt=""
                             loading="lazy"
-                            onLoad={
-                                index === 0
-                                    ? (event) => {
-                                          const photo = event.currentTarget;
-                                          setAspect(
-                                              twitterMediaAspect(
-                                                  photo.naturalWidth,
-                                                  photo.naturalHeight,
-                                              ),
-                                          );
-                                      }
-                                    : undefined
-                            }
+                            onLoad={index === 0 ? measureFirst : undefined}
                             className="size-full object-cover"
                         />
                     </button>
