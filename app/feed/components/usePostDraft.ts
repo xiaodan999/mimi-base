@@ -180,10 +180,6 @@ export function usePostDraft({
 
     const pickImages = async () => {
         if (preparing || publishing) return;
-        if (video) {
-            toast.info("照片和视频只能选一种，先移除视频吧");
-            return;
-        }
 
         const remaining = MAX_IMAGES - images.length;
         if (remaining <= 0) {
@@ -269,10 +265,6 @@ export function usePostDraft({
 
     const pickVideo = async () => {
         if (preparing || publishing) return;
-        if (images.length > 0) {
-            toast.info("照片和视频只能选一种，先移除照片吧");
-            return;
-        }
 
         let file: File;
         try {
@@ -463,7 +455,6 @@ export function usePostDraft({
         !publishing &&
         !preparing;
     const showImages = images.length > 0 || preparing;
-    const showVideo = video !== null;
     const isEditing = mode === "edit";
 
     return {
@@ -484,7 +475,6 @@ export function usePostDraft({
         setSeededKey,
         canPublish,
         showImages,
-        showVideo,
         pickImages,
         removeImage,
         moveImage,

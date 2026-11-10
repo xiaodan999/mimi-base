@@ -16,6 +16,7 @@
 
 ### 新增
 
+- 动态可以同时发照片和一段视频（#73）：`PostComposerForm` 不再按 `showVideo` / `showImages` 隐藏另一半入口，两个区块始终可见；`pickImages` / `pickVideo` 删掉「只能选一种」的拦截，视频预览里的「和照片二选一」文案改成「大视频会自动压缩」。动态本来就会先渲染视频再渲染照片（`instagram` 与 `twitter` 两种排版都是），所以不用改数据或渲染层；编辑时两部分各自增删，保存仍走同一次 `FormData` 上传。`AGENTS.md` 的媒体说明同步更新。
 - 新增 `bun run preview`（`scripts/preview.mjs`）：构建生产包后静态托管 `build/`，把 `/db` 去掉前缀转发给 PocketBase、`/api` 转发给 supervisor，SPA 路由回退到 `index.html`，用于在内存吃紧的机器上用浏览器验证 UI，而不必常驻 Vite 开发服务器（后者约 430MB，这套约 120MB）。构建固定用 `VITE_POCKETBASE_URL=same-origin`；`PREVIEW_PORT` / `PB_PORT` / `SUPERVISOR_PORT` 可覆盖端口，`PREVIEW_BUILD=0` 复用现有 `build/`；已在跑的 PocketBase 会复用，Ctrl-C 会一并停掉后端。
 - 编辑动态时可以调整照片顺序（#70）：`PostComposerImages` 每张照片右下角加前移/后移箭头（第一张禁用前移、最后一张禁用后移），左上角显示序号或「封面」，`usePostDraft.moveImage` 用新增的 `moveArrayItem` 重排预览。保存时 `buildPostImagesFields` 额外返回照片的视觉顺序；PocketBase 单次更新会把保留文件排在新增上传前面，所以 `useUpdatePostMutation` 在混合了旧图和新图且顺序被打乱时，再用一次只提交文件名的更新把 `images` 写成最终顺序，同时重写按位置存储的 `media_meta`，纯旧图重排一次请求即可。`utils.test.ts` 覆盖移动、越界/原地不动和旧图夹新图的顺序映射。
 - 个人资料页新增「账号」区：新增「退出登录」入口，确认后清空查询缓存并回到登录页，方便同一台设备换另一个账号进入；取消则回到个人资料页。开发模式下的「开发账号」区仍可一键切换 `test` / `test2`，切换会直接替换会话（不再先退出），在飞行的聊天任务会先中止。

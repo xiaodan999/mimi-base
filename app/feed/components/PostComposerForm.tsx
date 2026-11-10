@@ -51,7 +51,6 @@ export default function PostComposerForm({
         pendingCount,
         canPublish,
         showImages,
-        showVideo,
         setPreviewIndex,
         publish,
         pickImages,
@@ -181,29 +180,26 @@ export default function PostComposerForm({
                     </div>
                 </div>
 
-                {/* 照片和视频二选一：选了视频就不再显示照片入口，反之亦然。 */}
-                {!showVideo && (
-                    <PostComposerImages
-                        images={images}
-                        showImages={showImages}
-                        preparing={preparing}
-                        pendingCount={pendingCount}
-                        layout={layout}
-                        onPick={() => void pickImages()}
-                        onRemove={removeImage}
-                        onSort={openSort}
-                        onPreview={(index) => setPreviewIndex(index)}
-                    />
-                )}
+                {/* Photos and one video can be combined; each section keeps
+                    its own picker visible so either can be added later. */}
+                <PostComposerImages
+                    images={images}
+                    showImages={showImages}
+                    preparing={preparing}
+                    pendingCount={pendingCount}
+                    layout={layout}
+                    onPick={() => void pickImages()}
+                    onRemove={removeImage}
+                    onSort={openSort}
+                    onPreview={(index) => setPreviewIndex(index)}
+                />
 
-                {!showImages && (
-                    <PostComposerVideo
-                        video={video}
-                        preparing={preparing}
-                        onPick={() => void pickVideo()}
-                        onRemove={removeVideo}
-                    />
-                )}
+                <PostComposerVideo
+                    video={video}
+                    preparing={preparing}
+                    onPick={() => void pickVideo()}
+                    onRemove={removeVideo}
+                />
 
                 {(images.length > 0 || video !== null) && (
                     <section className="mt-5" aria-labelledby="new-post-layout">

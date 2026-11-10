@@ -424,14 +424,16 @@ before your first commit.
   `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).
 - `posts.images` holds up to 9 filenames; upload them as `FormData` fields in
   the same request that creates the post. `posts.videos` holds at most one
-  MP4/WebM/MOV (50MB, protected) and is **mutually exclusive with images**:
-  the composer only offers one kind at a time. Upload the video in the same
-  create/update request; send `videos: ""` on update to clear it. Tweet-layout
+  MP4/WebM/MOV (50MB, protected), and a post may carry photos and a video at
+  the same time: the composer shows both pickers. Upload the video in the same
+  create/update request; send `videos: ""` on update to clear it. The feed
+  renders the video first, then the photos, in both layouts. Tweet-layout
   clips autoplay muted once 60% of the video is on screen (pausing off-screen
   and honouring `prefers-reduced-motion`); the other layouts never autoplay.
   The first frame comes from `#t=0.1` on the protected
-  URL (`lib/postMedia.ts`). AI captions for video posts use the text hint
-  only — never send video bytes to the model. `posts.media_meta` stores each
+  URL (`lib/postMedia.ts`). AI captions use only photos when present and never
+  send video bytes to the model; a video-only post falls back to the text
+  hint. `posts.media_meta` stores each
   image's and the video's intrinsic `{width, height}` positionally so the
   feed can reserve the real box before the protected files load; the composer
   fills it at upload (old rows without it measure on load). `posts.layout` is
