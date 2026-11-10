@@ -16,8 +16,9 @@
  * security boundary and is never used in production.
  */
 
+import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -53,6 +54,44 @@ const BUILD_TIMEOUT_MS = 240_000;
 const RUNNER_PATH = {
     PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 };
+
+const isWindows = process.platform === "win32";
+
+function runnable(executable: string): boolean {
+    try {
+        return (
+            spawnSync(executable, ["--version"], {
+                stdio: "ignore",
+                timeout: 5000,
+                windowsHide: true,
+            }).status === 0
+        );
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Probing every PATH entry instead of `Bun.which` keeps Windows working: the
+ * Microsoft Store ships `WindowsApps/python3.exe`, an App Execution Alias
+ * stub that exists and launches but exits non-zero without running Python,
+ * so "first match" can hide a real install later on PATH.
+ */
+export function findRuntime(names: string[]): string | null {
+    const dirs = (process.env.PATH ?? "").split(path.delimiter);
+    const suffixes = isWindows ? [".exe", ".cmd", ".bat"] : [""];
+    for (const name of names) {
+        for (const dir of dirs) {
+            if (!dir) continue;
+            for (const suffix of suffixes) {
+                const candidate = path.join(dir, name + suffix);
+                if (!existsSync(candidate)) continue;
+                if (runnable(candidate)) return candidate;
+            }
+        }
+    }
+    return null;
+}
 
 export type SandboxExecutor = {
     /** Prepare the Docker network/images; safe to call more than once. */
@@ -369,8 +408,8 @@ export function createSandboxExecutor({
     runs.javascript.tag = imageTag(runs.javascript);
 
     const docker = Bun.which("docker");
-    const python = Bun.which("python3");
-    const node = Bun.which("node");
+    const python = findRuntime(["python3", "python"]);
+    const node = findRuntime(["node"]);
 
     const dockerReady = new Set<SandboxLanguage>();
     const devReady = new Set<SandboxLanguage>();

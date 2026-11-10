@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { findRuntime } from "./sandbox-exec";
+
 /**
  * The sandbox file snapshot lives in the runners (one JSON request on stdin,
  * one JSON response on stdout). `sandbox_write`'s append mode is what lets a
@@ -8,11 +10,15 @@ import { describe, expect, test } from "bun:test";
  */
 
 const NODE = process.execPath; // bun can run the mjs runner directly
-const PYTHON = "python3";
+// The same probe the dev executor uses: `python3` on PATH may be the Windows
+// Store alias stub, which exits without running anything.
+const PYTHON = findRuntime(["python3", "python"]);
+/** Python is an optional dev runtime; skip its cases when it is absent. */
+const describePython = PYTHON ? describe : describe.skip;
 
 async function runRunner(
     runner: "pocketbase/sandbox/runner.mjs" | "pocketbase/sandbox/runner.py",
-    bin: string,
+    bin: string | null,
     request: Record<string, unknown>,
 ): Promise<{
     ok: boolean;
@@ -20,6 +26,7 @@ async function runRunner(
     files: Record<string, string>;
     error?: string;
 }> {
+    if (!bin) throw new Error("runner interpreter is not available");
     const child = Bun.spawn([bin, runner], {
         stdin: "pipe",
         stdout: "pipe",
@@ -100,7 +107,7 @@ describe("runner write append (mjs)", () => {
     });
 });
 
-describe("runner write append (python)", () => {
+describePython("runner write append (python)", () => {
     test("creates, then extends the same file", async () => {
         const first = await runRunner(
             "pocketbase/sandbox/runner.py",

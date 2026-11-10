@@ -21,6 +21,13 @@ import time
 import traceback
 import urllib.request
 
+# The protocol is JSON in and out. Windows otherwise uses the console code
+# page (GBK on a Chinese system) for stdio, so the parent cannot decode the
+# response; `-I` ignores PYTHON* env vars, hence the explicit reconfigure.
+sys.stdin.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 ROOT = os.environ.get("MIMI_SANDBOX_ROOT", "/tmp/sandbox")
 MAX_FILES = 40
 MAX_FILE_CHARS = 100_000
@@ -147,7 +154,7 @@ def collect_outputs() -> tuple[dict[str, str], list[dict]]:
             full = os.path.join(base, name)
             if os.path.islink(full) or not inside_root(full):
                 continue
-            path = os.path.relpath(full, ROOT)
+            path = os.path.relpath(full, ROOT).replace(os.sep, "/")
             try:
                 with open(full, "rb") as handle:
                     raw = handle.read(MAX_ARTIFACT_BYTES + 1)

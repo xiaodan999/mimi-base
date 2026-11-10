@@ -202,7 +202,8 @@ function collectOutputs() {
             content = content.slice(0, MAX_FILE_CHARS);
             textTotal += content.length;
             if (textTotal > MAX_TOTAL_CHARS) continue;
-            files[path.relative(ROOT, full)] = content;
+            files[path.relative(ROOT, full).split(path.sep).join("/")] =
+                content;
         }
     };
     walk(ROOT);
@@ -427,7 +428,15 @@ async function run(request) {
             caught instanceof Error ? caught.message : String(caught)
         ).slice(0, 500);
     } finally {
-        rmSync(ROOT, { recursive: true, force: true });
+        // `run` moves the working directory into ROOT; Windows refuses to
+        // delete a directory the process is still inside, and a throwing
+        // cleanup would replace the response with an empty stdout.
+        try {
+            process.chdir(path.dirname(ROOT));
+        } catch {}
+        try {
+            rmSync(ROOT, { recursive: true, force: true });
+        } catch {}
     }
 
     response.durationMs = Date.now() - started;
