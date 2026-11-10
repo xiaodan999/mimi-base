@@ -4,7 +4,7 @@ import { lazy, Suspense, useState } from "react";
 
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
-import { FeedSkeleton } from "@/components/FeedSkeleton";
+import { FeedLoading } from "@/components/FeedLoading";
 import ThemeToggle from "@/components/ThemeToggle";
 import TouXiang from "@/components/TouXiang";
 import { useCurrentUser } from "@/lib/auth";
@@ -132,7 +132,7 @@ function Page() {
             <Suspense
                 fallback={
                     <div className="px-3 pt-2">
-                        <FeedSkeleton />
+                        <FeedLoading />
                     </div>
                 }
             >

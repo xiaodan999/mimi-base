@@ -26,7 +26,7 @@ import {
     isSameDay,
 } from "@/app/feed/utils";
 import { ErrorState } from "@/components/ErrorState";
-import { FeedSkeleton } from "@/components/FeedSkeleton";
+import { FeedLoading } from "@/components/FeedLoading";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import usePullToRefresh, {
@@ -151,7 +151,7 @@ export default function HomeFeed() {
             )}
 
             {isPending ? (
-                <FeedSkeleton />
+                <FeedLoading />
             ) : isError ? (
                 <ErrorState
                     message={error?.message ?? "未知错误"}
