@@ -1,4 +1,5 @@
 import { isRecordId } from "@/lib/chat-files";
+import type { SandboxResponse } from "@/lib/sandbox-protocol";
 
 import {
     changedPaths,
@@ -964,7 +965,7 @@ async function runChatTool(
         };
     }
 
-    let response;
+    let response: SandboxResponse;
     switch (name) {
         case "sandbox_run":
             response = await runSandbox({

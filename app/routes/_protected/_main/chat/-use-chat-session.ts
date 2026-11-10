@@ -24,7 +24,11 @@ import {
     useChatRun,
     watchChatRun,
 } from "@/app/chat/run-store";
-import { streamChatCompletion, type StreamSnapshot } from "@/app/chat/stream";
+import {
+    streamChatCompletion,
+    type StreamChatResult,
+    type StreamSnapshot,
+} from "@/app/chat/stream";
 import { deriveConversationTitle } from "@/app/chat/title";
 import { parseToolArgs } from "@/app/chat/tool-args";
 import {
@@ -225,7 +229,7 @@ export function useChatSession({
                 const liveId = `live-${round}-${Date.now().toString(36)}`;
                 setChatRunLive(conversationId, { id: liveId, parts: [] });
 
-                let result;
+                let result: StreamChatResult;
                 let partial: StreamSnapshot = {
                     content: "",
                     reasoning: "",

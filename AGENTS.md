@@ -88,9 +88,15 @@ bun run setup:hooks       # enable .githooks/pre-commit once per clone
 Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
 (`biome.json`, lint only), and typechecking is `bun check`
 (`bun run typecheck`). There is no `bun lint`; don't reintroduce Prettier, an
-ESLint config, or a second linter. Unit tests use Bun's built-in runner and cover pure logic only;
-`bun test` scans the whole repo. Verify UI changes with `bun run build` and the
-dev server.
+ESLint config, or a second linter. Unit tests use Bun's built-in runner and
+cover pure logic only; `bun test` scans the whole repo. Verify UI changes with
+`bun run build` and the dev server.
+
+Silence a rule with `// biome-ignore lint/<group>/<rule>: <reason>` on the line
+Biome reports — for hooks that means directly above the `useEffect`/`useMemo`
+call, not above the statement that looks wrong. Biome ignores
+`eslint-disable` comments, and an ignore that matches no finding is a hard
+error (`suppressions/unused`), so move the comment with the code.
 
 ## Worktrees
 

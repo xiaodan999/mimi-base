@@ -18,7 +18,7 @@
     "formatter": { "enabled": false },
     "assist": { "enabled": false },
     "css": {
-        "linter": { "enabled": false },
+        "linter": { "enabled": true },
         "parser": { "tailwindDirectives": true }
     },
     "linter": {
@@ -51,7 +51,7 @@
                 "noArrayIndexKey": "off",
                 "noAssignInExpressions": "off",
                 "noControlCharactersInRegex": "off",
-                "noImplicitAnyLet": "off",
+                "noUnknownAtRules": "off",
                 "useIterableCallbackReturn": "off"
             }
         }

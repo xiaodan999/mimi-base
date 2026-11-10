@@ -45,14 +45,11 @@ function stringify(value: unknown): string {
 
 /** Collapse whitespace, strip control chars and cap one entry's text. */
 export function formatFeedbackErrorText(value: unknown): string {
-    return (
-        stringify(value)
-            // eslint-disable-next-line no-control-regex -- stripping control chars is the point
-            .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, MAX_ERROR_MESSAGE_CHARS)
-    );
+    return stringify(value)
+        .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, MAX_ERROR_MESSAGE_CHARS);
 }
 
 function errorSource(error: unknown): string {
