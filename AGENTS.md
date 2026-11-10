@@ -412,15 +412,20 @@ before your first commit.
 - Schema changes go in a new committed migration under
   `pocketbase/pb_migrations/`. Never edit an applied migration. Runtime data
   (`pb_data/`) is gitignored.
-- Local dev auto-creates two accounts via
-  `pocketbase/pb_hooks/dev_seed.pb.js`: the app test user
-  (`test@mimi.local` / `mimi123456`) and the PocketBase dashboard superuser
-  (`dev@mimi.local` / `mimi123456`) for `/_/`. Both are only created when
-  missing, so a changed password is never overwritten; reset it with
+- Local dev auto-creates the app test users (`test@mimi.local` and
+  `test2@mimi.local`, both `mimi123456`) and the PocketBase dashboard
+  superuser (`dev@mimi.local` / `mimi123456`) for `/_/` via
+  `pocketbase/pb_hooks/dev_seed.pb.js`. All are only created when missing, so
+  a changed password is never overwritten; reset a superuser with
   `./pocketbase superuser upsert <email> <password>` run from `pocketbase/`.
   The hook only runs when `server.ts` sets `MIMI_DEV=1` (dev, i.e. no
-  `.env.prod`); prod deletes that var, so neither account is created there.
-  Documented in the root `README.md`.
+  `.env.prod`); prod deletes that var, so none of them is created there.
+  The login page lists the two app accounts in dev (one click), and any
+  protected URL accepts `?dev=test` / `?dev=test2` to sign in as that account
+  and then replaces the URL without the param (`lib/dev-accounts.ts`,
+  `ensureDevSession` in `lib/auth.tsx`). `DEV_ACCOUNTS` is empty in a
+  production build, so neither entry appears. Documented in the root
+  `README.md`.
 
 ## Frontend conventions
 

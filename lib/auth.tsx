@@ -8,6 +8,7 @@ import {
     useState,
 } from "react";
 
+import { type DevAccount, findDevAccount } from "./dev-accounts";
 import pb, { clearFileToken, ensureFileToken } from "./pb";
 import { type Circle, toUser, type User, type UserRecord } from "./pb-types";
 
@@ -66,6 +67,40 @@ export function useCurrentUser(): User {
         );
     }
     return user;
+}
+
+/**
+ * Ensure the browser is signed in as the dev account behind a `?dev=` key.
+ * A different session is switched, not merged. Returns `ok: false` for an
+ * unknown key (or a failed sign-in) so callers can fall back to the form.
+ */
+export async function ensureDevSession(
+    auth: Pick<AuthContextType, "waitForAuth" | "login" | "logout">,
+    key: string | null | undefined,
+): Promise<
+    | { ok: true; account: DevAccount }
+    | { ok: false; account: DevAccount | null; error?: string }
+> {
+    const account = findDevAccount(key);
+    if (!account) return { ok: false, account: null };
+
+    const snapshot = await auth.waitForAuth();
+    if (
+        snapshot.status === "authenticated" &&
+        pb.authStore.record?.email === account.email
+    ) {
+        return { ok: true, account };
+    }
+
+    if (snapshot.status === "authenticated") await auth.logout();
+
+    const { error } = await auth.login({
+        email: account.email,
+        password: account.password,
+    });
+    return error
+        ? { ok: false, account, error: error.message }
+        : { ok: true, account };
 }
 
 const fetchUser = async (id: string): Promise<User | null> => {
