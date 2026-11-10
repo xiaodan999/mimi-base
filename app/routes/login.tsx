@@ -26,13 +26,23 @@ import { Input } from "@/components/ui/input";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { ensureDevSession, useAuth } from "@/lib/auth";
 import { DEV_ACCOUNTS, type DevAccount } from "@/lib/dev-accounts";
-import { toInternalHref } from "@/lib/redirect";
+import { toLoginTarget } from "@/lib/redirect";
 
-const FALLBACK = "/home";
+const DEV_LOGIN_TIMEOUT_MS = 15_000;
+
+// Module-level so React Hook Form does not see a new schema/resolver/defaults
+// object on every render; that made its internal effect update state in a loop
+// after the dev button's setDevPending render.
+const formSchema = z.object({
+    email: z.email(),
+    password: z.string().min(1, "请输入密码"),
+});
+const formResolver = zodResolver(formSchema);
+const EMPTY_CREDENTIALS = { email: "", password: "" };
 
 /** In-app target for the current `?redirect=` value. */
 function loginTarget(redirectTo: string | undefined) {
-    return toInternalHref(redirectTo, window.location.origin) ?? FALLBACK;
+    return toLoginTarget(redirectTo, window.location.origin);
 }
 
 export const Route = createFileRoute("/login")({
@@ -78,17 +88,9 @@ function Login() {
     const { login } = useAuth();
     const [devPending, setDevPending] = useState<string | null>(null);
 
-    const formSchema = z.object({
-        email: z.email(),
-        password: z.string().min(1, "请输入密码"),
-    });
-
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            email: "",
-            password: "",
-        },
+        resolver: formResolver,
+        defaultValues: EMPTY_CREDENTIALS,
     });
 
     const busy = form.formState.isSubmitting || devPending !== null;
@@ -109,6 +111,12 @@ function Login() {
 
     async function onDevLogin(account: DevAccount) {
         setDevPending(account.key);
+        // A dev convenience must never leave the button spinning forever if
+        // the request stalls; reset the UI and let the user retry.
+        const timeout = window.setTimeout(() => {
+            setDevPending(null);
+            toast.error("登录超时，请重试");
+        }, DEV_LOGIN_TIMEOUT_MS);
         try {
             const { error } = await login({
                 email: account.email,
@@ -123,6 +131,7 @@ function Login() {
                 replace: true,
             });
         } finally {
+            window.clearTimeout(timeout);
             setDevPending(null);
         }
     }

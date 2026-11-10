@@ -19,3 +19,23 @@ export function toInternalHref(
         return null;
     }
 }
+
+export const DEFAULT_LOGIN_TARGET = "/home";
+
+/**
+ * Destination to open after signing in.
+ *
+ * A `/login` value must never be accepted: the login route would redirect to
+ * itself, and while a transition is in flight that compounds into
+ * `/login?redirect=/login?redirect=...` on every render.
+ */
+export function toLoginTarget(
+    value: string | null | undefined,
+    origin: string,
+): string {
+    const target = toInternalHref(value, origin);
+    if (!target || /^\/login\/?(?:[?#]|$)/.test(target)) {
+        return DEFAULT_LOGIN_TARGET;
+    }
+    return target;
+}

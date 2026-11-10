@@ -4,6 +4,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from "react";
@@ -22,6 +23,8 @@ export type { User, Circle };
  * session.
  */
 export type AuthStatus = "loading" | "authenticated" | "anonymous";
+
+const AUTH_TIMEOUT_MS = 12_000;
 
 export type AuthSnapshot = {
     status: AuthStatus;
@@ -125,6 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Refs mirror the latest state so `waitForAuth` can resolve with fresh
     // values even when the router still holds an old context snapshot.
     const snapshotRef = useRef(snapshot);
+    const renderedRef = useRef(snapshot);
+    const renderedWaiters = useRef<(() => void)[]>([]);
     const readyRef = useRef<Promise<void> | null>(null);
     const resolveReady = useRef<(() => void) | null>(null);
     const pendingLoad = useRef<Promise<void> | null>(null);
@@ -175,17 +180,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return run;
     }, [commit]);
 
+    const wakeRenderedWaiters = useCallback(() => {
+        const waiters = renderedWaiters.current;
+        renderedWaiters.current = [];
+        for (const resolve of waiters) resolve();
+    }, []);
+
     const waitForAuth = useCallback(async () => {
         await readyRef.current!;
-        return snapshotRef.current;
+        // Callers must branch on the same snapshot the provider has rendered.
+        // A commit updates the ref before React re-renders, so a guard reading
+        // the ref could let `/home` through while `useAuth()` still renders
+        // `anonymous`; the protected layout would bounce back to /login.
+        // If the latest commit has not reached React yet, wait for the commit
+        // effect once and return the snapshot that is actually on screen.
+        if (renderedRef.current !== snapshotRef.current) {
+            await new Promise<void>((resolve) => {
+                renderedWaiters.current.push(resolve);
+            });
+        }
+        return renderedRef.current;
     }, []);
+
+    // Publish the snapshot only once React has committed it, then wake any
+    // guard waiting in `waitForAuth`.
+    useEffect(() => {
+        renderedRef.current = snapshot;
+        wakeRenderedWaiters();
+    }, [snapshot, wakeRenderedWaiters]);
+
+    // On unmount nothing will publish another snapshot; release any guard that
+    // is still parked so a route load cannot wait forever.
+    useEffect(() => wakeRenderedWaiters, [wakeRenderedWaiters]);
 
     const login = useCallback(
         async (credentials: { email: string; password: string }) => {
             try {
-                await pb
-                    .collection("users")
-                    .authWithPassword(credentials.email, credentials.password);
+                // A dev proxy can leave a request on a dead keep-alive socket
+                // forever; fail the attempt instead of spinning the button.
+                await Promise.race([
+                    pb
+                        .collection("users")
+                        .authWithPassword(
+                            credentials.email,
+                            credentials.password,
+                        ),
+                    new Promise<never>((_, reject) => {
+                        window.setTimeout(
+                            () => reject(new Error("登录超时，请重试")),
+                            AUTH_TIMEOUT_MS,
+                        );
+                    }),
+                ]);
                 // Wait for the profile fetch so the next route guard sees the
                 // authenticated state immediately after navigation.
                 await loadUser();
@@ -232,19 +278,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => window.clearInterval(timer);
     }, [snapshot.status]);
 
+    // Keep the context identity stable unless auth actually changes; a new
+    // object on every render makes the router re-read its context.
+    const value = useMemo<AuthContextType>(
+        () => ({
+            status: snapshot.status,
+            isAuthenticated: snapshot.status === "authenticated",
+            user: snapshot.user,
+            login,
+            logout,
+            refresh,
+            waitForAuth,
+        }),
+        [snapshot.status, snapshot.user, login, logout, refresh, waitForAuth],
+    );
+
     return (
-        <AuthContext.Provider
-            value={{
-                status: snapshot.status,
-                isAuthenticated: snapshot.status === "authenticated",
-                user: snapshot.user,
-                login,
-                logout,
-                refresh,
-                waitForAuth,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
+        <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
     );
 }

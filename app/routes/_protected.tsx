@@ -8,6 +8,7 @@ import {
 
 import LoadingPage from "@/components/LoadingPage";
 import { ensureDevSession, useAuth } from "@/lib/auth";
+import { toLoginTarget } from "@/lib/redirect";
 
 /** The current location without the dev-only `?dev=` key. */
 function withoutDev(
@@ -41,7 +42,10 @@ export const Route = createFileRoute("/_protected")({
             throw redirect({
                 to: "/login",
                 search: {
-                    redirect: target,
+                    // The current location can already be /login while a
+                    // transition settles. Using it as the post-login target
+                    // turns every render into `/login?redirect=/login...`.
+                    redirect: toLoginTarget(target, window.location.origin),
                 },
             });
         }
@@ -60,12 +64,24 @@ export const Route = createFileRoute("/_protected")({
 
         // The session can end after the guard ran (expired token, logout in
         // another tab). Send the user back to login instead of a blank screen.
+        //
+        // While a transition is still in flight the router can render this
+        // layout after the URL already became /login. Navigating again from
+        // here would redirect /login to itself and keep nesting the login URL
+        // (`/login?redirect=/login?redirect=...`), so let it settle instead.
+        if (location.pathname === "/login") return null;
+
         const params = new URLSearchParams(location.searchStr);
         params.delete("dev");
         return (
             <Navigate
                 to="/login"
-                search={{ redirect: withoutDev(location, params) }}
+                search={{
+                    redirect: toLoginTarget(
+                        withoutDev(location, params),
+                        window.location.origin,
+                    ),
+                }}
                 replace
             />
         );

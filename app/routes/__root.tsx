@@ -1,9 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import {
-    createRootRouteWithContext,
-    Outlet,
-    ScrollRestoration,
-} from "@tanstack/react-router";
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
 import { RouteError, RouteNotFound } from "@/components/RouteError";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,7 +14,6 @@ function RootComponent() {
     return (
         <>
             <Outlet />
-            <ScrollRestoration getKey={(location) => location.pathname} />
             <Toaster />
         </>
     );

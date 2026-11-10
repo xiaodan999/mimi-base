@@ -147,6 +147,19 @@ export default defineConfig(({ mode }) => {
                     target: `http://127.0.0.1:${pocketBasePort}`,
                     ws: true,
                     rewrite: (path) => path.replace(/^\/db/, ""),
+                    // Chromium can hold a stale keep-alive socket to the dev
+                    // server after the realtime connection closes; a later
+                    // POST then waits forever (a login stuck on "登录中").
+                    // Close both sides after every proxied HTTP response so
+                    // each request starts on a fresh connection.
+                    configure: (proxy) => {
+                        proxy.on("proxyReq", (proxyReq) => {
+                            proxyReq.setHeader("Connection", "close");
+                        });
+                        proxy.on("proxyRes", (proxyRes) => {
+                            proxyRes.headers.connection = "close";
+                        });
+                    },
                 },
                 // Hand-written Bun APIs: the streaming AI relay, feedback,
                 // and any future backend handlers. xfwd forwards the phone's

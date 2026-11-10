@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 
 import LoadingPage from "@/components/LoadingPage";
@@ -73,10 +73,13 @@ declare module "@tanstack/react-router" {
 
 function InnerApp() {
     const auth = useAuth();
+    // Keep the router context stable between auth changes; a new object on
+    // every render makes the router re-read its context unnecessarily.
+    const routerContext = useMemo(() => ({ auth, queryClient }), [auth]);
 
     return (
         <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} context={{ auth }} />
+            <RouterProvider router={router} context={routerContext} />
         </QueryClientProvider>
     );
 }

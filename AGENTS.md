@@ -445,8 +445,11 @@ before your first commit.
   from `app/main` — use `useQueryClient()`.
 - Auth: `useAuth().user` is nullable. Protected screens call
   `useCurrentUser()`; route guards await `auth.waitForAuth()` and branch on
-  `status` (`_protected.tsx`, `login.tsx`). Don't add `router.invalidate()`
-  effects to paper over auth loading.
+  `status` (`_protected.tsx`, `login.tsx`). `waitForAuth()` waits until React
+  has rendered the committed snapshot, not just until the ref changed, so a
+  guard never lets a protected page through while `useAuth()` still renders
+  `anonymous` (the layout would bounce back to `/login` in a loop). Don't add
+  `router.invalidate()` effects to paper over auth loading.
 - Account switching is logout-based for real users: 个人资料 → 账号 → 退出登录
   goes to `/logout`, which clears the query cache and returns to `/login` (the
   next login lands on `/home`). Dev builds also show a 开发账号 section that

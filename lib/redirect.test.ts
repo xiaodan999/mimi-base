@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { toInternalHref } from "./redirect";
+import {
+    DEFAULT_LOGIN_TARGET,
+    toInternalHref,
+    toLoginTarget,
+} from "./redirect";
 
 const ORIGIN = "http://localhost:3000";
 
@@ -26,5 +30,31 @@ describe("toInternalHref", () => {
         expect(toInternalHref("", ORIGIN)).toBeNull();
         expect(toInternalHref(null, ORIGIN)).toBeNull();
         expect(toInternalHref(undefined, ORIGIN)).toBeNull();
+    });
+});
+
+describe("toLoginTarget", () => {
+    test("keeps a real destination", () => {
+        expect(toLoginTarget("/jizhang?month=11", ORIGIN)).toBe(
+            "/jizhang?month=11",
+        );
+        expect(toLoginTarget("/chat/abc#msg-2", ORIGIN)).toBe(
+            "/chat/abc#msg-2",
+        );
+    });
+
+    test("never returns the login page itself", () => {
+        expect(toLoginTarget("/login", ORIGIN)).toBe(DEFAULT_LOGIN_TARGET);
+        expect(toLoginTarget("/login?redirect=%2Fhome", ORIGIN)).toBe(
+            DEFAULT_LOGIN_TARGET,
+        );
+        expect(toLoginTarget("/login/", ORIGIN)).toBe(DEFAULT_LOGIN_TARGET);
+    });
+
+    test("falls back for external or missing targets", () => {
+        expect(toLoginTarget("https://evil.example", ORIGIN)).toBe(
+            DEFAULT_LOGIN_TARGET,
+        );
+        expect(toLoginTarget(undefined, ORIGIN)).toBe(DEFAULT_LOGIN_TARGET);
     });
 });
