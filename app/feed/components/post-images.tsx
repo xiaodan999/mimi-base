@@ -74,8 +74,23 @@ export function MomentsImageGrid({ images, onOpen }: ImageListProps) {
 /** The tallest and widest shapes the tweet media strip will render. */
 export const TWITTER_MEDIA_MIN_ASPECT = 3 / 4;
 export const TWITTER_MEDIA_MAX_ASPECT = 16 / 9;
+/**
+ * A single photo and the two-up pair keep their own shape; only genuinely
+ * extreme panoramas are capped so one image cannot dominate the card.
+ */
+export const TWITTER_NATURAL_MIN_ASPECT = 1 / 2.5;
+export const TWITTER_NATURAL_MAX_ASPECT = 2.5;
 /** Placeholder until the first photo reports its real size. */
 export const TWITTER_MEDIA_DEFAULT_ASPECT = 4 / 3;
+
+function hasSize(width: number, height: number) {
+    return (
+        Number.isFinite(width) &&
+        Number.isFinite(height) &&
+        width > 0 &&
+        height > 0
+    );
+}
 
 /**
  * The shared viewport shape of the tweet media strip: derived from the first
@@ -83,17 +98,26 @@ export const TWITTER_MEDIA_DEFAULT_ASPECT = 4 / 3;
  * thin sliver. Invalid sizes fall back to 4:3.
  */
 export function twitterMediaAspect(width: number, height: number): number {
-    if (
-        !Number.isFinite(width) ||
-        !Number.isFinite(height) ||
-        width <= 0 ||
-        height <= 0
-    ) {
+    if (!hasSize(width, height)) {
         return TWITTER_MEDIA_DEFAULT_ASPECT;
     }
     return Math.min(
         TWITTER_MEDIA_MAX_ASPECT,
         Math.max(TWITTER_MEDIA_MIN_ASPECT, width / height),
+    );
+}
+
+/**
+ * The photo's own shape for the single and pair layouts, with a much wider
+ * clamp than the strip: a 9:16 phone screenshot has to fit as-is.
+ */
+export function twitterNaturalAspect(width: number, height: number): number {
+    if (!hasSize(width, height)) {
+        return TWITTER_MEDIA_DEFAULT_ASPECT;
+    }
+    return Math.min(
+        TWITTER_NATURAL_MAX_ASPECT,
+        Math.max(TWITTER_NATURAL_MIN_ASPECT, width / height),
     );
 }
 
@@ -112,14 +136,12 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
 
     /** Remember each photo's real shape as it loads. */
     const measure =
-        (index: number) => (event: SyntheticEvent<HTMLImageElement>) => {
+        (index: number, aspectOf = twitterMediaAspect) =>
+        (event: SyntheticEvent<HTMLImageElement>) => {
             const photo = event.currentTarget;
             setRatios((previous) => ({
                 ...previous,
-                [index]: twitterMediaAspect(
-                    photo.naturalWidth,
-                    photo.naturalHeight,
-                ),
+                [index]: aspectOf(photo.naturalWidth, photo.naturalHeight),
             }));
         };
 
@@ -140,7 +162,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                         src={image.url}
                         alt=""
                         loading="lazy"
-                        onLoad={measure(0)}
+                        onLoad={measure(0, twitterNaturalAspect)}
                         className="size-full object-cover"
                     />
                 </button>
@@ -170,10 +192,13 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                             className="relative min-w-0 overflow-hidden rounded-xl bg-muted"
                         >
                             <img
-                                src={image.thumbUrl}
+                                // The thumbnail is a square crop, so it can
+                                // neither measure the real shape nor stand in
+                                // for it here.
+                                src={image.url}
                                 alt=""
                                 loading="lazy"
-                                onLoad={measure(index)}
+                                onLoad={measure(index, twitterNaturalAspect)}
                                 className="size-full object-cover"
                             />
                         </button>
