@@ -7,7 +7,7 @@ import {
     Volume2,
     VolumeX,
 } from "lucide-react";
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 
 import type { PostLayout } from "@/lib/pb-types";
 import {
@@ -28,22 +28,30 @@ type PostVideoProps = {
 /** Extreme portrait clips are capped so one post cannot fill the whole feed. */
 const MAX_HEIGHT = "75dvh";
 
+/** How much of the clip must be on screen before it silently starts. */
+const AUTOPLAY_VISIBLE_RATIO = 0.6;
+
 /**
- * A single post video. Nothing autoplays: the first frame comes from
- * `preload="metadata"` plus a media fragment, and the big play button is the
- * only way sound starts, so `prefers-reduced-motion` needs no special case.
+ * A single post video.
+ *
+ * The tweet layout follows x.com's phone player: the first frame fills the
+ * text column with a 16px radius, and once most of it is on screen it starts
+ * muted, pausing again when it scrolls away. While it plays X shows only the
+ * elapsed time and a mute toggle, so tapping the video (or the idle play
+ * overlay) opens the full-screen viewer, which owns the real player chrome.
+ * `prefers-reduced-motion` users never get the silent autoplay.
+ *
+ * The other layouts keep tap-to-play and the compact control bar
+ * (play/pause, seek, mute, fullscreen). Native chrome is inconsistent across
+ * Android/iOS, oversized on a phone, and its fullscreen button collided with
+ * our own overlay; the custom bar keeps the video clean and leaves the
+ * dedicated fullscreen viewer in charge.
  *
  * The box follows the clip's intrinsic aspect ratio (once metadata is known)
  * instead of forcing 16:9: a phone recording is usually portrait, and drawing
  * it in a wide box left it as a narrow pillar between two huge black bars.
  * Ratios are clamped to 9:16..16:9 and the height to 75dvh; `object-contain`
  * keeps the rest readable without ever cropping.
- *
- * After the first play we use a compact control bar (play/pause, seek, mute,
- * fullscreen) instead of the browser's native chrome. Native controls are
- * inconsistent across Android/iOS, oversized on a phone, and their fullscreen
- * button collided with our own overlay; the custom bar keeps the video clean
- * and leaves the dedicated fullscreen viewer in charge.
  */
 export default function PostVideo({
     url,
@@ -53,17 +61,79 @@ export default function PostVideo({
     const videoRef = useRef<HTMLVideoElement>(null);
     const [started, setStarted] = useState(false);
     const [playing, setPlaying] = useState(false);
-    const [muted, setMuted] = useState(false);
+    const [ended, setEnded] = useState(false);
+    const [inView, setInView] = useState(false);
+    const [muted, setMuted] = useState(layout === "twitter");
     const [failed, setFailed] = useState(false);
     const [ready, setReady] = useState(false);
     const [ratio, setRatio] = useState(DEFAULT_VIDEO_RATIO);
     const [duration, setDuration] = useState<number | null>(null);
     const [currentTime, setCurrentTime] = useState(0);
 
+    const isTweet = layout === "twitter";
+    const showPlayOverlay = !failed && (!started || ended);
+
     const durationLabel =
         duration === null ? "" : formatVideoDuration(duration);
     const currentLabel =
         currentTime > 0 ? formatVideoDuration(currentTime) : "0:00";
+
+    // Watch the video itself, not the card: the feed scrolls inside `_main`,
+    // and viewport intersection is what X's "play when visible" means.
+    useEffect(() => {
+        if (!isTweet) return;
+        const node = videoRef.current;
+        if (!node) return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            return;
+        }
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setInView(
+                    Boolean(entry?.isIntersecting) &&
+                        entry.intersectionRatio >= AUTOPLAY_VISIBLE_RATIO,
+                );
+            },
+            { threshold: [0, AUTOPLAY_VISIBLE_RATIO] },
+        );
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [isTweet]);
+
+    // X autoplays muted in the timeline. Muting right before play() is what
+    // keeps the browser's autoplay policy happy; when the clip leaves the
+    // viewport it pauses, and it never restarts itself after it ended.
+    useEffect(() => {
+        if (!isTweet) return;
+        const video = videoRef.current;
+        if (!video || failed) return;
+        if (inView && !ended) {
+            if (!video.muted) {
+                video.muted = true;
+                setMuted(true);
+            }
+            void video.play().catch(() => undefined);
+        } else if (!video.paused) {
+            video.pause();
+        }
+    }, [inView, ended, failed, isTweet]);
+
+    // A backgrounded tab should not keep playing a muted clip.
+    useEffect(() => {
+        if (!isTweet) return;
+        const handleVisibility = () => {
+            const video = videoRef.current;
+            if (!video) return;
+            if (document.hidden) {
+                video.pause();
+            } else if (inView && !ended) {
+                void video.play().catch(() => undefined);
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () =>
+            document.removeEventListener("visibilitychange", handleVisibility);
+    }, [inView, ended, isTweet]);
 
     const handleLoadedMetadata = () => {
         const video = videoRef.current;
@@ -92,6 +162,7 @@ export default function PostVideo({
         if (!video) return;
         if (video.paused || video.ended) {
             if (video.ended) video.currentTime = 0;
+            setEnded(false);
             void play();
         } else {
             video.pause();
@@ -113,7 +184,21 @@ export default function PostVideo({
     };
 
     const openFullscreen = () => {
-        videoRef.current?.pause();
+        // Keep a muted timeline clip running behind the full-screen viewer so
+        // closing it lands back on a playing video, as X's feed does. Two
+        // unmuted players would double the audio, so mute first; the other
+        // layouts pause whatever they were playing.
+        const video = videoRef.current;
+        if (video) {
+            if (isTweet) {
+                if (!video.muted) {
+                    video.muted = true;
+                    setMuted(true);
+                }
+            } else {
+                video.pause();
+            }
+        }
         onOpenFullscreen();
     };
 
@@ -121,6 +206,7 @@ export default function PostVideo({
         setFailed(false);
         setStarted(false);
         setPlaying(false);
+        setEnded(false);
         setCurrentTime(0);
         videoRef.current?.load();
     };
@@ -132,6 +218,7 @@ export default function PostVideo({
                 layout === "moments"
                     ? "mt-3 w-full max-w-[320px] rounded-xl"
                     : "w-full",
+                isTweet && "rounded-[16px]",
             )}
             // Inline because the ratio is runtime data. Keep the video element
             // inside `object-contain`: when the ratio or the height cap clamps,
@@ -146,6 +233,7 @@ export default function PostVideo({
                 aria-label="动态视频"
                 className="size-full bg-black object-contain"
                 onClick={() => {
+                    if (isTweet) return;
                     if (started) void togglePlay();
                 }}
                 onLoadedMetadata={handleLoadedMetadata}
@@ -155,20 +243,46 @@ export default function PostVideo({
                 onPlay={() => {
                     setStarted(true);
                     setPlaying(true);
+                    setEnded(false);
                 }}
                 onPause={() => setPlaying(false)}
-                onEnded={() => setPlaying(false)}
+                onEnded={() => {
+                    setPlaying(false);
+                    setEnded(true);
+                }}
                 onVolumeChange={(event) => setMuted(event.currentTarget.muted)}
                 onError={() => setFailed(true)}
             />
 
-            {!started && !failed && (
+            {showPlayOverlay && (
                 <>
                     <button
                         type="button"
-                        onClick={() => void play()}
-                        aria-label="播放视频"
-                        className="absolute inset-0 grid place-items-center bg-linear-to-t from-black/45 via-black/5 to-black/20"
+                        onClick={() => {
+                            // A finished clip replays in place; an untouched
+                            // one opens the viewer, as tapping does on X.
+                            if (isTweet && started) {
+                                const video = videoRef.current;
+                                if (video) video.currentTime = 0;
+                                setEnded(false);
+                                void play();
+                                return;
+                            }
+                            if (isTweet) openFullscreen();
+                            else void play();
+                        }}
+                        aria-label={
+                            isTweet && started
+                                ? "重新播放视频"
+                                : isTweet
+                                  ? "打开视频"
+                                  : "播放视频"
+                        }
+                        className={cn(
+                            "absolute inset-0 grid place-items-center",
+                            !isTweet &&
+                                "bg-linear-to-t from-black/45 via-black/5 to-black/20",
+                        )}
                     >
                         <span className="grid size-16 place-items-center rounded-full bg-black/45 text-white shadow-xl ring-1 ring-white/30 backdrop-blur-sm transition-transform active:scale-95">
                             <Play className="ml-0.5 size-7 fill-current drop-shadow-sm" />
@@ -191,7 +305,12 @@ export default function PostVideo({
                     {durationLabel && (
                         <span
                             data-duration-badge
-                            className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white tabular-nums backdrop-blur-sm"
+                            className={cn(
+                                "pointer-events-none absolute bottom-2 left-2 text-white",
+                                isTweet
+                                    ? "rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 font-normal tabular-nums"
+                                    : "rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium backdrop-blur-sm",
+                            )}
                         >
                             {durationLabel}
                         </span>
@@ -199,7 +318,45 @@ export default function PostVideo({
                 </>
             )}
 
-            {started && !failed && (
+            {isTweet && started && !failed && (
+                <>
+                    {!showPlayOverlay && (
+                        <button
+                            type="button"
+                            onClick={openFullscreen}
+                            aria-label="打开视频"
+                            className="absolute inset-0 z-[1]"
+                        />
+                    )}
+
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-black/60 to-transparent" />
+
+                    <span
+                        data-duration-badge
+                        className="pointer-events-none absolute bottom-3 left-3 rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 text-white tabular-nums"
+                    >
+                        {playing && !ended ? currentLabel : durationLabel}
+                    </span>
+
+                    <button
+                        type="button"
+                        onClick={toggleMute}
+                        aria-label={muted ? "取消静音" : "静音"}
+                        data-testid="mute-button"
+                        className="absolute right-3 bottom-3 z-10 grid size-10 place-items-center text-white"
+                    >
+                        <span className="grid size-6 place-items-center rounded-full bg-black/75">
+                            {muted ? (
+                                <VolumeX className="size-3" />
+                            ) : (
+                                <Volume2 className="size-3" />
+                            )}
+                        </span>
+                    </button>
+                </>
+            )}
+
+            {!isTweet && started && !failed && (
                 <div className="absolute inset-x-0 bottom-0 z-10 animate-in bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pt-10 pb-2.5 fade-in-0">
                     <div className="flex items-center gap-1.5 text-white">
                         <button
@@ -274,7 +431,7 @@ export default function PostVideo({
                 </div>
             )}
 
-            {!failed && !started && (
+            {!failed && !started && !isTweet && (
                 <button
                     type="button"
                     onClick={openFullscreen}

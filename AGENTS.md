@@ -384,8 +384,10 @@ before your first commit.
   the same request that creates the post. `posts.videos` holds at most one
   MP4/WebM/MOV (50MB, protected) and is **mutually exclusive with images**:
   the composer only offers one kind at a time. Upload the video in the same
-  create/update request; send `videos: ""` on update to clear it. The feed
-  never autoplays, and the first frame comes from `#t=0.1` on the protected
+  create/update request; send `videos: ""` on update to clear it. Tweet-layout
+  clips autoplay muted once 60% of the video is on screen (pausing off-screen
+  and honouring `prefers-reduced-motion`); the other layouts never autoplay.
+  The first frame comes from `#t=0.1` on the protected
   URL (`lib/postMedia.ts`). AI captions for video posts use the text hint
   only — never send video bytes to the model. `posts.layout` is `moments`
   (朋友圈 square grid), `instagram` (full-bleed carousel) or `twitter`

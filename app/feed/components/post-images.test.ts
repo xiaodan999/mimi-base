@@ -6,8 +6,10 @@ import {
     TWITTER_MEDIA_MIN_ASPECT,
     TWITTER_NATURAL_MAX_ASPECT,
     TWITTER_NATURAL_MIN_ASPECT,
+    TWITTER_PAIR_MAX_ASPECT_SUM,
     twitterMediaAspect,
     twitterNaturalAspect,
+    twitterPairFits,
 } from "./post-images";
 
 describe("twitterMediaAspect", () => {
@@ -30,6 +32,35 @@ describe("twitterMediaAspect", () => {
         expect(twitterMediaAspect(Number.POSITIVE_INFINITY, 1)).toBe(
             TWITTER_MEDIA_DEFAULT_ASPECT,
         );
+    });
+});
+
+describe("twitterPairFits", () => {
+    test("keeps two portrait photos in X's side-by-side pair", () => {
+        // Measured on x.com: a 3:4 pair rendered at half width each.
+        expect(twitterPairFits(3 / 4, 3 / 4)).toBe(true);
+    });
+
+    test("keeps a tall portrait next to a landscape", () => {
+        // x.com's 313x680 + 240x199 pair stayed side by side.
+        expect(twitterPairFits(313 / 680, 240 / 199)).toBe(true);
+    });
+
+    test("sends two landscape photos to the swipe strip", () => {
+        // x.com's 240x203 + 240x207 pair became two 80% slides.
+        expect(twitterPairFits(240 / 203, 240 / 207)).toBe(false);
+        expect(twitterPairFits(4 / 3, 4 / 3)).toBe(false);
+    });
+
+    test("the cutoff is the summed aspect, inclusive", () => {
+        const half = TWITTER_PAIR_MAX_ASPECT_SUM / 2;
+        expect(twitterPairFits(half, half)).toBe(true);
+        expect(twitterPairFits(half, half + 0.01)).toBe(false);
+    });
+
+    test("unknown sizes keep the pair instead of guessing", () => {
+        expect(twitterPairFits(0, 1)).toBe(true);
+        expect(twitterPairFits(1, Number.NaN)).toBe(true);
     });
 });
 

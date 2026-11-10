@@ -108,6 +108,22 @@ export function twitterMediaAspect(width: number, height: number): number {
 }
 
 /**
+ * X keeps a two-up at one shared height when that height is still tall
+ * enough. Two landscape photos would collapse into a thin band, so X sends
+ * them to the same 80% swipe strip as larger sets instead. Measured on
+ * x.com's phone layout: a 0.75 + 0.75 portrait pair and a 0.46 + 1.2 mixed
+ * pair stay side by side, while a 1.18 + 1.16 landscape pair goes to the
+ * strip — the cutoff sits around 1.8 in summed aspect.
+ */
+export const TWITTER_PAIR_MAX_ASPECT_SUM = 1.8;
+
+/** Whether a two-photo post should keep X's equal-height side-by-side pair. */
+export function twitterPairFits(left: number, right: number): boolean {
+    if (!hasSize(left, 1) || !hasSize(right, 1)) return true;
+    return left + right <= TWITTER_PAIR_MAX_ASPECT_SUM;
+}
+
+/**
  * The photo's own shape for the single and pair layouts, with a much wider
  * clamp than the strip: a 9:16 phone screenshot has to fit as-is.
  */
@@ -122,11 +138,18 @@ export function twitterNaturalAspect(width: number, height: number): number {
 }
 
 /**
- * X-style tweet media. A single photo stays inside the text column at its
- * natural shape; a pair sits there too, side by side at the same height but
- * with each photo keeping its own width ratio; three or more become a
- * full-bleed, horizontally swipeable filmstrip whose slides share one aspect
- * ratio and let the neighbours peek in. Tapping a photo opens the viewer.
+ * X-style tweet media, matched against x.com's phone layout:
+ *
+ * - one photo fills the text column at its natural shape with X's 16px radius;
+ * - a pair sits there side by side at one shared height, each photo keeping
+ *   its own width ratio, with X's 4px gutter and 8px per-photo radius; two
+ *   landscape photos would be too short, so they use the strip below instead;
+ * - three or more (and that wide pair) become a swipeable filmstrip that
+ *   bleeds to the card edges while the first slide lines up with the text
+ *   column. Slides share the first photo's aspect ratio, keep X's 4px gutter
+ *   and 8px radius, and snap to the text column so the next one peeks in.
+ *
+ * Tapping a photo opens the viewer.
  */
 export function TwitterMedia({ images, onOpen }: ImageListProps) {
     const [ratios, setRatios] = useState<Record<number, number>>({});
@@ -156,7 +179,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                     onClick={() => onOpen(0)}
                     aria-label="查看图片"
                     style={{ aspectRatio: String(ratioAt(0)) }}
-                    className="relative w-full overflow-hidden rounded-xl bg-muted"
+                    className="relative w-full overflow-hidden rounded-[16px] bg-muted"
                 >
                     <img
                         src={image.url}
@@ -170,12 +193,17 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
         );
     }
 
-    if (images.length === 2) {
+    const pairMeasured = ratios[0] !== undefined && ratios[1] !== undefined;
+    const keepPair =
+        images.length === 2 &&
+        (!pairMeasured || twitterPairFits(ratios[0], ratios[1]));
+
+    if (keepPair) {
         return (
             // Growing each photo by its own ratio keeps both heights equal
             // while the widths stay proportional, so neither is cropped to the
-            // other's shape (X's two-up layout).
-            <div className="mt-3 flex items-stretch gap-2">
+            // other's shape (X's two-up layout, 4px gutter).
+            <div className="mt-3 flex items-stretch gap-1">
                 {images.map((image, index) => {
                     const ratio = ratioAt(index);
                     return (
@@ -189,7 +217,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                                 flexBasis: 0,
                                 flexGrow: ratio,
                             }}
-                            className="relative min-w-0 overflow-hidden rounded-xl bg-muted"
+                            className="relative min-w-0 overflow-hidden rounded-[8px] bg-muted"
                         >
                             <img
                                 // The thumbnail is a square crop, so it can
@@ -219,7 +247,10 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
             <div
                 role="group"
                 aria-label="图片，左右滑动查看"
-                className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-[4.25rem] [&::-webkit-scrollbar]:hidden"
+                // `scroll-padding` matches the text-column offset, so a slide
+                // that snaps lands on the text edge instead of the card edge
+                // (X snaps its media strip the same way).
+                className="flex snap-x snap-mandatory scroll-pr-4 scroll-pl-[4.25rem] [scrollbar-width:none] gap-1 overflow-x-auto pr-4 pl-[4.25rem] [&::-webkit-scrollbar]:hidden"
             >
                 {images.map((image, index) => (
                     <button
@@ -228,7 +259,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                         onClick={() => onOpen(index)}
                         aria-label={`查看第 ${index + 1} 张图片，共 ${images.length} 张`}
                         style={{ aspectRatio: String(aspect) }}
-                        className="relative w-[63%] shrink-0 snap-center overflow-hidden rounded-xl bg-muted"
+                        className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-muted"
                     >
                         <img
                             src={image.url}

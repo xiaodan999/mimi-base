@@ -258,9 +258,8 @@ export default function Post({
                             />
                         )}
 
-                        <div className="mt-2 flex items-center gap-6 border-t border-border/50 pt-2">
-                            {actions}
-                        </div>
+                        {/* X has no divider above the action row. */}
+                        <div className="mt-3 flex items-center">{actions}</div>
                     </div>
                 </div>
             </article>
