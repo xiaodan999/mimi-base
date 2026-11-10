@@ -3,7 +3,7 @@ import {
     differenceInCalendarDays,
     startOfDay,
     subDays,
-} from "date-fns/esm";
+} from "date-fns";
 
 import { getDateString } from "@/lib/date";
 

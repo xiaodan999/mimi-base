@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { formatDistanceToNow } from "date-fns/esm";
-import { zhCN } from "date-fns/locale";
+import { formatDistanceToNow } from "date-fns";
+import { zhCN } from "date-fns/locale/zh-CN";
 import {
     Brain,
     CheckCircle2,

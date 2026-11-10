@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { endOfDay, startOfDay, startOfMonth } from "date-fns/esm";
+import { endOfDay, startOfDay, startOfMonth } from "date-fns";
 
 import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";

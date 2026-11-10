@@ -6,7 +6,7 @@ import {
     useQuery,
     useQueryClient,
 } from "@tanstack/react-query";
-import { endOfDay, startOfDay, startOfMonth } from "date-fns/esm";
+import { endOfDay, startOfDay, startOfMonth } from "date-fns";
 import { useCallback, useMemo } from "react";
 import { DateRange } from "react-day-picker";
 

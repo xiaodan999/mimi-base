@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { format, isSameDay, parse, subDays } from "date-fns/esm";
-import { zhCN } from "date-fns/locale";
+import { format, isSameDay, parse, subDays } from "date-fns";
+import { zhCN } from "date-fns/locale/zh-CN";
 import { Settings2, Sparkles, Tags, Trash2, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
