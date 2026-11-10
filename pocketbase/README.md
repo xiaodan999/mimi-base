@@ -293,11 +293,15 @@ the first feed load is small too.
 ffmpeg is not a hard dependency. If the binary is missing, compression fails,
 the timeout (4 minutes) hits, or the output is not smaller, the endpoint
 answers 503/502 or `204 X-Video-Compressed: 0` and the client publishes the
-original file. Posts never fail because compression is unavailable. Install
-it with `sudo apt-get install -y ffmpeg` (Debian/Ubuntu) or
-`sudo apk add ffmpeg` (Alpine), then restart the supervisor; the setup script
-prints a warning when it is missing. `FFMPEG_PATH` can point at a custom
-binary. The endpoint is auth-only and never writes to PocketBase.
+original file. Posts never fail because compression is unavailable.
+`scripts/server-setup.sh` installs ffmpeg itself when run as root or with
+passwordless sudo (apt/dnf/apk), so a fresh box compresses from the first
+post; otherwise it prints the manual command. Install it by hand with
+`sudo apt-get install -y ffmpeg` (Debian/Ubuntu), `sudo dnf install -y ffmpeg`
+(Fedora/RHEL) or `sudo apk add ffmpeg` (Alpine), then restart the supervisor
+so one that already failed a compression clears its in-memory "ffmpeg
+missing" state. `FFMPEG_PATH` can point at a custom binary. The endpoint is
+auth-only and never writes to PocketBase.
 
 ## Code sandbox
 

@@ -73,11 +73,38 @@ fi
 # same value as the GitHub "Production" environment secret.
 . .env.prod
 
-# Video compression is optional. Without ffmpeg the app still publishes, but
-# the original (up to 50MB) is stored and loaded; install it for smaller files.
-if [ ! -x "${FFMPEG_PATH:-$(command -v ffmpeg || true)}" ]; then
+# Video compression needs ffmpeg. It is optional — without it the app still
+# publishes, but the original (up to 50MB) is stored and loaded. Install it
+# here when we have root so a fresh box compresses from its first post; with
+# neither root nor passwordless sudo we print the command and keep going.
+FFMPEG_BIN="${FFMPEG_PATH:-$(command -v ffmpeg || true)}"
+if [ -z "$FFMPEG_BIN" ] || [ ! -x "$FFMPEG_BIN" ]; then
+    FFMPEG_SUDO=""
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 \
+        && sudo -n true 2>/dev/null; then
+        FFMPEG_SUDO="sudo -n"
+    fi
+    if [ "$(id -u)" -eq 0 ] || [ -n "$FFMPEG_SUDO" ]; then
+        echo "installing ffmpeg (video compression)..."
+        if command -v apt-get >/dev/null 2>&1; then
+            $FFMPEG_SUDO env DEBIAN_FRONTEND=noninteractive \
+                apt-get update -qq || true
+            $FFMPEG_SUDO env DEBIAN_FRONTEND=noninteractive \
+                apt-get install -y -qq ffmpeg || true
+        elif command -v dnf >/dev/null 2>&1; then
+            $FFMPEG_SUDO dnf install -y -q ffmpeg || true
+        elif command -v apk >/dev/null 2>&1; then
+            $FFMPEG_SUDO apk add --no-cache ffmpeg || true
+        fi
+        FFMPEG_BIN="$(command -v ffmpeg || true)"
+    fi
+fi
+if [ -n "$FFMPEG_BIN" ] && [ -x "$FFMPEG_BIN" ]; then
+    echo "ffmpeg: $("$FFMPEG_BIN" -version 2>/dev/null | head -n1)"
+else
     echo "WARN: ffmpeg not found — video posts will upload uncompressed."
     echo "      Debian/Ubuntu: sudo apt-get install -y ffmpeg"
+    echo "      Fedora/RHEL:   sudo dnf install -y ffmpeg"
     echo "      Alpine:        sudo apk add ffmpeg"
     echo "      Then restart the supervisor (or set FFMPEG_PATH in .env.prod)."
 fi
