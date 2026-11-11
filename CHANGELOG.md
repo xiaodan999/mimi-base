@@ -6,6 +6,7 @@
 
 ### 修复
 
+- 聊天页标题下的说明被右侧操作按钮挤成两行（#85）：`PageHeader` 新增可选的 `stackedDescription`，标题和操作按钮留在同一行，说明文字移到它们下方并占满整个头部宽度；聊天列表启用这个变体，320px 宽度下「只存在你的账号里」也保持一行，其余页面继续用原来的布局（逐页几何对比无变化）。
 - `deploy` 一直卡在 `Update app` 并 1 秒失败：Watchtower 1.18 的 `/v1/update` 只接受 POST，而工作流用的是 `curl -G`（GET），服务器直接返回 405。现在两个更新步骤都改成 `-X POST`，镜像名里的 `/` 编码成 `%2F` 放进查询串；`docker/README.md` 的手动更新示例同步改正。顺带把宿主机上的 `Caddyfile` 从旧的 `172.19.0.1:9001/8090` 改指新容器（`mimi-app:9001`、`mimi-pb:8090`），Watchtower 的容器列表加上 `mimi-app mimi-pb`。
 - 照片拖动排序的跟手与动效（#75）：`PostImageSort` 让被拖动的照片用 `translate3d` 跟随指针，跨过槽位时按槽位位移修正视觉偏移，其余照片用 FLIP（记录旧矩形 + Web Animations API，180ms）从原位置平滑滑入新槽位；松手时从当前偏移缓动回槽位。原来 `transition-transform` 管不到 Tailwind v4 用独立 `scale` 属性生成的 `scale-[1.03]`，现在把缩放直接组合进 `transform`；去掉右下角的拖拽图标，整张照片都是拖动区域，方向键排序也走同一套 FLIP，`prefers-reduced-motion` 下动画时长为 0。
 - 开始记账时金额输入框预填 0（#76）：`AddJiZhangForm` 的 `defaultValues.price` 改为空字符串，输入框不再把 `parseFloat` 的结果写回 `value`，而是保留用户输入的原始文本，提交时仍由 zod 的 `transform` 转成数字；空值提交照旧由「金额要大于 0」拦下。输入框补了 `inputMode="decimal"` 和 `0.00` 占位，输入 `0.` 这类小数过程也不会被提前归一化。

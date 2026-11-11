@@ -162,6 +162,7 @@ export function ConversationList({
             <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3">
                 <PageHeader
                     title="聊天"
+                    stackedDescription
                     description={
                         selectMode
                             ? selected.size > 0

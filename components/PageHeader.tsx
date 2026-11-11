@@ -16,6 +16,11 @@ type PageHeaderProps = {
     backLabel?: string;
     /** Right-aligned page actions (refresh, add, filter, ...). */
     actions?: ReactNode;
+    /**
+     * Put the description on its own row under the title and actions so a
+     * wide action row cannot squeeze it. Used by the chat list.
+     */
+    stackedDescription?: boolean;
     /** Smaller title row for in-thread app bars (chat conversations). */
     compact?: boolean;
     className?: string;
@@ -32,6 +37,7 @@ export default function PageHeader({
     backTo,
     backLabel,
     actions,
+    stackedDescription = false,
     compact = false,
     className,
 }: PageHeaderProps) {
@@ -56,17 +62,48 @@ export default function PageHeader({
                 </Link>
             ) : null}
             <div className="min-w-0 flex-1">
-                <h1
+                <div
                     className={cn(
-                        "truncate tracking-tight",
-                        compact
-                            ? "text-base font-semibold"
-                            : "text-2xl font-semibold",
+                        "flex items-start",
+                        compact ? "gap-1" : "gap-2",
                     )}
                 >
-                    {title}
-                </h1>
-                {description ? (
+                    <div className="min-w-0 flex-1">
+                        <h1
+                            className={cn(
+                                "truncate tracking-tight",
+                                compact
+                                    ? "text-base font-semibold"
+                                    : "text-2xl font-semibold",
+                            )}
+                        >
+                            {title}
+                        </h1>
+                        {description && !stackedDescription ? (
+                            <p
+                                className={cn(
+                                    "text-muted-foreground",
+                                    compact
+                                        ? "mt-0.5 text-[11px] leading-4"
+                                        : "mt-1 text-sm leading-5",
+                                )}
+                            >
+                                {description}
+                            </p>
+                        ) : null}
+                    </div>
+                    {actions ? (
+                        <div
+                            className={cn(
+                                "flex shrink-0 items-center",
+                                compact ? "gap-1" : "gap-2",
+                            )}
+                        >
+                            {actions}
+                        </div>
+                    ) : null}
+                </div>
+                {description && stackedDescription ? (
                     <p
                         className={cn(
                             "text-muted-foreground",
@@ -79,16 +116,6 @@ export default function PageHeader({
                     </p>
                 ) : null}
             </div>
-            {actions ? (
-                <div
-                    className={cn(
-                        "flex shrink-0 items-center",
-                        compact ? "gap-1" : "gap-2",
-                    )}
-                >
-                    {actions}
-                </div>
-            ) : null}
         </header>
     );
 }
