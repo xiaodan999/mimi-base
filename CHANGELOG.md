@@ -9,6 +9,7 @@
 - `deploy` 一直卡在 `Update app` 并 1 秒失败：Watchtower 1.18 的 `/v1/update` 只接受 POST，而工作流用的是 `curl -G`（GET），服务器直接返回 405。现在两个更新步骤都改成 `-X POST`，镜像名里的 `/` 编码成 `%2F` 放进查询串；`docker/README.md` 的手动更新示例同步改正。顺带把宿主机上的 `Caddyfile` 从旧的 `172.19.0.1:9001/8090` 改指新容器（`mimi-app:9001`、`mimi-pb:8090`），Watchtower 的容器列表加上 `mimi-app mimi-pb`。
 - 照片拖动排序的跟手与动效（#75）：`PostImageSort` 让被拖动的照片用 `translate3d` 跟随指针，跨过槽位时按槽位位移修正视觉偏移，其余照片用 FLIP（记录旧矩形 + Web Animations API，180ms）从原位置平滑滑入新槽位；松手时从当前偏移缓动回槽位。原来 `transition-transform` 管不到 Tailwind v4 用独立 `scale` 属性生成的 `scale-[1.03]`，现在把缩放直接组合进 `transform`；去掉右下角的拖拽图标，整张照片都是拖动区域，方向键排序也走同一套 FLIP，`prefers-reduced-motion` 下动画时长为 0。
 - 开始记账时金额输入框预填 0（#76）：`AddJiZhangForm` 的 `defaultValues.price` 改为空字符串，输入框不再把 `parseFloat` 的结果写回 `value`，而是保留用户输入的原始文本，提交时仍由 zod 的 `transform` 转成数字；空值提交照旧由「金额要大于 0」拦下。输入框补了 `inputMode="decimal"` 和 `0.00` 占位，输入 `0.` 这类小数过程也不会被提前归一化。
+- 一条动态同时有视频和照片时不再上下堆叠（#74）：推文排版把视频当成同一组媒体里的一项，`TwitterMedia` 新增可选的 `video` / `onOpenVideo` 和一个纯函数 `twitterMediaPlan`（图片数 + 是否有视频 → `single` / `pair` / `strip`）。1 张照片 + 视频走 X 的两张并排：每个媒体按自己的比例 `flexGrow`，所以两个高度一致、4px 间隙、8px 圆角（实测 x.com 的 680x313 照片 + 480x852 视频就是这种一行，盒子比例等于两者之和 2.74）；≥3 张媒体走同一条 scroll-snap 媒体条，slide 依旧 80% 宽、共用首张的比例（视频的比例沿用图片条的 3:4–16:9 夹取）。视频排在照片前面：x.com 按作者上传顺序排（「My little hamster」是视频在前、「My cute little dog」是照片在前），而 `posts.images` / `posts.videos` 表达不了混合顺序，所以固定视频在前。`PostVideo` 新增 `tile`（填满 slide 盒子、不再自己设 `aspect-ratio`/75dvh，播放键、时间角标、静音键和失败提示按窄列缩小，播放/自动静音/全屏逻辑不变）和 `onAspect`（元数据到达后把真实比例回报给 slide，这样没有 `media_meta` 的旧动态也能贴合）。大图排版维持视频在上、照片轮播在下；`post-images.test.ts` 覆盖新的排版判定。
 
 ### 新增
 

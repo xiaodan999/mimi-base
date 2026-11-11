@@ -460,8 +460,11 @@ which the app build deliberately does not install. Re-check
   the same request that creates the post. `posts.videos` holds at most one
   MP4/WebM/MOV (50MB, protected), and a post may carry photos and a video at
   the same time: the composer shows both pickers. Upload the video in the same
-  create/update request; send `videos: ""` on update to clear it. The feed
-  renders the video first, then the photos, in both layouts. Tweet-layout
+  create/update request; send `videos: ""` on update to clear it. The tweet
+  layout lays the clip and the photos out as one X-style media set
+  (`TwitterMedia` + `twitterMediaPlan`, clip leading: one shared-height row for
+  one photo + the video, one swipe strip for three or more media); the
+  instagram layout still draws the video above the photo carousel. Tweet-layout
   clips autoplay muted once 60% of the video is on screen (pausing off-screen
   and honouring `prefers-reduced-motion`); the other layouts never autoplay.
   The first frame comes from `#t=0.1` on the protected

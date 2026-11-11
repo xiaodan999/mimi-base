@@ -7,7 +7,10 @@ import {
     useState,
 } from "react";
 
+import { videoDisplayRatio } from "@/lib/postMedia";
 import { cn } from "@/lib/utils";
+
+import PostVideo from "./post-video";
 
 export type PostImageView = {
     name: string;
@@ -26,6 +29,19 @@ export type PostImageView = {
 type ImageListProps = {
     images: PostImageView[];
     onOpen: (index: number) => void;
+};
+
+/** The post's single video, as one more slide in the same media set. */
+export type PostVideoView = {
+    /** Protected file URL, already carrying the short-lived token. */
+    url: string;
+    width?: number;
+    height?: number;
+};
+
+type TwitterMediaProps = ImageListProps & {
+    video?: PostVideoView | null;
+    onOpenVideo?: () => void;
 };
 
 /** The tallest and widest shapes the tweet media strip will render. */
@@ -80,6 +96,31 @@ export function twitterPairFits(left: number, right: number): boolean {
     return left + right <= TWITTER_PAIR_MAX_ASPECT_SUM;
 }
 
+export type TwitterMediaPlan = "single" | "pair" | "strip";
+
+/**
+ * Which of X's media layouts a post's set of media gets:
+ *
+ * - one medium fills the column; a lone video is drawn by `PostVideo` without
+ *   a row or strip around it;
+ * - exactly one photo plus the video keep X's equal-height row — measured on
+ *   x.com, a 680x313 photo and a 480x852 video shared one height side by side,
+ *   with the row's aspect the sum of the two (2.74) rather than the strip;
+ * - any other mix (and the two-photo sets too wide for the row) becomes the
+ *   swipeable strip, where the video is just one more slide.
+ */
+export function twitterMediaPlan(input: {
+    imageCount: number;
+    hasVideo: boolean;
+    /** `twitterPairFits` for the two photos; ignored once a video is present. */
+    pairFits: boolean;
+}): TwitterMediaPlan {
+    const count = input.imageCount + (input.hasVideo ? 1 : 0);
+    if (count <= 1) return "single";
+    if (input.hasVideo) return input.imageCount === 1 ? "pair" : "strip";
+    return input.imageCount === 2 && input.pairFits ? "pair" : "strip";
+}
+
 /**
  * The photo's own shape for the single and pair layouts, with a much wider
  * clamp than the strip: a 9:16 phone screenshot has to fit as-is.
@@ -101,18 +142,39 @@ export function twitterNaturalAspect(width: number, height: number): number {
  * - a pair sits there side by side at one shared height, each photo keeping
  *   its own width ratio, with X's 4px gutter and 8px per-photo radius; two
  *   landscape photos would be too short, so they use the strip below instead;
+ * - a post with one photo and its video uses that same pair, each slot keeping
+ *   its own ratio (see `twitterMediaPlan`);
  * - three or more (and that wide pair) become a swipeable filmstrip that
  *   bleeds to the card edges while the first slide lines up with the text
- *   column. Slides share the first photo's aspect ratio, keep X's 4px gutter
+ *   column. Slides share the first slide's aspect ratio, keep X's 4px gutter
  *   and 8px radius, and snap to the text column so the next one peeks in.
  *
- * Tapping a photo opens the viewer.
+ * The clip leads the set, then the photos. x.com keeps whatever order the
+ * author attached the media in — its "My little hamster" post is a landscape
+ * video followed by a portrait photo, its "My cute little dog" post the other
+ * way round — and `posts.images` / `posts.videos` cannot express a mixed
+ * order, so the video goes first.
+ *
+ * The video fills its slide box rather than sizing itself, autoplays muted
+ * when visible (as in the single-video card) and opens the viewer on a tap.
+ * Tapping a photo opens the image viewer.
  */
-export function TwitterMedia({ images, onOpen }: ImageListProps) {
+export function TwitterMedia({
+    images,
+    video,
+    onOpen,
+    onOpenVideo,
+}: TwitterMediaProps) {
     const [ratios, setRatios] = useState<Record<number, number>>({});
+    /** The clip's real shape once it reports metadata; stored size until then. */
+    const [videoRatio, setVideoRatio] = useState<number | null>(null);
     const stripRef = useRef<HTMLDivElement>(null);
     const [canPrev, setCanPrev] = useState(false);
     const [canNext, setCanNext] = useState(false);
+
+    const hasVideo = Boolean(video?.url);
+    const videoAspect =
+        videoRatio ?? videoDisplayRatio(video?.width ?? 0, video?.height ?? 0);
 
     const sizeAt = (index: number) => {
         const image = images[index];
@@ -155,7 +217,12 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                 ratioAt(0, twitterNaturalAspect),
                 ratioAt(1, twitterNaturalAspect),
             ));
-    const showStrip = images.length > 2 || (images.length === 2 && !keepPair);
+    const plan = twitterMediaPlan({
+        imageCount: images.length,
+        hasVideo,
+        pairFits: keepPair,
+    });
+    const showStrip = plan === "strip";
 
     /** Keep the hover arrows honest as the strip scrolls or resizes. */
     const updateArrows = useCallback(() => {
@@ -186,10 +253,25 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
         strip.scrollBy({ left: amount * direction, behavior: "smooth" });
     };
 
+    /** The clip as one slide; its wrapper owns the slide box. */
+    const videoSlide = video ? (
+        <PostVideo
+            url={video.url}
+            layout="twitter"
+            tile
+            videoWidth={video.width}
+            videoHeight={video.height}
+            onAspect={setVideoRatio}
+            onOpenFullscreen={() => onOpenVideo?.()}
+        />
+    ) : null;
+
     if (images.length === 0) return null;
 
-    if (images.length === 1) {
+    if (plan === "single") {
+        // A lone video never reaches here: the post renders `PostVideo` itself.
         const image = images[0];
+        if (!image) return null;
         return (
             <div className="mt-3">
                 <button
@@ -213,12 +295,26 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
         );
     }
 
-    if (keepPair) {
+    if (plan === "pair") {
         return (
-            // Growing each photo by its own ratio keeps both heights equal
+            // Growing each medium by its own ratio keeps both heights equal
             // while the widths stay proportional, so neither is cropped to the
             // other's shape (X's two-up layout, 4px gutter).
             <div className="mt-3 flex items-stretch gap-1">
+                {video && (
+                    // The clip leads the row at its own ratio, so the pair
+                    // still shares one height and 4px gutter.
+                    <div
+                        style={{
+                            aspectRatio: String(videoAspect),
+                            flexBasis: 0,
+                            flexGrow: videoAspect,
+                        }}
+                        className="relative min-w-0 overflow-hidden rounded-[8px] bg-black"
+                    >
+                        {videoSlide}
+                    </div>
+                )}
                 {images.map((image, index) => {
                     const ratio = ratioAt(index, twitterNaturalAspect);
                     return (
@@ -226,7 +322,7 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
                             key={image.name}
                             type="button"
                             onClick={() => onOpen(index)}
-                            aria-label={`查看第 ${index + 1} 张图片，共 2 张`}
+                            aria-label={`查看第 ${index + 1} 张图片，共 ${images.length} 张`}
                             style={{
                                 aspectRatio: String(ratio),
                                 flexBasis: 0,
@@ -251,7 +347,15 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
         );
     }
 
-    const aspect = ratioAt(0);
+    // The strip shares one box, taken from its leading slide and clamped like
+    // the photos so one extreme clip cannot make every slide hundreds of
+    // pixels tall.
+    const aspect = hasVideo
+        ? Math.min(
+              TWITTER_MEDIA_MAX_ASPECT,
+              Math.max(TWITTER_MEDIA_MIN_ASPECT, videoAspect),
+          )
+        : ratioAt(0);
 
     return (
         // Break out of the tweet's text column (card padding + avatar + gap)
@@ -262,13 +366,23 @@ export function TwitterMedia({ images, onOpen }: ImageListProps) {
             <div
                 ref={stripRef}
                 role="group"
-                aria-label="图片，左右滑动查看"
+                aria-label={
+                    hasVideo ? "视频和图片，左右滑动查看" : "图片，左右滑动查看"
+                }
                 onScroll={updateArrows}
                 // `scroll-padding` matches the text-column offset, so a slide
                 // that snaps lands on the text edge instead of the card edge
                 // (X snaps its media strip the same way).
                 className="flex snap-x snap-mandatory scroll-pr-4 scroll-pl-[4.25rem] [scrollbar-width:none] gap-1 overflow-x-auto pr-4 pl-[4.25rem] [&::-webkit-scrollbar]:hidden"
             >
+                {video && (
+                    <div
+                        style={{ aspectRatio: String(aspect) }}
+                        className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-black"
+                    >
+                        {videoSlide}
+                    </div>
+                )}
                 {images.map((image, index) => (
                     <button
                         key={image.name}

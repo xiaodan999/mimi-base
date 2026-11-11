@@ -29,6 +29,17 @@ type PostVideoProps = {
     videoWidth?: number;
     videoHeight?: number;
     onOpenFullscreen: () => void;
+    /**
+     * Fill the parent's box instead of drawing one. The tweet media pair and
+     * the photo strip decide each slide's size, so the clip has to obey that
+     * box (letterboxed by `object-contain`) instead of sizing itself.
+     */
+    tile?: boolean;
+    /**
+     * Reports the clip's display ratio once metadata is known, so a slide box
+     * can follow it when the post predates `media_meta`.
+     */
+    onAspect?: (ratio: number) => void;
 };
 
 /** Extreme portrait clips are capped so one post cannot fill the whole feed. */
@@ -58,6 +69,10 @@ const AUTOPLAY_VISIBLE_RATIO = 0.6;
  * it in a wide box left it as a narrow pillar between two huge black bars.
  * Ratios are clamped to 2:5..16:9 and the height to 75dvh; `object-contain`
  * keeps the rest readable without ever cropping.
+ *
+ * In a mixed photo+video post the row/strip owns the slide size instead, so
+ * the caller passes `tile`: the clip fills that box (letterboxed when the
+ * shapes differ) and its overlays shrink to fit a narrow column.
  */
 export default function PostVideo({
     url,
@@ -65,6 +80,8 @@ export default function PostVideo({
     videoWidth,
     videoHeight,
     onOpenFullscreen,
+    tile = false,
+    onAspect,
 }: PostVideoProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [started, setStarted] = useState(false);
@@ -158,7 +175,9 @@ export default function PostVideo({
     const handleLoadedMetadata = () => {
         const video = videoRef.current;
         if (!video) return;
-        setRatio(videoDisplayRatio(video.videoWidth, video.videoHeight));
+        const next = videoDisplayRatio(video.videoWidth, video.videoHeight);
+        setRatio(next);
+        onAspect?.(next);
         setDuration(Number.isFinite(video.duration) ? video.duration : null);
         setReady(true);
     };
@@ -234,13 +253,19 @@ export default function PostVideo({
     return (
         <div
             className={cn(
-                "relative w-full overflow-hidden bg-black",
-                isTweet && "rounded-[16px]",
+                "relative overflow-hidden bg-black",
+                tile ? "size-full" : "w-full",
+                isTweet && !tile && "rounded-[16px]",
             )}
             // Inline because the ratio is runtime data. Keep the video element
             // inside `object-contain`: when the ratio or the height cap clamps,
-            // bars are preferable to cropping the clip.
-            style={{ aspectRatio: String(ratio), maxHeight: MAX_HEIGHT }}
+            // bars are preferable to cropping the clip. A tile is sized by the
+            // row/strip it sits in, so it must not set a box of its own.
+            style={
+                tile
+                    ? undefined
+                    : { aspectRatio: String(ratio), maxHeight: MAX_HEIGHT }
+            }
         >
             <video
                 ref={videoRef}
@@ -301,21 +326,34 @@ export default function PostVideo({
                                 "bg-linear-to-t from-black/45 via-black/5 to-black/20",
                         )}
                     >
-                        <span className="grid size-16 place-items-center rounded-full bg-black/45 text-white shadow-xl ring-1 ring-white/30 backdrop-blur-sm transition-transform active:scale-95">
-                            <Play className="ml-0.5 size-7 fill-current drop-shadow-sm" />
+                        <span
+                            className={cn(
+                                "grid place-items-center rounded-full bg-black/45 text-white shadow-xl ring-1 ring-white/30 backdrop-blur-sm transition-transform active:scale-95",
+                                tile ? "size-10" : "size-16",
+                            )}
+                        >
+                            <Play
+                                className={cn(
+                                    "ml-0.5 fill-current drop-shadow-sm",
+                                    tile ? "size-4" : "size-7",
+                                )}
+                            />
                         </span>
                     </button>
 
                     {!ready && (
                         <span
                             data-video-loading
-                            className="pointer-events-none absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm"
+                            className={cn(
+                                "pointer-events-none absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 text-[11px] font-medium text-white backdrop-blur-sm",
+                                tile ? "p-1" : "px-2 py-1",
+                            )}
                         >
                             <Loader2
                                 className="size-3 animate-spin"
                                 aria-hidden="true"
                             />
-                            加载中
+                            {!tile && "加载中"}
                         </span>
                     )}
 
@@ -323,10 +361,12 @@ export default function PostVideo({
                         <span
                             data-duration-badge
                             className={cn(
-                                "pointer-events-none absolute bottom-2 left-2 text-white",
-                                isTweet
-                                    ? "rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 font-normal tabular-nums"
-                                    : "rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium backdrop-blur-sm",
+                                "pointer-events-none absolute text-white",
+                                tile
+                                    ? "bottom-1.5 left-1.5 rounded-[3px] bg-black/75 px-1 py-0.5 text-[11px] leading-4 tabular-nums"
+                                    : isTweet
+                                      ? "bottom-2 left-2 rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 font-normal tabular-nums"
+                                      : "bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium backdrop-blur-sm",
                             )}
                         >
                             {durationLabel}
@@ -346,11 +386,21 @@ export default function PostVideo({
                         />
                     )}
 
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-linear-to-t from-black/60 to-transparent" />
+                    <div
+                        className={cn(
+                            "pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent",
+                            tile ? "h-8" : "h-14",
+                        )}
+                    />
 
                     <span
                         data-duration-badge
-                        className="pointer-events-none absolute bottom-3 left-3 rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 text-white tabular-nums"
+                        className={cn(
+                            "pointer-events-none absolute rounded-[4px] bg-black/75 px-1.5 py-0.5 text-[13px] leading-4 text-white tabular-nums",
+                            tile
+                                ? "bottom-1.5 left-1.5 px-1 text-[11px]"
+                                : "bottom-3 left-3",
+                        )}
                     >
                         {playing && !ended ? currentLabel : durationLabel}
                     </span>
@@ -360,9 +410,19 @@ export default function PostVideo({
                         onClick={toggleMute}
                         aria-label={muted ? "取消静音" : "静音"}
                         data-testid="mute-button"
-                        className="absolute right-3 bottom-3 z-10 grid size-10 place-items-center text-white"
+                        className={cn(
+                            "absolute z-10 grid place-items-center text-white",
+                            tile
+                                ? "right-1 bottom-1 size-8"
+                                : "right-3 bottom-3 size-10",
+                        )}
                     >
-                        <span className="grid size-6 place-items-center rounded-full bg-black/75">
+                        <span
+                            className={cn(
+                                "grid place-items-center rounded-full bg-black/75",
+                                tile ? "size-5" : "size-6",
+                            )}
+                        >
                             {muted ? (
                                 <VolumeX className="size-3" />
                             ) : (
@@ -431,16 +491,36 @@ export default function PostVideo({
             )}
 
             {failed && (
-                <div className="absolute inset-0 grid place-items-center bg-black/70 px-6 text-center text-white">
+                <div
+                    className={cn(
+                        "absolute inset-0 grid place-items-center bg-black/70 text-center text-white",
+                        tile ? "px-1" : "px-6",
+                    )}
+                >
                     <div>
-                        <VideoOff className="mx-auto size-7 opacity-80" />
-                        <p className="mt-2 text-xs text-white/85">
-                            视频加载失败，换个浏览器或网络试试
-                        </p>
+                        <VideoOff
+                            className={cn(
+                                "mx-auto opacity-80",
+                                tile ? "size-5" : "size-7",
+                            )}
+                        />
+                        {/* A tile can be a 55px column: the hint would wrap
+                            into unreadable slivers, so only the icon and the
+                            retry stay. */}
+                        {!tile && (
+                            <p className="mt-2 text-xs text-white/85">
+                                视频加载失败，换个浏览器或网络试试
+                            </p>
+                        )}
                         <button
                             type="button"
                             onClick={retry}
-                            className="mt-3 rounded-full bg-white/15 px-4 py-1.5 text-xs font-medium active:bg-white/30"
+                            className={cn(
+                                "rounded-full bg-white/15 font-medium active:bg-white/30",
+                                tile
+                                    ? "mt-1 px-2 py-0.5 text-[10px]"
+                                    : "mt-3 px-4 py-1.5 text-xs",
+                            )}
                         >
                             重试
                         </button>

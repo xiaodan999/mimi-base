@@ -75,6 +75,16 @@ export default function Post({
     };
     const videoName = videos[0] ?? "";
     const videoUrl = videoName ? getFileUrl(fileRecord, videoName) : "";
+    // In the tweet layout the clip joins the photos as one X-style media set
+    // (a shared-height row for one photo + the video, the strip for more),
+    // instead of a full-size player stacked above them. The clip leads both.
+    const videoMedia = videoUrl
+        ? {
+              url: videoUrl,
+              width: videoSize?.width,
+              height: videoSize?.height,
+          }
+        : null;
 
     const avatar = <AvatarPreview size={40} user={author} />;
 
@@ -240,7 +250,7 @@ export default function Post({
 
                     {text && <TweetText text={text} />}
 
-                    {videoUrl && (
+                    {videoUrl && images.length === 0 && (
                         <div className="mt-3">
                             <PostVideo
                                 url={videoUrl}
@@ -253,7 +263,12 @@ export default function Post({
                     )}
 
                     {images.length > 0 && (
-                        <TwitterMedia images={gridImages} onOpen={openImage} />
+                        <TwitterMedia
+                            images={gridImages}
+                            video={videoMedia}
+                            onOpen={openImage}
+                            onOpenVideo={() => onOpenVideo(videoUrl)}
+                        />
                     )}
 
                     {/* X has no divider above the action row. */}

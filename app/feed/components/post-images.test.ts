@@ -8,6 +8,7 @@ import {
     TWITTER_NATURAL_MIN_ASPECT,
     TWITTER_PAIR_MAX_ASPECT_SUM,
     twitterMediaAspect,
+    twitterMediaPlan,
     twitterNaturalAspect,
     twitterPairFits,
 } from "./post-images";
@@ -61,6 +62,63 @@ describe("twitterPairFits", () => {
     test("unknown sizes keep the pair instead of guessing", () => {
         expect(twitterPairFits(0, 1)).toBe(true);
         expect(twitterPairFits(1, Number.NaN)).toBe(true);
+    });
+});
+
+describe("twitterMediaPlan", () => {
+    test("one photo and the video share X's row", () => {
+        // Measured on x.com: a 680x313 photo and a 480x852 video sat side by
+        // side at one height (a 2.74 box), not stacked and not in the strip.
+        expect(
+            twitterMediaPlan({
+                imageCount: 1,
+                hasVideo: true,
+                pairFits: false,
+            }),
+        ).toBe("pair");
+    });
+
+    test("more photos plus a video become the strip", () => {
+        expect(
+            twitterMediaPlan({
+                imageCount: 2,
+                hasVideo: true,
+                pairFits: false,
+            }),
+        ).toBe("strip");
+        expect(
+            twitterMediaPlan({ imageCount: 5, hasVideo: true, pairFits: true }),
+        ).toBe("strip");
+    });
+
+    test("a lone photo, or the video alone, is the single layout", () => {
+        expect(
+            twitterMediaPlan({
+                imageCount: 1,
+                hasVideo: false,
+                pairFits: true,
+            }),
+        ).toBe("single");
+        expect(
+            twitterMediaPlan({ imageCount: 0, hasVideo: true, pairFits: true }),
+        ).toBe("single");
+    });
+
+    test("photo-only sets keep the existing pair/strip rule", () => {
+        expect(
+            twitterMediaPlan({
+                imageCount: 2,
+                hasVideo: false,
+                pairFits: true,
+            }),
+        ).toBe("pair");
+        expect(
+            twitterMediaPlan({
+                imageCount: 2,
+                hasVideo: false,
+                pairFits: false,
+            }),
+        ).toBe("strip");
     });
 });
 
