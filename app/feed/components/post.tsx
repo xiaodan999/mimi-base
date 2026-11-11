@@ -95,6 +95,9 @@ export default function Post({
                 variant="ghost"
                 className="h-6 gap-1 px-0 text-sm"
                 aria-label={liked ? "取消点赞" : "点赞"}
+                // One request per card at a time: a rapid second tap used to
+                // race the first write (and the refetch it triggers).
+                disabled={likeMutation.isPending}
                 onClick={() =>
                     likeMutation.mutate({ postId: id, like: !liked })
                 }

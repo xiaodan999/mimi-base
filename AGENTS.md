@@ -447,12 +447,18 @@ which the app build deliberately does not install. Re-check
   also cascades. The inbox expands `actor`, `post` and `comment`, so text and
   thumbnails stay live; `/home?post=<id>&comments=1` filters the feed to that
   post and opens its comment sheet.
-- Every `onRecord*Request` hook is **middleware**: the handler must call
-  `e.next()` or PocketBase ends the request with `200` + an empty body and
-  saves nothing, while the client SDK resolves it as success. That silently
-  swallowed every new post for a while (see the `e.next()` regression test in
-  `post_counters.test.js`); the create/update mutations also refuse a response
-  without a record id.
+- Every `onRecord*` hook runs in one chain and its handler must call
+  `e.next()`. For `onRecord*Request` it is **middleware**: skipping it ends the
+  request with `200` + an empty body and saves nothing, while the client SDK
+  resolves it as success — that silently swallowed every new post for a while.
+  `onRecordAfterCreateSuccess` / `onRecordAfterDeleteSuccess` are chained the
+  same way: `notifications.pb.js` and `post_counters.pb.js` both listen on
+  `post_likes` / `comments`, so a handler that returns without `e.next()` stops
+  the other file's counter or notification (the hook files load in random map
+  order). Call `e.next()` on every branch, including early returns. The
+  regression test in `post_counters.test.js` scans every `onRecord*` handler
+  for it and for a bare `return;`; the create/update mutations also refuse a
+  response without a record id.
 - `comments.parent_id` supports unlimited reply depth. `buildCommentThreads`
   groups every descendant under its top-level comment and the UI shows
   `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).

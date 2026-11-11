@@ -91,20 +91,22 @@ if (typeof Bun !== "undefined") {
         db.close();
     });
 
-    // 回归测试：onRecord*Request 是中间件钩子，处理函数必须调用 e.next()，
-    // 否则 PocketBase 直接结束请求（200 + 空响应体），一行都不保存，而客户端
-    // SDK 会把空响应当成功（2026-11-06「发布成功但动态不出现」的事故）。
+    // 回归测试：所有 onRecord* 钩子都在同一条链上执行，处理函数必须调用
+    // e.next()。Request 钩子漏掉它时 PocketBase 直接结束请求（200 + 空响应体），
+    // 一行都不保存；AfterCreate / AfterDelete 钩子漏掉它时，同一事件上后面的
+    // 处理函数会被静默跳过——`post_likes` / `comments` 同时有计数和互动消息
+    // 两个文件注册的处理函数，谁先注册谁截断，点赞数就会停在 0。
     // 这里静态扫描源码，漏一个都会让测试失败。
     const { readFileSync, readdirSync } = require("node:fs");
     const { join } = require("node:path");
 
-    /** 取出每个 onRecord*Request 处理函数的完整函数体。 */
-    const requestHandlers = (dir) => {
+    /** 取出每个 onRecord* 处理函数的完整函数体。 */
+    const recordHandlers = (dir) => {
         const handlers = [];
         for (const file of readdirSync(dir)) {
             if (!file.endsWith(".pb.js")) continue;
             const source = readFileSync(join(dir, file), "utf8");
-            const pattern = /onRecord\w+Request\(\(e\)\s*=>\s*\{/g;
+            const pattern = /onRecord\w+\(\(e\)\s*=>\s*\{/g;
             let match;
             while ((match = pattern.exec(source))) {
                 // 从 { 开始做括号配对，取出对应的函数体。
@@ -124,15 +126,20 @@ if (typeof Bun !== "undefined") {
         return handlers;
     };
 
-    test("每个 onRecord*Request 钩子都调用 e.next()", () => {
-        const handlers = requestHandlers(__dirname);
+    test("每个 onRecord* 钩子都调用 e.next()", () => {
+        const handlers = recordHandlers(__dirname);
         // 钩子被改名或删掉时，这个测试不应该静默通过。
         expect(handlers.length).toBeGreaterThan(0);
         for (const handler of handlers) {
             expect(
                 handler.body.includes("e.next()"),
-                `${handler.file} 的 onRecord*Request 处理函数缺少 e.next()`,
+                `${handler.file} 的 onRecord* 处理函数缺少 e.next()`,
             ).toBe(true);
+            // 提前 `return;` 同样会截断后面的处理函数。
+            expect(
+                /\breturn\s*;/.test(handler.body),
+                `${handler.file} 的 onRecord* 处理函数里有不继续链的 return;`,
+            ).toBe(false);
         }
     });
 }

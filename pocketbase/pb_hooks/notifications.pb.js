@@ -17,6 +17,10 @@
  */
 
 // A like on a post notifies its author (never the liker themselves).
+//
+// `return e.next()` on every path: all record hooks run in one chain, so a
+// handler that returns without it silently skips every later handler for the
+// same event (here: the like_count update in post_counters.pb.js).
 onRecordAfterCreateSuccess((e) => {
     try {
         const post = e.app.findRecordById(
@@ -25,7 +29,7 @@ onRecordAfterCreateSuccess((e) => {
         );
         const recipient = post.getString("author_id");
         const actor = e.record.getString("user_id");
-        if (!recipient || recipient === actor) return;
+        if (!recipient || recipient === actor) return e.next();
 
         let existing = null;
         try {
@@ -43,7 +47,7 @@ onRecordAfterCreateSuccess((e) => {
         } catch {
             // not found
         }
-        if (existing) return;
+        if (existing) return e.next();
 
         const collection = e.app.findCollectionByNameOrId("notifications");
         const notification = new Record(collection);
@@ -56,6 +60,7 @@ onRecordAfterCreateSuccess((e) => {
     } catch (error) {
         console.error("notifications: post_like failed", error);
     }
+    return e.next();
 }, "post_likes");
 
 // A like on a comment notifies the comment's author.
@@ -67,7 +72,7 @@ onRecordAfterCreateSuccess((e) => {
         );
         const recipient = comment.getString("author_id");
         const actor = e.record.getString("user_id");
-        if (!recipient || recipient === actor) return;
+        if (!recipient || recipient === actor) return e.next();
 
         let existing = null;
         try {
@@ -85,7 +90,7 @@ onRecordAfterCreateSuccess((e) => {
         } catch {
             // not found
         }
-        if (existing) return;
+        if (existing) return e.next();
 
         const collection = e.app.findCollectionByNameOrId("notifications");
         const notification = new Record(collection);
@@ -99,6 +104,7 @@ onRecordAfterCreateSuccess((e) => {
     } catch (error) {
         console.error("notifications: comment_like failed", error);
     }
+    return e.next();
 }, "comment_likes");
 
 // A new comment notifies the post author; a reply also notifies the parent
@@ -177,6 +183,7 @@ onRecordAfterCreateSuccess((e) => {
     } catch (error) {
         console.error("notifications: comment failed", error);
     }
+    return e.next();
 }, "comments");
 
 // Removing a like removes its notification, so an unlike never leaves a stale
@@ -196,6 +203,7 @@ onRecordAfterDeleteSuccess((e) => {
     } catch (error) {
         console.error("notifications: post_like delete failed", error);
     }
+    return e.next();
 }, "post_likes");
 
 onRecordAfterDeleteSuccess((e) => {
@@ -213,6 +221,7 @@ onRecordAfterDeleteSuccess((e) => {
     } catch (error) {
         console.error("notifications: comment_like delete failed", error);
     }
+    return e.next();
 }, "comment_likes");
 
 // Relation cascades should remove these too, but deleting the comment's own
@@ -228,6 +237,7 @@ onRecordAfterDeleteSuccess((e) => {
     } catch (error) {
         console.error("notifications: comment delete failed", error);
     }
+    return e.next();
 }, "comments");
 
 // The recipient may only flip `read`; every event field is restored from the

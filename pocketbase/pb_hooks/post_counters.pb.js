@@ -49,6 +49,10 @@ onRecordUpdateRequest((e) => {
 
 // ---------------------------------------------------------------------------
 // 新增点赞 / 评论：原子自增。{:id} 占位符用 bind 绑定，杜绝拼接注入。
+//
+// After 钩子也在同一条链上跑：`notifications.pb.js` 会为同一个事件再注册一个
+// 处理函数，所以这里每个处理函数末尾都要调用 e.next()，否则谁先注册谁把
+// 后面的处理函数静默截断（点赞计数不涨 / 互动消息不出现，取决于加载顺序）。
 // ---------------------------------------------------------------------------
 
 onRecordAfterCreateSuccess((e) => {
@@ -62,6 +66,7 @@ onRecordAfterCreateSuccess((e) => {
             .bind({ id: postId })
             .execute();
     });
+    return e.next();
 }, "post_likes");
 
 onRecordAfterCreateSuccess((e) => {
@@ -75,6 +80,7 @@ onRecordAfterCreateSuccess((e) => {
             .bind({ id: postId })
             .execute();
     });
+    return e.next();
 }, "comments");
 
 // ---------------------------------------------------------------------------
@@ -97,6 +103,7 @@ onRecordAfterDeleteSuccess((e) => {
             .bind({ id: postId })
             .execute();
     });
+    return e.next();
 }, "post_likes");
 
 onRecordAfterDeleteSuccess((e) => {
@@ -112,4 +119,5 @@ onRecordAfterDeleteSuccess((e) => {
             .bind({ id: postId })
             .execute();
     });
+    return e.next();
 }, "comments");

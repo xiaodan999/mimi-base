@@ -6,6 +6,7 @@
 
 ### 修复
 
+- 首页反复点赞/取消点赞后点赞数变成 -1（#84）：客户端 `usePostLikeMutation` 的乐观更新改为从当前缓存的动态推导（`app/feed/like.ts` 的 `applyLikeToggle`）——缓存已经是目标状态时不再重复 ±1，计数钳在 0 以上，请求没结束时点赞按钮保持禁用；settle 后的失效重取照旧与服务端对齐。服务端同时修掉钩子链断裂：`notifications.pb.js` 和 `post_counters.pb.js` 都为 `post_likes` / `comments` 的 AfterCreate / AfterDelete 注册了处理函数，但原来都没调用 `e.next()`，同一条链上只有先注册的那个会执行（钩子文件的加载顺序还是随机的），于是点赞数可能停在 0，再取消点赞就显示 -1；现在每个 AfterCreate / AfterDelete 处理函数（包括提前返回的分支）都会继续链，计数和互动消息都会执行。`post_counters.test.js` 的静态回归测试扩展到所有 `onRecord*` 处理函数，要求调用 `e.next()` 且没有提前的 `return;`。
 - 聊天页标题下的说明被右侧操作按钮挤成两行（#85）：`PageHeader` 新增可选的 `stackedDescription`，标题和操作按钮留在同一行，说明文字移到它们下方并占满整个头部宽度；聊天列表启用这个变体，320px 宽度下「只存在你的账号里」也保持一行，其余页面继续用原来的布局（逐页几何对比无变化）。
 - `deploy` 一直卡在 `Update app` 并 1 秒失败：Watchtower 1.18 的 `/v1/update` 只接受 POST，而工作流用的是 `curl -G`（GET），服务器直接返回 405。现在两个更新步骤都改成 `-X POST`，镜像名里的 `/` 编码成 `%2F` 放进查询串；`docker/README.md` 的手动更新示例同步改正。顺带把宿主机上的 `Caddyfile` 从旧的 `172.19.0.1:9001/8090` 改指新容器（`mimi-app:9001`、`mimi-pb:8090`），Watchtower 的容器列表加上 `mimi-app mimi-pb`。
 - 照片拖动排序的跟手与动效（#75）：`PostImageSort` 让被拖动的照片用 `translate3d` 跟随指针，跨过槽位时按槽位位移修正视觉偏移，其余照片用 FLIP（记录旧矩形 + Web Animations API，180ms）从原位置平滑滑入新槽位；松手时从当前偏移缓动回槽位。原来 `transition-transform` 管不到 Tailwind v4 用独立 `scale` 属性生成的 `scale-[1.03]`，现在把缩放直接组合进 `transform`；去掉右下角的拖拽图标，整张照片都是拖动区域，方向键排序也走同一套 FLIP，`prefers-reduced-motion` 下动画时长为 0。

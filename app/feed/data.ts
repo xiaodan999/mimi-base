@@ -19,6 +19,7 @@ import {
 import type { PostMediaMeta } from "@/lib/postMedia";
 import { qk } from "@/lib/query-keys";
 
+import { applyLikeToggle } from "./like";
 import {
     groupPostMonths,
     mapStoredImageOrder,
@@ -263,16 +264,7 @@ export function usePostLikeMutation() {
                             ...page,
                             posts: page.posts.map((post) =>
                                 post.id === postId
-                                    ? {
-                                          ...post,
-                                          liked: like,
-                                          metrics: {
-                                              ...post.metrics,
-                                              likeCount:
-                                                  post.metrics.likeCount +
-                                                  (like ? 1 : -1),
-                                          },
-                                      }
+                                    ? applyLikeToggle(post, like)
                                     : post,
                             ),
                         })),
