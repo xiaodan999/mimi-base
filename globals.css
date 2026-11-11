@@ -74,6 +74,11 @@
     --animate-fade-in: fade-in 0.18s ease-out;
     --animate-slide-up: slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
     --animate-pop: pop 0.18s ease-out;
+    /* Like button: a short X-style pop plus a ring that expands once. Both
+       are `motion-safe:` at the call site, so reduced-motion users only see
+       the red fill. */
+    --animate-like-pop: like-pop 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+    --animate-like-burst: like-burst 0.42s ease-out;
 
     @keyframes accordion-down {
         from {
@@ -118,6 +123,34 @@
         }
         100% {
             transform: scale(1);
+        }
+    }
+    @keyframes like-pop {
+        0% {
+            transform: scale(1);
+        }
+        35% {
+            transform: scale(1.35);
+        }
+        70% {
+            transform: scale(0.95);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+    @keyframes like-burst {
+        0% {
+            opacity: 0.5;
+            transform: scale(0.6);
+        }
+        70% {
+            opacity: 0;
+            transform: scale(1.9);
+        }
+        100% {
+            opacity: 0;
+            transform: scale(1.9);
         }
     }
 }

@@ -1,4 +1,5 @@
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +51,12 @@ export default function Post({
     const likeMutation = usePostLikeMutation();
     const deleteMutation = useDeletePostMutation();
     const isMine = author.id === user.id;
+    // One-shot heart pop for the user's own like. It is armed from the click
+    // handler and disarmed on `animationend`, so feed loads, refetches and
+    // invalidations that render an already-liked post never animate; a later
+    // like re-arms it. `motion-safe:` keeps it out of the reduced-motion path
+    // entirely (no animation, only the red fill).
+    const [likePop, setLikePop] = useState(false);
 
     // Files are protected: build the URLs with the current file token each
     // time, instead of baking a soon-to-expire token into the query cache.
@@ -109,20 +116,34 @@ export default function Post({
                 // One request per card at a time: a rapid second tap used to
                 // race the first write (and the refetch it triggers).
                 disabled={likeMutation.isPending}
-                onClick={() =>
-                    likeMutation.mutate({ postId: id, like: !liked })
-                }
+                onClick={() => {
+                    // The burst is for liking only, never for taking a like
+                    // back; clearing it here also cancels a pop that is still
+                    // running when the user unlikes straight away.
+                    setLikePop(!liked);
+                    likeMutation.mutate({ postId: id, like: !liked });
+                }}
             >
                 {/* One icon set for both states: swapping the antd filled
                     heart for the lucide outline changed the glyph size and
                     baseline, so the button visibly jumped when liking. */}
-                <Heart
-                    aria-hidden="true"
-                    className={cn(
-                        "size-4",
-                        liked && "fill-current text-red-500",
+                <span className="relative inline-flex">
+                    <Heart
+                        aria-hidden="true"
+                        onAnimationEnd={() => setLikePop(false)}
+                        className={cn(
+                            "size-4",
+                            liked && "fill-current text-red-500",
+                            likePop && "motion-safe:animate-like-pop",
+                        )}
+                    />
+                    {likePop && (
+                        <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-0 rounded-full border border-red-500/50 opacity-0 motion-safe:animate-like-burst"
+                        />
                     )}
-                />
+                </span>
                 {/* Tabular digits keep 0 -> 1 the same width without
                     reserving a second digit, which left a visible gap before
                     the comment button. */}
