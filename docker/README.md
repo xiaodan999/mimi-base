@@ -18,10 +18,11 @@
 - 镜像来自 GitHub Container Registry（`ghcr.io/<owner>/mimi-base-app`、
   `ghcr.io/<owner>/mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、
   `/spa/publish`、`/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
-- 两个包应设为 **public**：宿主机匿名拉取即可，不需要在机器上放任何凭据，公开包
-  的存储和流量也不计费。**首次推送后**在 GitHub 上改可见性：
-  `https://github.com/users/<owner>/packages/container/mimi-base-app/settings`
-  → Danger Zone → Change visibility → Public（`mimi-base-pb` 同样操作一次）。
+- 两个包是 **public**：公开仓库的 workflow 推上来的包默认就是公开的，宿主机
+  匿名拉取即可，不需要在机器上放任何凭据；公开包的存储和流量也不计费。首次推送
+  后看一眼 `https://github.com/<owner>/mimi-base/pkgs/container/mimi-base-app`，
+  如果显示 Private（比如仓库当时是私有的），在 Package settings → Danger Zone →
+  Change visibility 改成 Public，`mimi-base-pb` 同样处理。
 
 下文用几个占位符，按你的环境替换：
 
@@ -113,8 +114,7 @@ curl -fsS "https://$APP_HOST/version.json"
 
 1. 改动落到 `master` 后，在 Actions 里**手动跑一次 `images`**（`workflow_dispatch`
    会把两个镜像都标为需要构建）。普通推送只会算出 app/pb 都没变，不会推镜像。
-2. 第一次推送后两个包默认是私有的，按上面的链接把 `mimi-base-app` 和
-   `mimi-base-pb` 都改成 Public。
+2. 确认上面两个包是 Public（公开仓库自动如此，正常不用改）。
 3. 宿主机在 `$REPO_DIR` 里 `git pull --ff-only` 后执行一次
    `docker compose pull && docker compose up -d`。**这一步要手动做**：Watchtower
    的 `image=` 过滤按容器当前镜像匹配，旧容器还指向 ACR（或者根本没在跑），

@@ -809,8 +809,11 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
   (the `images` job authenticates with `GITHUB_TOKEN` and needs
   `packages: write`), then the `deploy` job calls Watchtower's
   `/v1/update?image=...` and verifies `/version.json`. The two GHCR packages
-  are meant to be public so the host pulls them anonymously; private packages
-  fall under GHCR's free storage/transfer cap and need host credentials. The
+  are public (a push from this public repo publishes them that way), so the
+  host pulls them anonymously; private packages would fall under GHCR's free
+  storage/transfer cap and need host credentials. A registry or image-name
+  change also needs a one-time manual `docker compose pull && up -d` on the
+  host, because Watchtower filters by the image the container already runs. The
   old `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints
   are gone; `DEPLOY_TOKEN` is unused.
 - Both containers auto-update through Watchtower, so **migrations must stay
