@@ -175,10 +175,10 @@ jobs:
                   set -euo pipefail
                   url="${WATCHTOWER_URL%/}"
                   case "$url" in */v1/update) ;; *) url="$url/v1/update" ;; esac
-                  curl -fsS --max-time 300 -G \
+                  # Watchtower 1.18 answers 405 to GET here; only POST updates.
+                  curl -fsS --max-time 300 -X POST \
                     -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
-                    --data-urlencode "image=ghcr.io/$IMAGE_OWNER/mimi-base-app" \
-                    "$url"
+                    "$url?image=ghcr.io%2F$IMAGE_OWNER%2Fmimi-base-app"
 
             - name: Update pb
               if: steps.gate.outputs.armed == 'yes' && needs.changes.outputs.pb == 'true'
@@ -186,10 +186,9 @@ jobs:
                   set -euo pipefail
                   url="${WATCHTOWER_URL%/}"
                   case "$url" in */v1/update) ;; *) url="$url/v1/update" ;; esac
-                  curl -fsS --max-time 300 -G \
+                  curl -fsS --max-time 300 -X POST \
                     -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
-                    --data-urlencode "image=ghcr.io/$IMAGE_OWNER/mimi-base-pb" \
-                    "$url"
+                    "$url?image=ghcr.io%2F$IMAGE_OWNER%2Fmimi-base-pb"
 
             - name: Verify app sha
               if: steps.gate.outputs.armed == 'yes' && needs.changes.outputs.app == 'true'

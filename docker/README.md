@@ -128,17 +128,17 @@ curl -fsS "https://$APP_HOST/version.json"
 2. `images` 用 `GITHUB_TOKEN` 登录 `ghcr.io`，推送 `mimi-base-app` /
    `mimi-base-pb` 的 `:latest` 和 `:$sha`（只有相关路径变化时才构建对应镜像），
    不需要额外的 registry secret；
-3. `deploy` 调用 Watchtower 的 `$WATCHTOWER_HTTP_API_URL`；
+3. `deploy` 用 **POST** 调用 Watchtower 的 `$WATCHTOWER_HTTP_API_URL/v1/update`；
 4. Watchtower 拉取并重建对应容器；`deploy` 轮询 `version.json` 确认新 sha
    （首次拉取整个镜像，等待上限 15 分钟）。
 
 手动触发（CI 之外的紧急更新）：
 
 ```bash
-curl -fsS -G \
+# GET 会返回 405，必须用 POST；镜像名里的 / 要编码成 %2F。
+curl -fsS -X POST \
   -H "Authorization: Bearer $WATCHTOWER_HTTP_API_TOKEN" \
-  --data-urlencode "image=$REGISTRY/$IMAGE_OWNER/mimi-base-app" \
-  "$WATCHTOWER_HTTP_API_URL"
+  "$WATCHTOWER_HTTP_API_URL/v1/update?image=$REGISTRY%2F$IMAGE_OWNER%2Fmimi-base-app"
 ```
 
 国内到 `ghcr.io` 的链路偶尔会很慢或卡住。`docker compose pull` 失败时直接重试

@@ -807,8 +807,9 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
   whether `mimi-base-app` and/or `mimi-base-pb` changed, both images are pushed
   to GitHub Container Registry as `ghcr.io/<owner>/<name>:latest` + `:$sha`
   (the `images` job authenticates with `GITHUB_TOKEN` and needs
-  `packages: write`), then the `deploy` job calls Watchtower's
-  `/v1/update?image=...` and verifies `/version.json`. The two GHCR packages
+  `packages: write`), then the `deploy` job **POSTs** to Watchtower's
+  `/v1/update?image=...` (1.18 answers 405 to GET) and verifies
+  `/version.json`. The two GHCR packages
   are public (a push from this public repo publishes them that way), so the
   host pulls them anonymously; private packages would fall under GHCR's free
   storage/transfer cap and need host credentials. A registry or image-name
