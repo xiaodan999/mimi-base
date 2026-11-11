@@ -55,22 +55,17 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_run",
             description:
-                "在服务器的隔离沙箱里运行代码，可选 Python 3（标准库）或 JavaScript（Node）。两者都能访问公网 HTTP/HTTPS（天气 API、网页、公开接口），但不能访问本站内网、PocketBase 或读取本站文件/密钥。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 抓取网页/接口，用 sandbox.download(url, path) 把公网图片下载到沙箱（PNG/JPEG/WebP/GIF，最大 1.5MB）。Python 用 print 输出、把最终结果赋给 result；JavaScript 用 console.log 输出、用 return 返回结果。本轮生成或下载的图片会自动显示给用户，文本文件用 send_file 发送。适合查实时信息、计算、处理文本/JSON、验证代码。",
+                "在服务器的 QuickJS 沙箱里运行 JavaScript（标准库，没有 Node API、npm 和文件系统）。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 读取公网网页/接口，用 sandbox.download(url, path) 把公网图片下载到沙箱（PNG/JPEG/WebP/GIF，最大 1.5MB）。用 console.log 输出、用 return 返回结果（也可以赋给 result）。沙箱访问不到本站内网、PocketBase 或本站文件/密钥。本轮下载的图片会自动显示给用户，文本文件用 send_file 发送。适合计算、处理文本/JSON、验证代码和查公开网页；不能画图，需要图表时用 show_chart。",
             parameters: {
                 type: "object",
                 properties: {
-                    language: {
-                        type: "string",
-                        enum: ["python", "javascript"],
-                        description: "使用哪种语言运行",
-                    },
                     code: {
                         type: "string",
                         description:
-                            "要执行的源码。Python 用 print/result；JavaScript 用 console.log/return。",
+                            "要执行的 JavaScript 源码。用 console.log 输出、return 返回结果。",
                     },
                 },
-                required: ["language", "code"],
+                required: ["code"],
                 additionalProperties: false,
             },
         },
@@ -79,7 +74,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         type: "function",
         function: {
             name: "sandbox_read",
-            description: "读取本次对话沙箱里的一个文本文件（Python 沙箱）。",
+            description: "读取本次对话沙箱里的一个文本文件。",
             parameters: {
                 type: "object",
                 properties: {
@@ -970,8 +965,6 @@ async function runChatTool(
         case "sandbox_run":
             response = await runSandbox({
                 op: "run",
-                language:
-                    args.language === "javascript" ? "javascript" : "python",
                 code: typeof args.code === "string" ? args.code : "",
                 files,
             });

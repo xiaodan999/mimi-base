@@ -23,7 +23,6 @@ const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const MAX_BODY_BYTES = MAX_VIDEO_BYTES + 1024 * 1024;
 const AUTH_CACHE_MS = 60_000;
 const AUTH_CACHE_MAX = 500;
-const CONNECT_TIMEOUT_MS = 10_000;
 const FFMPEG_TIMEOUT_MS = 240_000;
 
 const ALLOWED_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);

@@ -267,7 +267,7 @@ export function asAttachmentArray(value: unknown): FeedbackAttachment[] {
 
 /** Escape characters that would break Markdown link text / alt text. */
 export function escapeMarkdownText(value: string): string {
-    return value.replace(/[\\`*_\[\]<>|]/g, (char) => `\\${char}`);
+    return value.replace(/[\\`*_[\]<>|]/g, (char) => `\\${char}`);
 }
 
 /** 1234 -> "1.2 KB", 10*1024*1024 -> "10 MB". */

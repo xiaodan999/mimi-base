@@ -671,11 +671,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         ) {
             return json(400, { error: { message: "未知的沙箱操作" } });
         }
-        if (
-            body.language !== undefined &&
-            body.language !== "python" &&
-            body.language !== "javascript"
-        ) {
+        if (body.language !== undefined && body.language !== "javascript") {
             return json(400, { error: { message: "未知的代码语言" } });
         }
 

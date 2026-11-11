@@ -137,7 +137,7 @@ describe("sandbox relay", () => {
         expect(called).toBe(false);
     });
 
-    test("rejects an unknown language", async () => {
+    test("rejects python and unknown languages", async () => {
         let called = false;
         const relay = harness(async () => {
             called = true;
@@ -149,10 +149,12 @@ describe("sandbox relay", () => {
                 durationMs: 1,
             };
         });
-        const res = await relay(
-            request({ op: "run", language: "ruby", code: "return 1" }),
-        );
-        expect(res?.status).toBe(400);
+        for (const language of ["python", "ruby"]) {
+            const res = await relay(
+                request({ op: "run", language, code: "return 1" }),
+            );
+            expect(res?.status).toBe(400);
+        }
         expect(called).toBe(false);
     });
 

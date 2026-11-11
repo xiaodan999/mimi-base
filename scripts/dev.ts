@@ -1,26 +1,24 @@
 /**
- * `bun run dev:all` — PocketBase + Vite, always reachable from the LAN.
+ * `bun run dev:all` — the local backend stack (PocketBase + Bun API) plus Vite,
+ * always reachable from the LAN.
  *
  * Works on Linux, WSL2 and plain Windows:
- * - Linux / Windows: Vite already listens on 0.0.0.0, only the URL is printed.
- * - WSL2 (NAT): the phone cannot reach the VM, so a tiny forwarder runs on the
- *   Windows host (scripts/lan-proxy.mjs, executed by the Windows node.exe,
- *   which already has inbound firewall rules). Only Vite's port is forwarded;
- *   PocketBase stays on loopback and Vite proxies `/api` to it, so the client
- *   can use same-origin URLs (see vite.config.ts + lib/env.ts).
+ * - Linux / Windows: Vite listens on 0.0.0.0; only the URL is printed.
+ * - WSL2 (NAT): a tiny forwarder runs on the Windows host
+ *   (scripts/lan-proxy.mjs) for Vite's port. The API and PocketBase stay on
+ *   loopback; Vite proxies `/api` and `/db`, so the client uses same-origin.
  *
- * Each worktree keeps its own `pocketbase/pb_data/` and its own stack. Busy
- * ports are skipped (on both sides under WSL), and a PocketBase already
- * running for this checkout is reused instead of opening the database twice.
- *
- *   bun run dev:all
- *   VITE_PORT=3005 PB_PORT=8091 bun run dev:all
+ * Each worktree keeps its own `pocketbase/pb_data/`. Busy ports are skipped,
+ * and a healthy stack already running for this checkout is reused.
  */
+
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import net from "node:net";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
+
+import { type BackendsLock, readBackendsLock } from "./backends";
 
 const repo = path.resolve(import.meta.dir, "..");
 process.chdir(repo);
@@ -38,7 +36,6 @@ function fail(message: string): never {
     process.exit(1);
 }
 
-/** `.env` is optional; Bun also loads it, but this keeps plain node happy. */
 function fileEnv(): Record<string, string> {
     const file = path.join(repo, ".env");
     if (!existsSync(file)) return {};
@@ -54,17 +51,6 @@ function fileEnv(): Record<string, string> {
 const env = fileEnv();
 const requestedVitePort =
     Number(process.env.VITE_PORT ?? env.VITE_PORT) || 3000;
-const requestedSupervisorPort =
-    Number(process.env.SUPERVISOR_PORT ?? env.SUPERVISOR_PORT) || 9001;
-let pbPort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
-
-/**
- * Rolldown's worker pool is most of the dev server's memory: ~1.6GB with the
- * default pool on this repo, ~1.3GB with one thread. The single thread costs
- * about 12% on the first page load, so it stays opt-in for the machine that
- * is short on RAM. Set MIMI_DEV_LOWMEM=1 in the worktree's `.env` (or the
- * shell) to turn it on; an explicit RAYON_NUM_THREADS always wins.
- */
 const lowMemory =
     process.env.MIMI_DEV_LOWMEM === "1" || env.MIMI_DEV_LOWMEM === "1";
 
@@ -77,22 +63,9 @@ function portFree(port: number, host = "0.0.0.0"): Promise<boolean> {
     });
 }
 
-async function pbHealthy(port: number, timeout = 1500): Promise<boolean> {
+async function healthy(url: string, timeout = 1500): Promise<boolean> {
     try {
-        const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
-            signal: AbortSignal.timeout(timeout),
-        });
-        return res.ok;
-    } catch {
-        return false;
-    }
-}
-
-async function viteHealthy(port: number): Promise<boolean> {
-    try {
-        const res = await fetch(`http://127.0.0.1:${port}/`, {
-            signal: AbortSignal.timeout(2000),
-        });
+        const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
         return res.ok;
     } catch {
         return false;
@@ -112,114 +85,20 @@ async function waitFor(
     fail(`${label} did not become ready`);
 }
 
-/**
- * PocketBase's supervisor writes this while it runs, so a second `dev:all`
- * in the same worktree can reuse it instead of touching the same SQLite file
- * twice.
- */
-const pbLock = path.join(repo, "pocketbase", "pb_data", ".dev-server.json");
-
-function readPbLock(): {
-    pid: number;
-    port: number;
-    supervisorPort?: number;
-} | null {
-    try {
-        const parsed = JSON.parse(readFileSync(pbLock, "utf8")) as {
-            pid?: unknown;
-            port?: unknown;
-            supervisorPort?: unknown;
-        };
-        if (typeof parsed.pid !== "number" || typeof parsed.port !== "number") {
-            return null;
+async function waitForBackends(): Promise<BackendsLock> {
+    const deadline = Date.now() + 180_000;
+    while (Date.now() < deadline) {
+        const lock = readBackendsLock();
+        if (
+            lock &&
+            (await healthy(`http://127.0.0.1:${lock.pbPort}/api/health`)) &&
+            (await healthy(`http://127.0.0.1:${lock.apiPort}/api/health`))
+        ) {
+            return lock;
         }
-        return {
-            pid: parsed.pid,
-            port: parsed.port,
-            supervisorPort:
-                typeof parsed.supervisorPort === "number"
-                    ? parsed.supervisorPort
-                    : undefined,
-        };
-    } catch {
-        return null;
+        await Bun.sleep(500);
     }
-}
-
-function pidAlive(pid: number): boolean {
-    try {
-        process.kill(pid, 0);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function resolvePbPort(): Promise<{ port: number; reuse: boolean }> {
-    const lock = readPbLock();
-    if (lock && pidAlive(lock.pid)) {
-        // The supervisor may still be applying migrations; don't open a second
-        // process against the same pb_data while it starts up.
-        const deadline = Date.now() + 15_000;
-        while (Date.now() < deadline) {
-            if (await pbHealthy(lock.port)) {
-                return { port: lock.port, reuse: true };
-            }
-            await Bun.sleep(500);
-        }
-        fail(
-            `this worktree's PocketBase on :${lock.port} is running but not healthy; stop it first`,
-        );
-    }
-    if (lock && (await pbHealthy(lock.port))) {
-        fail(
-            `PocketBase on :${lock.port} is still running but its supervisor is gone; stop it first`,
-        );
-    }
-
-    for (let port = pbPort; port < pbPort + 20; port++) {
-        if (await portFree(port, "127.0.0.1")) {
-            return { port, reuse: false };
-        }
-        log(`port ${port} is busy; trying ${port + 1} for PocketBase`);
-    }
-    fail(`no free port near ${pbPort} for PocketBase`);
-}
-
-async function pickSupervisorPort(): Promise<number> {
-    for (
-        let port = requestedSupervisorPort;
-        port < requestedSupervisorPort + 20;
-        port++
-    ) {
-        if (await portFree(port, "127.0.0.1")) return port;
-        log(`port ${port} is busy; trying ${port + 1} for the AI relay`);
-    }
-    fail(`no free port near ${requestedSupervisorPort} for the AI relay`);
-}
-
-async function relayHealthy(port: number): Promise<boolean> {
-    try {
-        const res = await fetch(`http://127.0.0.1:${port}/ai/health`, {
-            signal: AbortSignal.timeout(1500),
-        });
-        return res.ok;
-    } catch {
-        return false;
-    }
-}
-
-function localAddresses(): string[] {
-    const found: string[] = [];
-    for (const [name, addresses] of Object.entries(networkInterfaces())) {
-        if (/loopback/i.test(name)) continue;
-        for (const address of addresses ?? []) {
-            if (address.family === "IPv4" && !address.internal) {
-                found.push(address.address);
-            }
-        }
-    }
-    return [...new Set(found)];
+    fail("the backend stack did not become ready");
 }
 
 /** Windows-only helpers (WSL runs the forwarder with the Windows node). */
@@ -257,8 +136,7 @@ const winNode = isWsl ? findWindowsNode() : null;
 
 async function pickVitePort(): Promise<number> {
     for (let port = requestedVitePort; port < requestedVitePort + 20; port++) {
-        const free = await portFree(port);
-        if (!free) {
+        if (!(await portFree(port))) {
             log(`port ${port} is busy; trying ${port + 1} for Vite`);
             continue;
         }
@@ -269,6 +147,19 @@ async function pickVitePort(): Promise<number> {
         return port;
     }
     fail(`no free port near ${requestedVitePort} for Vite`);
+}
+
+function localAddresses(): string[] {
+    const found: string[] = [];
+    for (const [name, addresses] of Object.entries(networkInterfaces())) {
+        if (/loopback/i.test(name)) continue;
+        for (const address of addresses ?? []) {
+            if (address.family === "IPv4" && !address.internal) {
+                found.push(address.address);
+            }
+        }
+    }
+    return [...new Set(found)];
 }
 
 function readLanIps(proxy: ChildProcess): Promise<string[]> {
@@ -308,9 +199,6 @@ function killTree(child: ChildProcess | null) {
         });
         return;
     }
-    spawnSync("pkill", ["-TERM", "-P", String(child.pid)], {
-        stdio: "ignore",
-    });
     try {
         process.kill(child.pid, "SIGTERM");
     } catch {
@@ -321,18 +209,7 @@ function killTree(child: ChildProcess | null) {
 function cleanup() {
     if (stopping) return;
     stopping = true;
-    // Reverse order: forwarder, frontend, database.
-    for (const child of children.reverse()) killTree(child);
-    if (!isWindows) {
-        for (const child of children) {
-            if (!child.pid) continue;
-            try {
-                process.kill(child.pid, "SIGKILL");
-            } catch {
-                // already gone
-            }
-        }
-    }
+    for (const child of [...children].reverse()) killTree(child);
 }
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
@@ -351,50 +228,16 @@ process.on("exit", cleanup);
 
 // ---------------------------------------------------------------------------
 
-const { port: resolvedPbPort, reuse } = await resolvePbPort();
-pbPort = resolvedPbPort;
-
-let supervisorPort: number;
-if (reuse) {
-    const lock = readPbLock();
-    if (lock?.supervisorPort) {
-        supervisorPort = lock.supervisorPort;
-        log(
-            `reusing this worktree's PocketBase on :${pbPort} and AI relay on :${supervisorPort}`,
-        );
-        if (!(await relayHealthy(supervisorPort))) {
-            log(
-                `AI relay on :${supervisorPort} is not responding; restart dev:all to enable streaming AI`,
-            );
-        }
-    } else {
-        supervisorPort = await pickSupervisorPort();
-        log(
-            "reused PocketBase has no AI relay; restart dev:all to enable streaming AI",
-        );
-    }
-} else {
-    supervisorPort = await pickSupervisorPort();
-    log(`starting PocketBase on 127.0.0.1:${pbPort}`);
-    const pbEnv: Record<string, string | undefined> = {
-        ...process.env,
-        PB_PORT: String(pbPort),
-        SUPERVISOR_PORT: String(supervisorPort),
-    };
-    delete pbEnv.PB_HTTP;
-    const pb = spawn(
-        process.execPath,
-        [path.join(repo, "pocketbase", "server.ts")],
-        { cwd: repo, stdio: "inherit", env: pbEnv },
-    );
-    children.push(pb);
-    await waitFor(() => pbHealthy(pbPort), 120, "PocketBase");
-}
+log("starting PocketBase + the API (scripts/backends.ts)");
+const backends = spawn(process.execPath, ["scripts/backends.ts"], {
+    cwd: repo,
+    stdio: "inherit",
+});
+children.push(backends);
+const { pbPort, apiPort } = await waitForBackends();
 
 const vitePort = await pickVitePort();
-log(
-    `starting Vite on 0.0.0.0:${vitePort} (API via /api -> 127.0.0.1:${pbPort}, AI via /ai -> 127.0.0.1:${supervisorPort})`,
-);
+log(`starting Vite on 0.0.0.0:${vitePort} (PB :${pbPort}, API :${apiPort})`);
 if (lowMemory) {
     log(
         `low-memory mode: RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS ?? 1}`,
@@ -410,12 +253,12 @@ const vite = spawn(process.execPath, ["run", "dev"], {
             : {}),
         VITE_PORT: String(vitePort),
         PB_PORT: String(pbPort),
-        SUPERVISOR_PORT: String(supervisorPort),
+        SUPERVISOR_PORT: String(apiPort),
         VITE_POCKETBASE_URL: "same-origin",
     },
 });
 children.push(vite);
-await waitFor(() => viteHealthy(vitePort), 90, "Vite");
+await waitFor(() => healthy(`http://127.0.0.1:${vitePort}/`, 2000), 90, "Vite");
 
 let lanIps: string[] = [];
 let proxy: ChildProcess | null = null;
@@ -473,7 +316,7 @@ console.log(`      http://127.0.0.1:${vitePort}`);
 console.log(`      PocketBase dashboard: http://127.0.0.1:${pbPort}/_/`);
 console.log("");
 console.log(
-    "  Ctrl-C stops Vite, PocketBase (if started here) and the forwarder.",
+    "  Ctrl-C stops Vite, the API, PocketBase (if started here) and the forwarder.",
 );
 console.log("");
 

@@ -19,11 +19,12 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const PORT = Number(process.env.PERF_PORT ?? 4500);
-const PB_PORT = 8090;
-const API_PORT = 9001;
+const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8090);
+const REQUESTED_API_PORT = Number(process.env.SUPERVISOR_PORT ?? 9001);
+const LOCK_FILE = `${process.cwd()}/pocketbase/pb_data/.dev-server.json`;
 const ROUTES = process.argv.slice(2).length
     ? process.argv.slice(2)
     : ["/home", "/jizhang", "/chat", "/study"];
@@ -48,31 +49,65 @@ if (process.env.PERF_BUILD !== "0") {
 }
 
 // ---------------------------------------------------------------------------
-// backends: PocketBase + the Bun supervisor (ai relay), as `bun run db` starts
-// them. The dev seed creates test@mimi.local on first run.
+// backends: PocketBase + the Bun API (`scripts/backends.ts`). The dev seed
+// creates test@mimi.local on first run.
 
-const db = spawn("bun", ["run", "db"], {
+function readLock() {
+    try {
+        const parsed = JSON.parse(readFileSync(LOCK_FILE, "utf8"));
+        const pbPort = parsed.pbPort ?? parsed.port;
+        const apiPort = parsed.apiPort ?? parsed.supervisorPort;
+        if (typeof pbPort !== "number" || typeof apiPort !== "number") {
+            return null;
+        }
+        return { pbPort, apiPort };
+    } catch {
+        return null;
+    }
+}
+
+const db = spawn("bun", ["scripts/backends.ts"], {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "inherit"],
     detached: true,
+    env: {
+        ...process.env,
+        PB_PORT: String(REQUESTED_PB_PORT),
+        SUPERVISOR_PORT: String(REQUESTED_API_PORT),
+    },
 });
-process.on("exit", () => {
+
+function killBackends() {
+    if (!db?.pid) return;
+    if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(db.pid), "/t", "/f"], {
+            stdio: "ignore",
+        });
+        return;
+    }
     try {
         process.kill(-db.pid, "SIGTERM");
     } catch {}
-});
+}
+process.on("exit", killBackends);
 
-async function waitFor(url, label) {
-    for (let i = 0; i < 120; i++) {
-        try {
-            const res = await fetch(url);
-            if (res.ok) return;
-        } catch {}
+async function waitForStack() {
+    for (let i = 0; i < 720; i++) {
+        const lock = readLock();
+        if (lock) {
+            try {
+                const [pb, api] = await Promise.all([
+                    fetch(`http://127.0.0.1:${lock.pbPort}/api/health`),
+                    fetch(`http://127.0.0.1:${lock.apiPort}/api/health`),
+                ]);
+                if (pb.ok && api.ok) return lock;
+            } catch {}
+        }
         await new Promise((r) => setTimeout(r, 250));
     }
-    throw new Error(`${label} did not come up`);
+    throw new Error("the backend stack did not come up");
 }
-await waitFor(`http://127.0.0.1:${PB_PORT}/api/health`, "PocketBase");
+const { pbPort, apiPort } = await waitForStack();
 
 // ---------------------------------------------------------------------------
 // static server: same layout as production (gzip, immutable hashed assets)
@@ -123,9 +158,9 @@ const server = Bun.serve({
     async fetch(req) {
         const url = new URL(req.url);
         if (url.pathname.startsWith("/db/"))
-            return proxy(req, `http://127.0.0.1:${PB_PORT}`, "/db");
+            return proxy(req, `http://127.0.0.1:${pbPort}`, "/db");
         if (url.pathname.startsWith("/api/"))
-            return proxy(req, `http://127.0.0.1:${API_PORT}`, "");
+            return proxy(req, `http://127.0.0.1:${apiPort}`, "");
         const path = url.pathname === "/" ? "/index.html" : url.pathname;
         const file = Bun.file(`${ROOT}/build${path}`);
         if (await file.exists()) {
@@ -276,4 +311,4 @@ for (const route of ROUTES) {
 
 await browser.close();
 server.stop(true);
-process.kill(-db.pid, "SIGTERM");
+killBackends();

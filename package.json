@@ -6,12 +6,12 @@
     "packageManager": "bun@1.4.4",
     "scripts": {
         "build": "vite build && bun check",
-        "db": "bun pocketbase/server.ts",
+        "db": "bun scripts/backends.ts",
         "dev": "vite --host",
         "dev:all": "bun scripts/dev.ts",
         "format": "bun fmt",
         "format:check": "bun fmt --check",
-        "install:server": "cd pocketbase && bun install --frozen-lockfile",
+        "install:server": "cd server && bun install --frozen-lockfile",
         "lint": "biome lint .",
         "perf": "bun scripts/perf.mjs",
         "preview": "bun scripts/preview.mjs",
@@ -19,7 +19,7 @@
         "setup:hooks": "git config core.hooksPath .githooks",
         "start": "vite",
         "test": "bun test --path-ignore-patterns=\"tmp/**\"",
-        "typecheck": "bun check && cd pocketbase && bun check"
+        "typecheck": "bun check && cd server && bun check"
     },
     "browserslist": {
         "production": [

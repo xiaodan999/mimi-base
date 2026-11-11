@@ -6,6 +6,7 @@
     "dependencies": {
         "@napi-rs/canvas": "^0.1.100",
         "ip2region": "^4.0.1",
-        "pdfjs-dist": "^4"
+        "pdfjs-dist": "^4",
+        "quickjs-emscripten": "^0.32.0"
     }
 }

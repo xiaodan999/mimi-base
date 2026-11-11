@@ -2,9 +2,9 @@
  * Protocol shared by the chat client and the server-side sandbox.
  *
  * The browser only validates and sanitizes what it sends; the real isolation
- * happens on the server (`pocketbase/sandbox/`), inside a systemd unit with a
- * private network namespace. Keep these limits in sync with
- * `pocketbase/sandbox/runner.py`.
+ * happens on the server (`server/sandbox.ts` + `server/sandbox-worker.ts`),
+ * inside a QuickJS WASM runtime with no filesystem, network or host globals.
+ * Keep these limits in sync with `server/sandbox-worker.ts`.
  */
 
 export const MAX_FILES = 40;
@@ -17,12 +17,12 @@ export const MAX_OUTPUT_CHARS = 20_000;
 export const SANDBOX_TIMEOUT_MS = 60_000;
 
 /**
- * Binary outputs (images) the sandbox sends back alongside the text snapshot.
- * The container is recreated for every request, so a binary that is not
- * returned with the run that produced it is gone; the client uploads these
- * to PocketBase immediately (see `chat_artifacts`).
+ * Binary images `sandbox.download` fetched from a public URL. The runtime is
+ * discarded after the run, so a binary that is not returned with the run that
+ * produced it is gone; the client uploads these to PocketBase immediately
+ * (see `chat_artifacts`).
  *
- * Keep in sync with `pocketbase/sandbox/runner.py` / `runner.mjs`.
+ * Keep in sync with `server/sandbox-worker.ts`.
  */
 export const MAX_ARTIFACTS = 3;
 export const MAX_ARTIFACT_BYTES = 1_500_000;
@@ -48,11 +48,11 @@ export type SandboxArtifact = {
 
 export type SandboxOp = "run" | "read" | "write" | "list";
 
-export type SandboxLanguage = "python" | "javascript";
+export type SandboxLanguage = "javascript";
 
 export type SandboxRequest = {
     op: SandboxOp;
-    /** Defaults to Python when omitted (legacy requests). */
+    /** Only JavaScript is supported; omitted means JavaScript. */
     language?: SandboxLanguage;
     code?: string;
     path?: string;
@@ -169,12 +169,14 @@ export function sanitizeArtifacts(input: unknown): SandboxArtifact[] {
     return artifacts;
 }
 
-/** Unknown values are rejected by the executor; missing means Python. */
+/** Unknown values are rejected by the executor; missing means JavaScript. */
 export function normalizeSandboxLanguage(
     value: unknown,
 ): SandboxLanguage | null {
-    if (value === undefined || value === null || value === "") return "python";
-    if (value === "python" || value === "javascript") return value;
+    if (value === undefined || value === null || value === "") {
+        return "javascript";
+    }
+    if (value === "javascript") return value;
     return null;
 }
 
@@ -186,8 +188,8 @@ export function describeError(error: unknown): string {
 }
 
 /**
- * Python code is executed inside the OS sandbox; imports are allowed, the
- * network is filtered there. This only enforces the request-size limit.
+ * Code runs inside QuickJS (no Node APIs, no npm, no network except the
+ * guarded `sandbox.fetch`). This only enforces the request-size limit.
  */
 export function validateSandboxCode(code: unknown): string | null {
     if (typeof code !== "string" || code.trim() === "") {

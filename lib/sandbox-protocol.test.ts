@@ -54,14 +54,14 @@ describe("sanitizeFiles", () => {
 });
 
 describe("normalizeSandboxLanguage", () => {
-    test("defaults to python and accepts javascript", () => {
-        expect(normalizeSandboxLanguage(undefined)).toBe("python");
-        expect(normalizeSandboxLanguage("")).toBe("python");
-        expect(normalizeSandboxLanguage("python")).toBe("python");
+    test("defaults to javascript and accepts javascript", () => {
+        expect(normalizeSandboxLanguage(undefined)).toBe("javascript");
+        expect(normalizeSandboxLanguage("")).toBe("javascript");
         expect(normalizeSandboxLanguage("javascript")).toBe("javascript");
     });
 
-    test("rejects unknown languages", () => {
+    test("rejects python and unknown languages", () => {
+        expect(normalizeSandboxLanguage("python")).toBeNull();
         expect(normalizeSandboxLanguage("ruby")).toBeNull();
         expect(normalizeSandboxLanguage(42)).toBeNull();
     });

@@ -5,10 +5,10 @@
  *
  *   bun scripts/preview.mjs
  *
- * Builds the app, starts PocketBase + the Bun supervisor (`bun run db`), and
- * serves `build/` the way the self-hosted deployment does: static files with an
- * SPA fallback, `/db` proxied to PocketBase (prefix stripped) and `/api`
- * proxied to the supervisor. Then point a browser at the printed URL.
+ * Builds the app, starts PocketBase + the Bun API (`bun scripts/backends.ts`),
+ * and serves `build/` the way the self-hosted deployment does: static files
+ * with an SPA fallback, `/db` proxied to PocketBase (prefix stripped) and
+ * `/api` proxied to the API. Then point a browser at the printed URL.
  *
  * This replaces `bun run dev` for verification only. A Vite dev server keeps a
  * ~430MB process alive that serves the same thing; this adds ~30MB. It also
@@ -22,11 +22,11 @@
  *   PREVIEW_PORT     (default 4500) where the preview server listens
  *   PREVIEW_BUILD=0  skip `bun run build`
  *   PB_PORT          (default 8110) PocketBase
- *   SUPERVISOR_PORT  (default 9110) Bun supervisor, serves /api
+ *   SUPERVISOR_PORT  (default 9110) Bun API, serves /api
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const ROOT = process.cwd();
 if (!existsSync(`${ROOT}/pocketbase`) || !existsSync(`${ROOT}/package.json`)) {
@@ -35,10 +35,10 @@ if (!existsSync(`${ROOT}/pocketbase`) || !existsSync(`${ROOT}/package.json`)) {
 }
 
 const PORT = Number(process.env.PREVIEW_PORT ?? 4500);
-const PB_PORT = Number(process.env.PB_PORT ?? 8110);
-const API_PORT = Number(process.env.SUPERVISOR_PORT ?? 9110);
+const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8110);
+const REQUESTED_API_PORT = Number(process.env.SUPERVISOR_PORT ?? 9110);
 const BUILD_DIR = `${ROOT}/build`;
-const PB_HEALTH = `http://127.0.0.1:${PB_PORT}/api/health`;
+const LOCK_FILE = `${ROOT}/pocketbase/pb_data/.dev-server.json`;
 
 // ---------------------------------------------------------------------------
 // build
@@ -57,8 +57,8 @@ if (process.env.PREVIEW_BUILD !== "0") {
 }
 
 // ---------------------------------------------------------------------------
-// backends: PocketBase + the Bun supervisor, as `bun run db` starts them.
-// The dev seed creates test@mimi.local on first run.
+// backends: PocketBase + the Bun API (`scripts/backends.ts`). The dev seed
+// creates test@mimi.local on first run.
 
 async function healthy(url) {
     try {
@@ -69,38 +69,60 @@ async function healthy(url) {
     }
 }
 
-async function waitFor(url, label) {
-    for (let i = 0; i < 120; i++) {
-        if (await healthy(url)) return;
+function readLock() {
+    try {
+        const parsed = JSON.parse(readFileSync(LOCK_FILE, "utf8"));
+        const pbPort = parsed.pbPort ?? parsed.port;
+        const apiPort = parsed.apiPort ?? parsed.supervisorPort;
+        if (typeof pbPort !== "number" || typeof apiPort !== "number") {
+            return null;
+        }
+        return { pbPort, apiPort };
+    } catch {
+        return null;
+    }
+}
+
+async function waitForStack() {
+    for (let i = 0; i < 720; i++) {
+        const lock = readLock();
+        if (
+            lock &&
+            (await healthy(`http://127.0.0.1:${lock.pbPort}/api/health`)) &&
+            (await healthy(`http://127.0.0.1:${lock.apiPort}/api/health`))
+        ) {
+            return lock;
+        }
         await new Promise((r) => setTimeout(r, 250));
     }
-    throw new Error(`${label} did not come up on ${url}`);
+    throw new Error("the backend stack did not come up");
 }
 
-let db = null;
+const db = spawn("bun", ["scripts/backends.ts"], {
+    cwd: ROOT,
+    stdio: ["ignore", "inherit", "inherit"],
+    detached: true,
+    env: {
+        ...process.env,
+        PB_PORT: String(REQUESTED_PB_PORT),
+        SUPERVISOR_PORT: String(REQUESTED_API_PORT),
+    },
+});
+const { pbPort, apiPort } = await waitForStack();
 
-if (await healthy(PB_HEALTH)) {
-    console.log(`reusing PocketBase already listening on 127.0.0.1:${PB_PORT}`);
-} else {
-    db = spawn("bun", ["run", "db"], {
-        cwd: ROOT,
-        stdio: ["ignore", "inherit", "inherit"],
-        detached: true,
-        env: {
-            ...process.env,
-            PB_PORT: String(PB_PORT),
-            SUPERVISOR_PORT: String(API_PORT),
-        },
-    });
-    await waitFor(PB_HEALTH, "PocketBase");
-}
-
-process.on("exit", () => {
+function killBackends() {
     if (!db?.pid) return;
+    if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(db.pid), "/t", "/f"], {
+            stdio: "ignore",
+        });
+        return;
+    }
     try {
         process.kill(-db.pid, "SIGTERM");
     } catch {}
-});
+}
+process.on("exit", killBackends);
 for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => process.exit(0));
 }
@@ -156,9 +178,9 @@ Bun.serve({
     async fetch(req) {
         const url = new URL(req.url);
         if (url.pathname.startsWith("/db/"))
-            return proxy(req, `http://127.0.0.1:${PB_PORT}`, "/db");
+            return proxy(req, `http://127.0.0.1:${pbPort}`, "/db");
         if (url.pathname.startsWith("/api/"))
-            return proxy(req, `http://127.0.0.1:${API_PORT}`, "");
+            return proxy(req, `http://127.0.0.1:${apiPort}`, "");
         const path = url.pathname === "/" ? "/index.html" : url.pathname;
         const file = Bun.file(`${BUILD_DIR}${path}`);
         if (await file.exists()) {
@@ -202,8 +224,8 @@ console.log(
     [
         "",
         `preview ready: ${BASE}`,
-        `  /db  -> PocketBase 127.0.0.1:${PB_PORT}`,
-        `  /api -> supervisor 127.0.0.1:${API_PORT}`,
+        `  /db  -> PocketBase 127.0.0.1:${pbPort}`,
+        `  /api -> the API 127.0.0.1:${apiPort}`,
         "  log in as test@mimi.local / mimi123456 (dev seed)",
         "  ctrl-c stops the preview and its backends",
         "",

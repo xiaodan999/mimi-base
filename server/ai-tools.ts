@@ -17,10 +17,17 @@
  *   only malformed requests or infrastructure failures get 4xx/5xx.
  */
 
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
-
 import { isRecordId } from "../lib/chat-files";
+import {
+    assertPublicHost,
+    isPrivateIp,
+    isRedirect,
+    UrlPolicyError,
+} from "./safe-fetch";
+
+// Kept exported for the existing tests and any caller that imported the
+// guard from this module before it moved to safe-fetch.ts.
+export { assertPublicHost, isPrivateIp };
 
 export const AI_TOOLS_EXPENSES_PATH = "/api/ai/tools/expenses";
 export const AI_TOOLS_POSTS_PATH = "/api/ai/tools/posts";
@@ -658,84 +665,9 @@ export function filterLiteral(value: string): string {
     return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-class UrlPolicyError extends Error {}
-
-function isRedirect(status: number): boolean {
-    return (
-        status === 301 ||
-        status === 302 ||
-        status === 303 ||
-        status === 307 ||
-        status === 308
-    );
-}
-
 function isTextContentType(contentType: string): boolean {
     const mime = contentType.split(";")[0]?.trim() ?? "";
     return /^(text\/|application\/(json|xml|javascript|xhtml))/i.test(mime);
-}
-
-/** Refuse hostnames that are (or resolve to) private/reserved addresses. */
-export async function assertPublicHost(hostname: string): Promise<void> {
-    if (isIP(hostname) !== 0) {
-        if (isPrivateIp(hostname)) {
-            throw new UrlPolicyError("不能访问内网地址");
-        }
-        return;
-    }
-    let addrs: Array<{ address: string }>;
-    try {
-        addrs = await lookup(hostname, { all: true, verbatim: true });
-    } catch {
-        throw new UrlPolicyError("解析不了这个域名");
-    }
-    if (addrs.length === 0) throw new UrlPolicyError("解析不了这个域名");
-    for (const addr of addrs) {
-        if (isPrivateIp(addr.address)) {
-            throw new UrlPolicyError("不能访问内网地址");
-        }
-    }
-}
-
-/** True for IPv4/IPv6 loopback, private, link-local and reserved ranges. */
-export function isPrivateIp(ip: string): boolean {
-    if (isIP(ip) === 4) {
-        const parts = ip.split(".").map(Number);
-        if (
-            parts.length !== 4 ||
-            parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)
-        ) {
-            return true; // malformed → treat as unsafe
-        }
-        const [a, b, c] = parts;
-        return (
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            (a === 100 && b >= 64 && b <= 127) || // CGNAT
-            (a === 169 && b === 254) || // link local
-            (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && b === 168) ||
-            (a === 192 && b === 0 && c <= 2) || // 192.0.0.0/24 + TEST-NET-1
-            (a === 198 && b === 51 && c === 100) || // TEST-NET-2
-            (a === 198 && (b === 18 || b === 19)) || // benchmarking
-            (a === 203 && b === 0 && c === 113) || // TEST-NET-3
-            a >= 224 // multicast + reserved
-        );
-    }
-    if (isIP(ip) === 6) {
-        const lower = ip.toLowerCase();
-        if (lower === "::" || lower === "::1") return true;
-        if (lower.startsWith("::ffff:")) {
-            const mapped = lower.slice(7);
-            return mapped.includes(".") ? isPrivateIp(mapped) : true;
-        }
-        // fc00::/7 unique local, fe80::/10 link local, ff00::/8 multicast
-        return (
-            /^f[cd]/.test(lower) || /^fe[89ab]/.test(lower) || /^ff/.test(lower)
-        );
-    }
-    return true; // not an IP literal → unsafe default
 }
 
 export function htmlToText(html: string): { title: string; text: string } {
