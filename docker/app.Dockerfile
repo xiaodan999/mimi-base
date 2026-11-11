@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # mimi-base-app: Bun API + built SPA + QuickJS sandbox.
-# Built by .github/workflows/images.yml and pushed to Aliyun ACR.
+# Built by .github/workflows/images.yml and pushed to GitHub Container Registry.
 
 # --- SPA ---------------------------------------------------------------
 FROM oven/bun:1.4.4 AS spa

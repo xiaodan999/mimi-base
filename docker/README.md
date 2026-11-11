@@ -15,8 +15,13 @@
   `./pocketbase/pb_data`（宿主机目录直接 bind mount）。
 - `mimi-app`：Bun API、静态 SPA、QuickJS 沙箱；PDF 附件、ffmpeg、AI 中转都在这里。
 - 两个容器都只加入外部网络 `caddy-net`，**不发布任何端口**。Caddy 按容器名反代。
-- 镜像来自阿里云 ACR，由 Watchtower 更新；不再使用 `/db/sync`、`/spa/publish`、
-  `/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
+- 镜像来自 GitHub Container Registry（`ghcr.io/<owner>/mimi-base-app`、
+  `ghcr.io/<owner>/mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、
+  `/spa/publish`、`/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
+- 两个包应设为 **public**：宿主机匿名拉取即可，不需要在机器上放任何凭据，公开包
+  的存储和流量也不计费。**首次推送后**在 GitHub 上改可见性：
+  `https://github.com/users/<owner>/packages/container/mimi-base-app/settings`
+  → Danger Zone → Change visibility → Public（`mimi-base-pb` 同样操作一次）。
 
 下文用几个占位符，按你的环境替换：
 
@@ -26,8 +31,8 @@ BACKUP_DIR=<pb_data 备份目录>        # 例如 /srv/backups
 CADDY_CONTAINER=<Caddy 容器名>
 CADDY_CONFIG_DIR=<Caddy 配置目录>    # 例如 /srv/caddy
 APP_HOST=<对外域名>                  # 例如 app.example.com
-ALIYUN_ACR=<ACR 公网地址>            # 例如 registry.cn-guangzhou.aliyuncs.com
-NAMESPACE=<ACR 命名空间>
+REGISTRY=ghcr.io
+IMAGE_OWNER=<GitHub 用户名>          # 例如 xiaodan999，和 compose.yaml 一致
 ```
 
 ## 一、首次部署
@@ -87,8 +92,10 @@ docker compose -f <watchtower-compose-file> up -d
 docker logs --tail=30 <watchtower-container>
 ```
 
-它需要能读到 ACR 的登录信息（例如挂载 `/root/.docker/config.json`），
-否则私有仓库拉不下来。
+公开包不需要登录信息，Watchtower 匿名拉取即可。如果暂时还是私有包，需要让它
+读到 `ghcr.io` 的凭据（例如在宿主机 `docker login ghcr.io` 后挂载
+`/root/.docker/config.json`，或用 `--password-stdin` 传一个带 `read:packages`
+的 PAT）。
 
 ### 4. 冒烟检查
 
@@ -102,21 +109,44 @@ curl -fsS "https://$APP_HOST/version.json"
 
 ## 二、日常更新
 
+### 从阿里云 ACR 切过来（只做一次）
+
+1. 改动落到 `master` 后，在 Actions 里**手动跑一次 `images`**（`workflow_dispatch`
+   会把两个镜像都标为需要构建）。普通推送只会算出 app/pb 都没变，不会推镜像。
+2. 第一次推送后两个包默认是私有的，按上面的链接把 `mimi-base-app` 和
+   `mimi-base-pb` 都改成 Public。
+3. 宿主机在 `$REPO_DIR` 里 `git pull --ff-only` 后执行一次
+   `docker compose pull && docker compose up -d`。**这一步要手动做**：Watchtower
+   的 `image=` 过滤按容器当前镜像匹配，旧容器还指向 ACR（或者根本没在跑），
+   它不会自己换成 ghcr。
+4. 确认 `docker compose ps` 里两个容器的镜像都是 `ghcr.io/...`，之后
+   Watchtower 就能按镜像名正常更新了。
+
 `master` 推送后：
 
 1. `ci` 通过；
-2. `images` 构建并推送 `mimi-base-app` / `mimi-base-pb` 的 `:latest` 和 `:$sha`
-   到阿里云 ACR（只有相关路径变化时才构建对应镜像）；
+2. `images` 用 `GITHUB_TOKEN` 登录 `ghcr.io`，推送 `mimi-base-app` /
+   `mimi-base-pb` 的 `:latest` 和 `:$sha`（只有相关路径变化时才构建对应镜像），
+   不需要额外的 registry secret；
 3. `deploy` 调用 Watchtower 的 `$WATCHTOWER_HTTP_API_URL`；
-4. Watchtower 拉取并重建对应容器；`deploy` 轮询 `version.json` 确认新 sha。
+4. Watchtower 拉取并重建对应容器；`deploy` 轮询 `version.json` 确认新 sha
+   （首次拉取整个镜像，等待上限 15 分钟）。
 
 手动触发（CI 之外的紧急更新）：
 
 ```bash
 curl -fsS -G \
   -H "Authorization: Bearer $WATCHTOWER_HTTP_API_TOKEN" \
-  --data-urlencode "image=$ALIYUN_ACR/$NAMESPACE/mimi-base-app" \
+  --data-urlencode "image=$REGISTRY/$IMAGE_OWNER/mimi-base-app" \
   "$WATCHTOWER_HTTP_API_URL"
+```
+
+国内到 `ghcr.io` 的链路偶尔会很慢或卡住。`docker compose pull` 失败时直接重试
+即可（已下载的层会复用）：
+
+```bash
+for i in 1 2 3; do docker compose pull && break; sleep 10; done
+docker compose up -d
 ```
 
 `WATCHTOWER_HTTP_API_URL` / `WATCHTOWER_HTTP_API_TOKEN` 来自仓库 secrets

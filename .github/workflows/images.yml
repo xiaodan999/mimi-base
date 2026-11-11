@@ -4,9 +4,13 @@ name: images
 #
 # The frontend is still built by Vercel independently; this workflow produces
 # the self-hosted `mimi-base-app` (Bun API + SPA + QuickJS) and
-# `mimi-base-pb` (PocketBase + schema/hooks) images in Aliyun ACR. Watchtower
-# watches those container names and only updates when this workflow calls its
-# HTTP API, so `deploy` is the actual rollout step.
+# `mimi-base-pb` (PocketBase + schema/hooks) images in GitHub Container
+# Registry (ghcr.io). Watchtower watches those container names and only
+# updates when this workflow calls its HTTP API, so `deploy` is the actual
+# rollout step.
+#
+# The two packages are meant to be public (see docker/README.md): the host then
+# pulls them anonymously, and public GHCR storage and transfer are not billed.
 
 on:
     push:
@@ -83,16 +87,30 @@ jobs:
     images:
         needs: [ci, changes]
         runs-on: ubuntu-latest
+        # ghcr.io authenticates with the workflow token; no long-lived PAT.
+        permissions:
+            contents: read
+            packages: write
+        outputs:
+            owner: ${{ steps.meta.outputs.owner }}
         steps:
             - uses: actions/checkout@v4
+
+            # GHCR repository names must be lowercase, while the owner login
+            # keeps its case. Normalize once and reuse it for every tag and
+            # for the Watchtower image filter.
+            - id: meta
+              run: |
+                  set -euo pipefail
+                  echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
             - uses: docker/setup-buildx-action@v3
 
             - uses: docker/login-action@v3
               with:
-                  registry: registry.cn-guangzhou.aliyuncs.com
-                  username: ${{ secrets.ALIYUN_DOCKER_USER_NAME }}
-                  password: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
 
             # The gha backend keys its cache on `scope`; without one, both
             # builds default to `buildkit` and overwrite each other's cache.
@@ -108,8 +126,8 @@ jobs:
                   platforms: linux/amd64
                   build-args: GITHUB_SHA=${{ github.sha }}
                   tags: |
-                      registry.cn-guangzhou.aliyuncs.com/${{ secrets.ALIYUN_DOCKER_NAMESPACE }}/mimi-base-app:latest
-                      registry.cn-guangzhou.aliyuncs.com/${{ secrets.ALIYUN_DOCKER_NAMESPACE }}/mimi-base-app:${{ github.sha }}
+                      ghcr.io/${{ steps.meta.outputs.owner }}/mimi-base-app:latest
+                      ghcr.io/${{ steps.meta.outputs.owner }}/mimi-base-app:${{ github.sha }}
                   cache-from: type=gha,scope=mimi-app
                   cache-to: type=gha,scope=mimi-app,mode=max
 
@@ -124,8 +142,8 @@ jobs:
                   sbom: false
                   platforms: linux/amd64
                   tags: |
-                      registry.cn-guangzhou.aliyuncs.com/${{ secrets.ALIYUN_DOCKER_NAMESPACE }}/mimi-base-pb:latest
-                      registry.cn-guangzhou.aliyuncs.com/${{ secrets.ALIYUN_DOCKER_NAMESPACE }}/mimi-base-pb:${{ github.sha }}
+                      ghcr.io/${{ steps.meta.outputs.owner }}/mimi-base-pb:latest
+                      ghcr.io/${{ steps.meta.outputs.owner }}/mimi-base-pb:${{ github.sha }}
                   cache-from: type=gha,scope=mimi-pb
                   cache-to: type=gha,scope=mimi-pb,mode=max
 
@@ -139,7 +157,7 @@ jobs:
         env:
             WATCHTOWER_TOKEN: ${{ secrets.WATCHTOWER_HTTP_API_TOKEN }}
             WATCHTOWER_URL: ${{ secrets.WATCHTOWER_HTTP_API_URL }}
-            NAMESPACE: ${{ secrets.ALIYUN_DOCKER_NAMESPACE }}
+            IMAGE_OWNER: ${{ needs.images.outputs.owner }}
         steps:
             - name: Check Watchtower configuration
               id: gate
@@ -159,7 +177,7 @@ jobs:
                   case "$url" in */v1/update) ;; *) url="$url/v1/update" ;; esac
                   curl -fsS --max-time 300 -G \
                     -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
-                    --data-urlencode "image=registry.cn-guangzhou.aliyuncs.com/$NAMESPACE/mimi-base-app" \
+                    --data-urlencode "image=ghcr.io/$IMAGE_OWNER/mimi-base-app" \
                     "$url"
 
             - name: Update pb
@@ -170,7 +188,7 @@ jobs:
                   case "$url" in */v1/update) ;; *) url="$url/v1/update" ;; esac
                   curl -fsS --max-time 300 -G \
                     -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
-                    --data-urlencode "image=registry.cn-guangzhou.aliyuncs.com/$NAMESPACE/mimi-base-pb" \
+                    --data-urlencode "image=ghcr.io/$IMAGE_OWNER/mimi-base-pb" \
                     "$url"
 
             - name: Verify app sha
@@ -179,7 +197,10 @@ jobs:
                   PB_BASE_URL: ${{ vars.PB_BASE_URL }}
               run: |
                   set -euo pipefail
-                  for i in $(seq 1 30); do
+                  # Watchtower pulls the whole image before it restarts the
+                  # container; the first ghcr.io pull from the host can be a
+                  # full ~300MB, so allow up to 15 minutes, not 5.
+                  for i in $(seq 1 90); do
                     sha=$(curl -fsS "$PB_BASE_URL/version.json?t=${{ github.sha }}" | jq -r '.sha // empty' 2>/dev/null || true)
                     if [ "$sha" = "${{ github.sha }}" ]; then
                       echo "new bundle live: $sha"

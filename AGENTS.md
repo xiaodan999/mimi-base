@@ -805,10 +805,14 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
 - Default branch is `master`. Pushing to `master` runs
   `.github/workflows/images.yml`: `ci` gates it, the `changes` job decides
   whether `mimi-base-app` and/or `mimi-base-pb` changed, both images are pushed
-  to Aliyun ACR as `:latest` + `:$sha`, then the `deploy` job calls
-  Watchtower's `/v1/update?image=...` and verifies `/version.json`. The old
-  `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints are
-  gone; `DEPLOY_TOKEN` is unused.
+  to GitHub Container Registry as `ghcr.io/<owner>/<name>:latest` + `:$sha`
+  (the `images` job authenticates with `GITHUB_TOKEN` and needs
+  `packages: write`), then the `deploy` job calls Watchtower's
+  `/v1/update?image=...` and verifies `/version.json`. The two GHCR packages
+  are meant to be public so the host pulls them anonymously; private packages
+  fall under GHCR's free storage/transfer cap and need host credentials. The
+  old `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints
+  are gone; `DEPLOY_TOKEN` is unused.
 - Both containers auto-update through Watchtower, so **migrations must stay
   additive**: add fields/collections first, remove or rename in a later
   release, and keep the app tolerant of the previous schema. PocketBase
