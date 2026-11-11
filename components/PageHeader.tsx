@@ -64,8 +64,13 @@ export default function PageHeader({
             <div className="min-w-0 flex-1">
                 <div
                     className={cn(
-                        "flex items-start",
-                        compact ? "gap-1" : "gap-2",
+                        stackedDescription
+                            ? // The actions span the title and description rows,
+                              // so they reserve their width without making the
+                              // title row taller than its line box.
+                              "grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2"
+                            : "flex items-start",
+                        !stackedDescription && (compact ? "gap-1" : "gap-2"),
                     )}
                 >
                     <div className="min-w-0 flex-1">
@@ -95,26 +100,29 @@ export default function PageHeader({
                     {actions ? (
                         <div
                             className={cn(
-                                "flex shrink-0 items-center",
+                                "flex shrink-0",
+                                stackedDescription && description
+                                    ? "col-start-2 row-span-2 row-start-1 self-start"
+                                    : "items-center",
                                 compact ? "gap-1" : "gap-2",
                             )}
                         >
                             {actions}
                         </div>
                     ) : null}
+                    {description && stackedDescription ? (
+                        <p
+                            className={cn(
+                                "col-span-2 col-start-1 row-start-2 text-muted-foreground",
+                                compact
+                                    ? "mt-0.5 text-[11px] leading-4"
+                                    : "mt-1 text-sm leading-5",
+                            )}
+                        >
+                            {description}
+                        </p>
+                    ) : null}
                 </div>
-                {description && stackedDescription ? (
-                    <p
-                        className={cn(
-                            "text-muted-foreground",
-                            compact
-                                ? "mt-0.5 text-[11px] leading-4"
-                                : "mt-1 text-sm leading-5",
-                        )}
-                    >
-                        {description}
-                    </p>
-                ) : null}
             </div>
         </header>
     );
