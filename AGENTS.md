@@ -810,10 +810,12 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
   `DOCKER_REGISTRY` / `DOCKER_NAMESPACE` / `DOCKER_USERNAME` /
   `DOCKER_PASSWORD` repository secrets, then the `deploy` job **POSTs** to
   Watchtower's `/v1/update?image=...` (1.18 answers 405 to GET) and verifies
-  `/version.json`. The two TCR repos are public, so the host pulls them
-  anonymously and Watchtower needs no credentials. A registry or image-name
-  change also needs a one-time manual `docker compose pull && up -d` on the
-  host, because Watchtower filters by the image the container already runs. The
+  `/version.json`. The two TCR repos are private: the host has a one-time
+  `docker login hkccr.ccs.tencentyun.com` in `/root/.docker/config.json`, which
+  Watchtower also mounts (restart it after logging in — it reads the file at
+  startup). A registry or image-name change also needs a one-time manual
+  `docker compose pull && up -d` on the host, because Watchtower filters by the
+  image the container already runs. The
   old `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints
   are gone; `DEPLOY_TOKEN` is unused.
 - Both containers auto-update through Watchtower, so **migrations must stay

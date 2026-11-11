@@ -18,11 +18,11 @@
 - 镜像来自腾讯云容器镜像服务香港（`hkccr.ccs.tencentyun.com/<namespace>/mimi-base-app`、
   `.../mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、`/spa/publish`、
   `/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
-- 两个仓库是 **公开（用户公开）**：宿主机匿名拉取即可，不需要在机器上放任何
-  凭据，Watchtower 也不用登录。CI 用仓库 secrets `DOCKER_REGISTRY` /
-  `DOCKER_NAMESPACE` / `DOCKER_USERNAME` / `DOCKER_PASSWORD`（TCR 控制台的
-  访问凭证）推送；如果改成私有仓库，宿主机要 `docker login hkccr.ccs.tencentyun.com`
-  并把 `/root/.docker/config.json` 挂进 Watchtower。
+- 两个仓库是 **私有**：CI 用仓库 secrets `DOCKER_REGISTRY` / `DOCKER_NAMESPACE` /
+  `DOCKER_USERNAME` / `DOCKER_PASSWORD`（TCR 控制台的访问凭证）推送；宿主机需要
+  执行过一次 `docker login hkccr.ccs.tencentyun.com`，凭据落在
+  `/root/.docker/config.json`，Watchtower 挂载同一个文件即可拉取。如果把仓库改成
+  公开（用户公开），宿主机就不再需要这份凭据。
 
 下文用几个占位符，按你的环境替换：
 
@@ -93,9 +93,10 @@ docker compose -f <watchtower-compose-file> up -d
 docker logs --tail=30 <watchtower-container>
 ```
 
-公开仓库不需要登录信息，Watchtower 匿名拉取即可。如果改成私有仓库，需要在
-宿主机 `docker login hkccr.ccs.tencentyun.com`（TCR 访问凭证），并让 Watchtower
-读到 `/root/.docker/config.json`。
+私有仓库要求宿主机先 `docker login hkccr.ccs.tencentyun.com`（用户名/密码来自
+TCR 控制台的访问凭证），凭据写在 `/root/.docker/config.json`，Watchtower 挂载
+这个文件读取。**登录之后重启一次 Watchtower**，它启动时才读取凭据；否则更新时
+拉取会 401。
 
 ### 4. 冒烟检查
 
@@ -113,7 +114,8 @@ curl -fsS "https://$APP_HOST/version.json"
 
 1. 改动落到 `master` 后，在 Actions 里**手动跑一次 `images`**（`workflow_dispatch`
    会把两个镜像都标为需要构建）。普通推送只会算出 app/pb 都没变，不会推镜像。
-2. 确认 TCR 里两个仓库是「用户公开」。
+2. 确认宿主机已 `docker login hkccr.ccs.tencentyun.com`（`/root/.docker/config.json`
+   里有该 registry），并重启过 Watchtower。
 3. 宿主机在 `$REPO_DIR` 里 `git pull --ff-only` 后执行一次
    `docker compose pull && docker compose up -d`。**这一步要手动做**：Watchtower
    的 `image=` 过滤按容器当前镜像匹配，旧容器还指向上一个 registry，它不会自己换。

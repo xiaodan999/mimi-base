@@ -2,10 +2,11 @@
 #
 # Caddy is the host's existing container: both services join its external
 # `caddy-net` network and publish no ports. Images come from Tencent Cloud
-# Container Registry in Hong Kong (public repos, so the host pulls anonymously)
-# and are rolled out by Watchtower; keep `container_name` in sync with the
-# names in /root/watch-tower/docker-compose.yml. A fork must change the
-# namespace here and the DOCKER_* repository secrets.
+# Container Registry in Hong Kong (private repos; the host logs in once and
+# Watchtower reads the same /root/.docker/config.json) and are rolled out by
+# Watchtower; keep `container_name` in sync with the names in
+# /root/watch-tower/docker-compose.yml. A fork must change the namespace here
+# and the DOCKER_* repository secrets.
 #
 #   docker compose pull && docker compose up -d
 #   MIMI_TAG=<sha> docker compose up -d      # rollback
