@@ -147,7 +147,7 @@ export default function PostComposerImages({
 
             {images.length > 1 && (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                    点「调整顺序」可以拖动照片排序
+                    点「调整顺序」后，按住任意照片即可拖动排序
                 </p>
             )}
         </section>

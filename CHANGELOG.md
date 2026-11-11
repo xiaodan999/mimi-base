@@ -2,6 +2,12 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-11
+
+### 修复
+
+- 照片拖动排序的跟手与动效（#75）：`PostImageSort` 让被拖动的照片用 `translate3d` 跟随指针，跨过槽位时按槽位位移修正视觉偏移，其余照片用 FLIP（记录旧矩形 + Web Animations API，180ms）从原位置平滑滑入新槽位；松手时从当前偏移缓动回槽位。原来 `transition-transform` 管不到 Tailwind v4 用独立 `scale` 属性生成的 `scale-[1.03]`，现在把缩放直接组合进 `transform`；去掉右下角的拖拽图标，整张照片都是拖动区域，方向键排序也走同一套 FLIP，`prefers-reduced-motion` 下动画时长为 0。
+
 ## 2026-11-10
 
 ### 修复
