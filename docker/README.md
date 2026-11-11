@@ -15,14 +15,14 @@
   `./pocketbase/pb_data`（宿主机目录直接 bind mount）。
 - `mimi-app`：Bun API、静态 SPA、QuickJS 沙箱；PDF 附件、ffmpeg、AI 中转都在这里。
 - 两个容器都只加入外部网络 `caddy-net`，**不发布任何端口**。Caddy 按容器名反代。
-- 镜像来自 GitHub Container Registry（`ghcr.io/<owner>/mimi-base-app`、
-  `ghcr.io/<owner>/mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、
-  `/spa/publish`、`/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
-- 两个包是 **public**：公开仓库的 workflow 推上来的包默认就是公开的，宿主机
-  匿名拉取即可，不需要在机器上放任何凭据；公开包的存储和流量也不计费。首次推送
-  后看一眼 `https://github.com/<owner>/mimi-base/pkgs/container/mimi-base-app`，
-  如果显示 Private（比如仓库当时是私有的），在 Package settings → Danger Zone →
-  Change visibility 改成 Public，`mimi-base-pb` 同样处理。
+- 镜像来自腾讯云容器镜像服务香港（`hkccr.ccs.tencentyun.com/<namespace>/mimi-base-app`、
+  `.../mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、`/spa/publish`、
+  `/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
+- 两个仓库是 **公开（用户公开）**：宿主机匿名拉取即可，不需要在机器上放任何
+  凭据，Watchtower 也不用登录。CI 用仓库 secrets `DOCKER_REGISTRY` /
+  `DOCKER_NAMESPACE` / `DOCKER_USERNAME` / `DOCKER_PASSWORD`（TCR 控制台的
+  访问凭证）推送；如果改成私有仓库，宿主机要 `docker login hkccr.ccs.tencentyun.com`
+  并把 `/root/.docker/config.json` 挂进 Watchtower。
 
 下文用几个占位符，按你的环境替换：
 
@@ -32,8 +32,8 @@ BACKUP_DIR=<pb_data 备份目录>        # 例如 /srv/backups
 CADDY_CONTAINER=<Caddy 容器名>
 CADDY_CONFIG_DIR=<Caddy 配置目录>    # 例如 /srv/caddy
 APP_HOST=<对外域名>                  # 例如 app.example.com
-REGISTRY=ghcr.io
-IMAGE_OWNER=<GitHub 用户名>          # 例如 xiaodan999，和 compose.yaml 一致
+REGISTRY=hkccr.ccs.tencentyun.com
+NAMESPACE=<TCR 命名空间>             # 例如 xiaohai-huang，和 compose.yaml 一致
 ```
 
 ## 一、首次部署
@@ -93,10 +93,9 @@ docker compose -f <watchtower-compose-file> up -d
 docker logs --tail=30 <watchtower-container>
 ```
 
-公开包不需要登录信息，Watchtower 匿名拉取即可。如果暂时还是私有包，需要让它
-读到 `ghcr.io` 的凭据（例如在宿主机 `docker login ghcr.io` 后挂载
-`/root/.docker/config.json`，或用 `--password-stdin` 传一个带 `read:packages`
-的 PAT）。
+公开仓库不需要登录信息，Watchtower 匿名拉取即可。如果改成私有仓库，需要在
+宿主机 `docker login hkccr.ccs.tencentyun.com`（TCR 访问凭证），并让 Watchtower
+读到 `/root/.docker/config.json`。
 
 ### 4. 冒烟检查
 
@@ -110,24 +109,23 @@ curl -fsS "https://$APP_HOST/version.json"
 
 ## 二、日常更新
 
-### 从阿里云 ACR 切过来（只做一次）
+### 换镜像仓库时（只做一次）
 
 1. 改动落到 `master` 后，在 Actions 里**手动跑一次 `images`**（`workflow_dispatch`
    会把两个镜像都标为需要构建）。普通推送只会算出 app/pb 都没变，不会推镜像。
-2. 确认上面两个包是 Public（公开仓库自动如此，正常不用改）。
+2. 确认 TCR 里两个仓库是「用户公开」。
 3. 宿主机在 `$REPO_DIR` 里 `git pull --ff-only` 后执行一次
    `docker compose pull && docker compose up -d`。**这一步要手动做**：Watchtower
-   的 `image=` 过滤按容器当前镜像匹配，旧容器还指向 ACR（或者根本没在跑），
-   它不会自己换成 ghcr。
-4. 确认 `docker compose ps` 里两个容器的镜像都是 `ghcr.io/...`，之后
-   Watchtower 就能按镜像名正常更新了。
+   的 `image=` 过滤按容器当前镜像匹配，旧容器还指向上一个 registry，它不会自己换。
+4. 确认 `docker compose ps` 里两个容器的镜像都是 `hkccr.ccs.tencentyun.com/...`，
+   之后 Watchtower 就能按镜像名正常更新了。
 
 `master` 推送后：
 
 1. `ci` 通过；
-2. `images` 用 `GITHUB_TOKEN` 登录 `ghcr.io`，推送 `mimi-base-app` /
-   `mimi-base-pb` 的 `:latest` 和 `:$sha`（只有相关路径变化时才构建对应镜像），
-   不需要额外的 registry secret；
+2. `images` 用 `DOCKER_*` secrets 登录 `hkccr.ccs.tencentyun.com`，推送
+   `mimi-base-app` / `mimi-base-pb` 的 `:latest` 和 `:$sha`（只有相关路径变化时
+   才构建对应镜像）；
 3. `deploy` 用 **POST** 调用 Watchtower 的 `$WATCHTOWER_HTTP_API_URL/v1/update`；
 4. Watchtower 拉取并重建对应容器；`deploy` 轮询 `version.json` 确认新 sha
    （首次拉取整个镜像，等待上限 15 分钟）。
@@ -138,11 +136,11 @@ curl -fsS "https://$APP_HOST/version.json"
 # GET 会返回 405，必须用 POST；镜像名里的 / 要编码成 %2F。
 curl -fsS -X POST \
   -H "Authorization: Bearer $WATCHTOWER_HTTP_API_TOKEN" \
-  "$WATCHTOWER_HTTP_API_URL/v1/update?image=$REGISTRY%2F$IMAGE_OWNER%2Fmimi-base-app"
+  "$WATCHTOWER_HTTP_API_URL/v1/update?image=$REGISTRY%2F$NAMESPACE%2Fmimi-base-app"
 ```
 
-国内到 `ghcr.io` 的链路偶尔会很慢或卡住。`docker compose pull` 失败时直接重试
-即可（已下载的层会复用）：
+香港节点偶尔也会有慢的时段。`docker compose pull` 失败时直接重试即可（已下载的
+层会复用）：
 
 ```bash
 for i in 1 2 3; do docker compose pull && break; sleep 10; done

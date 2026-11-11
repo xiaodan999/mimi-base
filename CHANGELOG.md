@@ -16,6 +16,7 @@
 
 ### 变更
 
+- 镜像仓库从 `ghcr.io` 换成腾讯云容器镜像服务香港：`images` 用 `DOCKER_REGISTRY` / `DOCKER_NAMESPACE` / `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets 推送 `hkccr.ccs.tencentyun.com/xiaohai-huang/mimi-base-{app,pb}`，两个仓库设为公开，宿主机匿名拉取，Watchtower 不需要凭据。实测从 VPS 拉 247MB 镜像 35s（约 7MB/s）、48MB 镜像 13–20s，`/v2/` 延迟 41–56ms（ghcr 约 500ms）；偶尔仍有慢的时段，`docker compose pull` 重试即可，已下载的层会复用。`compose.yaml`、`docker/README.md`、`README.md`、`AGENTS.md` 同步更新。
 - 镜像仓库从阿里云 ACR 换成 GitHub Container Registry：`images` 改用 `GITHUB_TOKEN`（`packages: write`）推送 `ghcr.io/<owner>/mimi-base-app` / `mimi-base-pb`，不再需要 `ALIYUN_DOCKER_*` secrets；两个包设为 public 后宿主机匿名拉取，Watchtower 不用再读 registry 凭据。`deploy` 的 `version.json` 校验等待上限从 5 分钟放宽到 15 分钟，给首次整包拉取留余量。`compose.yaml`、`docker/README.md`、`AGENTS.md` 同步更新；切到 ghcr 是因为 GitHub Actions 推送到阿里云广州的公网端点每层只有几百 KB/s，15 分钟都推不完。
 - 聊天沙箱从 Docker 里的 Python/Node 换成 QuickJS（WASM + Worker）：只支持 JavaScript，单次运行 64MB 堆、60 秒硬超时；`sandbox.fetch` / `sandbox.download` 由 API 侧复用 `read_url` 的 SSRF 校验代取。删除 `pocketbase/sandbox/`、`sandbox-exec.ts`、两个语言镜像和 `SANDBOX_BASE_IMAGE*`，`SandboxLanguage` 只剩 `javascript`。
 - 部署改为容器：`mimi-base-app`（Bun API + SPA + QuickJS）和 `mimi-base-pb`（PocketBase + 迁移/钩子）由 GitHub Actions 构建并推送到阿里云 ACR，CI 推送后触发 Watchtower；宿主机现有的 Caddy 继续在 `caddy-net` 上反代 `/api/*` 与 `/db/*`，两个容器不发布端口。

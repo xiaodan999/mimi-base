@@ -236,8 +236,8 @@ https://bun.sh 按提示安装。
 - **Vercel**：推送后由 Vercel 自己打包部署（`vercel.json` 里配了
   `framework: vite` / `buildCommand: bun run build` / `outputDirectory: build`）。
 - **自托管**：GitHub Actions 构建 `mimi-base-app`（Bun API + SPA + QuickJS）
-  和 `mimi-base-pb`（PocketBase + 迁移/钩子），推到 GitHub Container Registry
-  （`ghcr.io`，公开包，宿主机匿名拉取）；宿主机上已有的
+  和 `mimi-base-pb`（PocketBase + 迁移/钩子），推到腾讯云容器镜像服务香港
+  （`hkccr.ccs.tencentyun.com`，公开仓库，宿主机匿名拉取）；宿主机上已有的
   Caddy 把 `/api/*` 和页面转发到 `mimi-app`，把 `/db/*` 转发到 `mimi-pb`。
   Watchtower 负责更新这两个容器，`pb_data` 直接 bind mount 到
   `pocketbase/pb_data`。完整的服务器步骤见 `docker/README.md`。

@@ -805,14 +805,13 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
 - Default branch is `master`. Pushing to `master` runs
   `.github/workflows/images.yml`: `ci` gates it, the `changes` job decides
   whether `mimi-base-app` and/or `mimi-base-pb` changed, both images are pushed
-  to GitHub Container Registry as `ghcr.io/<owner>/<name>:latest` + `:$sha`
-  (the `images` job authenticates with `GITHUB_TOKEN` and needs
-  `packages: write`), then the `deploy` job **POSTs** to Watchtower's
-  `/v1/update?image=...` (1.18 answers 405 to GET) and verifies
-  `/version.json`. The two GHCR packages
-  are public (a push from this public repo publishes them that way), so the
-  host pulls them anonymously; private packages would fall under GHCR's free
-  storage/transfer cap and need host credentials. A registry or image-name
+  to Tencent Cloud Container Registry Hong Kong
+  (`hkccr.ccs.tencentyun.com/<namespace>/<name>:latest` + `:$sha`) using the
+  `DOCKER_REGISTRY` / `DOCKER_NAMESPACE` / `DOCKER_USERNAME` /
+  `DOCKER_PASSWORD` repository secrets, then the `deploy` job **POSTs** to
+  Watchtower's `/v1/update?image=...` (1.18 answers 405 to GET) and verifies
+  `/version.json`. The two TCR repos are public, so the host pulls them
+  anonymously and Watchtower needs no credentials. A registry or image-name
   change also needs a one-time manual `docker compose pull && up -d` on the
   host, because Watchtower filters by the image the container already runs. The
   old `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints
