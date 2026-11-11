@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
     BarChart3,
+    Bell,
     Camera,
     Check,
     ChevronRight,
@@ -21,6 +22,7 @@ import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
 import { UPDATES } from "@/app/about/updates";
 import { useAi } from "@/app/ai/AiContext";
 import { abortAllChatRuns } from "@/app/chat/run-store";
+import { useUnreadNotificationCount } from "@/app/notifications/data";
 import TouXiang from "@/components/TouXiang";
 import { CIRCLE_PRESETS, NO_RING } from "@/components/TouXiang/presets";
 import { Button } from "@/components/ui/button";
@@ -141,6 +143,7 @@ function Page() {
     const queryClient = useQueryClient();
     const ring = getUserRing(user);
     const { openSettings } = useAi();
+    const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
     // Read on mount: opening 关于 marks the update seen, and this page
     // remounts when the user comes back.
     const updateUnseen = isUpdateUnseen(UPDATES[0]?.date, readSeenUpdate());
@@ -300,6 +303,29 @@ function Page() {
             </section>
 
             <Section title="功能">
+                <Link
+                    to="/notifications"
+                    className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"
+                >
+                    <RowContent
+                        description={
+                            unreadNotifications > 0
+                                ? `${unreadNotifications} 条未读，点开看看`
+                                : "点赞、评论和回复都会收在这里"
+                        }
+                        icon={Bell}
+                        title="互动消息"
+                        badge={
+                            unreadNotifications > 0 ? (
+                                <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] leading-none font-bold text-primary-foreground">
+                                    {unreadNotifications > 9
+                                        ? "9+"
+                                        : unreadNotifications}
+                                </span>
+                            ) : undefined
+                        }
+                    />
+                </Link>
                 <Link
                     to="/report"
                     className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-accent"

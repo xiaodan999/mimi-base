@@ -38,6 +38,11 @@ Chinese; keep that style when adding user-facing text.
   image viewer, video player/viewer, find sheet). Home renders the feed
   through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
+- `app/notifications/` — interaction inbox: `data.ts` (infinite notifications
+  query, unread count, mark-read mutations), `format.ts` (type parsing,
+  action/excerpt text and the home deep-link target), and
+  `components/notification-bell.tsx`. The page lives at `_main/notifications/`
+  and is reachable from the home header bell and the profile's 功能 section.
 - `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
   upload + bug/feature report create + supervisor sync + owner-only bug list +
   shared suggestion query + persisted/refreshed GitHub issue state),
@@ -331,6 +336,7 @@ before your first commit.
   normalizes it and never sends PocketBase's SDK to root `/api`.
 - Collections: `users` (auth), `tou_xiang_circle`, `posts`, `comments`,
   `post_likes`, `comment_likes` (schema only, unused by the UI),
+  `notifications` (per-recipient interaction inbox),
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`,
   `chat_conversations`, `chat_messages`, `chat_personas`, `chat_memories`,
   `chat_artifacts`, `dinner_options` (shared 晚餐抽奖机 menu),
@@ -349,6 +355,10 @@ before your first commit.
   shared for reads but owner-scoped for update/delete. If a third account is
   ever added, decide and migrate the per-collection scope _before_ that
   account exists — auth-only rules would expose every row to it.
+  `notifications` is recipient-scoped: list/view/update only
+  `recipient = @request.auth.id`, create/delete are server-only, and the
+  update hook restores every event field so the recipient can only flip
+  `read`.
   File fields are `protected`, so unauthenticated requests to `/api/files/...`
   return 404.
 - All filters must be parameterized: `pb.filter("post_id = {:postId}", {...})`.
@@ -413,6 +423,15 @@ before your first commit.
   `pocketbase/pb_hooks/post_counters.pb.js` on like/comment create/delete. Do
   not bump them again on the client. The delete hook runs for cascaded replies
   too, so deleting a comment keeps the count accurate.
+- Interaction notifications are created by
+  `pocketbase/pb_hooks/notifications.pb.js`; the client never creates them.
+  Post/comment likes notify the content author, a comment notifies its post
+  author, a reply notifies the parent comment's author (and the post author
+  too when that is a different person), and self-actions are skipped. Unlike
+  and comment deletes remove their rows; deleting a post, comment or account
+  also cascades. The inbox expands `actor`, `post` and `comment`, so text and
+  thumbnails stay live; `/home?post=<id>&comments=1` filters the feed to that
+  post and opens its comment sheet.
 - Every `onRecord*Request` hook is **middleware**: the handler must call
   `e.next()` or PocketBase ends the request with `200` + an empty body and
   saves nothing, while the client SDK resolves it as success. That silently

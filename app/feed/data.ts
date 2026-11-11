@@ -40,18 +40,26 @@ export type PostFilter = {
     month?: string;
     /** Case-insensitive text search over the post body. */
     q?: string;
+    /** Show only this post (deep link from the interaction inbox). */
+    post?: string;
 };
 
 /** Stable cache-key suffix for a feed filter. */
 export function postFilterKey(filter: PostFilter = {}) {
+    if (filter.post) return `post:${filter.post}`;
     if (filter.month) return `month:${filter.month}`;
     if (filter.q) return `q:${filter.q}`;
     return "latest";
 }
 
-function buildFilter({ month, q }: PostFilter) {
+function buildFilter({ month, q, post }: PostFilter) {
     const clauses: string[] = [];
     const params: Record<string, string> = {};
+
+    if (post) {
+        clauses.push("id = {:post}");
+        params.post = post;
+    }
 
     if (month) {
         const [year, monthIndex] = month.split("-").map(Number);

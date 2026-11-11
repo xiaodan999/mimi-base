@@ -50,6 +50,12 @@ export const qk = {
         get: (userId: string, day: string) =>
             ["home-stats", userId, day] as const,
     },
+    notifications: {
+        all: ["notifications"] as const,
+        list: (userId: string) => ["notifications", "list", userId] as const,
+        unread: (userId: string) =>
+            ["notifications", "unread", userId] as const,
+    },
     memories: (userId: string, day: string) =>
         ["memories", userId, day] as const,
     dinner: {

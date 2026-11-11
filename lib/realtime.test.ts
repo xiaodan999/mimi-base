@@ -35,6 +35,10 @@ describe("realtimeInvalidationKeys", () => {
             qk.posts.all,
         ]);
         expect(realtimeInvalidationKeys("post_likes")).toEqual([qk.posts.all]);
+        expect(realtimeInvalidationKeys("notifications")).toEqual([
+            qk.notifications.all,
+        ]);
+        expect(REALTIME_COLLECTIONS).toContain("notifications");
     });
 
     test("maps study progress to both the editor and the overview", () => {

@@ -24,6 +24,7 @@ import { Route as ProtectedMainChatIndexRouteImport } from './routes/_protected/
 import { Route as ProtectedMainChatConversationIdRouteImport } from './routes/_protected/_main/chat/$conversationId'
 import { Route as ProtectedMainFeedbackIndexRouteImport } from './routes/_protected/_main/feedback/index'
 import { Route as ProtectedMainJizhangIndexRouteImport } from './routes/_protected/_main/jizhang/index'
+import { Route as ProtectedMainNotificationsIndexRouteImport } from './routes/_protected/_main/notifications/index'
 import { Route as ProtectedMainPhotosIndexRouteImport } from './routes/_protected/_main/photos/index'
 import { Route as ProtectedMainPostsIndexRouteImport } from './routes/_protected/_main/posts/index'
 import { Route as ProtectedMainProfileIndexRouteImport } from './routes/_protected/_main/profile/index'
@@ -109,6 +110,12 @@ const ProtectedMainJizhangIndexRoute =
     path: '/jizhang/',
     getParentRoute: () => ProtectedMainRoute,
   } as any)
+const ProtectedMainNotificationsIndexRoute =
+  ProtectedMainNotificationsIndexRouteImport.update({
+    id: '/notifications/',
+    path: '/notifications/',
+    getParentRoute: () => ProtectedMainRoute,
+  } as any)
 const ProtectedMainPhotosIndexRoute =
   ProtectedMainPhotosIndexRouteImport.update({
     id: '/photos/',
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/chat/': typeof ProtectedMainChatIndexRoute
   '/feedback/': typeof ProtectedMainFeedbackIndexRoute
   '/jizhang/': typeof ProtectedMainJizhangIndexRoute
+  '/notifications/': typeof ProtectedMainNotificationsIndexRoute
   '/photos/': typeof ProtectedMainPhotosIndexRoute
   '/posts/': typeof ProtectedMainPostsIndexRoute
   '/profile/': typeof ProtectedMainProfileIndexRoute
@@ -192,6 +200,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ProtectedMainChatIndexRoute
   '/feedback': typeof ProtectedMainFeedbackIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
+  '/notifications': typeof ProtectedMainNotificationsIndexRoute
   '/photos': typeof ProtectedMainPhotosIndexRoute
   '/posts': typeof ProtectedMainPostsIndexRoute
   '/profile': typeof ProtectedMainProfileIndexRoute
@@ -218,6 +227,7 @@ export interface FileRoutesById {
   '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
   '/_protected/_main/feedback/': typeof ProtectedMainFeedbackIndexRoute
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
+  '/_protected/_main/notifications/': typeof ProtectedMainNotificationsIndexRoute
   '/_protected/_main/photos/': typeof ProtectedMainPhotosIndexRoute
   '/_protected/_main/posts/': typeof ProtectedMainPostsIndexRoute
   '/_protected/_main/profile/': typeof ProtectedMainProfileIndexRoute
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/chat/'
     | '/feedback/'
     | '/jizhang/'
+    | '/notifications/'
     | '/photos/'
     | '/posts/'
     | '/profile/'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/feedback'
     | '/jizhang'
+    | '/notifications'
     | '/photos'
     | '/posts'
     | '/profile'
@@ -289,6 +301,7 @@ export interface FileRouteTypes {
     | '/_protected/_main/chat/'
     | '/_protected/_main/feedback/'
     | '/_protected/_main/jizhang/'
+    | '/_protected/_main/notifications/'
     | '/_protected/_main/photos/'
     | '/_protected/_main/posts/'
     | '/_protected/_main/profile/'
@@ -413,6 +426,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMainJizhangIndexRouteImport
       parentRoute: typeof ProtectedMainRoute
     }
+    '/_protected/_main/notifications/': {
+      id: '/_protected/_main/notifications/'
+      path: '/notifications'
+      fullPath: '/notifications/'
+      preLoaderRoute: typeof ProtectedMainNotificationsIndexRouteImport
+      parentRoute: typeof ProtectedMainRoute
+    }
     '/_protected/_main/photos/': {
       id: '/_protected/_main/photos/'
       path: '/photos'
@@ -511,6 +531,7 @@ interface ProtectedMainRouteChildren {
   ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
   ProtectedMainFeedbackIndexRoute: typeof ProtectedMainFeedbackIndexRoute
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
+  ProtectedMainNotificationsIndexRoute: typeof ProtectedMainNotificationsIndexRoute
   ProtectedMainPhotosIndexRoute: typeof ProtectedMainPhotosIndexRoute
   ProtectedMainPostsIndexRoute: typeof ProtectedMainPostsIndexRoute
   ProtectedMainProfileIndexRoute: typeof ProtectedMainProfileIndexRoute
@@ -524,6 +545,7 @@ const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
   ProtectedMainFeedbackIndexRoute: ProtectedMainFeedbackIndexRoute,
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
+  ProtectedMainNotificationsIndexRoute: ProtectedMainNotificationsIndexRoute,
   ProtectedMainPhotosIndexRoute: ProtectedMainPhotosIndexRoute,
   ProtectedMainPostsIndexRoute: ProtectedMainPostsIndexRoute,
   ProtectedMainProfileIndexRoute: ProtectedMainProfileIndexRoute,

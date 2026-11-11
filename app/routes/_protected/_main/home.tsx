@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Camera, Sparkles } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 
+import NotificationBell from "@/app/notifications/components/notification-bell";
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
 import { FeedLoading } from "@/components/FeedLoading";
@@ -25,6 +26,10 @@ type HomeSearch = {
     month?: string;
     /** Case-insensitive text search over post bodies. */
     q?: string;
+    /** Deep link from the interaction inbox: show only this post. */
+    post?: string;
+    /** "1" opens the comment sheet for the deep-linked post. */
+    comments?: "1";
 };
 
 export const Route = createFileRoute("/_protected/_main/home")({
@@ -35,7 +40,13 @@ export const Route = createFileRoute("/_protected/_main/home")({
                 ? search.month
                 : undefined;
         const q = typeof search.q === "string" ? search.q.trim() : "";
-        return { month, q: q || undefined };
+        const post = typeof search.post === "string" ? search.post.trim() : "";
+        return {
+            month,
+            q: q || undefined,
+            post: post || undefined,
+            comments: search.comments === "1" ? "1" : undefined,
+        };
     },
     component: Page,
 });
@@ -101,6 +112,7 @@ function Page() {
                             </Link>
                         </h1>
                     </div>
+                    <NotificationBell />
                     <DinnerPicker />
                     <ThemeToggle className="shrink-0" />
                 </div>

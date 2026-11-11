@@ -9,6 +9,10 @@
 - 照片拖动排序的跟手与动效（#75）：`PostImageSort` 让被拖动的照片用 `translate3d` 跟随指针，跨过槽位时按槽位位移修正视觉偏移，其余照片用 FLIP（记录旧矩形 + Web Animations API，180ms）从原位置平滑滑入新槽位；松手时从当前偏移缓动回槽位。原来 `transition-transform` 管不到 Tailwind v4 用独立 `scale` 属性生成的 `scale-[1.03]`，现在把缩放直接组合进 `transform`；去掉右下角的拖拽图标，整张照片都是拖动区域，方向键排序也走同一套 FLIP，`prefers-reduced-motion` 下动画时长为 0。
 - 开始记账时金额输入框预填 0（#76）：`AddJiZhangForm` 的 `defaultValues.price` 改为空字符串，输入框不再把 `parseFloat` 的结果写回 `value`，而是保留用户输入的原始文本，提交时仍由 zod 的 `transform` 转成数字；空值提交照旧由「金额要大于 0」拦下。输入框补了 `inputMode="decimal"` 和 `0.00` 占位，输入 `0.` 这类小数过程也不会被提前归一化。
 
+### 新增
+
+- 互动消息（#77）：新增 `notifications` 集合（`recipient` / `actor` / `type` / `post` / `comment` / `read`，`recipient` 只能读写自己的行，创建和删除仅限服务端，更新钩子会还原事件字段、只允许改 `read`），迁移为 `1796300000_add_notifications.js`。`pocketbase/pb_hooks/notifications.pb.js` 在点赞/评论成功后写入 `post_like`、`comment_like`、`post_comment`、`comment_reply` 四种通知：跳过自己给自己，回复同时通知父评论作者和动态作者（同一人时只留更具体的回复），取消点赞、删除评论/动态/账号会清理或级联。客户端新增 `app/notifications/`（无限列表、未读数、单条/全部已读）和 `/notifications` 页面，首页铃铛与「我的 → 功能」显示实时未读数；`notifications` 已加入 realtime 订阅。列表展示头像、动作、摘要、时间和动态缩略图，点击跳到 `/home?post=<id>`，评论类再带 `comments=1` 自动打开评论抽屉；`PostFilter` / `buildFilter` 支持按 `post` 过滤，HomeSearch 增加 `post` / `comments`。`format.test.ts` 覆盖类型解析、文案和深链，`realtime.test.ts` 覆盖新集合映射，`AGENTS.md` 同步记录集合与钩子规则。
+
 ## 2026-11-10
 
 ### 修复

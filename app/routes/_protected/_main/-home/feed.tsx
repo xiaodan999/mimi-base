@@ -49,10 +49,12 @@ type ComposerState = { mode: "new" } | { mode: "edit"; post: PostData } | null;
  * stack; the page above only owns the compact dashboard header.
  */
 export default function HomeFeed() {
-    const { month, q } = useSearch({ from: "/_protected/_main/home" });
+    const { month, q, post, comments } = useSearch({
+        from: "/_protected/_main/home",
+    });
     const navigate = useNavigate({ from: "/home" });
     const queryClient = useQueryClient();
-    const filter = useMemo(() => ({ month, q }), [month, q]);
+    const filter = useMemo(() => ({ month, q, post }), [month, q, post]);
 
     const {
         data,
@@ -74,6 +76,15 @@ export default function HomeFeed() {
         index: number;
     } | null>(null);
     const [videoViewer, setVideoViewer] = useState<string | null>(null);
+
+    // Interaction-inbox deep links can ask for the comment sheet directly.
+    // Closing the sheet leaves the search params untouched, so this effect
+    // does not reopen it on every render.
+    useEffect(() => {
+        if (!post || comments !== "1") return;
+        setCommentPostId(post);
+        setCommentOpen(true);
+    }, [post, comments]);
 
     const { ref, inView } = useInView();
     const [refreshingFeed, setRefreshingFeed] = useState(false);
@@ -107,17 +118,19 @@ export default function HomeFeed() {
         [data],
     );
     const total = data?.pages[0]?.total ?? 0;
-    const filtering = Boolean(month || q);
-    const filterLabel = month
-        ? `${formatMonthLabel(month)}${data ? ` · 共 ${total} 条` : ""}`
-        : q
-          ? `搜索「${q}」${data ? ` · 共 ${total} 条` : ""}`
-          : "";
+    const filtering = Boolean(month || q || post);
+    const filterLabel = post
+        ? "查看这条动态"
+        : month
+          ? `${formatMonthLabel(month)}${data ? ` · 共 ${total} 条` : ""}`
+          : q
+            ? `搜索「${q}」${data ? ` · 共 ${total} 条` : ""}`
+            : "";
 
     // Filter changes replace the current entry so the back gesture still
     // leaves the page instead of stepping through every filter state.
     const clearFilter = async (closeSheet = false) => {
-        if (!month && !q) {
+        if (!month && !q && !post) {
             if (closeSheet) setFindOpen(false);
             return;
         }
@@ -238,12 +251,16 @@ export default function HomeFeed() {
                             <div className="mt-6 w-full rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">
                                 <SearchX className="mx-auto size-8 text-muted-foreground" />
                                 <p className="mt-3 text-sm font-medium">
-                                    {month
-                                        ? "这个月还没有动态"
-                                        : "没有找到相关动态"}
+                                    {post
+                                        ? "这条动态可能已经被删除了"
+                                        : month
+                                          ? "这个月还没有动态"
+                                          : "没有找到相关动态"}
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    换个关键词或月份试试
+                                    {post
+                                        ? "回到最新看看别的动态"
+                                        : "换个关键词或月份试试"}
                                 </p>
                                 <Button
                                     variant="outline"
