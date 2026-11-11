@@ -13,6 +13,12 @@
 
 - 互动消息（#77）：新增 `notifications` 集合（`recipient` / `actor` / `type` / `post` / `comment` / `read`，`recipient` 只能读写自己的行，创建和删除仅限服务端，更新钩子会还原事件字段、只允许改 `read`），迁移为 `1796300000_add_notifications.js`。`pocketbase/pb_hooks/notifications.pb.js` 在点赞/评论成功后写入 `post_like`、`comment_like`、`post_comment`、`comment_reply` 四种通知：跳过自己给自己，回复同时通知父评论作者和动态作者（同一人时只留更具体的回复），取消点赞、删除评论/动态/账号会清理或级联。客户端新增 `app/notifications/`（无限列表、未读数、单条/全部已读）和 `/notifications` 页面，首页铃铛与「我的 → 功能」显示实时未读数；`notifications` 已加入 realtime 订阅。列表展示头像、动作、摘要、时间和动态缩略图，点击跳到 `/home?post=<id>`，评论类再带 `comments=1` 自动打开评论抽屉；`PostFilter` / `buildFilter` 支持按 `post` 过滤，HomeSearch 增加 `post` / `comments`。`format.test.ts` 覆盖类型解析、文案和深链，`realtime.test.ts` 覆盖新集合映射，`AGENTS.md` 同步记录集合与钩子规则。
 
+### 变更
+
+- 聊天沙箱从 Docker 里的 Python/Node 换成 QuickJS（WASM + Worker）：只支持 JavaScript，单次运行 64MB 堆、60 秒硬超时；`sandbox.fetch` / `sandbox.download` 由 API 侧复用 `read_url` 的 SSRF 校验代取。删除 `pocketbase/sandbox/`、`sandbox-exec.ts`、两个语言镜像和 `SANDBOX_BASE_IMAGE*`，`SandboxLanguage` 只剩 `javascript`。
+- 部署改为容器：`mimi-base-app`（Bun API + SPA + QuickJS）和 `mimi-base-pb`（PocketBase + 迁移/钩子）由 GitHub Actions 构建并推送到阿里云 ACR，CI 推送后触发 Watchtower；宿主机现有的 Caddy 继续在 `caddy-net` 上反代 `/api/*` 与 `/db/*`，两个容器不发布端口。
+- 服务端代码从 `pocketbase/` 拆到 `server/`，删除 supervisor 的二进制下载、`pb_data` 快照和 `/db/sync`、`/repo/sync`、`/spa/publish`、`/spa/rollback` 部署端点；PocketBase 作为独立容器运行，`pb_data` 直接 bind mount，生产配置改由 `.env.app` 提供。
+
 ## 2026-11-10
 
 ### 修复

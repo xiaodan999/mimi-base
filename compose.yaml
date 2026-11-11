@@ -1,0 +1,55 @@
+# Production stack for the self-hosted deployment.
+#
+# Caddy is the host's existing container: both services join its external
+# `caddy-net` network and publish no ports. Images come from Aliyun ACR and are
+# rolled out by Watchtower; keep `container_name` in sync with the names in
+# /root/watch-tower/docker-compose.yml.
+#
+#   docker compose pull && docker compose up -d
+#   MIMI_TAG=<sha> docker compose up -d      # rollback
+#
+# See docker/README.md for the host runbook.
+
+name: mimi-base
+
+services:
+    mimi-app:
+        image: registry.cn-guangzhou.aliyuncs.com/xiaohai-huang/mimi-base-app:${MIMI_TAG:-latest}
+        container_name: mimi-app
+        restart: unless-stopped
+        env_file:
+            - .env.app
+        depends_on:
+            mimi-pb:
+                condition: service_healthy
+        networks:
+            - caddy-net
+        labels:
+            com.centurylinklabs.watchtower.enable: "true"
+        healthcheck:
+            test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9001/api/health"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+
+    mimi-pb:
+        image: registry.cn-guangzhou.aliyuncs.com/xiaohai-huang/mimi-base-pb:${MIMI_TAG:-latest}
+        container_name: mimi-pb
+        restart: unless-stopped
+        volumes:
+            - ./pocketbase/pb_data:/pb_data
+        networks:
+            - caddy-net
+        labels:
+            com.centurylinklabs.watchtower.enable: "true"
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/api/health"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+
+networks:
+    caddy-net:
+        external: true

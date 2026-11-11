@@ -111,14 +111,14 @@ cd pocketbase
 
 ## 五、也可以分开启动
 
-`bun run dev:all` 会同时启动两个部分，并把页面暴露给同一 Wi-Fi 下的
-其他设备（WSL 下会自动加一个 Windows 端口转发，不需要管理员权限）。
-数据库不直接对外，只由 Vite 通过 `/api` 代理访问。
+`bun run dev:all` 会同时启动后端（PocketBase + API）和页面，并把页面暴露给
+同一 Wi-Fi 下的其他设备（WSL 下会自动加一个 Windows 端口转发，不需要管理员
+权限）。数据库不直接对外，Vite 通过 `/db` 和 `/api` 代理访问。
 
-如果只想单独启动其中一个，可以开两个终端窗口：
+如果只想单独启动后端或页面，可以开两个终端窗口：
 
 ```bash
-# 终端 1：数据库
+# 终端 1：数据库 + API
 bun run db
 
 # 终端 2：页面
@@ -148,15 +148,15 @@ MIMI_DEV_LOWMEM=1
 `dev:all` 的峰值内存会从约 1.9GB 降到约 1.5GB，代价是首次打开页面慢
 一成左右（想自己定线程数就设 `RAYON_NUM_THREADS`，它优先）。
 
-分开启动时，`bun run dev` 默认代理到 8090；数据库换了端口就加
-`PB_PORT=8091 bun run dev`。
+分开启动时，`bun run dev` 默认代理到 8090（PocketBase）和 9001（API）；
+后端换了端口就加 `PB_PORT=8091 SUPERVISOR_PORT=9002 bun run dev`。
 
 ## 六、常用命令
 
 | 命令                   | 作用                               |
 | ---------------------- | ---------------------------------- |
 | `bun run dev:all`      | 同时启动数据库和页面，手机可访问   |
-| `bun run db`           | 只启动数据库                       |
+| `bun run db`           | 只启动数据库和 API                 |
 | `bun run dev`          | 只启动页面                         |
 | `bun run build`        | 打包正式版本，并检查代码有没有错误 |
 | `bun run typecheck`    | 只检查代码类型（bun check）        |
@@ -168,15 +168,17 @@ MIMI_DEV_LOWMEM=1
 
 ## 七、项目目录（只列常见的）
 
-| 目录                           | 内容                                 |
-| ------------------------------ | ------------------------------------ |
-| `app/routes/`                  | 各个页面                             |
-| `app/routes/_protected/_main/` | 主要功能：首页、动态、记账、学习     |
-| `components/`                  | 页面用到的小组件                     |
-| `lib/`                         | 工具函数、登录、数据库连接           |
-| `pocketbase/`                  | 后端：数据库、数据表结构、服务端脚本 |
-| `public/`                      | 图标、清单等静态文件                 |
-| `scripts/`                     | 一些方便开发的小脚本                 |
+| 目录                           | 内容                             |
+| ------------------------------ | -------------------------------- |
+| `app/routes/`                  | 各个页面                         |
+| `app/routes/_protected/_main/` | 主要功能：首页、动态、记账、学习 |
+| `components/`                  | 页面用到的小组件                 |
+| `lib/`                         | 工具函数、登录、数据库连接       |
+| `server/`                      | 后端 API：AI 中转、反馈、沙箱    |
+| `pocketbase/`                  | 数据表结构、钩子和本地数据目录   |
+| `docker/` + `compose.yaml`     | 线上镜像和容器编排               |
+| `public/`                      | 图标、清单等静态文件             |
+| `scripts/`                     | 一些方便开发的小脚本             |
 
 ## 八、本地数据在哪里
 
@@ -224,18 +226,20 @@ https://bun.sh 按提示安装。
 ## 十、注意事项
 
 - 不要提交 `.env`、`.env.prod` 和 `pocketbase/pb_data/`。
-- 修改账号密码等正式环境的事情，请先看 `pocketbase/README.md`。
+- 修改账号密码等正式环境的事情，请先看 `docker/README.md`。
 - 更详细的开发约定（英文）在 `AGENTS.md` 里。
 
-## 十一、线上自托管前端（可选）
+## 十一、线上部署（容器 + Vercel，可选）
 
 线上的页面可以同时存在两份——同一份代码、同一个数据库，互不影响：
 
 - **Vercel**：推送后由 Vercel 自己打包部署（`vercel.json` 里配了
   `framework: vite` / `buildCommand: bun run build` / `outputDirectory: build`）。
-- **PocketBase**：GitHub Actions 里的 `deploy-spa` 工作流打包
-  （`VITE_POCKETBASE_URL=same-origin`），把产物传到服务器的
-  `/spa/publish`，存进仓库目录下的 `build/`，由 PocketBase 直接对外提供。
+- **自托管**：GitHub Actions 构建 `mimi-base-app`（Bun API + SPA + QuickJS）
+  和 `mimi-base-pb`（PocketBase + 迁移/钩子），推到阿里云 ACR；宿主机上已有的
+  Caddy 把 `/api/*` 和页面转发到 `mimi-app`，把 `/db/*` 转发到 `mimi-pb`。
+  Watchtower 负责更新这两个容器，`pb_data` 直接 bind mount 到
+  `pocketbase/pb_data`。完整的服务器步骤见 `docker/README.md`。
 
 **Vercel 必须设置环境变量**：`deploy-spa` 用 `same-origin`，而 Vercel 页面
 和数据库不在同一个域名，所以在 Vercel 项目的 Environment Variables 里必须
@@ -249,19 +253,19 @@ VITE_POCKETBASE_URL=https://pb.example.com
 也接受）。不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载
 时会直接抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
 
-**AI 由站点统一提供**：服务器在 `.env.prod` 里配置 `OPENCODE_API_KEY`（开发
+**AI 由站点统一提供**：服务器在 `.env.app` 里配置 `OPENCODE_API_KEY`（开发
 时放 `.env`），浏览器只带登录令牌访问 `/api/ai` 中转，不需要也不能填自己的 Key。
-反向代理必须把 `/api/*` 转发到 `:9001` 并关闭响应缓冲（nginx
-`proxy_buffering off`），否则流式输出会退化成一次性返回。
+反向代理必须把 `/api/*` 转发到 `mimi-app:9001` 并关闭响应缓冲（Caddy
+`flush_interval -1`），否则流式输出会退化成一次性返回。
 
 **聊天**：底部的「聊天」标签是通用 AI 对话。可选模型由服务端白名单决定
-（`OPENCODE_CHAT_MODELS`，见 `pocketbase/README.md`），客户端传其它模型 id
+（`OPENCODE_CHAT_MODELS`，见 `docker/README.md`），客户端传其它模型 id
 会被拒绝；聊天记录保存在 PocketBase 的 `chat_*` 集合里，只有本人能读写。
-AI 的 `sandbox_*` 工具在服务器的隔离 Docker 容器里运行 Python 或
-JavaScript（Node），可以访问公网查天气、网页和公开接口，但不能访问本站
-内网、PocketBase 或读取本站文件/密钥。缺少城市、位置或偏好时，AI 会用
-`ask_user` 直接向你提问；定位会弹出浏览器的授权提示。没有 Docker 的开发
-环境会退回直接运行 `python3` / `node`，仅用于本地调试，不是安全边界。
+AI 的 `sandbox_*` 工具在服务器的 QuickJS 沙箱里运行 JavaScript（标准库，
+没有 Node/npm），不读写宿主机文件、不直接联网；`sandbox.fetch` /
+`sandbox.download` 由 API 侧按 `read_url` 的规则代取公网内容，访问不到本站
+内网、PocketBase 或本站文件/密钥。缺少城市、位置或偏好时，AI 会用
+`ask_user` 直接向你提问；定位会弹出浏览器的授权提示。
 
 **两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
 是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`
@@ -273,24 +277,21 @@ JavaScript（Node），可以访问公网查天气、网页和公开接口，但
 - 手机上看哪个域名、就用哪一套本地数据。想省事就固定只用一个入口
   （推荐把 Vercel 当作备用，日常用自托管的那个域名）。
 
-第一次部署：在 GitHub 的 Actions 页面运行一次 `deploy-spa`（或点
-Run workflow）。之后推送到 `master` 的前端改动会自动发布。
+更新：推送到 `master` 后，`ci` 通过 → `images` 构建并推送两个镜像 →
+`deploy` 调用 Watchtower 更新 `mimi-app` / `mimi-pb`，并校验
+`/version.json` 的 sha。只有相关路径变化时才重建对应镜像，所以改前端不会
+重启 PocketBase。
 
-- 发布失败不会影响正在用的旧版本：服务器把产物解压到 `build.next/` 的
-  一个新版本目录，校验 tarball 的 sha256、逐个检查条目、确认有
-  `index.html` 后，才用**一次原子改名**切换 `build` 软链接；旧版本留作
-  `build.next/` 里的其他版本目录，可回滚。
-- 想退回上一版：带上部署令牌请求 `POST /spa/rollback`；再调一次就换回来。
-- 换前端不需要重启数据库：PocketBase 每次请求都直接读 `build/`。
-- **`/spa/publish` 只更新前端产物，不会更新服务器代码**：`deploy-spa`
-  发布成功后会再调 `POST /repo/sync`（只做 `git pull --ff-only`，不重启
-  PB），让服务器上的 checkout 跟上已部署的 commit；改到 `pocketbase/**`
-  仍由 `deploy-db` 的 `/db/sync` 负责拉代码、备份、重启。
-- 反向代理：`/api/*` 转发到 `:9001`（关闭响应缓冲），`/db/*` 去掉 `/db` 前缀
-  后转发到 PocketBase `:8090`（管理面板是 `/db/_/`），`/db/sync` 作为精确路径
-  优先转发到 `:9001`；`/spa/*`、`/repo/*` 也转发到 `:9001`。给 `/assets/*` 设长
-  缓存，给 `/`、`/index.html`、`/sw.js`、`/manifest.json` 设不缓存（PocketBase
-  自己不发缓存头）。版本文件 `/version.json` 供部署后校验新版本是否已生效。
+- 回滚：`MIMI_TAG=<旧 sha> docker compose up -d`；恢复时去掉 `MIMI_TAG`
+  再 `docker compose up -d`。
+- 迁移必须只做增量：两个镜像都会自动更新，应用要能容忍旧 schema 几秒钟。
+  需要删字段时分成两次发布（先加新字段，再删旧字段）。
+- 反向代理：`/api/*` → `mimi-app:9001`（`flush_interval -1`），`/db/*`
+  去掉前缀 → `mimi-pb:8090`（同样保留 `flush_interval -1`），其余路径 →
+  `mimi-app:9001`；`/db/_/` 仍是管理面板。
+- 缓存：`/assets/*` 长缓存，`/`、`/index.html`、`/sw.js`、`/manifest.json`
+  不缓存；`/version.json` 供部署后校验新版本是否已生效。
+- 备份：PocketBase 的定时备份写到 `pb_data/backups/`，再定期拷到别处；
+  不再有 `/db/sync` 的部署前快照。
 
-部署、systemd、反向代理、快照恢复等运维细节刻意不放进仓库，只在服务器上维护；
-后端英文说明见 `pocketbase/README.md` 的 Frontend 一节。
+部署、Caddy、Watchtower、备份和回滚的完整步骤只在 `docker/README.md` 维护。

@@ -5,7 +5,7 @@
 `mimi-base` ("秘密基地") is a personal, mobile-first PWA for sharing photos,
 posts, and expense records. Frontend: React 18 + Vite + TypeScript, TanStack
 Router (file-based routes) + React Query, Tailwind + shadcn/ui. Backend:
-PocketBase (SQLite + file uploads) run by a Bun supervisor. UI copy is
+PocketBase (SQLite + file uploads) served by a Bun API. UI copy is
 Chinese; keep that style when adding user-facing text.
 
 ## Layout
@@ -31,8 +31,8 @@ Chinese; keep that style when adding user-facing text.
 - `app/chat/` — general-chat domain logic: `api.ts` (relay URLs and allowlist
   fetch), `stream.ts` and `sse.ts` (streaming/tool-call parsing), `prompt.ts`,
   `personas.ts`, `title.ts`, `records.ts`, `chart.ts` / `ui-spec.ts` (gen-UI
-  payload validation), and `tools.ts` (the server-side sandbox itself lives in
-  `pocketbase/sandbox/`).
+  payload validation), and `tools.ts` (the server-side QuickJS sandbox lives in
+  `server/sandbox.ts` + `server/sandbox-worker.ts`).
 - `app/feed/` — 动态 domain: `data.ts` (infinite query and post mutations),
   `utils.ts`, `comments.ts`, and `components/` (post, composer, comment sheet,
   image viewer, video player/viewer, find sheet). Home renders the feed
@@ -44,10 +44,10 @@ Chinese; keep that style when adding user-facing text.
   `components/notification-bell.tsx`. The page lives at `_main/notifications/`
   and is reachable from the home header bell and the profile's 功能 section.
 - `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
-  upload + bug/feature report create + supervisor sync + owner-only bug list +
+  upload + bug/feature report create + API sync + owner-only bug list +
   shared suggestion query + persisted/refreshed GitHub issue state),
   `attachments.ts` (metadata parse/display), `issue-state.ts` (issue state
-  parsers for the row field and the supervisor response),
+  parsers for the row field and the API response),
   `filters.ts` (visibility helpers mirroring the PB rules),
   `error-buffer.ts` (20-entry console/page-error ring buffer),
   `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
@@ -58,17 +58,26 @@ Chinese; keep that style when adding user-facing text.
   (in-app redirect targets), `env.ts`, `toast-promise.ts`, `date.ts`, image
   picker/compressor.
 - `hooks/` — shared hooks.
-- `pocketbase/` — server side: `server.ts` supervisor, `ai-files.ts`
-  attachment reader, `feedback.ts` (report -> GitHub issue), `video.ts`
-  (ffmpeg video compression), `package.json` / `bun.lock` (server-only pdf.js +
-  canvas), `pb_migrations/` (schema), `pb_hooks/` (JSVM counters). Read
-  `pocketbase/README.md` before touching deploys or the server.
+- `server/` — the Bun API container's code: `main.ts` (routing + static SPA),
+  `config.ts` (env), `ai-relay.ts`, `ai-tools.ts`, `ai-files.ts`, `feedback.ts`,
+  `video.ts`, `geo-ip.ts`, `chat-models.ts`, `safe-fetch.ts` (the shared
+  `read_url` / sandbox SSRF guard), `sandbox.ts` + `sandbox-worker.ts` (QuickJS),
+  and their tests. `package.json` / `bun.lock` hold the server-only deps
+  (pdf.js, canvas, ip2region, quickjs-emscripten). Read `docker/README.md`
+  before touching deploys.
+- `pocketbase/` — PocketBase only: `pb_migrations/` (schema), `pb_hooks/`
+  (JSVM counters and `dev_seed`), and the gitignored local `pb_data/` + binary.
+- `docker/` — `app.Dockerfile`, `pb.Dockerfile`, `pb-entrypoint.sh`,
+  `Caddyfile.example`, `.env.app.example`, and the host runbook
+  (`docker/README.md`). `compose.yaml` sits at the repo root.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
-- `scripts/server-setup.sh` — fresh-server bootstrap. `scripts/dev.ts` backs
-  `bun run dev:all` on Linux, WSL2 and plain Windows. Under WSL it also runs
-  `scripts/lan-proxy.mjs` with the Windows node to forward the Vite port to the
-  VM (no admin or portproxy required). PocketBase stays on loopback; Vite
-  proxies `/api` and dev runs with `VITE_POCKETBASE_URL=same-origin`.
+- `scripts/pb-binary.ts` — dev-only PocketBase binary reuse/download.
+  `scripts/backends.ts` starts PocketBase + the API as two children and backs
+  `bun run db`; `scripts/dev.ts` backs `bun run dev:all` on Linux, WSL2 and
+  plain Windows. Under WSL it also runs `scripts/lan-proxy.mjs` with the
+  Windows node to forward the Vite port to the VM (no admin or portproxy
+  required). PocketBase and the API stay on loopback; Vite proxies `/db` and
+  `/api`, and dev runs with `VITE_POCKETBASE_URL=same-origin`.
   `scripts/preview.mjs` backs `bun run preview` and `scripts/perf.mjs` the perf
   harness; both serve `build/` the way the deployment does.
   `tmp/` is gitignored scratch (do not commit).
@@ -77,9 +86,9 @@ Chinese; keep that style when adding user-facing text.
 
 ```bash
 bun install
-bun run install:server   # pocketbase/ deps (pdf.js + canvas) for the supervisor
+bun run install:server   # server/ deps (pdf.js, canvas, ip2region, QuickJS)
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
-bun run db                # PocketBase on 127.0.0.1:8090 (admin at /_/)
+bun run db                # PocketBase :8090 + API :9001 (admin at /_/)
 bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # skips busy ports (WSL + Windows) and reads
@@ -88,12 +97,17 @@ bun run dev:all           # both, always LAN-exposed (prints the phone URL)
 bun run build             # vite build + bun check (app; no server deps needed)
 bun run preview           # build + serve build/ with /db and /api proxies
 bun run test              # bun test (whole repo; pure logic, no server needed)
-bun run typecheck         # bun check for the app + pocketbase/
+bun run typecheck         # bun check for the app + server/
 bun run lint              # biome lint (biome.json)
 bun run format            # bun fmt
 bun run format:check      # bun fmt --check
 bun run setup:hooks       # enable .githooks/pre-commit once per clone
 ```
+
+The production stack is `compose.yaml` + `docker/` (see `docker/README.md`):
+`mimi-app` (Bun API + SPA) and `mimi-pb` (PocketBase + schema) on the host's
+existing `caddy-net`, updated by Watchtower. There is no supervisor process in
+the production stack.
 
 Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
 (`biome.json`, lint only), and typechecking is `bun check`
@@ -113,9 +127,9 @@ error (`suppressions/unused`), so move the comment with the code.
 
 `bun run preview` (`scripts/preview.mjs`) is how to look at the UI without a dev
 server. It runs `bun run build` with `VITE_POCKETBASE_URL=same-origin`, starts
-PocketBase + the Bun supervisor, and serves `build/` exactly as the self-hosted
+PocketBase + the Bun API, and serves `build/` exactly as the self-hosted
 deployment does: static files, SPA fallback, `/db` proxied to PocketBase with
-the prefix stripped, `/api` proxied to the supervisor.
+the prefix stripped, `/api` proxied to the API.
 
 This matters on a memory-constrained machine (a 1–2GB container, say). A Vite
 dev server keeps a ~430MB process alive to serve the same thing; the preview
@@ -308,9 +322,9 @@ cp .env.example .env
 `--frozen-lockfile` stops the install from rewriting `bun.lock`; package
 contents come from the shared Bun cache, so it is fast and needs no network
 unless a dependency is actually new. `install:server` does the same for the
-supervisor's own `pocketbase/package.json` (pdf.js + canvas), which the app
-build deliberately does not install. Re-check `git rev-parse --show-toplevel`
-before your first commit.
+API's own `server/package.json` (pdf.js, canvas, ip2region, quickjs-emscripten),
+which the app build deliberately does not install. Re-check
+`git rev-parse --show-toplevel` before your first commit.
 
 - Stop any dev server in the primary checkout before switching — otherwise it
   keeps regenerating `app/routeTree.gen.ts` in the old tree.
@@ -329,8 +343,8 @@ before your first commit.
 - URL layout: PocketBase is mounted at `/db` (SDK base `<origin>/db`, admin
   dashboard `/db/_/`); hand-written Bun endpoints live under `/api/*` (AI
   `/api/ai/*`, feedback `/api/feedback/*`). Vite proxies `/db` to PocketBase
-  and `/api` to the supervisor; production does the same (strip `/db` before
-  PocketBase, exact `/db/sync` to the supervisor first). New Bun handlers go
+  and `/api` to the API; production routes `/db/*` to `mimi-pb:8090` after
+  stripping `/db`, and `/api/*` to `mimi-app:9001`. New Bun handlers go
   under `/api/*` and need no proxy change; `/feedback` stays the SPA route.
   `VITE_POCKETBASE_URL` may be a bare origin or end in `/db`; `lib/env.ts`
   normalizes it and never sends PocketBase's SDK to root `/api`.
@@ -378,7 +392,7 @@ before your first commit.
   `chat_conversations` relation for bugs), then POSTs `{ reportId }` to
   `/api/feedback/report`. Attaching an AI conversation starts in the chat
   thread's 反馈问题 menu (`/feedback?conversation=<id>`); the feedback page has
-  no conversation picker. The Bun supervisor (`pocketbase/feedback.ts`)
+  no conversation picker. The Bun API (`server/feedback.ts`)
   authenticates with the caller's PB token, re-reads the row with that token,
   and still requires `report.owner === caller` — the shared feature read rule
   lets the other account read a suggestion, never sync it. There is **no
@@ -406,10 +420,10 @@ before your first commit.
   the issue on GitHub does not flip the badge back. The badge paints from the
   persisted value, shows「已关闭」instead of「已建 Issue」, and a GitHub read
   failure leaves the stored label untouched. Writes use the `SUPERUSER_EMAIL` /
-  `SUPERUSER_PASSWORD` already in `.env.prod` (dev: seeded `dev@mimi.local`)
+  `SUPERUSER_PASSWORD` from `.env.app` (dev: seeded `dev@mimi.local`)
   so shared suggestions persist for the non-owner; without it the caller's
-  token only updates their own reports. Vite proxies `/api` (Bun) and
-  `/db` (PocketBase); production routes `/api/*` to the supervisor and `/db/*`
+  token only updates their own reports. Vite proxies `/api` (Bun API) and
+  `/db` (PocketBase); production routes `/api/*` to `mimi-app` and `/db/*`
   to PocketBase after stripping the prefix, while `/feedback` stays a client
   route.
 - Avatar rings have two sources: `users.circle_preset` stores a built-in key
@@ -482,8 +496,9 @@ before your first commit.
   `pocketbase/pb_hooks/dev_seed.pb.js`. All are only created when missing, so
   a changed password is never overwritten; reset a superuser with
   `./pocketbase superuser upsert <email> <password>` run from `pocketbase/`.
-  The hook only runs when `server.ts` sets `MIMI_DEV=1` (dev, i.e. no
-  `.env.prod`); prod deletes that var, so none of them is created there.
+  The hook only runs when `scripts/backends.ts` starts PocketBase with
+  `MIMI_DEV=1` (dev); the production `mimi-pb` container never sets that var,
+  so none of them is created there.
   The login page lists the two app accounts in dev (one click), any protected
   URL accepts `?dev=test` / `?dev=test2` to sign in as that account and then
   replaces the URL without the param, and the profile page's 开发账号 section
@@ -540,7 +555,7 @@ before your first commit.
   `prompts.ts`.
 
     The site owns the only AI key; by design there is no BYOK path. The Bun
-    supervisor (`pocketbase/server.ts`) mounts `pocketbase/ai-relay.ts` at
+    API (`server/main.ts`) mounts `server/ai-relay.ts` at
     `/api/ai/opencode/v1/chat/completions`, authenticates the caller's PocketBase
     token via `auth-refresh`, and streams the upstream SSE body back unchanged.
     General chat uses `POST /api/ai/chat/completions` + `GET /api/ai/models` instead:
@@ -550,25 +565,24 @@ before your first commit.
     validated against the model's `thinkingLevels`. The legacy path keeps
     forcing `OPENCODE_MODEL`.
     `OPENCODE_API_KEY` / `OPENCODE_MODEL` / `AI_DAILY_REQUESTS_PER_USER` come
-    from `.env.prod` (dev: `.env`); the key never reaches the browser,
+    from `.env.app` (dev: `.env`); the key never reaches the browser,
     PocketBase, or the logs, and `client.ts` only sends the PB token plus
     `x-opencode-session`. Only notification/local-budget prefs live in
     `localStorage` (`mimi:ai:v1`, legacy fallback); old saved API keys are
     scrubbed on load. Generated content is cached under `mimi:ai-cache:v1:*`
-    keyed by `AI_MODEL` (`constants.ts`). Dev: `dev:all` picks a free
-    `SUPERVISOR_PORT` and Vite proxies `/api` to it; the supervisor keeps
-    `opencode.ai` out of the dev proxy env. Prod: the reverse proxy routes
-    `/api/*` to :9001 with buffering off (`X-Accel-Buffering: no` is set too),
-    and the Vercel build derives the API origin from `VITE_POCKETBASE_URL`.
+    keyed by `AI_MODEL` (`constants.ts`). Dev: `scripts/backends.ts` picks a
+    free API port and Vite proxies `/api` to it. Prod: Caddy routes `/api/*`
+    to `mimi-app:9001` with `flush_interval -1`, and the Vercel build derives
+    the API origin from `VITE_POCKETBASE_URL`.
     The feedback endpoints are `POST /api/feedback/upload` (attachments),
     `POST /api/feedback/report` and `POST /api/feedback/issue-state` (syncs
-    the GitHub state onto the report row) on the same supervisor, so the
+    the GitHub state onto the report row) on the same API, so the
     `/api/*` rule covers them;
     `/feedback` itself stays the SPA route. `GITHUB_TOKEN` /
-    `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.prod`
-    (dev: `.env`); `server.ts` carries them across a respawn. Video posts use
+    `GITHUB_REPO` / `GITHUB_API_URL` / `GITHUB_UPLOADS_URL` live in `.env.app`
+    (dev: `.env`). Video posts use
     `POST /api/video/compress` (auth-only, multipart `file`, max 50MB): the
-    supervisor runs the optional `ffmpeg` binary (or `FFMPEG_PATH`) to return a
+    API runs the optional `ffmpeg` binary (or `FFMPEG_PATH`) to return a
     ≤1280px H.264/AAC MP4, and the client uploads that to PocketBase. Files
     under 8MB skip the call; missing ffmpeg/failure/not-smaller answers make
     the client publish the original instead, so a post never fails for lack of
@@ -597,22 +611,21 @@ before your first commit.
   thread (back gesture, bottom nav) keeps the loop and tool calls going;
   re-entering re-attaches and refuses a second send until the run ends. A
   pending `ask_user` carries its `conversationId` and survives navigation, so
-  only stop/logout cancels it. The sandbox runs **Python or JavaScript on the
-  server** in a Docker container (one image per language, selected by
-  `sandbox_run.language`):
-  read-only root, non-root user, all capabilities dropped, PID/memory/CPU
-  limits, 60s wall clock, JSON on stdin (no code in argv), and the dedicated
-  `mimi-sandbox` network whose egress firewall allows only public
-  DNS/HTTP(S). It has no mounts, no host networking and no `pb_data` / env
-  secrets. `pocketbase/sandbox/` owns the runner, Dockerfile and firewall.
-  Dev (no Docker in WSL) uses a direct `python3`/`node` subprocess; that
-  fallback is not isolated and must never be used in production. Don't add
-  host mounts, `--network host`, a Docker socket, or secrets to the container
-  without re-evaluating prompt injection against the AI key and `pb_data`.
+  only stop/logout cancels it. The sandbox runs **JavaScript in QuickJS** on
+  the server (`server/sandbox.ts` + `server/sandbox-worker.ts`): one fresh
+  asyncify WASM runtime per run inside a Worker, 64MB heap, a 60s hard limit
+  enforced by `worker.terminate()`, and a fresh in-memory text snapshot. The
+  VM has no filesystem, no `fetch`/`process`/`require`, and no network; the
+  only bridge is `console.*` and `sandbox.read/write/list/remove/fetch/download`.
+  `fetch`/`download` are host functions that go through `server/safe-fetch.ts`
+  (the same DNS/private-range/redirect guard as `read_url`), so there is no
+  Docker socket, host network or host firewall involved. Python is not
+  supported. Don't expose new host globals without re-evaluating prompt
+  injection against the AI key and `pb_data`.
   `ask_user` is client-side: it pauses the tool loop, shows the inline panel
   (text/choice/confirm/location/expense), and resolves the tool result so the
   same run continues. Location is a **city-only IP estimate**: the panel calls
-  `GET /api/ai/geo/ip` (`pocketbase/geo-ip.ts`, bundled `ip2region` data) only
+  `GET /api/ai/geo/ip` (`server/geo-ip.ts`, bundled `ip2region` data) only
   after the user taps 自动识别城市, and the estimate is shown for confirmation
   before it reaches the model. Never resolve coordinates, never geolocate a
   request without that explicit tap, and never inject IP-derived location
@@ -630,7 +643,7 @@ before your first commit.
   `-ui-card.tsx`) so Tailwind emits them and dark mode works. Never accept
   free-form Tailwind classes, event handlers or external content on this path.
 - Chat data tools (`/api/ai/tools/{expenses,posts,comments,memory,url}` in
-  `pocketbase/ai-tools.ts`) are the only way the model reads site data, and
+  `server/ai-tools.ts`) are the only way the model reads site data, and
   **the server, not the persona prompt, is the security boundary**: the relay
   authenticates, rate-limits (30/min) and quotas (200/day) them, scopes rows
   with explicit PB filters (ledger/posts/comments are shared-scope on purpose
@@ -655,9 +668,9 @@ before your first commit.
   params → composer draft), and read-aloud via the browser speech adapter.
   Code blocks highlight with a lazy Shiki chunk (`app/chat/highlighter.ts`,
   JS regex engine, no wasm). Attachments are uploaded raw to
-  `POST /api/ai/files` and read on the relay (`pocketbase/ai-files.ts`): pdf.js
+  `POST /api/ai/files` and read on the relay (`server/ai-files.ts`): pdf.js
   runs **server-side** with the CMaps/standard fonts from
-  `pocketbase/node_modules` (deps live in `pocketbase/package.json`, not the
+  `server/node_modules` (deps live in `server/package.json`, not the
   app's; without the CMaps Chinese PDFs extract as an empty string), text
   becomes a fenced part, and a scanned PDF's first pages are rendered with
   `@napi-rs/canvas` to JPEG image parts for a vision model. The phone never
@@ -666,11 +679,12 @@ before your first commit.
 - Chat artifacts (files the assistant hands the user): text files (HTML,
   Markdown, CSV, JSON, SVG, code) stay in `chat_conversations.sandbox_files`
   and an artifact part references the path; binary raster images come back
-  **once** in the `sandbox_run` response (`artifacts`, base64; the container
-  is stateless, so a later call cannot recover them), are uploaded to
+  **once** in the `sandbox_run` response (`artifacts`, base64; the runtime is
+  discarded, so a later call cannot recover them), are uploaded to
   `chat_artifacts` (owner-scoped, protected `file`, `message` cascade), and
   the part stores only the record id + filename. `send_file` surfaces a text
-  file; `sandbox.download(url, path)` writes a public image into the sandbox.
+  file; `sandbox.download(url, path)` fetches a public raster image through the
+  host guard.
   The card and full-screen viewer live in `-artifact-viewer.tsx`; HTML/SVG
   must render in `<iframe sandbox="">` (no `allow-same-origin`, no scripts)
   with the injected `default-src 'none'` CSP — **never** inline or in a
@@ -756,13 +770,13 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
 - Router context (`auth`, `queryClient`) is injected in `app/main.tsx`; add new
   root context keys in both the router and `__root.tsx`.
 - Typechecking is `bun check` only: `bun run typecheck` runs it for the app and
-  again inside `pocketbase/` for the server project. There is no separate `tsc`
+  again inside `server/` for the server project. There is no separate `tsc`
   script or hook step — a differential run of `tsc --noEmit` against
   `bun check` over this repo (and over a hand-written set of inference /
   narrowing cases) produced the same diagnostics, so don't reintroduce one.
   That is also why the `typescript` package is gone: nothing loads it any more
   (Vite resolves tsconfig `paths` itself, the router plugin does not need it). The root `tsconfig.json`
-  excludes `pocketbase/`, so `bun run build` on Vercel/CI does not need the
+  excludes `pocketbase/` and `server/`, so `bun run build` on Vercel/CI does not need the
   server's own deps. Keep `"types": ["bun"]` and no `baseUrl` in
   `tsconfig.json`.
 - Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`,
@@ -776,11 +790,10 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
 - PocketBase records use `created` / `updated`; app types map them (e.g.
   `createdAt`).
 - Build output is `build/` (not `dist`). `vercel.json` rewrites all paths to
-  `/` for SPA routing. Vercel and the self-hosted PocketBase serve **two
-  separate builds**: Vercel builds from the repo, while `deploy-spa.yml`
-  builds with `VITE_POCKETBASE_URL=same-origin` and POSTs its own tarball to
-  `/spa/publish`; PB serves that copy from `build/` via `--publicDir` in prod.
-  Both hosts run at once.
+  `/` for SPA routing. Vercel and the self-hosted stack serve **two separate
+  builds**: Vercel builds from the repo, while `docker/app.Dockerfile` builds
+  with `VITE_POCKETBASE_URL=same-origin` and the Bun API serves that copy from
+  `/app/build`. Both hosts run at once.
 - PWA: `public/sw.js` is hand-written with a `VERSION` constant; bump it when
   caching behavior changes. It is registered only in production builds by
   `lib/service-worker.ts`. New workers wait for `SKIP_WAITING`; the app shows a
@@ -788,24 +801,26 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
   failures fall back to the cached shell, then to an inline offline page.
 - `lib/env.ts` validates `VITE_POCKETBASE_URL` at module load — a missing env
   var crashes the app immediately.
-- Default branch is `master`. Pushing `pocketbase/**` to `master` triggers
-  `.github/workflows/deploy-db.yml` → `/db/sync` (git pull,
-  `bun install --frozen-lockfile --production` in `pocketbase/`, stop PB,
-  snapshot `pb_data` while it is down, restart; migrations apply on restart
-  even with automigrate off).
-  Frontend paths trigger `.github/workflows/deploy-spa.yml`, which builds with
-  `VITE_POCKETBASE_URL=same-origin` and POSTs the tarball to `/spa/publish`;
-  PB serves it from `build/` with no restart (`build.old` keeps one
-  generation, `/spa/rollback` swaps back).
-- `pocketbase/server.ts` must stay inside `pocketbase/`: the binary resolves
-  `pb_migrations` and `pb_hooks` relative to the data dir.
-- Never commit `.env`, `.env.prod`, `pocketbase/pb_data/`, or `tmp/`.
+- Default branch is `master`. Pushing to `master` runs
+  `.github/workflows/images.yml`: `ci` gates it, the `changes` job decides
+  whether `mimi-base-app` and/or `mimi-base-pb` changed, both images are pushed
+  to Aliyun ACR as `:latest` + `:$sha`, then the `deploy` job calls
+  Watchtower's `/v1/update?image=...` and verifies `/version.json`. The old
+  `/db/sync`, `/spa/publish`, `/repo/sync` and `/spa/rollback` endpoints are
+  gone; `DEPLOY_TOKEN` is unused.
+- Both containers auto-update through Watchtower, so **migrations must stay
+  additive**: add fields/collections first, remove or rename in a later
+  release, and keep the app tolerant of the previous schema. PocketBase
+  scheduled backups are the rollback safety net.
+- Never commit `.env`, `.env.app`, `.env.prod`, `pocketbase/pb_data/`, or
+  `tmp/`.
 
 ## Read before changing sensitive areas
 
-- `pocketbase/README.md` — server, deploy endpoint, ops, secrets.
-- `scripts/server-setup.sh` — fresh install / recovery.
-- `.github/workflows/deploy-db.yml` — deploy trigger and retry behavior.
-- `.github/workflows/deploy-spa.yml` and the `/spa/*` routes in
-  `pocketbase/server.ts` — self-hosted frontend build and publish.
+- `docker/README.md` — host runbook, Caddy routing, Watchtower, backups,
+  rollback and the cutover/cleanup steps.
+- `compose.yaml` + `docker/` — images, entrypoint and the production env file.
+- `.github/workflows/images.yml` — build matrix and the Watchtower rollout.
+- `server/main.ts` + `server/sandbox*.ts` — API routing, static serving and the
+  QuickJS runtime.
 - `app/routes/_protected.tsx` and `lib/auth.tsx` — auth flow and redirects.
