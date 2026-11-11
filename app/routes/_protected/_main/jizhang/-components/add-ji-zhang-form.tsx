@@ -119,7 +119,7 @@ function AddForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
             itemName: "",
-            price: 0,
+            price: "",
             category: "",
         },
     });
@@ -169,14 +169,10 @@ function AddForm({
                                 <Input
                                     type="number"
                                     step="0.01"
+                                    inputMode="decimal"
+                                    placeholder="0.00"
                                     disabled={form.formState.isSubmitting}
                                     {...field}
-                                    value={field.value.toString()}
-                                    onChange={(e) => {
-                                        field.onChange(
-                                            parseFloat(e.target.value),
-                                        );
-                                    }}
                                 />
                             </FormControl>
                             <FormMessage />
