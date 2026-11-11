@@ -25,6 +25,7 @@ import {
 import { findPersona } from "@/app/chat/personas";
 import type { ChatConversation, ChatPersona } from "@/app/chat/types";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -158,25 +159,30 @@ export function ConversationList({
 
     return (
         <>
-            <div className="px-4 pt-4 pb-3">
-                <div className="flex items-center justify-between gap-2">
-                    <h1 className="min-w-0 text-xl font-bold tracking-tight">
-                        聊天
-                    </h1>
-                    <div className="flex shrink-0 items-center gap-1">
-                        {!selectMode && conversations.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="rounded-xl text-muted-foreground"
-                                aria-label="批量管理对话"
-                                onClick={() => setSelectMode(true)}
-                            >
-                                <ListChecks className="size-5" />
-                            </Button>
-                        )}
-                        {!selectMode && (
+            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3">
+                <PageHeader
+                    title="聊天"
+                    description={
+                        selectMode
+                            ? selected.size > 0
+                                ? `已选 ${selected.size} 个对话`
+                                : "点对话勾选，可以一次删掉多个"
+                            : "只存在你的账号里"
+                    }
+                    actions={
+                        !selectMode ? (
                             <>
+                                {conversations.length > 0 && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="rounded-xl text-muted-foreground"
+                                        aria-label="批量管理对话"
+                                        onClick={() => setSelectMode(true)}
+                                    >
+                                        <ListChecks className="size-5" />
+                                    </Button>
+                                )}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -195,16 +201,9 @@ export function ConversationList({
                                     新对话
                                 </Button>
                             </>
-                        )}
-                    </div>
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                    {selectMode
-                        ? selected.size > 0
-                            ? `已选 ${selected.size} 个对话`
-                            : "点对话勾选，可以一次删掉多个"
-                        : "和 AI 随便聊聊，记录只存在你的账号里"}
-                </p>
+                        ) : undefined
+                    }
+                />
                 {selectMode ? (
                     <div className="mt-3 flex items-center gap-2">
                         <Button
@@ -288,7 +287,7 @@ export function ConversationList({
                 )}
             </div>
 
-            <div className="space-y-2 px-3 pb-24">
+            <div className="mx-auto w-full max-w-md space-y-2 px-3 pb-24">
                 {loading && conversations.length === 0 && (
                     <>
                         <Skeleton className="h-16 w-full rounded-2xl" />

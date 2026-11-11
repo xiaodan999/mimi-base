@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
@@ -10,6 +10,7 @@ import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
 import { useStudySummaries } from "@/app/study/progress";
 import { ErrorState } from "@/components/ErrorState";
+import PageHeader from "@/components/PageHeader";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useCurrentUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
@@ -36,25 +37,12 @@ function Page() {
 
     return (
         <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10">
-            <Link
-                to="/home"
-                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-                <ChevronLeft className="size-3.5" aria-hidden="true" />
-                返回首页
-            </Link>
-
-            <section className="mt-3 overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-primary/15 via-card to-card p-5 shadow-soft">
-                <p className="text-xs font-medium text-muted-foreground">
-                    秘密基地 · 年度报告
-                </p>
-                <h1 className="mt-1 text-4xl font-semibold tracking-tight">
-                    {year}
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    这一年，基地替你记住了这些。
-                </p>
-            </section>
+            <PageHeader
+                backTo="/home"
+                backLabel="返回首页"
+                title="年度报告"
+                description={`${year} · 这一年，基地替你记住了这些。`}
+            />
 
             {isPending ? (
                 <div className="mt-10 flex justify-center">
@@ -69,7 +57,7 @@ function Page() {
                 </div>
             ) : (
                 <>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="mt-4 grid grid-cols-3 gap-2">
                         <StatTile label="动态" value={report.posts.total} />
                         <StatTile label="照片" value={report.posts.photos} />
                         <StatTile

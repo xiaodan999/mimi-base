@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-    ArrowLeft,
     ArrowUpRight,
     Check,
     ChevronDown,
@@ -15,6 +14,7 @@ import { toast } from "sonner";
 
 import { markUpdateSeen } from "@/app/about/seen";
 import { type Update, UPDATES } from "@/app/about/updates";
+import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { applyUpdate, checkForUpdate } from "@/lib/service-worker";
@@ -130,21 +130,12 @@ function About() {
             data-scroll-restoration-id="about"
         >
             <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(2rem+env(safe-area-inset-bottom))]">
-                <header className="flex items-center gap-1">
-                    <Button
-                        asChild
-                        className="-ml-2 text-muted-foreground"
-                        size="icon"
-                        variant="ghost"
-                    >
-                        <Link to="/home" aria-label="返回首页">
-                            <ArrowLeft className="size-5" aria-hidden="true" />
-                        </Link>
-                    </Button>
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        关于
-                    </h1>
-                </header>
+                <PageHeader
+                    backTo="/home"
+                    backLabel="返回首页"
+                    title="关于"
+                    description="更新记录与构建信息"
+                />
 
                 <section className="mt-4 rounded-3xl border border-border/60 bg-card p-6 shadow-soft">
                     <div className="flex items-center gap-4">

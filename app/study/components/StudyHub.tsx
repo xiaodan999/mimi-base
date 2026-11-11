@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { BookOpen } from "lucide-react";
 
 // 这份完整样式跟着 /study 路由的 lazy 组件一起加载，不进首屏 CSS。
 import "@/app/study/study.css";
+
+import PageHeader from "@/components/PageHeader";
 
 import { cardStatsFromMeta, daysLeft, questionStats } from "../engine";
 import { KIND_LABEL, SUBJECT_META } from "../meta";
@@ -14,20 +15,14 @@ export default function StudyHub() {
 
     return (
         <div className="study-root">
-            <div className="px-4 pt-4">
-                <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">
-                    <BookOpen
-                        className="size-6 text-primary"
-                        aria-hidden="true"
-                    />
-                    学习基地
-                </h1>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">
-                    所有科目都在这里，进度会跟着账号走。
-                </p>
+            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))]">
+                <PageHeader
+                    title="学习基地"
+                    description="所有科目都在这里，进度会跟着账号走。"
+                />
             </div>
 
-            <div className="study-body">
+            <div className="study-body mx-auto w-full max-w-md">
                 <div className="hub-grid">
                     {SUBJECT_META.map((subject) => {
                         const progress = summaries?.[subject.id];

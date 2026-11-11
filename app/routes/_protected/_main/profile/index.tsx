@@ -23,6 +23,7 @@ import { UPDATES } from "@/app/about/updates";
 import { useAi } from "@/app/ai/AiContext";
 import { abortAllChatRuns } from "@/app/chat/run-store";
 import { useUnreadNotificationCount } from "@/app/notifications/data";
+import PageHeader from "@/components/PageHeader";
 import TouXiang from "@/components/TouXiang";
 import { CIRCLE_PRESETS, NO_RING } from "@/components/TouXiang/presets";
 import { Button } from "@/components/ui/button";
@@ -228,11 +229,7 @@ function Page() {
         <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
             {/* 个人资料 is a bottom-nav tab root: no back arrow, same as the
                 other tab roots. The nav bar is the way back. */}
-            <header>
-                <h1 className="text-xl font-semibold tracking-tight">
-                    个人资料
-                </h1>
-            </header>
+            <PageHeader title="个人资料" description="头像、昵称和基地设置" />
 
             {/* Identity first: avatar, nickname and ring are the page's
                 subject; settings and links are grouped below. */}

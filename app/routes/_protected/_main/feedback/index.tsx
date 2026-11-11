@@ -1,7 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Bug, ChevronLeft, Lightbulb } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Bug, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import PageHeader from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 
 import { BugPanel } from "./-components/bug-panel";
@@ -85,23 +86,12 @@ function Page() {
 
     return (
         <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10">
-            <Link
-                to="/profile"
-                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-                <ChevronLeft className="size-3.5" aria-hidden="true" />
-                返回个人资料
-            </Link>
-
-            <header className="mt-3">
-                <h1 className="text-xl font-semibold tracking-tight">
-                    反馈与建议
-                </h1>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    遇到问题，或者想要一个新功能？告诉基地，会自动整理成 GitHub
-                    Issue。
-                </p>
-            </header>
+            <PageHeader
+                backTo="/profile"
+                backLabel="返回个人资料"
+                title="反馈与建议"
+                description="问题或建议都会自动整理成 GitHub Issue。"
+            />
 
             <div
                 aria-label="反馈类型"

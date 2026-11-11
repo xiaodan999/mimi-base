@@ -705,6 +705,10 @@ which the app build deliberately does not install. Re-check
 - Adding a page: create `app/routes/_protected/_main/<name>/index.tsx` with
   `createFileRoute("/_protected/_main/<name>/")`, let the dev server regenerate
   `routeTree.gen.ts`, then add a nav entry in `components/NavButtons/index.tsx`.
+  Start the page with `components/PageHeader` (optional `backTo`, `description`
+  and right-aligned `actions`; `compact` only for an in-thread app bar) so the
+  title size, back button and spacing stay the same across screens. `/home` is
+  the exception: its greeting card owns the top of the feed.
 - Style with Tailwind + `components/ui` primitives + `cn()` from
   `lib/utils.ts`. There are no CSS modules; the nav uses lucide icons.
 - `hover:` styles only reach devices that can hover — v4 emits them behind

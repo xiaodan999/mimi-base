@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { DateRange } from "react-day-picker";
 
 import { ErrorState } from "@/components/ErrorState";
+import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
     ContextMenu,
@@ -86,29 +87,25 @@ function Page() {
 
     return (
         <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
-            <header className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">
-                        秘密基地 · 记账
-                    </p>
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        记账基地
-                    </h1>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        aria-label="AI 记账"
-                        className="rounded-full"
-                        onClick={() => setAiEntryOpen(true)}
-                    >
-                        <Sparkles className="size-4" />
-                    </Button>
-                    <AddJiZhangForm />
-                </div>
-            </header>
+            <PageHeader
+                title="记账基地"
+                description="两个人的共享账本"
+                actions={
+                    <>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label="AI 记账"
+                            className="rounded-full"
+                            onClick={() => setAiEntryOpen(true)}
+                        >
+                            <Sparkles className="size-4" />
+                        </Button>
+                        <AddJiZhangForm />
+                    </>
+                }
+            />
 
             {isPending ? (
                 <SummarySkeleton />

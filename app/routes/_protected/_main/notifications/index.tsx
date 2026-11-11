@@ -1,11 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import {
-    Bell,
-    CheckCheck,
-    ChevronLeft,
-    Heart,
-    MessageCircle,
-} from "lucide-react";
+import { Bell, CheckCheck, Heart, MessageCircle } from "lucide-react";
 import { useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
@@ -24,6 +18,7 @@ import {
     notificationSearch,
 } from "@/app/notifications/format";
 import { ErrorState } from "@/components/ErrorState";
+import PageHeader from "@/components/PageHeader";
 import TouXiang from "@/components/TouXiang";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
@@ -82,38 +77,34 @@ function Page() {
 
     return (
         <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-28">
-            <header className="flex items-center gap-2">
-                <Link
-                    to="/home"
-                    aria-label="返回首页"
-                    className="grid size-9 shrink-0 place-items-center rounded-full border border-border/60 bg-card/70 text-muted-foreground transition-colors hover:text-foreground active:scale-95"
-                >
-                    <ChevronLeft className="size-4" aria-hidden="true" />
-                </Link>
-                <div className="min-w-0 flex-1">
-                    <h1 className="text-xl font-semibold tracking-tight">
-                        互动消息
-                    </h1>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        {unreadCount > 0
-                            ? `${unreadCount} 条未读`
-                            : "点赞、评论和回复都会收在这里"}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => void readAll()}
-                    disabled={unreadCount === 0 || markAll.isPending}
-                    className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-primary transition-colors active:bg-primary/10 disabled:text-muted-foreground disabled:opacity-50"
-                >
-                    {markAll.isPending ? (
-                        <LoadingSpinner size={14} />
-                    ) : (
-                        <CheckCheck className="size-3.5" aria-hidden="true" />
-                    )}
-                    全部已读
-                </button>
-            </header>
+            <PageHeader
+                backTo="/home"
+                backLabel="返回首页"
+                title="互动消息"
+                description={
+                    unreadCount > 0
+                        ? `${unreadCount} 条未读`
+                        : "点赞、评论和回复都会收在这里"
+                }
+                actions={
+                    <button
+                        type="button"
+                        onClick={() => void readAll()}
+                        disabled={unreadCount === 0 || markAll.isPending}
+                        className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-primary transition-colors active:bg-primary/10 disabled:text-muted-foreground disabled:opacity-50"
+                    >
+                        {markAll.isPending ? (
+                            <LoadingSpinner size={14} />
+                        ) : (
+                            <CheckCheck
+                                className="size-3.5"
+                                aria-hidden="true"
+                            />
+                        )}
+                        全部已读
+                    </button>
+                }
+            />
 
             {notifications.isPending ? (
                 <div className="grid place-items-center py-20">
