@@ -23,6 +23,8 @@ type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
 /**
  * Feed presentation for a post. The old `moments` (朋友圈九宫格) layout was
  * retired: rows that still carry it are mapped to `twitter` by `toPostData`.
+ * A row with no photos and no video is mapped to `twitter` too: the full-bleed
+ * card has nothing to show and would draw the action row above the text.
  */
 export type PostLayout = "instagram" | "twitter";
 
@@ -270,16 +272,27 @@ export function toPostData(
                 : image;
         },
     );
+    const videos = fileNames(post.videos);
+    // The composer hides the layout picker when the draft has no media, so
+    // removing the last photo from a 大图 post saves it as `instagram` with an
+    // empty media set. Such a row has nothing for the full-bleed card to show,
+    // and that branch repeats the author name before the caption, so treat it
+    // as the timeline card. Rows that still have a photo or a video keep
+    // whatever layout they were saved with.
+    const layout: PostLayout =
+        post.layout === "instagram" && (images.length > 0 || videos.length > 0)
+            ? "instagram"
+            : "twitter";
     const data: PostData = {
         id: post.id,
         text: post.text,
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
         createdAt: post.created,
         liked: likedPostIds.has(post.id),
-        layout: post.layout === "instagram" ? "instagram" : "twitter",
+        layout,
         collectionId: post.collectionId,
         images,
-        videos: fileNames(post.videos),
+        videos,
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,

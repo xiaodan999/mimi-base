@@ -175,7 +175,10 @@ export default function Post({
         </DropdownMenu>
     ) : null;
 
-    if (layout === "instagram") {
+    // `toPostData` already folds a media-less post to `twitter`; keep the
+    // renderer tolerant so a row that skipped the mapper cannot fall into the
+    // full-bleed branch with nothing to display.
+    if (layout === "instagram" && (images.length > 0 || videoUrl)) {
         return (
             <article className="mb-3 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
                 <div className="flex items-center gap-3 px-4 pt-4">

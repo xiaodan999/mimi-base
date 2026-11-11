@@ -482,7 +482,9 @@ which the app build deliberately does not install. Re-check
   fills it at upload (old rows without it measure on load). `posts.layout` is
   `instagram` (full-bleed carousel) or `twitter` (compact timeline with the
   action row under the media), picked per post; the retired `moments`
-  (朋友圈 square grid) value is folded into `twitter` by `toPostData`.
+  (朋友圈 square grid) value is folded into `twitter` by `toPostData`, and so
+  is any row with no photos and no video (removing the last photo from a 大图
+  post used to keep `instagram` and render the action row above the text).
   `/posts` and `/photos` now redirect to `/home`.
 - `ji_zhang_biao.category` is free text. It stores either a built-in key
   (`food`, `takeout`, `transport`, `shopping`, `home`, `fun`, `health`,
