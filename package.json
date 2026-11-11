@@ -5,10 +5,10 @@
     "type": "module",
     "packageManager": "bun@1.4.4",
     "scripts": {
-        "backend": "bun scripts/backends.ts",
         "build": "vite build && bun check",
-        "dev": "vite --host",
         "dev:all": "bun scripts/dev.ts",
+        "dev:backend": "bun scripts/backends.ts",
+        "dev:frontend": "vite --host",
         "format": "bun fmt",
         "format:check": "bun fmt --check",
         "install:server": "cd server && bun install --frozen-lockfile",

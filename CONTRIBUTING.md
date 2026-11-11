@@ -7,8 +7,12 @@
 ```bash
 bun install
 cp .env.example .env
-bun run backend   # PocketBase，另开一个终端
-bun run dev       # Vite，默认 3000
+
+# 终端 1：PocketBase + API
+bun run dev:backend
+
+# 终端 2：Vite，默认 3000
+bun run dev:frontend
 ```
 
 ## 分支与工作流

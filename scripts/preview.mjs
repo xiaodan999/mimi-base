@@ -10,9 +10,9 @@
  * with an SPA fallback, `/db` proxied to PocketBase (prefix stripped) and
  * `/api` proxied to the API. Then point a browser at the printed URL.
  *
- * This replaces `bun run dev` for verification only. A Vite dev server keeps a
- * ~430MB process alive that serves the same thing; this adds ~30MB. It also
- * costs a `bun run build` per iteration — there is no hot reload.
+ * This replaces `bun run dev:frontend` for verification only. A Vite dev server
+ * keeps a ~430MB process alive that serves the same thing; this adds ~30MB. It
+ * also costs a `bun run build` per iteration — there is no hot reload.
  *
  * The build is always made with VITE_POCKETBASE_URL=same-origin, so the bundle
  * talks to whatever origin serves it and the proxies below do the rest. Do not

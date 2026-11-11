@@ -73,8 +73,8 @@ Chinese; keep that style when adding user-facing text.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
 - `scripts/pb-binary.ts` — dev-only PocketBase binary reuse/download.
   `scripts/backends.ts` starts PocketBase + the API as two children and backs
-  `bun run backend`; `scripts/dev.ts` backs `bun run dev:all` on Linux, WSL2 and
-  plain Windows. Under WSL it also runs `scripts/lan-proxy.mjs` with the
+  `bun run dev:backend`; `scripts/dev.ts` backs `bun run dev:all` on Linux, WSL2
+  and plain Windows. Under WSL it also runs `scripts/lan-proxy.mjs` with the
   Windows node to forward the Vite port to the VM (no admin or portproxy
   required). PocketBase and the API stay on loopback; Vite proxies `/db` and
   `/api`, and dev runs with `VITE_POCKETBASE_URL=same-origin`.
@@ -88,8 +88,8 @@ Chinese; keep that style when adding user-facing text.
 bun install
 bun run install:server   # server/ deps (pdf.js, canvas, ip2region, QuickJS)
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
-bun run backend           # PocketBase :8090 + API :9001 (admin at /_/)
-bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
+bun run dev:backend       # PocketBase :8090 + API :9001 (admin at /_/)
+bun run dev:frontend      # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # skips busy ports (WSL + Windows) and reads
                           # VITE_PORT/PB_PORT from .env; one instance per
@@ -134,8 +134,9 @@ the prefix stripped, `/api` proxied to the API.
 This matters on a memory-constrained machine (a 1–2GB container, say). A Vite
 dev server keeps a ~430MB process alive to serve the same thing; the preview
 server plus its backends stay around 120MB. The cost is one `bun run build` per
-change — there is no hot reload. Use it for visual checks and keep `bun run dev`
-for editing.
+change — there is no hot reload. Use `preview` for visual checks when a dev
+server does not fit; on a machine that can afford one, keep
+`bun run dev:frontend` for editing.
 
 - `PREVIEW_PORT` (4500), `PB_PORT` (8110) and `API_PORT` (9110) override
   the ports, so it can run next to a dev stack; `PREVIEW_BUILD=0` reuses the

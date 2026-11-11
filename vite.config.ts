@@ -99,7 +99,7 @@ export default defineConfig(({ mode }) => {
 
     // Dev serves the app through the same origin as PocketBase's API, so a
     // phone on the LAN only needs this one port. `dev:all` sets PB_PORT; plain
-    // `bun run dev` falls back to the default PocketBase port.
+    // `bun run dev:frontend` falls back to the default PocketBase port.
     const pocketBasePort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
 
     // The Bun API serves the streaming AI relay next to the deploy endpoints.

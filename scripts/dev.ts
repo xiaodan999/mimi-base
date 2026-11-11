@@ -243,7 +243,7 @@ if (lowMemory) {
         `low-memory mode: RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS ?? 1}`,
     );
 }
-const vite = spawn(process.execPath, ["run", "dev"], {
+const vite = spawn(process.execPath, ["run", "dev:frontend"], {
     cwd: repo,
     stdio: "inherit",
     env: {

@@ -1,7 +1,7 @@
 /**
  * Local backend stack: PocketBase + the Bun API, as two child processes.
  *
- *   bun run backend     # foreground: starts both (or attaches to a healthy
+ *   bun run dev:backend # foreground: starts both (or attaches to a healthy
  *                       # pair already running for this worktree)
  *   bun scripts/backends.ts
  *

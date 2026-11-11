@@ -119,10 +119,10 @@ cd pocketbase
 
 ```bash
 # 终端 1：数据库 + API
-bun run backend
+bun run dev:backend
 
 # 终端 2：页面
-bun run dev
+bun run dev:frontend
 ```
 
 同时开多个 worktree 也没问题：每个 worktree 有自己的
@@ -148,16 +148,16 @@ MIMI_DEV_LOWMEM=1
 `dev:all` 的峰值内存会从约 1.9GB 降到约 1.5GB，代价是首次打开页面慢
 一成左右（想自己定线程数就设 `RAYON_NUM_THREADS`，它优先）。
 
-分开启动时，`bun run dev` 默认代理到 8090（PocketBase）和 9001（API）；
-后端换了端口就加 `PB_PORT=8091 API_PORT=9002 bun run dev`。
+分开启动时，`bun run dev:frontend` 默认代理到 8090（PocketBase）和 9001（API）；
+后端换了端口就加 `PB_PORT=8091 API_PORT=9002 bun run dev:frontend`。
 
 ## 六、常用命令
 
 | 命令                   | 作用                               |
 | ---------------------- | ---------------------------------- |
 | `bun run dev:all`      | 同时启动数据库和页面，手机可访问   |
-| `bun run backend`      | 只启动数据库和 API                 |
-| `bun run dev`          | 只启动页面                         |
+| `bun run dev:backend`  | 只启动数据库和 API                 |
+| `bun run dev:frontend` | 只启动页面                         |
 | `bun run build`        | 打包正式版本，并检查代码有没有错误 |
 | `bun run typecheck`    | 只检查代码类型（bun check）        |
 | `bun run lint`         | 检查代码规范（Biome）              |
