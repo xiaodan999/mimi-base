@@ -16,7 +16,11 @@ import { PostData, useDeletePostMutation, usePostLikeMutation } from "../data";
 import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
 import type { ViewerImage } from "./image-viewer";
-import { InstagramCarousel, TwitterMedia } from "./post-images";
+import {
+    InstagramCarousel,
+    type PostMediaView,
+    TwitterMedia,
+} from "./post-images";
 import PostVideo from "./post-video";
 import { TweetText } from "./tweet-text";
 
@@ -36,9 +40,7 @@ export default function Post({
     liked,
     layout,
     collectionId,
-    images,
-    videos,
-    videoSize,
+    media,
     onOpenComments,
     onOpenImage,
     onOpenVideo,
@@ -52,39 +54,48 @@ export default function Post({
     // Files are protected: build the URLs with the current file token each
     // time, instead of baking a soon-to-expire token into the query cache.
     const fileRecord = { id, collectionId };
-    const gridImages = images.map((image) => ({
-        name: image.name,
-        url: getFileUrl(fileRecord, image.name),
-        // PocketBase can only write PNG thumbnails, which come out larger than
-        // the original WebP. The 600px WebP preview is uploaded by the
-        // composer; posts from before that simply reuse the full image.
-        thumbUrl: getFileUrl(fileRecord, image.thumb ?? image.name),
-        // Recorded at upload time so the feed can reserve the real box before
-        // the protected file loads (old posts have none and measure on load).
-        width: image.width,
-        height: image.height,
-    }));
-    const openImage = (index: number) => {
-        onOpenImage(
-            images.map((image) => ({
-                name: image.name,
-                url: getFileUrl(fileRecord, image.name),
-            })),
-            index,
-        );
+    const mediaViews: PostMediaView[] = media.map((item) =>
+        item.kind === "image"
+            ? {
+                  type: "image",
+                  name: item.name,
+                  url: getFileUrl(fileRecord, item.name),
+                  // PocketBase can only write PNG thumbnails, which come out
+                  // larger than the original WebP. The 600px WebP preview is
+                  // uploaded by the composer; posts from before that simply
+                  // reuse the full image.
+                  thumbUrl: getFileUrl(fileRecord, item.thumb ?? item.name),
+                  // Recorded at upload time so the feed can reserve the real
+                  // box before the protected file loads (old posts have none
+                  // and measure on load).
+                  width: item.width,
+                  height: item.height,
+              }
+            : {
+                  type: "video",
+                  name: item.name,
+                  url: getFileUrl(fileRecord, item.name),
+                  width: item.width,
+                  height: item.height,
+              },
+    );
+    const viewerImages = media.flatMap((item) =>
+        item.kind === "image"
+            ? [{ name: item.name, url: getFileUrl(fileRecord, item.name) }]
+            : [],
+    );
+    const openImage = (index: number) => onOpenImage(viewerImages, index);
+    const openVideo = (index: number) => {
+        const item = mediaViews.filter((view) => view.type === "video")[index];
+        if (item) onOpenVideo(item.url);
     };
-    const videoName = videos[0] ?? "";
-    const videoUrl = videoName ? getFileUrl(fileRecord, videoName) : "";
-    // In the tweet layout the clip joins the photos as one X-style media set
-    // (a shared-height row for one photo + the video, the strip for more),
-    // instead of a full-size player stacked above them. The clip leads both.
-    const videoMedia = videoUrl
-        ? {
-              url: videoUrl,
-              width: videoSize?.width,
-              height: videoSize?.height,
-          }
-        : null;
+    // A lone clip keeps the pre-#80 full-size player in the 大图 layout. The
+    // carousel exists for a mixed set; a square slide would letterbox a
+    // portrait recording that used to fill the width.
+    const onlyVideo =
+        mediaViews.length === 1 && mediaViews[0]?.type === "video"
+            ? mediaViews[0]
+            : null;
 
     const avatar = <AvatarPreview size={40} user={author} />;
 
@@ -178,7 +189,7 @@ export default function Post({
     // `toPostData` already folds a media-less post to `twitter`; keep the
     // renderer tolerant so a row that skipped the mapper cannot fall into the
     // full-bleed branch with nothing to display.
-    if (layout === "instagram" && (images.length > 0 || videoUrl)) {
+    if (layout === "instagram" && mediaViews.length > 0) {
         return (
             <article className="mb-3 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
                 <div className="flex items-center gap-3 px-4 pt-4">
@@ -197,26 +208,25 @@ export default function Post({
                     {menu}
                 </div>
 
-                {videoUrl && (
-                    <div className="mt-3">
+                {/* Photos and clips share the carousel, in the stored order;
+                    a single clip keeps the full-size player instead. */}
+                <div className="mt-3">
+                    {onlyVideo ? (
                         <PostVideo
-                            url={videoUrl}
+                            url={onlyVideo.url}
                             layout="instagram"
-                            videoWidth={videoSize?.width}
-                            videoHeight={videoSize?.height}
-                            onOpenFullscreen={() => onOpenVideo(videoUrl)}
+                            videoWidth={onlyVideo.width}
+                            videoHeight={onlyVideo.height}
+                            onOpenFullscreen={() => openVideo(0)}
                         />
-                    </div>
-                )}
-
-                {images.length > 0 && (
-                    <div className="mt-3">
+                    ) : (
                         <InstagramCarousel
-                            images={gridImages}
-                            onOpen={openImage}
+                            media={mediaViews}
+                            onOpenImage={openImage}
+                            onOpenVideo={openVideo}
                         />
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <div className="px-4 pt-3">{actions}</div>
 
@@ -256,26 +266,14 @@ export default function Post({
 
                     {text && <TweetText text={text} />}
 
-                    {videoUrl && images.length === 0 && (
-                        <div className="mt-3">
-                            <PostVideo
-                                url={videoUrl}
-                                layout="twitter"
-                                videoWidth={videoSize?.width}
-                                videoHeight={videoSize?.height}
-                                onOpenFullscreen={() => onOpenVideo(videoUrl)}
-                            />
-                        </div>
-                    )}
-
-                    {images.length > 0 && (
-                        <TwitterMedia
-                            images={gridImages}
-                            video={videoMedia}
-                            onOpen={openImage}
-                            onOpenVideo={() => onOpenVideo(videoUrl)}
-                        />
-                    )}
+                    {/* One ordered media set: a lone clip is still the normal
+                        player, everything else follows X's single / pair /
+                        strip rules. */}
+                    <TwitterMedia
+                        media={mediaViews}
+                        onOpenImage={openImage}
+                        onOpenVideo={openVideo}
+                    />
 
                     {/* X has no divider above the action row. */}
                     <div className="mt-3 flex items-center">{actions}</div>

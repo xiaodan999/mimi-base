@@ -17,6 +17,8 @@
 
 ### 新增
 
+- 发动态的照片和视频合并成一个可排序的媒体集合（#80）：新增迁移 `1796400000_multi_video_media_order.js`，把 `posts.videos` 的 `maxSelect` 从 1 放宽到 9，并新增 `posts.media_order` JSON 字段；一条动态最多 9 个媒体（照片 + 视频合计，`MAX_POST_MEDIA`），每个视频仍限 50MB。`lib/postMedia.ts` 增加 `MEDIA_ACCEPT` / `isVideoCandidate` / `PostMediaOrderEntry` / `parsePostMediaOrder` / `resolveMediaOrder`，`posts.media_meta` 扩展为 `{ images, videos }`，旧行的单个 `video` 尺寸仍能读取。Composer 删除分开的「照片」「视频」区块，换成 `PostComposerMedia` 一个「媒体」入口：一次选照片和视频、统一网格、视频显示首帧和大小，`PostMediaSort` 支持在两种媒体之间拖动或按方向键排序；`usePostDraft` 用一条 `media` 列表维护草稿，发布时逐段压缩新视频，`buildPostMediaFields` 把 keep/new 文件和 `media_order` 一次提交，不再需要第二次只改文件名顺序的更新。渲染层 `PostData.media` 按 `media_order` 展开：`TwitterMedia` 按存储顺序渲染单图 / 并排 / 滑动条（两段以上视频走滑动条），`InstagramCarousel` 变成一个混合轮播（视频是方形 slide，单独一段视频仍用原来的大播放器）；旧动态没有 `media_order` 时回退成视频在前。`postMedia`、`pb-types`、`utils`、`post-images` 的测试覆盖顺序解析、多视频尺寸、旧数据回退和 keep/new 索引。
+
 - 互动消息（#77）：新增 `notifications` 集合（`recipient` / `actor` / `type` / `post` / `comment` / `read`，`recipient` 只能读写自己的行，创建和删除仅限服务端，更新钩子会还原事件字段、只允许改 `read`），迁移为 `1796300000_add_notifications.js`。`pocketbase/pb_hooks/notifications.pb.js` 在点赞/评论成功后写入 `post_like`、`comment_like`、`post_comment`、`comment_reply` 四种通知：跳过自己给自己，回复同时通知父评论作者和动态作者（同一人时只留更具体的回复），取消点赞、删除评论/动态/账号会清理或级联。客户端新增 `app/notifications/`（无限列表、未读数、单条/全部已读）和 `/notifications` 页面，首页铃铛与「我的 → 功能」显示实时未读数；`notifications` 已加入 realtime 订阅。列表展示头像、动作、摘要、时间和动态缩略图，点击跳到 `/home?post=<id>`，评论类再带 `comments=1` 自动打开评论抽屉；`PostFilter` / `buildFilter` 支持按 `post` 过滤，HomeSearch 增加 `post` / `comments`。`format.test.ts` 覆盖类型解析、文案和深链，`realtime.test.ts` 覆盖新集合映射，`AGENTS.md` 同步记录集合与钩子规则。
 
 ### 变更

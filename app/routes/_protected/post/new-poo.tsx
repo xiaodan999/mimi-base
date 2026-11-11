@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { useNewPostMutation } from "@/app/feed/data";
+import { buildPostMediaFields } from "@/app/feed/utils";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { toastPromise } from "@/lib/toast-promise";
@@ -9,6 +10,9 @@ import { toastPromise } from "@/lib/toast-promise";
 export const Route = createFileRoute("/_protected/post/new-poo")({
     component: Page,
 });
+
+/** Nothing to upload; the builder still supplies the empty media fields. */
+const EMPTY_MEDIA = buildPostMediaFields([]);
 
 function Page() {
     const newPostMutation = useNewPostMutation();
@@ -28,10 +32,7 @@ function Page() {
                     newPostMutation.mutateAsync({
                         text: "💩",
                         layout: "twitter",
-                        images: [],
-                        thumbs: [],
-                        videos: [],
-                        mediaMeta: { images: [], video: null },
+                        media: EMPTY_MEDIA,
                     }),
                     {
                         loading: "记录💩中...",

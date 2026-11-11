@@ -10,9 +10,24 @@
 
 export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
+/**
+ * One post holds at most nine media items in total (photos and videos
+ * together), matching the long-standing `posts.images` cap. The composer
+ * enforces it while picking; the schema caps each file field separately.
+ */
+export const MAX_POST_MEDIA = 9;
+
 /** `accept` for the system file picker: MIME types plus extensions. */
 export const VIDEO_ACCEPT =
     "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov";
+
+/**
+ * `accept` for the one composer picker: photos and videos in a single dialog.
+ * The extensions cover browsers that report no MIME type for a picked file.
+ */
+export const MEDIA_ACCEPT =
+    "image/*,video/mp4,video/webm,video/quicktime," +
+    ".mp4,.webm,.mov,.jpg,.jpeg,.png,.webp,.gif,.avif";
 
 export const SUPPORTED_VIDEO_MIME_TYPES = [
     "video/mp4",
@@ -58,8 +73,24 @@ function isSupportedExtension(name: string): boolean {
 }
 
 /**
+ * Whether a picked file should be treated as a video. Browsers sometimes
+ * report a generic or empty MIME type, so a known video extension also counts;
+ * `videoFileError` then applies the real rules (the server still validates the
+ * bytes).
+ */
+export function isVideoCandidate(file: {
+    name: string;
+    type?: string;
+}): boolean {
+    const type = (file.type ?? "").toLowerCase();
+    if (type.startsWith("video/")) return true;
+    if (type.startsWith("image/")) return false;
+    return isSupportedExtension(file.name);
+}
+
+/**
  * Returns a Chinese error message when the picked file cannot be uploaded,
- * or `null` when it is fine. Browsers occasionally report an empty
+ * or `null` when it is fine. Browsers occasionally report an empty or generic
  * `file.type`, so an allowed extension is accepted as a fallback; the server
  * still validates the MIME type of the actual bytes.
  */
@@ -71,16 +102,8 @@ export function videoFileError(file: VideoCandidate): string | null {
     }
 
     const type = (file.type ?? "").toLowerCase();
-    if (type) {
-        if (!isSupportedType(type)) {
-            return "只支持 MP4、WebM 或 MOV 视频";
-        }
-        return null;
-    }
-
-    return isSupportedExtension(file.name)
-        ? null
-        : "只支持 MP4、WebM 或 MOV 视频";
+    if (isSupportedType(type) || isSupportedExtension(file.name)) return null;
+    return "只支持 MP4、WebM 或 MOV 视频";
 }
 
 /** Keep the picked stem but use the MP4 extension the compressor returns. */
@@ -188,7 +211,13 @@ export function toMediaSize(value: unknown): MediaSize | null {
 export type PostMediaMeta = {
     /** Positional sizes for `posts.images`; null keeps an unknown slot. */
     images: (MediaSize | null)[];
-    video: MediaSize | null;
+    /** Positional sizes for `posts.videos`, aligned with the stored array. */
+    videos: (MediaSize | null)[];
+    /**
+     * Single-video size written before posts could hold several clips (#80).
+     * Read as the size of video 0 so old rows keep their reserved box.
+     */
+    video?: MediaSize | null;
 };
 
 /**
@@ -198,15 +227,95 @@ export type PostMediaMeta = {
  */
 export function parsePostMediaMeta(value: unknown): PostMediaMeta {
     if (!value || typeof value !== "object") {
-        return { images: [], video: null };
+        return { images: [], videos: [], video: null };
     }
-    const meta = value as { images?: unknown; video?: unknown };
+    const meta = value as {
+        images?: unknown;
+        videos?: unknown;
+        video?: unknown;
+    };
     return {
         images: Array.isArray(meta.images)
             ? meta.images.map((entry) => toMediaSize(entry))
             : [],
+        videos: Array.isArray(meta.videos)
+            ? meta.videos.map((entry) => toMediaSize(entry))
+            : [],
         video: toMediaSize(meta.video),
     };
+}
+
+/** One media item in the stored display order. */
+export type StoredMediaItem = { kind: "image" | "video"; index: number };
+
+/**
+ * A `posts.media_order` entry: a file's position in the final stored
+ * `images` / `videos` array. Indices (not filenames) let the composer express
+ * the order in the same request that uploads the files: PocketBase writes kept
+ * filenames first and appends new uploads in form order, so both positions are
+ * known before the request is sent.
+ */
+export type PostMediaOrderEntry = { type: "image" | "video"; index: number };
+
+/**
+ * Validate `posts.media_order`. A hand-edited row can contain anything, so an
+ * invalid entry is dropped instead of throwing; `resolveMediaOrder` then
+ * appends whatever is missing.
+ */
+export function parsePostMediaOrder(value: unknown): PostMediaOrderEntry[] {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return [];
+        const { type, index } = entry as { type?: unknown; index?: unknown };
+        if (type !== "image" && type !== "video") return [];
+        if (
+            typeof index !== "number" ||
+            !Number.isInteger(index) ||
+            index < 0
+        ) {
+            return [];
+        }
+        return [{ type, index }];
+    });
+}
+
+/**
+ * Turn the stored order into the list the renderer walks. Out-of-range and
+ * duplicate entries are dropped, and every item the order forgot is appended
+ * (videos first, then photos — the order old rows without `media_order` use),
+ * so a malformed or partial value can never hide a file. A row with no order
+ * at all therefore keeps the pre-#80 look: the clip leads, then the photos.
+ */
+export function resolveMediaOrder(
+    order: PostMediaOrderEntry[],
+    imageCount: number,
+    videoCount: number,
+): StoredMediaItem[] {
+    const resolved: StoredMediaItem[] = [];
+    const seen = new Set<string>();
+    const push = (kind: "image" | "video", index: number) => {
+        const count = kind === "image" ? imageCount : videoCount;
+        if (index < 0 || index >= count) return;
+        const key = `${kind}:${index}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        resolved.push({ kind, index });
+    };
+    for (const entry of order) push(entry.type, entry.index);
+    for (let index = 0; index < videoCount; index += 1) push("video", index);
+    for (let index = 0; index < imageCount; index += 1) push("image", index);
+    return resolved;
+}
+
+/**
+ * Positional video size. Rows from before multi-video stored the single clip's
+ * size as `media_meta.video`, so video 0 falls back to it.
+ */
+export function videoSizeAt(
+    meta: PostMediaMeta,
+    index: number,
+): MediaSize | null {
+    return meta.videos[index] ?? (index === 0 ? (meta.video ?? null) : null);
 }
 
 /**

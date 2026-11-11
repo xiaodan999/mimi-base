@@ -10,38 +10,44 @@ import {
 import { videoDisplayRatio } from "@/lib/postMedia";
 import { cn } from "@/lib/utils";
 
+import { indexMediaByKind } from "../utils";
 import PostVideo from "./post-video";
 
-export type PostImageView = {
-    name: string;
-    /** The full-size original, which is already a compressed WebP upload. */
-    url: string;
-    /** 600px grid thumbnail, or the original when the post has no thumb. */
-    thumbUrl: string;
-    /**
-     * Intrinsic size recorded at upload. When present the media box is
-     * painted at its real aspect, so loading the photo cannot shift the feed.
-     */
-    width?: number;
-    height?: number;
-};
+/**
+ * One media item of a post, with the protected URLs already built. The list
+ * order is the stored order (`posts.media_order`), so a video can sit between
+ * two photos.
+ */
+export type PostMediaView =
+    | {
+          type: "image";
+          name: string;
+          /** The full-size original, which is already a compressed WebP. */
+          url: string;
+          /** 600px grid thumbnail, or the original when there is no thumb. */
+          thumbUrl: string;
+          /**
+           * Intrinsic size recorded at upload. When present the media box is
+           * painted at its real aspect, so loading cannot shift the feed.
+           */
+          width?: number;
+          height?: number;
+      }
+    | {
+          type: "video";
+          name: string;
+          /** Protected file URL, already carrying the short-lived token. */
+          url: string;
+          width?: number;
+          height?: number;
+      };
 
-type ImageListProps = {
-    images: PostImageView[];
-    onOpen: (index: number) => void;
-};
-
-/** The post's single video, as one more slide in the same media set. */
-export type PostVideoView = {
-    /** Protected file URL, already carrying the short-lived token. */
-    url: string;
-    width?: number;
-    height?: number;
-};
-
-type TwitterMediaProps = ImageListProps & {
-    video?: PostVideoView | null;
-    onOpenVideo?: () => void;
+type MediaListProps = {
+    media: PostMediaView[];
+    /** Image viewer index (counted among photos only). */
+    onOpenImage: (index: number) => void;
+    /** Video viewer index (counted among videos only). */
+    onOpenVideo: (index: number) => void;
 };
 
 /** The tallest and widest shapes the tweet media strip will render. */
@@ -67,8 +73,8 @@ function hasSize(width: number, height: number) {
 
 /**
  * The shared viewport shape of the tweet media strip: derived from the first
- * photo and clamped so one extreme image cannot make the whole card huge or a
- * thin sliver. Invalid sizes fall back to 4:3.
+ * medium and clamped so one extreme image cannot make the whole card huge or
+ * a thin sliver. Invalid sizes fall back to 4:3.
  */
 export function twitterMediaAspect(width: number, height: number): number {
     if (!hasSize(width, height)) {
@@ -99,26 +105,30 @@ export function twitterPairFits(left: number, right: number): boolean {
 export type TwitterMediaPlan = "single" | "pair" | "strip";
 
 /**
- * Which of X's media layouts a post's set of media gets:
+ * Which of X's media layouts an ordered set of media gets:
  *
- * - one medium fills the column; a lone video is drawn by `PostVideo` without
- *   a row or strip around it;
- * - exactly one photo plus the video keep X's equal-height row — measured on
+ * - one medium fills the column (a lone video is still the normal player);
+ * - exactly one photo plus one video keep X's equal-height row — measured on
  *   x.com, a 680x313 photo and a 480x852 video shared one height side by side,
- *   with the row's aspect the sum of the two (2.74) rather than the strip;
- * - any other mix (and the two-photo sets too wide for the row) becomes the
- *   swipeable strip, where the video is just one more slide.
+ *   with the row's aspect the sum of the two (2.74) rather than the strip; the
+ *   order is the author's, so either can lead;
+ * - two photos keep that pair only when `twitterPairFits`;
+ * - everything else, including two or more videos, is the swipeable strip,
+ *   where each video is just one more slide.
  */
 export function twitterMediaPlan(input: {
     imageCount: number;
-    hasVideo: boolean;
+    videoCount: number;
     /** `twitterPairFits` for the two photos; ignored once a video is present. */
     pairFits: boolean;
 }): TwitterMediaPlan {
-    const count = input.imageCount + (input.hasVideo ? 1 : 0);
+    const count = input.imageCount + input.videoCount;
     if (count <= 1) return "single";
-    if (input.hasVideo) return input.imageCount === 1 ? "pair" : "strip";
-    return input.imageCount === 2 && input.pairFits ? "pair" : "strip";
+    if (input.videoCount === 1 && input.imageCount === 1) return "pair";
+    if (input.videoCount === 0) {
+        return input.imageCount === 2 && input.pairFits ? "pair" : "strip";
+    }
+    return "strip";
 }
 
 /**
@@ -138,48 +148,41 @@ export function twitterNaturalAspect(width: number, height: number): number {
 /**
  * X-style tweet media, matched against x.com's phone layout:
  *
- * - one photo fills the text column at its natural shape with X's 16px radius;
- * - a pair sits there side by side at one shared height, each photo keeping
- *   its own width ratio, with X's 4px gutter and 8px per-photo radius; two
+ * - one medium fills the text column at its natural shape with X's 16px radius;
+ * - a pair sits there side by side at one shared height, each medium keeping
+ *   its own width ratio, with X's 4px gutter and 8px per-tile radius; two
  *   landscape photos would be too short, so they use the strip below instead;
- * - a post with one photo and its video uses that same pair, each slot keeping
- *   its own ratio (see `twitterMediaPlan`);
- * - three or more (and that wide pair) become a swipeable filmstrip that
- *   bleeds to the card edges while the first slide lines up with the text
- *   column. Slides share the first slide's aspect ratio, keep X's 4px gutter
- *   and 8px radius, and snap to the text column so the next one peeks in.
+ * - a post with one photo and one video uses that same pair, each slot keeping
+ *   its own ratio and the author's order (see `twitterMediaPlan`);
+ * - three or more, two or more videos, and the wide photo pair become a
+ *   swipeable filmstrip that bleeds to the card edges while the first slide
+ *   lines up with the text column. Slides share the first slide's aspect
+ *   ratio, keep X's 4px gutter and 8px radius, and snap to the text column so
+ *   the next one peeks in.
  *
- * The clip leads the set, then the photos. x.com keeps whatever order the
- * author attached the media in — its "My little hamster" post is a landscape
- * video followed by a portrait photo, its "My cute little dog" post the other
- * way round — and `posts.images` / `posts.videos` cannot express a mixed
- * order, so the video goes first.
- *
- * The video fills its slide box rather than sizing itself, autoplays muted
- * when visible (as in the single-video card) and opens the viewer on a tap.
- * Tapping a photo opens the image viewer.
+ * Photos and videos are rendered in the stored order, so a clip can lead, sit
+ * between photos, or come last. A video fills its slide box rather than sizing
+ * itself, autoplays muted when visible (as in the single-video card) and opens
+ * the viewer on a tap. Tapping a photo opens the image viewer at that photo.
  */
 export function TwitterMedia({
-    images,
-    video,
-    onOpen,
+    media,
+    onOpenImage,
     onOpenVideo,
-}: TwitterMediaProps) {
+}: MediaListProps) {
     const [ratios, setRatios] = useState<Record<number, number>>({});
-    /** The clip's real shape once it reports metadata; stored size until then. */
-    const [videoRatio, setVideoRatio] = useState<number | null>(null);
     const stripRef = useRef<HTMLDivElement>(null);
     const [canPrev, setCanPrev] = useState(false);
     const [canNext, setCanNext] = useState(false);
 
-    const hasVideo = Boolean(video?.url);
-    const videoAspect =
-        videoRatio ?? videoDisplayRatio(video?.width ?? 0, video?.height ?? 0);
+    const indexed = indexMediaByKind(media);
+    const imageCount = media.filter((item) => item.type === "image").length;
+    const videoCount = media.length - imageCount;
 
     const sizeAt = (index: number) => {
-        const image = images[index];
-        return image?.width && image.height
-            ? { width: image.width, height: image.height }
+        const item = media[index];
+        return item?.width && item.height
+            ? { width: item.width, height: item.height }
             : null;
     };
 
@@ -196,6 +199,14 @@ export function TwitterMedia({
             : TWITTER_MEDIA_DEFAULT_ASPECT;
     };
 
+    /** The clip's real shape once it reports metadata; stored size until then. */
+    const videoRatioAt = (index: number) => {
+        const measured = ratios[index];
+        if (measured !== undefined) return measured;
+        const size = sizeAt(index);
+        return videoDisplayRatio(size?.width ?? 0, size?.height ?? 0);
+    };
+
     /** Remember each photo's real shape as it loads. */
     const measure =
         (index: number, aspectOf = twitterMediaAspect) =>
@@ -207,19 +218,25 @@ export function TwitterMedia({
             }));
         };
 
+    const measureVideo = (index: number) => (ratio: number) =>
+        setRatios((previous) => ({ ...previous, [index]: ratio }));
+
     const pairKnown =
-        (ratios[0] !== undefined || sizeAt(0) !== null) &&
-        (ratios[1] !== undefined || sizeAt(1) !== null);
+        media.length === 2 &&
+        media.every(
+            (_, index) => ratios[index] !== undefined || sizeAt(index) !== null,
+        );
     const keepPair =
-        images.length === 2 &&
+        media.length === 2 &&
+        media.every((item) => item.type === "image") &&
         (!pairKnown ||
             twitterPairFits(
                 ratioAt(0, twitterNaturalAspect),
                 ratioAt(1, twitterNaturalAspect),
             ));
     const plan = twitterMediaPlan({
-        imageCount: images.length,
-        hasVideo,
+        imageCount,
+        videoCount,
         pairFits: keepPair,
     });
     const showStrip = plan === "strip";
@@ -253,30 +270,30 @@ export function TwitterMedia({
         strip.scrollBy({ left: amount * direction, behavior: "smooth" });
     };
 
-    /** The clip as one slide; its wrapper owns the slide box. */
-    const videoSlide = video ? (
-        <PostVideo
-            url={video.url}
-            layout="twitter"
-            tile
-            videoWidth={video.width}
-            videoHeight={video.height}
-            onAspect={setVideoRatio}
-            onOpenFullscreen={() => onOpenVideo?.()}
-        />
-    ) : null;
-
-    if (images.length === 0) return null;
+    if (media.length === 0) return null;
 
     if (plan === "single") {
-        // A lone video never reaches here: the post renders `PostVideo` itself.
-        const image = images[0];
-        if (!image) return null;
+        const entry = indexed[0];
+        if (!entry) return null;
+        if (entry.item.type === "video") {
+            return (
+                <div className="mt-3">
+                    <PostVideo
+                        url={entry.item.url}
+                        layout="twitter"
+                        videoWidth={entry.item.width}
+                        videoHeight={entry.item.height}
+                        onAspect={measureVideo(0)}
+                        onOpenFullscreen={() => onOpenVideo(entry.index)}
+                    />
+                </div>
+            );
+        }
         return (
             <div className="mt-3">
                 <button
                     type="button"
-                    onClick={() => onOpen(0)}
+                    onClick={() => onOpenImage(entry.index)}
                     aria-label="查看图片"
                     style={{
                         aspectRatio: String(ratioAt(0, twitterNaturalAspect)),
@@ -284,7 +301,7 @@ export function TwitterMedia({
                     className="relative w-full overflow-hidden rounded-[16px] bg-muted"
                 >
                     <img
-                        src={image.url}
+                        src={entry.item.url}
                         alt=""
                         loading="lazy"
                         onLoad={measure(0, twitterNaturalAspect)}
@@ -301,28 +318,42 @@ export function TwitterMedia({
             // while the widths stay proportional, so neither is cropped to the
             // other's shape (X's two-up layout, 4px gutter).
             <div className="mt-3 flex items-stretch gap-1">
-                {video && (
-                    // The clip leads the row at its own ratio, so the pair
-                    // still shares one height and 4px gutter.
-                    <div
-                        style={{
-                            aspectRatio: String(videoAspect),
-                            flexBasis: 0,
-                            flexGrow: videoAspect,
-                        }}
-                        className="relative min-w-0 overflow-hidden rounded-[8px] bg-black"
-                    >
-                        {videoSlide}
-                    </div>
-                )}
-                {images.map((image, index) => {
-                    const ratio = ratioAt(index, twitterNaturalAspect);
+                {indexed.map((entry, index) => {
+                    const ratio =
+                        entry.item.type === "image"
+                            ? ratioAt(index, twitterNaturalAspect)
+                            : videoRatioAt(index);
+                    if (entry.item.type === "video") {
+                        return (
+                            <div
+                                key={`video:${entry.item.name}`}
+                                style={{
+                                    aspectRatio: String(ratio),
+                                    flexBasis: 0,
+                                    flexGrow: ratio,
+                                }}
+                                className="relative min-w-0 overflow-hidden rounded-[8px] bg-black"
+                            >
+                                <PostVideo
+                                    url={entry.item.url}
+                                    layout="twitter"
+                                    tile
+                                    videoWidth={entry.item.width}
+                                    videoHeight={entry.item.height}
+                                    onAspect={measureVideo(index)}
+                                    onOpenFullscreen={() =>
+                                        onOpenVideo(entry.index)
+                                    }
+                                />
+                            </div>
+                        );
+                    }
                     return (
                         <button
-                            key={image.name}
+                            key={`image:${entry.item.name}`}
                             type="button"
-                            onClick={() => onOpen(index)}
-                            aria-label={`查看第 ${index + 1} 张图片，共 ${images.length} 张`}
+                            onClick={() => onOpenImage(entry.index)}
+                            aria-label={`查看第 ${entry.index + 1} 张图片，共 ${imageCount} 张`}
                             style={{
                                 aspectRatio: String(ratio),
                                 flexBasis: 0,
@@ -334,7 +365,7 @@ export function TwitterMedia({
                                 // The thumbnail is a square crop, so it can
                                 // neither measure the real shape nor stand in
                                 // for it here.
-                                src={image.url}
+                                src={entry.item.url}
                                 alt=""
                                 loading="lazy"
                                 onLoad={measure(index, twitterNaturalAspect)}
@@ -350,12 +381,14 @@ export function TwitterMedia({
     // The strip shares one box, taken from its leading slide and clamped like
     // the photos so one extreme clip cannot make every slide hundreds of
     // pixels tall.
-    const aspect = hasVideo
-        ? Math.min(
-              TWITTER_MEDIA_MAX_ASPECT,
-              Math.max(TWITTER_MEDIA_MIN_ASPECT, videoAspect),
-          )
-        : ratioAt(0);
+    const first = media[0];
+    const aspect =
+        first?.type === "video"
+            ? Math.min(
+                  TWITTER_MEDIA_MAX_ASPECT,
+                  Math.max(TWITTER_MEDIA_MIN_ASPECT, videoRatioAt(0)),
+              )
+            : ratioAt(0);
 
     return (
         // Break out of the tweet's text column (card padding + avatar + gap)
@@ -367,7 +400,9 @@ export function TwitterMedia({
                 ref={stripRef}
                 role="group"
                 aria-label={
-                    hasVideo ? "视频和图片，左右滑动查看" : "图片，左右滑动查看"
+                    videoCount > 0
+                        ? "视频和图片，左右滑动查看"
+                        : "图片，左右滑动查看"
                 }
                 onScroll={updateArrows}
                 // `scroll-padding` matches the text-column offset, so a slide
@@ -375,32 +410,44 @@ export function TwitterMedia({
                 // (X snaps its media strip the same way).
                 className="flex snap-x snap-mandatory scroll-pr-4 scroll-pl-[4.25rem] [scrollbar-width:none] gap-1 overflow-x-auto pr-4 pl-[4.25rem] [&::-webkit-scrollbar]:hidden"
             >
-                {video && (
-                    <div
-                        style={{ aspectRatio: String(aspect) }}
-                        className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-black"
-                    >
-                        {videoSlide}
-                    </div>
+                {indexed.map((entry, index) =>
+                    entry.item.type === "video" ? (
+                        <div
+                            key={`video:${entry.item.name}`}
+                            style={{ aspectRatio: String(aspect) }}
+                            className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-black"
+                        >
+                            <PostVideo
+                                url={entry.item.url}
+                                layout="twitter"
+                                tile
+                                videoWidth={entry.item.width}
+                                videoHeight={entry.item.height}
+                                onAspect={measureVideo(index)}
+                                onOpenFullscreen={() =>
+                                    onOpenVideo(entry.index)
+                                }
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            key={`image:${entry.item.name}`}
+                            type="button"
+                            onClick={() => onOpenImage(entry.index)}
+                            aria-label={`查看第 ${entry.index + 1} 张图片，共 ${imageCount} 张`}
+                            style={{ aspectRatio: String(aspect) }}
+                            className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-muted"
+                        >
+                            <img
+                                src={entry.item.url}
+                                alt=""
+                                loading="lazy"
+                                onLoad={index === 0 ? measure(0) : undefined}
+                                className="size-full object-cover"
+                            />
+                        </button>
+                    ),
                 )}
-                {images.map((image, index) => (
-                    <button
-                        key={image.name}
-                        type="button"
-                        onClick={() => onOpen(index)}
-                        aria-label={`查看第 ${index + 1} 张图片，共 ${images.length} 张`}
-                        style={{ aspectRatio: String(aspect) }}
-                        className="relative w-[80%] shrink-0 snap-start overflow-hidden rounded-[8px] bg-muted"
-                    >
-                        <img
-                            src={image.url}
-                            alt=""
-                            loading="lazy"
-                            onLoad={index === 0 ? measure(0) : undefined}
-                            className="size-full object-cover"
-                        />
-                    </button>
-                ))}
             </div>
 
             {/* X shows these only on hover-capable devices and fades out the
@@ -442,20 +489,29 @@ export function TwitterMedia({
 }
 
 /**
- * Instagram-style full-bleed media. Multiple images form a native
- * scroll-snap carousel so no carousel dependency is needed.
+ * Instagram-style full-bleed media. Photos and videos share one native
+ * scroll-snap carousel, in the stored order: photos fill a square slide and a
+ * clip is letterboxed in the same square with its own inline controls (a
+ * single clip is drawn by the caller at full size instead). The counter and
+ * dots cover the whole media set, not just the photos.
  */
-export function InstagramCarousel({ images, onOpen }: ImageListProps) {
+export function InstagramCarousel({
+    media,
+    onOpenImage,
+    onOpenVideo,
+}: MediaListProps) {
     const stripRef = useRef<HTMLDivElement>(null);
     const [index, setIndex] = useState(0);
 
-    if (images.length === 0) return null;
+    if (media.length === 0) return null;
 
     const handleScroll = () => {
         const strip = stripRef.current;
         if (!strip) return;
         setIndex(Math.round(strip.scrollLeft / strip.clientWidth));
     };
+
+    const indexed = indexMediaByKind(media);
 
     return (
         <div className="relative bg-muted">
@@ -464,36 +520,57 @@ export function InstagramCarousel({ images, onOpen }: ImageListProps) {
                 onScroll={handleScroll}
                 className="flex snap-x snap-mandatory [scrollbar-width:none] overflow-x-auto [&::-webkit-scrollbar]:hidden"
             >
-                {images.map((image, imageIndex) => (
-                    <button
-                        key={image.name}
-                        type="button"
-                        onClick={() => onOpen(imageIndex)}
-                        aria-label={`查看第 ${imageIndex + 1} 张图片`}
-                        className="w-full shrink-0 snap-center"
-                    >
-                        <img
-                            src={image.url}
-                            alt=""
-                            loading="lazy"
-                            className="aspect-square w-full object-cover"
-                        />
-                    </button>
-                ))}
+                {indexed.map((entry) =>
+                    entry.item.type === "video" ? (
+                        <div
+                            key={`video:${entry.item.name}`}
+                            className="aspect-square w-full shrink-0 snap-center bg-black"
+                        >
+                            <PostVideo
+                                url={entry.item.url}
+                                layout="instagram"
+                                tile
+                                videoWidth={entry.item.width}
+                                videoHeight={entry.item.height}
+                                onOpenFullscreen={() =>
+                                    onOpenVideo(entry.index)
+                                }
+                            />
+                        </div>
+                    ) : (
+                        <button
+                            key={`image:${entry.item.name}`}
+                            type="button"
+                            onClick={() => onOpenImage(entry.index)}
+                            aria-label={`查看第 ${entry.index + 1} 张图片`}
+                            className="w-full shrink-0 snap-center"
+                        >
+                            <img
+                                src={entry.item.url}
+                                alt=""
+                                loading="lazy"
+                                className="aspect-square w-full object-cover"
+                            />
+                        </button>
+                    ),
+                )}
             </div>
 
-            {images.length > 1 && (
+            {media.length > 1 && (
                 <>
-                    <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
-                        {index + 1}/{images.length}
+                    <span
+                        data-testid="carousel-counter"
+                        className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white tabular-nums"
+                    >
+                        {index + 1}/{media.length}
                     </span>
                     <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1">
-                        {images.map((image, imageIndex) => (
+                        {media.map((item, dotIndex) => (
                             <span
-                                key={image.name}
+                                key={`${item.type}:${item.name}`}
                                 className={cn(
                                     "size-1.5 rounded-full transition-colors",
-                                    imageIndex === index
+                                    dotIndex === index
                                         ? "bg-white"
                                         : "bg-white/50",
                                 )}

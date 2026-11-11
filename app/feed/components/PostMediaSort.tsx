@@ -1,5 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Check, X } from "lucide-react";
+import { Check, Play, X } from "lucide-react";
 import {
     type KeyboardEvent,
     type PointerEvent,
@@ -10,13 +10,14 @@ import {
 
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import type { PostLayout } from "@/lib/pb-types";
+import { videoFirstFrameUrl } from "@/lib/postMedia";
 import { cn } from "@/lib/utils";
 
 import { type SortSlotRect, sortTargetAt } from "../utils";
-import type { PreviewImage } from "./usePostDraft";
+import type { PreviewMedia } from "./usePostDraft";
 
-type PostImageSortProps = {
-    images: PreviewImage[];
+type PostMediaSortProps = {
+    media: PreviewMedia[];
     layout: PostLayout;
     onMove: (from: number, to: number) => void;
     onClose: () => void;
@@ -30,7 +31,7 @@ type DragState = {
     active: boolean;
     slots: SortSlotRect[];
     key: string;
-    /** Slot offset accumulated as the photos reorder underneath the pointer. */
+    /** Slot offset accumulated as the media reorder underneath the pointer. */
     baseX: number;
     baseY: number;
     /** Current visual offset from the tile's slot. */
@@ -59,24 +60,26 @@ function tileElements(grid: HTMLDivElement | null): HTMLElement[] {
 }
 
 /**
- * Full-screen photo ordering surface.
+ * Full-screen media ordering surface.
  *
- * The composer grid only shows small numbered thumbnails; moving order there
- * meant tiny arrow buttons layered over every photo. This view gives each
- * photo a real tile and supports dragging anywhere on the tile (touch and
+ * The composer grid only shows small numbered tiles; moving order there meant
+ * tiny arrow buttons layered over every item. This view gives each photo and
+ * video a real tile and supports dragging anywhere on the tile (touch and
  * mouse), while keeping the reorder action available from the keyboard (arrow
- * keys), which also keeps it usable for screen readers.
+ * keys), which also keeps it usable for screen readers. Photos and videos mix
+ * freely: the tile's key is its preview URL, so no type-specific logic is
+ * needed beyond what a tile draws.
  *
  * The dragged tile follows the pointer while the other tiles slide into their
  * new slots. Reordering happens as the pointer crosses a slot, so releasing
- * simply drops the photo where it already appears.
+ * simply drops the tile where it already appears.
  */
-export default function PostImageSort({
-    images,
+export default function PostMediaSort({
+    media,
     layout,
     onMove,
     onClose,
-}: PostImageSortProps) {
+}: PostMediaSortProps) {
     const gridRef = useRef<HTMLDivElement>(null);
     const dragRef = useRef<DragState | null>(null);
     const flipRef = useRef<Map<string, DOMRect>>(new Map());
@@ -118,12 +121,12 @@ export default function PostImageSort({
         slots.find((slot) => slot.index === index);
 
     const move = (from: number, to: number) => {
-        if (from === to || to < 0 || to >= images.length) return;
+        if (from === to || to < 0 || to >= media.length) return;
         // Capture before the reorder so every other tile can slide from its
         // previous slot instead of jumping.
         captureTileRects();
         onMove(from, to);
-        setAnnouncement(`已移动到第 ${to + 1} 张`);
+        setAnnouncement(`已移动到第 ${to + 1} 个`);
     };
 
     // FLIP the tiles that were not dragged: measure where they were before
@@ -153,15 +156,15 @@ export default function PostImageSort({
                 },
             );
         }
-    }, [images, activeKey]);
+    }, [media, activeKey]);
 
     const handlePointerDown = (
         event: PointerEvent<HTMLButtonElement>,
         index: number,
     ) => {
         if (event.pointerType === "mouse" && event.button !== 0) return;
-        const image = images[index];
-        if (!image) return;
+        const item = media[index];
+        if (!item) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         dragRef.current = {
             pointerId: event.pointerId,
@@ -170,7 +173,7 @@ export default function PostImageSort({
             startY: event.clientY,
             active: false,
             slots: slotRects(),
-            key: image.url,
+            key: item.url,
             baseX: 0,
             baseY: 0,
             offsetX: 0,
@@ -197,13 +200,13 @@ export default function PostImageSort({
             const toSlot = findSlot(drag.slots, target);
             if (fromSlot && toSlot) {
                 // The tile's slot moved by this much; subtract it from the
-                // visual offset so the photo stays under the pointer.
+                // visual offset so the tile stays under the pointer.
                 drag.baseX += toSlot.left - fromSlot.left;
                 drag.baseY += toSlot.top - fromSlot.top;
             }
             captureTileRects();
             onMove(drag.index, target);
-            setAnnouncement(`已移动到第 ${target + 1} 张`);
+            setAnnouncement(`已移动到第 ${target + 1} 个`);
             drag.index = target;
         }
 
@@ -255,7 +258,7 @@ export default function PostImageSort({
             ArrowRight: index + 1,
             ArrowDown: index + 1,
             Home: 0,
-            End: images.length - 1,
+            End: media.length - 1,
         };
         const target = targets[event.key];
         if (target === undefined) return;
@@ -287,12 +290,12 @@ export default function PostImageSort({
                             <div className="min-w-0 flex-1 text-center">
                                 <DialogPrimitive.Title asChild>
                                     <h2 className="text-[19px] leading-tight font-semibold tracking-tight">
-                                        调整照片顺序
+                                        调整媒体顺序
                                     </h2>
                                 </DialogPrimitive.Title>
                                 <DialogPrimitive.Description asChild>
                                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                        按住任意照片拖动，或选中后按方向键
+                                        按住任意照片或视频拖动，或选中后按方向键
                                     </p>
                                 </DialogPrimitive.Description>
                             </div>
@@ -312,17 +315,17 @@ export default function PostImageSort({
                             ref={gridRef}
                             className="mx-auto grid w-full max-w-md grid-cols-3 gap-2"
                         >
-                            {images.map((image, index) => {
+                            {media.map((item, index) => {
                                 const visual =
-                                    activeKey === image.url ? dragVisual : null;
+                                    activeKey === item.url ? dragVisual : null;
                                 const dragging = visual !== null;
                                 return (
                                     <button
-                                        key={image.url}
+                                        key={item.url}
                                         type="button"
                                         data-sort-slot={index}
-                                        data-sort-key={image.url}
-                                        aria-label={`第 ${index + 1} 张照片，整张照片可拖动，或按方向键调整顺序`}
+                                        data-sort-key={item.url}
+                                        aria-label={`第 ${index + 1} 个媒体，整块可拖动，或按方向键调整顺序`}
                                         onPointerDown={(event) =>
                                             handlePointerDown(event, index)
                                         }
@@ -346,12 +349,34 @@ export default function PostImageSort({
                                                 : "cursor-grab active:scale-[0.98]",
                                         )}
                                     >
-                                        <img
-                                            src={image.url}
-                                            alt=""
-                                            draggable={false}
-                                            className="pointer-events-none size-full object-cover"
-                                        />
+                                        {item.type === "image" ? (
+                                            <img
+                                                src={item.url}
+                                                alt=""
+                                                draggable={false}
+                                                className="pointer-events-none size-full object-cover"
+                                            />
+                                        ) : (
+                                            <>
+                                                <video
+                                                    src={videoFirstFrameUrl(
+                                                        item.url,
+                                                    )}
+                                                    muted
+                                                    playsInline
+                                                    preload="metadata"
+                                                    className="pointer-events-none size-full bg-black object-cover"
+                                                />
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="pointer-events-none absolute inset-0 grid place-items-center"
+                                                >
+                                                    <span className="grid size-8 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/30">
+                                                        <Play className="ml-0.5 size-3.5 fill-current" />
+                                                    </span>
+                                                </span>
+                                            </>
+                                        )}
                                         <span
                                             aria-hidden="true"
                                             className="pointer-events-none absolute top-1.5 left-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-black/65 px-1.5 text-[11px] font-semibold text-white"
@@ -369,8 +394,8 @@ export default function PostImageSort({
                         >
                             {announcement ||
                                 (layout === "instagram"
-                                    ? "第 1 张会作为大图排版的封面"
-                                    : "第 1 张会排在最前面")}
+                                    ? "第 1 个会作为大图排版的封面"
+                                    : "第 1 个会排在最前面")}
                         </p>
                     </div>
                 </DialogPrimitive.Content>

@@ -66,13 +66,13 @@ describe("twitterPairFits", () => {
 });
 
 describe("twitterMediaPlan", () => {
-    test("one photo and the video share X's row", () => {
+    test("one photo and one video share X's row", () => {
         // Measured on x.com: a 680x313 photo and a 480x852 video sat side by
         // side at one height (a 2.74 box), not stacked and not in the strip.
         expect(
             twitterMediaPlan({
                 imageCount: 1,
-                hasVideo: true,
+                videoCount: 1,
                 pairFits: false,
             }),
         ).toBe("pair");
@@ -82,12 +82,24 @@ describe("twitterMediaPlan", () => {
         expect(
             twitterMediaPlan({
                 imageCount: 2,
-                hasVideo: true,
+                videoCount: 1,
                 pairFits: false,
             }),
         ).toBe("strip");
         expect(
-            twitterMediaPlan({ imageCount: 5, hasVideo: true, pairFits: true }),
+            twitterMediaPlan({ imageCount: 5, videoCount: 1, pairFits: true }),
+        ).toBe("strip");
+    });
+
+    test("two or more videos always use the strip", () => {
+        expect(
+            twitterMediaPlan({ imageCount: 1, videoCount: 2, pairFits: true }),
+        ).toBe("strip");
+        expect(
+            twitterMediaPlan({ imageCount: 0, videoCount: 2, pairFits: true }),
+        ).toBe("strip");
+        expect(
+            twitterMediaPlan({ imageCount: 3, videoCount: 3, pairFits: true }),
         ).toBe("strip");
     });
 
@@ -95,12 +107,12 @@ describe("twitterMediaPlan", () => {
         expect(
             twitterMediaPlan({
                 imageCount: 1,
-                hasVideo: false,
+                videoCount: 0,
                 pairFits: true,
             }),
         ).toBe("single");
         expect(
-            twitterMediaPlan({ imageCount: 0, hasVideo: true, pairFits: true }),
+            twitterMediaPlan({ imageCount: 0, videoCount: 1, pairFits: true }),
         ).toBe("single");
     });
 
@@ -108,14 +120,14 @@ describe("twitterMediaPlan", () => {
         expect(
             twitterMediaPlan({
                 imageCount: 2,
-                hasVideo: false,
+                videoCount: 0,
                 pairFits: true,
             }),
         ).toBe("pair");
         expect(
             twitterMediaPlan({
                 imageCount: 2,
-                hasVideo: false,
+                videoCount: 0,
                 pairFits: false,
             }),
         ).toBe("strip");

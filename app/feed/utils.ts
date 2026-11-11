@@ -1,9 +1,19 @@
-import type { MediaSize } from "@/lib/postMedia";
+import type {
+    MediaSize,
+    PostMediaMeta,
+    PostMediaOrderEntry,
+} from "@/lib/postMedia";
 
 const MINUTE = 60 * 1000;
 
-export type ComposerImageRef =
+/**
+ * One composer media item, photo or video, either already uploaded (editing)
+ * or still a local file. The composer keeps a single ordered list of these so
+ * photos and videos can be reordered across types.
+ */
+export type ComposerMediaRef =
     | {
+          type: "image";
           kind: "file";
           file: File;
           thumb?: File | null;
@@ -11,113 +21,160 @@ export type ComposerImageRef =
           height?: number;
       }
     | {
+          type: "image";
           kind: "existing";
           name: string;
           thumb?: string;
           width?: number;
           height?: number;
+      }
+    | {
+          type: "video";
+          kind: "file";
+          file: File;
+          width?: number;
+          height?: number;
+      }
+    | {
+          type: "video";
+          kind: "existing";
+          name: string;
+          width?: number;
+          height?: number;
       };
 
-function sizeOf(image: ComposerImageRef): MediaSize | null {
-    return image.width && image.height
-        ? { width: image.width, height: image.height }
+function sizeOf(media: { width?: number; height?: number }): MediaSize | null {
+    return media.width && media.height
+        ? { width: media.width, height: media.height }
         : null;
 }
 
-/** One composer image, addressed inside the split keep/files lists. */
-export type PostImageOrderEntry =
-    { kind: "existing"; index: number } | { kind: "file"; index: number };
+/** One item addressed inside the split keep/file lists. */
+type DraftMediaSlot = {
+    type: "image" | "video";
+    source: "keep" | "file";
+    /** Index inside the keep list or the upload list. */
+    index: number;
+    size: MediaSize | null;
+};
 
-export type PostImagesFields = {
-    /** Existing filenames to keep, in the order they appear in the composer. */
-    keep: string[];
-    /** Newly picked files to upload. */
+export type PostMediaFields = {
+    /** Existing photo filenames to keep, in upload (keep) order. */
+    keepImages: string[];
+    /** Newly picked photo files to upload. */
     files: File[];
     /** Existing thumbnail filenames to keep. */
     keepThumbs: string[];
     /** Newly generated thumbnails to upload. */
     thumbs: File[];
+    /** Existing video filenames to keep, in upload (keep) order. */
+    keepVideos: string[];
+    /** Newly picked video files to upload. */
+    videoFiles: File[];
     /**
-     * One intrinsic size per image in composer order. PocketBase writes kept
-     * files before new uploads in one request, so the update mutation sends a
-     * second, filename-only update when a mixed draft was reordered.
+     * Sizes aligned with the FINAL stored arrays (kept files first, then new
+     * uploads) instead of the composer's visual order, because that is what
+     * `media_meta` is positional against.
      */
-    meta: (MediaSize | null)[];
-    /** The composer's visual order as indices into `keep` / `files`. */
-    order: PostImageOrderEntry[];
-};
-
-export type ComposerVideoRef =
-    | { kind: "file"; file: File; width?: number; height?: number }
-    | { kind: "existing"; name: string; width?: number; height?: number };
-
-export type PostVideoFields = {
-    /** Existing filename to keep when editing, or [] to clear the field. */
-    keep: string[];
-    /** Newly picked file to upload. */
-    files: File[];
-    /** Intrinsic size for the reserved video box. */
-    size: MediaSize | null;
+    mediaMeta: PostMediaMeta;
+    /** The visual order as indices into the final stored arrays. */
+    order: PostMediaOrderEntry[];
 };
 
 /**
- * Mirrors `buildPostImagesFields` for the single `videos` field. A post has
- * at most one video; omitting the field on update keeps the current file, so
- * callers must send `videos: ""` when both lists are empty to remove it.
- */
-export function buildPostVideoFields(
-    video: ComposerVideoRef | null,
-): PostVideoFields {
-    if (!video) return { keep: [], files: [], size: null };
-    const size =
-        video.width && video.height
-            ? { width: video.width, height: video.height }
-            : null;
-    if (video.kind === "existing") {
-        return { keep: [video.name], files: [], size };
-    }
-    return { keep: [], files: [video.file], size };
-}
-
-/**
- * Splits the composer's previews into what PocketBase expects on update:
- * already-uploaded filenames to keep and new files to upload. An empty result
- * means the caller must clear the field explicitly, otherwise PocketBase
- * leaves the existing files untouched.
+ * Splits the composer's media into what PocketBase expects on create/update:
+ * already-uploaded filenames to keep and new files to upload, plus the mixed
+ * `media_order` and the positional sizes.
  *
- * Thumbnails are collected in the same pass but stay in their own lists: a
- * photo whose thumbnail failed to encode is still uploaded, and the file name
- * token (not the position) is what links a thumb back to its image.
+ * PocketBase writes kept filenames first (in submission order) and appends new
+ * uploads in the order they were added to the form, so the final index of
+ * every item is known before the request is sent — the order therefore rides
+ * along in the same request and no second filename-only update is needed.
+ * `images[0]` stays the first kept/uploaded photo (not necessarily the first
+ * item on screen), which is fine: it is only used as a thumbnail elsewhere.
  */
-export function buildPostImagesFields(
-    images: ComposerImageRef[],
-): PostImagesFields {
-    const keep: string[] = [];
+export function buildPostMediaFields(
+    media: ComposerMediaRef[],
+): PostMediaFields {
+    const keepImages: string[] = [];
     const files: File[] = [];
     const keepThumbs: string[] = [];
     const thumbs: File[] = [];
-    const meta: (MediaSize | null)[] = [];
-    const order: PostImageOrderEntry[] = [];
+    const keepVideos: string[] = [];
+    const videoFiles: File[] = [];
+    const slots: DraftMediaSlot[] = [];
 
-    for (const image of images) {
-        meta.push(sizeOf(image));
-        if (image.kind === "existing") {
-            order.push({ kind: "existing", index: keep.length });
-            keep.push(image.name);
-            if (image.thumb) keepThumbs.push(image.thumb);
+    for (const item of media) {
+        const size = sizeOf(item);
+        if (item.type === "image") {
+            if (item.kind === "existing") {
+                slots.push({
+                    type: "image",
+                    source: "keep",
+                    index: keepImages.length,
+                    size,
+                });
+                keepImages.push(item.name);
+                if (item.thumb) keepThumbs.push(item.thumb);
+            } else {
+                slots.push({
+                    type: "image",
+                    source: "file",
+                    index: files.length,
+                    size,
+                });
+                files.push(item.file);
+                if (item.thumb) thumbs.push(item.thumb);
+            }
+        } else if (item.kind === "existing") {
+            slots.push({
+                type: "video",
+                source: "keep",
+                index: keepVideos.length,
+                size,
+            });
+            keepVideos.push(item.name);
         } else {
-            order.push({ kind: "file", index: files.length });
-            files.push(image.file);
-            if (image.thumb) thumbs.push(image.thumb);
+            slots.push({
+                type: "video",
+                source: "file",
+                index: videoFiles.length,
+                size,
+            });
+            videoFiles.push(item.file);
         }
     }
 
+    const imageMeta: (MediaSize | null)[] = Array.from(
+        { length: keepImages.length + files.length },
+        () => null,
+    );
+    const videoMeta: (MediaSize | null)[] = Array.from(
+        { length: keepVideos.length + videoFiles.length },
+        () => null,
+    );
+    const order: PostMediaOrderEntry[] = [];
+
+    for (const slot of slots) {
+        const index =
+            slot.source === "keep"
+                ? slot.index
+                : (slot.type === "image"
+                      ? keepImages.length
+                      : keepVideos.length) + slot.index;
+        order.push({ type: slot.type, index });
+        if (slot.type === "image") imageMeta[index] = slot.size;
+        else videoMeta[index] = slot.size;
+    }
+
     return {
-        keep,
+        keepImages,
         files,
         keepThumbs,
         thumbs,
-        meta,
+        keepVideos,
+        videoFiles,
+        mediaMeta: { images: imageMeta, videos: videoMeta },
         order,
     };
 }
@@ -177,29 +234,18 @@ export function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
 }
 
 /**
- * Translate the composer's visual order into stored filenames after an
- * update. PocketBase keeps submitted names first and appends new uploads, so
- * `keep` is exactly the prefix of `stored` and the new files follow in upload
- * order. Returns null when the record does not contain every requested file,
- * which tells the caller to leave the saved order alone rather than write a
- * partial list.
+ * Pairs every media item with its index among items of the same kind, so a
+ * mixed list can open the image viewer or the video viewer at the right item.
  */
-export function mapStoredImageOrder(
-    order: PostImageOrderEntry[],
-    keep: string[],
-    stored: string[],
-): string[] | null {
-    const desired: string[] = [];
-    let newFileIndex = 0;
-    for (const entry of order) {
-        const name =
-            entry.kind === "existing"
-                ? keep[entry.index]
-                : stored[keep.length + newFileIndex++];
-        if (!name) return null;
-        desired.push(name);
-    }
-    return desired;
+export function indexMediaByKind<T extends { type: "image" | "video" }>(
+    media: readonly T[],
+): { item: T; index: number }[] {
+    let imageIndex = 0;
+    let videoIndex = 0;
+    return media.map((item) => {
+        const index = item.type === "image" ? imageIndex++ : videoIndex++;
+        return { item, index };
+    });
 }
 
 function startOfDay(date: Date) {

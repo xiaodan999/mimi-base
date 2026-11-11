@@ -11,7 +11,13 @@
 import type { RecordModel } from "pocketbase";
 
 import { pairThumbs } from "@/lib/photoFiles";
-import { fileNames, type MediaSize, parsePostMediaMeta } from "@/lib/postMedia";
+import {
+    fileNames,
+    parsePostMediaMeta,
+    parsePostMediaOrder,
+    resolveMediaOrder,
+    videoSizeAt,
+} from "@/lib/postMedia";
 
 /** The system fields every PocketBase row carries. */
 type PbRecord = Pick<RecordModel, "id" | "collectionId" | "collectionName">;
@@ -36,6 +42,27 @@ export type PostImage = {
     width?: number;
     height?: number;
 };
+
+/**
+ * One item of a post's media set, in the stored display order. Photos and
+ * videos share one ordered list (`posts.media_order`); old rows without an
+ * order fall back to the pre-#80 look, clip first and photos after it.
+ */
+export type PostMediaItem =
+    | {
+          kind: "image";
+          name: string;
+          /** 600px grid thumbnail; absent on posts uploaded before them. */
+          thumb?: string;
+          width?: number;
+          height?: number;
+      }
+    | {
+          kind: "video";
+          name: string;
+          width?: number;
+          height?: number;
+      };
 
 export type Circle = {
     id: string;
@@ -80,11 +107,8 @@ export type PostData = {
     layout: PostLayout;
     // Needed to build protected file URLs at render time.
     collectionId: string;
-    images: PostImage[];
-    /** Video filenames (at most one); empty for photo/text posts. */
-    videos: string[];
-    /** Intrinsic size of the stored video, when the uploader recorded it. */
-    videoSize?: MediaSize;
+    /** Photos and videos in the stored display order. */
+    media: PostMediaItem[];
     metrics: {
         likeCount: number;
         replyCount: number;
@@ -156,12 +180,17 @@ export type PostRecord = PbRecord & {
      */
     thumbs?: string[];
     /**
-     * One MP4 / WebM / MOV filename; mutually exclusive with `images`.
-     * A single-file field comes back as a string from PocketBase.
+     * Uploaded clips (up to 9 with the photos); PocketBase returns a
+     * single-file field as a plain string and a multi-file one as an array.
      */
     videos?: string | string[];
     /** Positional intrinsic sizes, so the feed can reserve media boxes. */
     media_meta?: unknown;
+    /**
+     * Mixed photo/video display order, e.g. `[{type:"image",index:0},
+     * {type:"video",index:0}]`. Absent on rows written before #80.
+     */
+    media_order?: unknown;
     layout?: string;
     expand?: {
         author_id?: User;
@@ -259,10 +288,10 @@ export function toPostData(
     post: PostRecord,
     likedPostIds: Set<string>,
 ): PostData {
-    const media = parsePostMediaMeta(post.media_meta);
+    const meta = parsePostMediaMeta(post.media_meta);
     const images = pairThumbs(post.images ?? [], post.thumbs ?? []).map(
         (image, index) => {
-            const size = media.images[index];
+            const size = meta.images[index];
             return size
                 ? {
                       ...image,
@@ -272,7 +301,22 @@ export function toPostData(
                 : image;
         },
     );
-    const videos = fileNames(post.videos);
+    const videos = fileNames(post.videos).map((name, index) => {
+        const size = videoSizeAt(meta, index);
+        return size
+            ? { name, width: size.width, height: size.height }
+            : { name };
+    });
+    const order = resolveMediaOrder(
+        parsePostMediaOrder(post.media_order),
+        images.length,
+        videos.length,
+    );
+    const media: PostMediaItem[] = order.map((item) =>
+        item.kind === "image"
+            ? { kind: "image", ...images[item.index] }
+            : { kind: "video", ...videos[item.index] },
+    );
     // The composer hides the layout picker when the draft has no media, so
     // removing the last photo from a 大图 post saves it as `instagram` with an
     // empty media set. Such a row has nothing for the full-bleed card to show,
@@ -280,10 +324,10 @@ export function toPostData(
     // as the timeline card. Rows that still have a photo or a video keep
     // whatever layout they were saved with.
     const layout: PostLayout =
-        post.layout === "instagram" && (images.length > 0 || videos.length > 0)
+        post.layout === "instagram" && media.length > 0
             ? "instagram"
             : "twitter";
-    const data: PostData = {
+    return {
         id: post.id,
         text: post.text,
         author: post.expand?.author_id ?? EMPTY_AUTHOR,
@@ -291,15 +335,12 @@ export function toPostData(
         liked: likedPostIds.has(post.id),
         layout,
         collectionId: post.collectionId,
-        images,
-        videos,
+        media,
         metrics: {
             likeCount: post.like_count ?? 0,
             replyCount: post.comment_count ?? 0,
         },
     };
-    if (media.video) data.videoSize = media.video;
-    return data;
 }
 
 export function toCommentData(record: CommentRecord): CommentData {

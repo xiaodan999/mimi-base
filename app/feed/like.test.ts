@@ -13,8 +13,7 @@ function makePost(liked: boolean, likeCount: number): PostData {
         liked,
         layout: "twitter",
         collectionId: "posts",
-        images: [],
-        videos: [],
+        media: [],
         metrics: { likeCount, replyCount: 0 },
     };
 }

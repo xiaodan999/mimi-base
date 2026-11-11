@@ -11,8 +11,7 @@ import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import type { PostLayout } from "@/lib/pb-types";
 import { cn } from "@/lib/utils";
 
-import PostComposerImages from "./PostComposerImages";
-import PostComposerVideo from "./PostComposerVideo";
+import PostComposerMedia from "./PostComposerMedia";
 import type { CaptionTask } from "./useCaptionTask";
 import type { PostDraft } from "./usePostDraft";
 
@@ -20,8 +19,10 @@ type PostComposerFormProps = {
     draft: PostDraft;
     caption: CaptionTask;
     open: boolean;
-    /** Open the full-screen photo sorter (owned by PostComposer). */
+    /** Open the full-screen media sorter (owned by PostComposer). */
     onSort: () => void;
+    /** Open the full-screen player for a draft video (object/protected URL). */
+    onOpenVideoPreview: (url: string) => void;
     /** Close via the drawer handler so the caption sheet unwinds too. */
     onClose: () => void;
 };
@@ -33,6 +34,7 @@ export default function PostComposerForm({
     caption,
     open,
     onSort,
+    onOpenVideoPreview,
     onClose,
 }: PostComposerFormProps) {
     const user = useCurrentUser();
@@ -44,19 +46,15 @@ export default function PostComposerForm({
         setText,
         layout,
         setLayout,
-        images,
-        video,
+        media,
         publishing,
         preparing,
         pendingCount,
         canPublish,
-        showImages,
         setPreviewIndex,
         publish,
-        pickImages,
-        removeImage,
-        pickVideo,
-        removeVideo,
+        pickMedia,
+        removeMedia,
     } = draft;
 
     // Grow the textarea with its content, up to a comfortable ceiling.
@@ -180,28 +178,21 @@ export default function PostComposerForm({
                     </div>
                 </div>
 
-                {/* Photos and one video can be combined; each section keeps
-                    its own picker visible so either can be added later. */}
-                <PostComposerImages
-                    images={images}
-                    showImages={showImages}
+                {/* Photos and videos share one picker and one grid; the
+                    visual order is the stored order. */}
+                <PostComposerMedia
+                    media={media}
                     preparing={preparing}
                     pendingCount={pendingCount}
                     layout={layout}
-                    onPick={() => void pickImages()}
-                    onRemove={removeImage}
+                    onPick={() => void pickMedia()}
+                    onRemove={removeMedia}
                     onSort={openSort}
-                    onPreview={(index) => setPreviewIndex(index)}
+                    onPreviewImage={(imageIndex) => setPreviewIndex(imageIndex)}
+                    onPreviewVideo={onOpenVideoPreview}
                 />
 
-                <PostComposerVideo
-                    video={video}
-                    preparing={preparing}
-                    onPick={() => void pickVideo()}
-                    onRemove={removeVideo}
-                />
-
-                {(images.length > 0 || video !== null) && (
+                {media.length > 0 && (
                     <section className="mt-5" aria-labelledby="new-post-layout">
                         <h3
                             id="new-post-layout"

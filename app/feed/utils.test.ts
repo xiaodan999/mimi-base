@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-    buildPostImagesFields,
-    buildPostVideoFields,
+    buildPostMediaFields,
     formatMonthLabel,
     groupPostMonths,
-    mapStoredImageOrder,
+    indexMediaByKind,
     monthKeyOf,
     moveArrayItem,
     sortTargetAt,
@@ -60,133 +59,180 @@ describe("groupPostMonths", () => {
     });
 });
 
-describe("buildPostVideoFields", () => {
-    const video = new File(["clip"], "clip.mp4", { type: "video/mp4" });
-
-    test("keeps an uploaded video by filename when editing", () => {
-        expect(
-            buildPostVideoFields({ kind: "existing", name: "clip_123.mp4" }),
-        ).toEqual({ keep: ["clip_123.mp4"], files: [], size: null });
-    });
-
-    test("uploads a newly picked video", () => {
-        expect(buildPostVideoFields({ kind: "file", file: video })).toEqual({
-            keep: [],
-            files: [video],
-            size: null,
-        });
-    });
-
-    test("carries the intrinsic size for the reserved box", () => {
-        expect(
-            buildPostVideoFields({
-                kind: "file",
-                file: video,
-                width: 1280,
-                height: 720,
-            }),
-        ).toEqual({
-            keep: [],
-            files: [video],
-            size: { width: 1280, height: 720 },
-        });
-    });
-
-    test("returns empty lists when the video was removed", () => {
-        expect(buildPostVideoFields(null)).toEqual({
-            keep: [],
-            files: [],
-            size: null,
-        });
-    });
-});
-
-describe("buildPostImagesFields", () => {
-    const newFile = new File(["new"], "a1_main.webp", { type: "image/webp" });
+describe("buildPostMediaFields", () => {
+    const newImage = new File(["new"], "a1_main.webp", { type: "image/webp" });
     const newThumb = new File(["thumb"], "a1_thumbnail.webp", {
         type: "image/webp",
     });
+    const newVideo = new File(["clip"], "clip.mp4", { type: "video/mp4" });
 
-    test("keeps existing names and new files in visual order", () => {
+    test("keeps the pick order for a create request", () => {
         expect(
-            buildPostImagesFields([
-                { kind: "existing", name: "kept-1.jpg" },
-                { kind: "file", file: newFile },
-                { kind: "existing", name: "kept-2.jpg" },
+            buildPostMediaFields([
+                { type: "image", kind: "file", file: newImage },
+                { type: "video", kind: "file", file: newVideo },
+                { type: "image", kind: "file", file: newImage },
             ]),
         ).toEqual({
-            keep: ["kept-1.jpg", "kept-2.jpg"],
-            files: [newFile],
+            keepImages: [],
+            files: [newImage, newImage],
             keepThumbs: [],
             thumbs: [],
-            meta: [null, null, null],
+            keepVideos: [],
+            videoFiles: [newVideo],
+            mediaMeta: { images: [null, null], videos: [null] },
             order: [
-                { kind: "existing", index: 0 },
-                { kind: "file", index: 0 },
-                { kind: "existing", index: 1 },
+                { type: "image", index: 0 },
+                { type: "video", index: 0 },
+                { type: "image", index: 1 },
             ],
         });
     });
 
-    test("records sizes in the composer's visual order", () => {
+    test("indexes kept files first, then uploads, in the mixed order", () => {
+        // Composer: kept photo, new photo, kept clip, new clip.
         expect(
-            buildPostImagesFields([
+            buildPostMediaFields([
+                { type: "image", kind: "existing", name: "kept.jpg" },
+                { type: "image", kind: "file", file: newImage },
                 {
+                    type: "video",
                     kind: "existing",
-                    name: "kept-1.jpg",
-                    width: 100,
-                    height: 200,
+                    name: "kept.mp4",
+                    width: 640,
+                    height: 360,
                 },
+                { type: "video", kind: "file", file: newVideo },
+            ]),
+        ).toEqual({
+            keepImages: ["kept.jpg"],
+            files: [newImage],
+            keepThumbs: [],
+            thumbs: [],
+            keepVideos: ["kept.mp4"],
+            videoFiles: [newVideo],
+            mediaMeta: {
+                images: [null, null],
+                videos: [{ width: 640, height: 360 }, null],
+            },
+            order: [
+                { type: "image", index: 0 },
+                { type: "image", index: 1 },
+                { type: "video", index: 0 },
+                { type: "video", index: 1 },
+            ],
+        });
+    });
+
+    test("a new video before a kept photo still lands first", () => {
+        expect(
+            buildPostMediaFields([
+                { type: "video", kind: "file", file: newVideo },
+                { type: "image", kind: "existing", name: "kept.jpg" },
+            ]).order,
+        ).toEqual([
+            { type: "video", index: 0 },
+            { type: "image", index: 0 },
+        ]);
+    });
+
+    test("aligns media_meta with the stored arrays, not composer order", () => {
+        expect(
+            buildPostMediaFields([
                 {
+                    type: "image",
                     kind: "file",
-                    file: newFile,
+                    file: newImage,
                     width: 300,
                     height: 400,
                 },
-                { kind: "existing", name: "kept-2.jpg" },
-            ]).meta,
-        ).toEqual([
-            { width: 100, height: 200 },
-            { width: 300, height: 400 },
-            null,
-        ]);
+                {
+                    type: "image",
+                    kind: "existing",
+                    name: "kept.jpg",
+                    width: 100,
+                    height: 200,
+                },
+            ]).mediaMeta,
+        ).toEqual({
+            // PocketBase stores the kept photo first, then the upload.
+            images: [
+                { width: 100, height: 200 },
+                { width: 300, height: 400 },
+            ],
+            videos: [],
+        });
     });
 
     test("collects existing and new thumbnails separately", () => {
         expect(
-            buildPostImagesFields([
+            buildPostMediaFields([
                 {
+                    type: "image",
                     kind: "existing",
                     name: "b2_main_x.webp",
                     thumb: "b2_thumbnail_y.webp",
                 },
-                { kind: "file", file: newFile, thumb: newThumb },
+                {
+                    type: "image",
+                    kind: "file",
+                    file: newImage,
+                    thumb: newThumb,
+                },
                 // A photo whose thumbnail failed to encode is still uploaded.
-                { kind: "file", file: newFile, thumb: null },
+                { type: "image", kind: "file", file: newImage, thumb: null },
             ]),
         ).toEqual({
-            keep: ["b2_main_x.webp"],
-            files: [newFile, newFile],
+            keepImages: ["b2_main_x.webp"],
+            files: [newImage, newImage],
             keepThumbs: ["b2_thumbnail_y.webp"],
             thumbs: [newThumb],
-            meta: [null, null, null],
+            keepVideos: [],
+            videoFiles: [],
+            mediaMeta: { images: [null, null, null], videos: [] },
             order: [
-                { kind: "existing", index: 0 },
-                { kind: "file", index: 0 },
-                { kind: "file", index: 1 },
+                { type: "image", index: 0 },
+                { type: "image", index: 1 },
+                { type: "image", index: 2 },
             ],
         });
     });
 
-    test("returns an empty payload when every image was removed", () => {
-        expect(buildPostImagesFields([])).toEqual({
-            keep: [],
+    test("returns an empty payload when every item was removed", () => {
+        expect(buildPostMediaFields([])).toEqual({
+            keepImages: [],
             files: [],
             keepThumbs: [],
             thumbs: [],
-            meta: [],
+            keepVideos: [],
+            videoFiles: [],
+            mediaMeta: { images: [], videos: [] },
             order: [],
         });
+    });
+});
+
+describe("indexMediaByKind", () => {
+    test("numbers photos and videos independently in one list", () => {
+        expect(
+            indexMediaByKind([
+                { type: "image" },
+                { type: "video" },
+                { type: "image" },
+                { type: "video" },
+                { type: "video" },
+            ]),
+        ).toEqual([
+            { item: { type: "image" }, index: 0 },
+            { item: { type: "video" }, index: 0 },
+            { item: { type: "image" }, index: 1 },
+            { item: { type: "video" }, index: 1 },
+            { item: { type: "video" }, index: 2 },
+        ]);
+    });
+
+    test("returns an empty list for no media", () => {
+        expect(indexMediaByKind([])).toEqual([]);
     });
 });
 
@@ -234,52 +280,5 @@ describe("sortTargetAt", () => {
         expect(sortTargetAt(slots, -1, 50)).toBeNull();
         expect(sortTargetAt(slots, 50, 300)).toBeNull();
         expect(sortTargetAt([], 10, 10)).toBeNull();
-    });
-});
-
-describe("mapStoredImageOrder", () => {
-    test("puts a new upload between two kept photos", () => {
-        // Composer: kept B, new X, kept A. PocketBase stores B, A, X first.
-        expect(
-            mapStoredImageOrder(
-                [
-                    { kind: "existing", index: 0 },
-                    { kind: "file", index: 0 },
-                    { kind: "existing", index: 1 },
-                ],
-                ["B", "A"],
-                ["B", "A", "X"],
-            ),
-        ).toEqual(["B", "X", "A"]);
-    });
-
-    test("keeps several new uploads in their upload order", () => {
-        expect(
-            mapStoredImageOrder(
-                [
-                    { kind: "file", index: 0 },
-                    { kind: "existing", index: 0 },
-                    { kind: "file", index: 1 },
-                ],
-                ["B"],
-                ["B", "X", "Y"],
-            ),
-        ).toEqual(["X", "B", "Y"]);
-    });
-
-    test("returns null when the saved record is missing a file", () => {
-        expect(
-            mapStoredImageOrder(
-                [
-                    { kind: "existing", index: 0 },
-                    { kind: "file", index: 0 },
-                ],
-                ["B"],
-                ["B"],
-            ),
-        ).toBeNull();
-        expect(
-            mapStoredImageOrder([{ kind: "existing", index: 1 }], ["B"], ["B"]),
-        ).toBeNull();
     });
 });

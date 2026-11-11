@@ -23,9 +23,9 @@ import { useAiTasks } from "@/app/ai/tasks";
 import type { PostLayout } from "@/lib/pb-types";
 
 import {
-    type PreviewImage,
+    countImages,
     previewImageBlob,
-    type PreviewVideo,
+    type PreviewMedia,
 } from "./usePostDraft";
 
 export type CaptionOption = { style: string; text: string };
@@ -35,13 +35,12 @@ type UseCaptionTaskArgs = {
     text: string;
     setText: Dispatch<SetStateAction<string>>;
     layout: PostLayout;
-    images: PreviewImage[];
     /**
-     * Only used to key the task and describe it. Video bytes are never sent
-     * to the model; a video post still gets a text-only caption from its
-     * hint.
+     * The draft's mixed media, used to key the task and pick the photos sent
+     * to the model. Video bytes are never sent; a video post still gets a
+     * text-only caption from its hint.
      */
-    video: PreviewVideo | null;
+    media: PreviewMedia[];
     seededKey: string | null;
 };
 
@@ -55,8 +54,7 @@ export function useCaptionTask({
     text,
     setText,
     layout,
-    images,
-    video,
+    media,
     seededKey,
 }: UseCaptionTaskArgs) {
     const { settings } = useAi();
@@ -69,29 +67,26 @@ export function useCaptionTask({
     /** 当前 captions 属于哪份草稿，避免切换草稿后拿旧结果充数。 */
     const captionsKeyRef = useRef<string | null>(null);
     const restoredOpenRef = useRef(false);
+    const images = useMemo(
+        () => media.filter((item) => item.type === "image"),
+        [media],
+    );
+    const imageCount = countImages(media);
+    const hasVideo = media.some((item) => item.type === "video");
 
-    /** 同一份草稿（文字 + 排版 + 照片）对应同一个 AI 配文任务。 */
+    /** 同一份草稿（文字 + 排版 + 媒体）对应同一个 AI 配文任务。 */
     const captionKey = useMemo(() => {
-        const fingerprint = images
-            .map((image) =>
-                image.kind === "file"
-                    ? `file:${image.file.name}:${image.file.size}:${image.file.lastModified}`
-                    : `existing:${image.name}`,
-            )
-            .concat(
-                video
-                    ? [
-                          video.kind === "file"
-                              ? `video:${video.file.name}:${video.file.size}:${video.file.lastModified}`
-                              : `video:${video.name}`,
-                      ]
-                    : [],
+        const fingerprint = media
+            .map((item) =>
+                item.kind === "file"
+                    ? `${item.type}:file:${item.file.name}:${item.file.size}:${item.file.lastModified}`
+                    : `${item.type}:existing:${item.name}`,
             )
             .join(",");
         return `captions:${hashText(
             `${text.trim()}|${layout}|${fingerprint}`,
         )}`;
-    }, [text, layout, images, video]);
+    }, [text, layout, media]);
 
     // 配文面板开着时不用再弹完成通知
     useEffect(() => {
@@ -162,9 +157,9 @@ export function useCaptionTask({
                 title: "AI 配文",
                 subtitle:
                     text.trim().slice(0, 30) ||
-                    (images.length > 0
-                        ? `${images.length} 张照片`
-                        : video
+                    (imageCount > 0
+                        ? `${imageCount} 张照片`
+                        : hasVideo
                           ? "视频动态"
                           : "空动态"),
                 kind: "json",
@@ -195,8 +190,8 @@ export function useCaptionTask({
                             imageUrls,
                             hint: text,
                             layout,
-                            count: images.length,
-                            video: video !== null,
+                            count: imageCount,
+                            video: hasVideo,
                         }),
                         signal,
                     );

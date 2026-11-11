@@ -6,14 +6,19 @@ import {
     fileNames,
     formatFileSize,
     formatVideoDuration,
+    isVideoCandidate,
+    MAX_POST_MEDIA,
     parsePostMediaMeta,
+    parsePostMediaOrder,
     readVideoSize,
+    resolveMediaOrder,
     toMediaSize,
     VIDEO_MAX_BYTES,
     videoDisplayRatio,
     videoExtension,
     videoFileError,
     videoFirstFrameUrl,
+    videoSizeAt,
 } from "./postMedia";
 
 const MB = 1024 * 1024;
@@ -70,6 +75,18 @@ describe("videoFileError", () => {
             videoFileError({ name: "clip.MP4", type: "", size: MB }),
         ).toBeNull();
         expect(videoFileError({ name: "clip.MOV", size: MB })).toBeNull();
+    });
+
+    test("accepts a supported extension behind a generic MIME type", () => {
+        // Some Android pickers report application/octet-stream; the server
+        // still validates the actual bytes.
+        expect(
+            videoFileError({
+                name: "clip.mov",
+                type: "application/octet-stream",
+                size: MB,
+            }),
+        ).toBeNull();
     });
 
     test("rejects images, unknown types and unknown extensions", () => {
@@ -229,7 +246,7 @@ describe("toMediaSize", () => {
 });
 
 describe("parsePostMediaMeta", () => {
-    test("keeps positional image slots and the video size", () => {
+    test("keeps positional image and video slots", () => {
         expect(
             parsePostMediaMeta({
                 images: [
@@ -237,7 +254,11 @@ describe("parsePostMediaMeta", () => {
                     null,
                     { width: 900, height: 1600 },
                 ],
-                video: { width: 1280, height: 720 },
+                videos: [
+                    { width: 1280, height: 720 },
+                    null,
+                    { width: 640, height: 360 },
+                ],
             }),
         ).toEqual({
             images: [
@@ -245,6 +266,24 @@ describe("parsePostMediaMeta", () => {
                 null,
                 { width: 900, height: 1600 },
             ],
+            videos: [
+                { width: 1280, height: 720 },
+                null,
+                { width: 640, height: 360 },
+            ],
+            video: null,
+        });
+    });
+
+    test("still reads the legacy single-video size", () => {
+        expect(
+            parsePostMediaMeta({
+                images: [{ width: 100, height: 200 }],
+                video: { width: 1280, height: 720 },
+            }),
+        ).toEqual({
+            images: [{ width: 100, height: 200 }],
+            videos: [],
             video: { width: 1280, height: 720 },
         });
     });
@@ -252,14 +291,17 @@ describe("parsePostMediaMeta", () => {
     test("treats a missing field and old posts as empty", () => {
         expect(parsePostMediaMeta(undefined)).toEqual({
             images: [],
+            videos: [],
             video: null,
         });
         expect(parsePostMediaMeta(null)).toEqual({
             images: [],
+            videos: [],
             video: null,
         });
         expect(parsePostMediaMeta({})).toEqual({
             images: [],
+            videos: [],
             video: null,
         });
     });
@@ -271,12 +313,164 @@ describe("parsePostMediaMeta", () => {
                     { width: 10, height: 20 },
                     { width: -1, height: 2 },
                 ],
-                video: { width: 0, height: 0 },
+                videos: [
+                    { width: 0, height: 0 },
+                    { width: 30, height: 40 },
+                ],
+                video: "1280x720",
             }),
         ).toEqual({
             images: [{ width: 10, height: 20 }, null],
+            videos: [null, { width: 30, height: 40 }],
             video: null,
         });
+    });
+});
+
+describe("videoSizeAt", () => {
+    const legacy = { images: [], videos: [], video: { width: 1, height: 2 } };
+
+    test("falls back to the legacy single-video size for video 0", () => {
+        expect(videoSizeAt(legacy, 0)).toEqual({ width: 1, height: 2 });
+        expect(videoSizeAt(legacy, 1)).toBeNull();
+    });
+
+    test("prefers the positional multi-video size", () => {
+        expect(
+            videoSizeAt(
+                {
+                    images: [],
+                    videos: [{ width: 640, height: 360 }],
+                    video: { width: 1, height: 2 },
+                },
+                0,
+            ),
+        ).toEqual({ width: 640, height: 360 });
+    });
+});
+
+describe("isVideoCandidate", () => {
+    test("recognizes video MIME types", () => {
+        expect(isVideoCandidate({ name: "a.mp4", type: "video/mp4" })).toBe(
+            true,
+        );
+        expect(isVideoCandidate({ name: "a.webm", type: "video/webm" })).toBe(
+            true,
+        );
+    });
+
+    test("recognizes a known video extension when the MIME is generic", () => {
+        expect(isVideoCandidate({ name: "clip.MOV", type: "" })).toBe(true);
+        expect(
+            isVideoCandidate({
+                name: "clip.mp4",
+                type: "application/octet-stream",
+            }),
+        ).toBe(true);
+    });
+
+    test("treats images and unknown files as photos", () => {
+        expect(isVideoCandidate({ name: "a.png", type: "image/png" })).toBe(
+            false,
+        );
+        expect(isVideoCandidate({ name: "a.pdf", type: "" })).toBe(false);
+        expect(isVideoCandidate({ name: "a.png", type: "image/png" })).toBe(
+            false,
+        );
+    });
+});
+
+describe("parsePostMediaOrder", () => {
+    test("keeps valid image/video entries in order", () => {
+        expect(
+            parsePostMediaOrder([
+                { type: "image", index: 0 },
+                { type: "video", index: 0 },
+                { type: "image", index: 1 },
+            ]),
+        ).toEqual([
+            { type: "image", index: 0 },
+            { type: "video", index: 0 },
+            { type: "image", index: 1 },
+        ]);
+    });
+
+    test("drops malformed entries instead of throwing", () => {
+        expect(
+            parsePostMediaOrder([
+                null,
+                "image",
+                { type: "audio", index: 0 },
+                { type: "image", index: -1 },
+                { type: "image", index: 1.5 },
+                { type: "image", index: "0" },
+                { type: "video", index: 2 },
+            ]),
+        ).toEqual([{ type: "video", index: 2 }]);
+        expect(parsePostMediaOrder(undefined)).toEqual([]);
+        expect(parsePostMediaOrder({})).toEqual([]);
+    });
+});
+
+describe("resolveMediaOrder", () => {
+    test("walks a valid mixed order as stored", () => {
+        expect(
+            resolveMediaOrder(
+                [
+                    { type: "image", index: 0 },
+                    { type: "video", index: 0 },
+                    { type: "image", index: 1 },
+                ],
+                2,
+                1,
+            ),
+        ).toEqual([
+            { kind: "image", index: 0 },
+            { kind: "video", index: 0 },
+            { kind: "image", index: 1 },
+        ]);
+    });
+
+    test("old rows without an order keep the clip first, then photos", () => {
+        expect(resolveMediaOrder([], 2, 1)).toEqual([
+            { kind: "video", index: 0 },
+            { kind: "image", index: 0 },
+            { kind: "image", index: 1 },
+        ]);
+    });
+
+    test("appends media a partial order forgot", () => {
+        expect(resolveMediaOrder([{ type: "image", index: 1 }], 2, 2)).toEqual([
+            { kind: "image", index: 1 },
+            { kind: "video", index: 0 },
+            { kind: "video", index: 1 },
+            { kind: "image", index: 0 },
+        ]);
+    });
+
+    test("drops out-of-range and duplicate entries", () => {
+        expect(
+            resolveMediaOrder(
+                [
+                    { type: "image", index: 0 },
+                    { type: "image", index: 0 },
+                    { type: "video", index: 5 },
+                    { type: "image", index: 9 },
+                ],
+                2,
+                1,
+            ),
+        ).toEqual([
+            { kind: "image", index: 0 },
+            { kind: "video", index: 0 },
+            { kind: "image", index: 1 },
+        ]);
+    });
+});
+
+describe("MAX_POST_MEDIA", () => {
+    test("matches the posts.images / posts.videos schema cap", () => {
+        expect(MAX_POST_MEDIA).toBe(9);
     });
 });
 

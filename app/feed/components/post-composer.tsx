@@ -8,9 +8,10 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { type PostData } from "../data";
 import ImageViewer from "./image-viewer";
 import PostComposerForm from "./PostComposerForm";
-import PostImageSort from "./PostImageSort";
+import PostMediaSort from "./PostMediaSort";
 import { useCaptionTask } from "./useCaptionTask";
 import { usePostDraft } from "./usePostDraft";
+import VideoViewer from "./video-viewer";
 
 type PostComposerProps = {
     open: boolean;
@@ -22,7 +23,7 @@ type PostComposerProps = {
 /**
  * Thin composition shell: the draft lives in `usePostDraft`, the AI caption
  * task in `useCaptionTask`, and the visible form in `PostComposerForm` /
- * `PostComposerImages`. This component just wires them together and owns the
+ * `PostComposerMedia`. This component just wires them together and owns the
  * drawers/overlays that sit outside the form's portal.
  */
 export default function PostComposer({
@@ -32,19 +33,22 @@ export default function PostComposer({
 }: PostComposerProps) {
     const draft = usePostDraft({ open, editing, onOpenChange });
     const [sortOpen, setSortOpen] = useState(false);
+    const [videoPreview, setVideoPreview] = useState<string | null>(null);
     const caption = useCaptionTask({
         open,
         text: draft.text,
         setText: draft.setText,
         layout: draft.layout,
-        images: draft.images,
-        video: draft.video,
+        media: draft.media,
         seededKey: draft.seededKey,
     });
+    const images = draft.media.filter((item) => item.type === "image");
+    const hasVideo = draft.media.some((item) => item.type === "video");
 
     const handleOpenChange = (next: boolean) => {
         if (!next) {
             setSortOpen(false);
+            setVideoPreview(null);
             draft.setPreviewIndex(null);
             // The caption sheet lives outside the drawer's portal; leaving it
             // open would strand a dead sheet over the feed.
@@ -73,23 +77,24 @@ export default function PostComposer({
                         caption={caption}
                         open={open}
                         onSort={() => setSortOpen(true)}
+                        onOpenVideoPreview={setVideoPreview}
                         onClose={() => handleOpenChange(false)}
                     />
                 </DrawerContent>
             </Drawer>
 
-            {sortOpen && draft.images.length > 1 && (
-                <PostImageSort
-                    images={draft.images}
+            {sortOpen && draft.media.length > 1 && (
+                <PostMediaSort
+                    media={draft.media}
                     layout={draft.layout}
-                    onMove={draft.moveImage}
+                    onMove={draft.moveMedia}
                     onClose={() => setSortOpen(false)}
                 />
             )}
 
             {draft.previewIndex !== null && (
                 <ImageViewer
-                    images={draft.images.map((image) => ({
+                    images={images.map((image) => ({
                         name: image.url,
                         url: image.url,
                     }))}
@@ -101,14 +106,24 @@ export default function PostComposer({
                 />
             )}
 
+            {videoPreview !== null && (
+                <VideoViewer
+                    url={videoPreview}
+                    open
+                    onOpenChange={(next) => {
+                        if (!next) setVideoPreview(null);
+                    }}
+                />
+            )}
+
             <AiSheet
                 open={caption.captionOpen}
                 onClose={() => caption.setCaptionOpen(false)}
                 title="AI 配文"
                 subtitle={
-                    draft.images.length > 0
-                        ? `参考了 ${Math.min(draft.images.length, 3)} 张照片`
-                        : draft.video
+                    images.length > 0
+                        ? `参考了 ${Math.min(images.length, 3)} 张照片`
+                        : hasVideo
                           ? "视频不会发给 AI，只参考你写的文字"
                           : "参考你写的半句话"
                 }

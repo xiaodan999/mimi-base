@@ -16,15 +16,10 @@ import {
     type PostRecord,
     toPostData,
 } from "@/lib/pb-types";
-import type { PostMediaMeta } from "@/lib/postMedia";
 import { qk } from "@/lib/query-keys";
 
 import { applyLikeToggle } from "./like";
-import {
-    groupPostMonths,
-    mapStoredImageOrder,
-    type PostImageOrderEntry,
-} from "./utils";
+import { groupPostMonths, type PostMediaFields } from "./utils";
 
 // The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
 // components importing from `./-data` don't need to change.
@@ -298,17 +293,11 @@ export function useNewPostMutation() {
         mutationFn: async ({
             text,
             layout,
-            images,
-            thumbs,
-            videos,
-            mediaMeta,
+            media,
         }: {
             text: string;
             layout: PostLayout;
-            images: File[];
-            thumbs: File[];
-            videos: File[];
-            mediaMeta: PostMediaMeta;
+            media: PostMediaFields;
         }) => {
             // PocketBase has no column default for author_id, send it. Files
             // upload in the same request as the record, thumbnails included so
@@ -317,10 +306,7 @@ export function useNewPostMutation() {
             formData.append("text", text);
             formData.append("layout", layout);
             formData.append("author_id", user.id);
-            formData.append("media_meta", JSON.stringify(mediaMeta));
-            images.forEach((image) => formData.append("images", image));
-            thumbs.forEach((thumb) => formData.append("thumbs", thumb));
-            videos.forEach((video) => formData.append("videos", video));
+            appendMediaFields(formData, media);
 
             const record = await pb
                 .collection("posts")
@@ -339,6 +325,22 @@ export function useNewPostMutation() {
     });
 }
 
+/**
+ * The file fields plus the mixed order and sizes shared by create and update.
+ * `media_order` references the final stored arrays, so it is valid in the same
+ * request that uploads the files (see buildPostMediaFields).
+ */
+function appendMediaFields(formData: FormData, media: PostMediaFields) {
+    formData.append("media_meta", JSON.stringify(media.mediaMeta));
+    formData.append("media_order", JSON.stringify(media.order));
+    media.keepImages.forEach((name) => formData.append("images", name));
+    media.files.forEach((file) => formData.append("images", file));
+    media.keepThumbs.forEach((name) => formData.append("thumbs", name));
+    media.thumbs.forEach((file) => formData.append("thumbs", file));
+    media.keepVideos.forEach((name) => formData.append("videos", name));
+    media.videoFiles.forEach((file) => formData.append("videos", file));
+}
+
 export function useUpdatePostMutation() {
     const queryClient = useQueryClient();
 
@@ -348,54 +350,30 @@ export function useUpdatePostMutation() {
             id,
             text,
             layout,
-            keepImages,
-            keepThumbs,
-            files,
-            thumbs,
-            imageOrder,
-            keepVideos,
-            videoFiles,
-            mediaMeta,
+            media,
         }: {
             id: string;
             text: string;
             layout: PostLayout;
-            /** Existing filenames kept by the edit form, in visual order. */
-            keepImages: string[];
-            /** Existing thumbnail filenames kept by the edit form. */
-            keepThumbs: string[];
-            /** Newly added files. */
-            files: File[];
-            /** Newly generated thumbnails. */
-            thumbs: File[];
-            /** Composer order as indices into keepImages / files. */
-            imageOrder: PostImageOrderEntry[];
-            /** Existing video filename kept by the edit form. */
-            keepVideos: string[];
-            /** Newly picked video file. */
-            videoFiles: File[];
-            mediaMeta: PostMediaMeta;
+            media: PostMediaFields;
         }) => {
             const formData = new FormData();
             formData.append("text", text);
             formData.append("layout", layout);
-            formData.append("media_meta", JSON.stringify(mediaMeta));
-            keepImages.forEach((name) => formData.append("images", name));
-            files.forEach((file) => formData.append("images", file));
-            keepThumbs.forEach((name) => formData.append("thumbs", name));
-            thumbs.forEach((file) => formData.append("thumbs", file));
-            keepVideos.forEach((name) => formData.append("videos", name));
-            videoFiles.forEach((file) => formData.append("videos", file));
+            appendMediaFields(formData, media);
 
             // Omitting a field from an update leaves its current files
             // untouched; an empty value is what clears them.
-            if (keepImages.length === 0 && files.length === 0) {
+            if (media.keepImages.length === 0 && media.files.length === 0) {
                 formData.append("images", "");
             }
-            if (keepThumbs.length === 0 && thumbs.length === 0) {
+            if (media.keepThumbs.length === 0 && media.thumbs.length === 0) {
                 formData.append("thumbs", "");
             }
-            if (keepVideos.length === 0 && videoFiles.length === 0) {
+            if (
+                media.keepVideos.length === 0 &&
+                media.videoFiles.length === 0
+            ) {
                 formData.append("videos", "");
             }
 
@@ -405,38 +383,6 @@ export function useUpdatePostMutation() {
             // Same empty-200 trap as create: a save that returns no record
             // never reached the database.
             if (!record?.id) {
-                throw new Error("保存失败：服务器没有返回动态");
-            }
-
-            // PocketBase writes kept filenames before new uploads in one
-            // request, so a draft that interleaves them needs a second,
-            // filename-only update to store the visual order. Reordering only
-            // existing photos already lands correctly in the first request.
-            const storedImages = Array.isArray(record.images)
-                ? record.images
-                : [];
-            const desiredImages = mapStoredImageOrder(
-                imageOrder,
-                keepImages,
-                storedImages,
-            );
-            if (!desiredImages) return;
-            const alreadyStored =
-                desiredImages.length === storedImages.length &&
-                desiredImages.every(
-                    (name, index) => name === storedImages[index],
-                );
-            if (alreadyStored) return;
-
-            const orderForm = new FormData();
-            for (const name of desiredImages) {
-                orderForm.append("images", name);
-            }
-            orderForm.append("media_meta", JSON.stringify(mediaMeta));
-            const ordered = await pb
-                .collection("posts")
-                .update<PostRecord>(id, orderForm);
-            if (!ordered?.id) {
                 throw new Error("保存失败：服务器没有返回动态");
             }
         },

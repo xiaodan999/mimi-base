@@ -314,10 +314,10 @@ export default function PostVideo({
                             else void play();
                         }}
                         aria-label={
-                            isTweet && started
-                                ? "重新播放视频"
-                                : isTweet
-                                  ? "打开视频"
+                            isTweet && !started
+                                ? "打开视频"
+                                : isTweet && started
+                                  ? "重新播放视频"
                                   : "播放视频"
                         }
                         className={cn(

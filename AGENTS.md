@@ -34,8 +34,9 @@ Chinese; keep that style when adding user-facing text.
   payload validation), and `tools.ts` (the server-side QuickJS sandbox lives in
   `server/sandbox.ts` + `server/sandbox-worker.ts`).
 - `app/feed/` — 动态 domain: `data.ts` (infinite query and post mutations),
-  `utils.ts`, `comments.ts`, and `components/` (post, composer, comment sheet,
-  image viewer, video player/viewer, find sheet). Home renders the feed
+  `utils.ts` (mixed media fields/order), `comments.ts`, and `components/`
+  (post, composer, comment sheet, image viewer, video player/viewer, find
+  sheet). Home renders the feed
   through the lazy chunk
   `_main/-home/feed.tsx`; `/posts` only redirects to `/home`.
 - `app/notifications/` — interaction inbox: `data.ts` (infinite notifications
@@ -462,24 +463,31 @@ which the app build deliberately does not install. Re-check
 - `comments.parent_id` supports unlimited reply depth. `buildCommentThreads`
   groups every descendant under its top-level comment and the UI shows
   `回复 @name`; the mutation sends `parent_id` (`""` for a top-level comment).
-- `posts.images` holds up to 9 filenames; upload them as `FormData` fields in
-  the same request that creates the post. `posts.videos` holds at most one
-  MP4/WebM/MOV (50MB, protected), and a post may carry photos and a video at
-  the same time: the composer shows both pickers. Upload the video in the same
-  create/update request; send `videos: ""` on update to clear it. The tweet
-  layout lays the clip and the photos out as one X-style media set
-  (`TwitterMedia` + `twitterMediaPlan`, clip leading: one shared-height row for
-  one photo + the video, one swipe strip for three or more media); the
-  instagram layout still draws the video above the photo carousel. Tweet-layout
-  clips autoplay muted once 60% of the video is on screen (pausing off-screen
-  and honouring `prefers-reduced-motion`); the other layouts never autoplay.
-  The first frame comes from `#t=0.1` on the protected
-  URL (`lib/postMedia.ts`). AI captions use only photos when present and never
-  send video bytes to the model; a video-only post falls back to the text
-  hint. `posts.media_meta` stores each
-  image's and the video's intrinsic `{width, height}` positionally so the
-  feed can reserve the real box before the protected files load; the composer
-  fills it at upload (old rows without it measure on load). `posts.layout` is
+- A post carries ONE ordered media set of photos and clips (#80).
+  `posts.images` holds up to 9 photos and `posts.videos` up to 9 MP4/WebM/MOV
+  clips (50MB each, protected); the composer enforces a combined cap of 9
+  (`MAX_POST_MEDIA`), offers one picker (`MEDIA_ACCEPT`) and one grid, and
+  reorders both kinds together. Upload both fields in the same create/update
+  request as `FormData`; send `images: ""` / `videos: ""` to clear a field.
+  `posts.media_order` stores the mixed display order as
+  `[{type:"image",index},{type:"video",index}]` indices into the final stored
+  arrays (kept files first, then new uploads, so the order rides in the same
+  request). Old rows without it fall back to video-first plus image order, and
+  a malformed/partial value is completed defensively (`resolveMediaOrder`).
+  The tweet layout lays the set out with X's rules (`TwitterMedia` +
+  `twitterMediaPlan`: a lone medium, the shared-height pair for two photos or
+  one photo + one clip, otherwise the swipe strip — two or more clips included)
+  in the stored order. The 大图 layout uses one ordered full-bleed carousel
+  with clips as square slides; a lone clip keeps the full-size player instead.
+  Tweet-layout clips autoplay muted once 60% is on screen (pausing off-screen
+  and honouring `prefers-reduced-motion`); the 大图 layout never autoplays.
+  The first frame comes from `#t=0.1` on the protected URL
+  (`lib/postMedia.ts`). AI captions use only photos and never send video bytes
+  to the model; a clip-only post falls back to the text hint.
+  `posts.media_meta` stores positional `{width, height}` for `images` and
+  `videos` (old rows may have a single `video` size) so the feed can reserve
+  the real box before the protected files load; the composer fills it at
+  upload (old rows without it measure on load). `posts.layout` is
   `instagram` (full-bleed carousel) or `twitter` (compact timeline with the
   action row under the media), picked per post; the retired `moments`
   (朋友圈 square grid) value is folded into `twitter` by `toPostData`, and so
@@ -595,10 +603,11 @@ which the app build deliberately does not install. Re-check
     (dev: `.env`). Video posts use
     `POST /api/video/compress` (auth-only, multipart `file`, max 50MB): the
     API runs the optional `ffmpeg` binary (or `FFMPEG_PATH`) to return a
-    ≤1280px H.264/AAC MP4, and the client uploads that to PocketBase. Files
-    under 8MB skip the call; missing ffmpeg/failure/not-smaller answers make
-    the client publish the original instead, so a post never fails for lack of
-    compression. The endpoint never stores the original.
+    ≤1280px H.264/AAC MP4, and the client uploads that to PocketBase. The
+    client compresses each newly picked clip one at a time (a post can carry
+    several); files under 8MB skip the call. Missing ffmpeg/failure/not-smaller
+    answers make the client publish the original instead, so a post never
+    fails for lack of compression. The endpoint never stores the original.
 
 - Long AI requests go through `AiTasksProvider` (`app/ai/tasks.tsx`, mounted by
   `AiContext`): closing a sheet or changing pages no longer aborts them. Use
