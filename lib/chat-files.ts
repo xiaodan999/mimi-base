@@ -1,6 +1,6 @@
 /**
  * Chat attachment rules shared by the browser picker and the relay that reads
- * the file (`pocketbase/ai-files.ts`). Keep the allowlist here so the picker
+ * the file (`server/ai-files.ts`). Keep the allowlist here so the picker
  * and the server cannot drift apart.
  */
 

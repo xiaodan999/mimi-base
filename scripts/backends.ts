@@ -1,7 +1,7 @@
 /**
  * Local backend stack: PocketBase + the Bun API, as two child processes.
  *
- *   bun run db          # foreground: starts both (or attaches to a healthy
+ *   bun run backend     # foreground: starts both (or attaches to a healthy
  *                       # pair already running for this worktree)
  *   bun scripts/backends.ts
  *
@@ -24,7 +24,7 @@ const lockFile = path.join(dataDir, ".dev-server.json");
 const buildDir = path.join(repo, "build");
 const isWindows = process.platform === "win32";
 
-const log = (message: string) => console.log(`[db] ${message}`);
+const log = (message: string) => console.log(`[backend] ${message}`);
 
 export type BackendsLock = {
     pid: number;
@@ -47,8 +47,7 @@ function fileEnv(): Record<string, string> {
 
 const env = fileEnv();
 const requestedPbPort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
-const requestedApiPort =
-    Number(process.env.SUPERVISOR_PORT ?? env.SUPERVISOR_PORT) || 9001;
+const requestedApiPort = Number(process.env.API_PORT ?? env.API_PORT) || 9001;
 
 export function readBackendsLock(): BackendsLock | null {
     try {
@@ -56,12 +55,9 @@ export function readBackendsLock(): BackendsLock | null {
             pid?: unknown;
             pbPort?: unknown;
             apiPort?: unknown;
-            // The pre-container supervisor used `port` / `supervisorPort`.
-            port?: unknown;
-            supervisorPort?: unknown;
         };
-        const pbPort = parsed.pbPort ?? parsed.port;
-        const apiPort = parsed.apiPort ?? parsed.supervisorPort;
+        const pbPort = parsed.pbPort;
+        const apiPort = parsed.apiPort;
         if (
             typeof parsed.pid !== "number" ||
             typeof pbPort !== "number" ||
@@ -280,7 +276,7 @@ async function main() {
         child.on("exit", (code, signal) => {
             if (stopping) return;
             console.error(
-                `[db] child exited (code=${code} signal=${signal}); stopping`,
+                `[backend] child exited (code=${code} signal=${signal}); stopping`,
             );
             cleanup(true);
             process.exit(1);
@@ -304,7 +300,7 @@ async function main() {
 if (import.meta.main) {
     main().catch((error) => {
         console.error(
-            `[db] error: ${error instanceof Error ? error.message : error}`,
+            `[backend] error: ${error instanceof Error ? error.message : error}`,
         );
         cleanup(true);
         process.exit(1);

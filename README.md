@@ -119,7 +119,7 @@ cd pocketbase
 
 ```bash
 # 终端 1：数据库 + API
-bun run db
+bun run backend
 
 # 终端 2：页面
 bun run dev
@@ -149,14 +149,14 @@ MIMI_DEV_LOWMEM=1
 一成左右（想自己定线程数就设 `RAYON_NUM_THREADS`，它优先）。
 
 分开启动时，`bun run dev` 默认代理到 8090（PocketBase）和 9001（API）；
-后端换了端口就加 `PB_PORT=8091 SUPERVISOR_PORT=9002 bun run dev`。
+后端换了端口就加 `PB_PORT=8091 API_PORT=9002 bun run dev`。
 
 ## 六、常用命令
 
 | 命令                   | 作用                               |
 | ---------------------- | ---------------------------------- |
 | `bun run dev:all`      | 同时启动数据库和页面，手机可访问   |
-| `bun run db`           | 只启动数据库和 API                 |
+| `bun run backend`      | 只启动数据库和 API                 |
 | `bun run dev`          | 只启动页面                         |
 | `bun run build`        | 打包正式版本，并检查代码有没有错误 |
 | `bun run typecheck`    | 只检查代码类型（bun check）        |

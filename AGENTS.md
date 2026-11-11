@@ -73,7 +73,7 @@ Chinese; keep that style when adding user-facing text.
 - `public/` — PWA `sw.js`, `manifest.json`, images.
 - `scripts/pb-binary.ts` — dev-only PocketBase binary reuse/download.
   `scripts/backends.ts` starts PocketBase + the API as two children and backs
-  `bun run db`; `scripts/dev.ts` backs `bun run dev:all` on Linux, WSL2 and
+  `bun run backend`; `scripts/dev.ts` backs `bun run dev:all` on Linux, WSL2 and
   plain Windows. Under WSL it also runs `scripts/lan-proxy.mjs` with the
   Windows node to forward the Vite port to the VM (no admin or portproxy
   required). PocketBase and the API stay on loopback; Vite proxies `/db` and
@@ -88,7 +88,7 @@ Chinese; keep that style when adding user-facing text.
 bun install
 bun run install:server   # server/ deps (pdf.js, canvas, ip2region, QuickJS)
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
-bun run db                # PocketBase :8090 + API :9001 (admin at /_/)
+bun run backend           # PocketBase :8090 + API :9001 (admin at /_/)
 bun run dev               # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, always LAN-exposed (prints the phone URL)
                           # skips busy ports (WSL + Windows) and reads
@@ -106,8 +106,8 @@ bun run setup:hooks       # enable .githooks/pre-commit once per clone
 
 The production stack is `compose.yaml` + `docker/` (see `docker/README.md`):
 `mimi-app` (Bun API + SPA) and `mimi-pb` (PocketBase + schema) on the host's
-existing `caddy-net`, updated by Watchtower. There is no supervisor process in
-the production stack.
+existing `caddy-net`, updated by Watchtower. The stack has no process manager
+of its own; Compose restarts the two containers.
 
 Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
 (`biome.json`, lint only), and typechecking is `bun check`
@@ -137,7 +137,7 @@ server plus its backends stay around 120MB. The cost is one `bun run build` per
 change — there is no hot reload. Use it for visual checks and keep `bun run dev`
 for editing.
 
-- `PREVIEW_PORT` (4500), `PB_PORT` (8110) and `SUPERVISOR_PORT` (9110) override
+- `PREVIEW_PORT` (4500), `PB_PORT` (8110) and `API_PORT` (9110) override
   the ports, so it can run next to a dev stack; `PREVIEW_BUILD=0` reuses the
   existing `build/`. A PocketBase already answering on `PB_PORT` is reused.
 - The build must be the `same-origin` one. A bundle made for another origin

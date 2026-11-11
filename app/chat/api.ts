@@ -4,7 +4,7 @@ import pb from "@/lib/pb";
 import type { ChatModel } from "./types";
 
 /**
- * `/api/ai` is served by the Bun supervisor (see pocketbase/ai-relay.ts), not
+ * `/api/ai` is served by the Bun API (see server/ai-relay.ts), not
  * by PocketBase. `apiUrl` keeps the API origin separate from the PB origin
  * (which is mounted under `/db`).
  */

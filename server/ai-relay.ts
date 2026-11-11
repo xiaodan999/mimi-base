@@ -1,7 +1,7 @@
 /**
  * Bun streaming relay for the site's OpenCode Go key.
  *
- * Mounted on the supervisor's HTTP server (see server.ts). The browser never
+ * Mounted on the Bun API's HTTP server (see main.ts). The browser never
  * sees an API key: it authenticates with its PocketBase token, and this module
  * forwards the OpenAI-compatible request to opencode.ai with the server key.
  * Unlike the old JSVM hook, the upstream body is piped back as a
@@ -128,7 +128,7 @@ type MinuteBucket = { start: number; count: number };
 type DayBucket = { day: string; count: number };
 
 /**
- * `socketIp` is the TCP peer address from the supervisor (`server.requestIP`),
+ * `socketIp` is the TCP peer address from the Bun API (`server.requestIP`),
  * used when no proxy header is present.
  */
 export type AiRelay = (
@@ -429,7 +429,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
      * `/api/ai/files`: the current client persists the file in `chat_attachments`
      * first and asks us to read that stored copy (JSON body). The raw-bytes
      * path stays for a client that ships ahead of the server (the SPA and the
-     * supervisor deploy independently).
+     * API deploy independently).
      */
     async function readFileAttachment(req: Request): Promise<Response> {
         const contentType = req.headers.get("content-type") ?? "";

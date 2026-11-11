@@ -22,7 +22,7 @@
  *   PREVIEW_PORT     (default 4500) where the preview server listens
  *   PREVIEW_BUILD=0  skip `bun run build`
  *   PB_PORT          (default 8110) PocketBase
- *   SUPERVISOR_PORT  (default 9110) Bun API, serves /api
+ *   API_PORT         (default 9110) Bun API, serves /api
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -36,7 +36,7 @@ if (!existsSync(`${ROOT}/pocketbase`) || !existsSync(`${ROOT}/package.json`)) {
 
 const PORT = Number(process.env.PREVIEW_PORT ?? 4500);
 const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8110);
-const REQUESTED_API_PORT = Number(process.env.SUPERVISOR_PORT ?? 9110);
+const REQUESTED_API_PORT = Number(process.env.API_PORT ?? 9110);
 const BUILD_DIR = `${ROOT}/build`;
 const LOCK_FILE = `${ROOT}/pocketbase/pb_data/.dev-server.json`;
 
@@ -72,8 +72,8 @@ async function healthy(url) {
 function readLock() {
     try {
         const parsed = JSON.parse(readFileSync(LOCK_FILE, "utf8"));
-        const pbPort = parsed.pbPort ?? parsed.port;
-        const apiPort = parsed.apiPort ?? parsed.supervisorPort;
+        const pbPort = parsed.pbPort;
+        const apiPort = parsed.apiPort;
         if (typeof pbPort !== "number" || typeof apiPort !== "number") {
             return null;
         }
@@ -105,7 +105,7 @@ const db = spawn("bun", ["scripts/backends.ts"], {
     env: {
         ...process.env,
         PB_PORT: String(REQUESTED_PB_PORT),
-        SUPERVISOR_PORT: String(REQUESTED_API_PORT),
+        API_PORT: String(REQUESTED_API_PORT),
     },
 });
 const { pbPort, apiPort } = await waitForStack();

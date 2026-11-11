@@ -18,14 +18,26 @@
 - 镜像来自阿里云 ACR，由 Watchtower 更新；不再使用 `/db/sync`、`/spa/publish`、
   `/repo/sync`、`/spa/rollback`，也不再需要 `DEPLOY_TOKEN`。
 
+下文用几个占位符，按你的环境替换：
+
+```bash
+REPO_DIR=<仓库 checkout 目录>        # 例如 /srv/mimi-base
+BACKUP_DIR=<pb_data 备份目录>        # 例如 /srv/backups
+CADDY_CONTAINER=<Caddy 容器名>
+CADDY_CONFIG_DIR=<Caddy 配置目录>    # 例如 /srv/caddy
+APP_HOST=<对外域名>                  # 例如 app.example.com
+ALIYUN_ACR=<ACR 公网地址>            # 例如 registry.cn-guangzhou.aliyuncs.com
+NAMESPACE=<ACR 命名空间>
+```
+
 ## 一、首次部署
 
 ### 1. 准备目录和密钥
 
-在服务器上使用仓库 checkout（`/root/mimi-base`）作为 compose 目录：
+在服务器上使用仓库 checkout 作为 compose 目录：
 
 ```bash
-cd /root/mimi-base
+cd "$REPO_DIR"
 git pull --ff-only
 
 cp docker/.env.app.example .env.app
@@ -39,13 +51,13 @@ chmod 600 .env.app
 
 ```bash
 docker network ls | grep caddy-net
-docker inspect main-caddy-1 --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{println}}{{end}}'
+docker inspect "$CADDY_CONTAINER" \
+  --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{println}}{{end}}'
 ```
 
-`compose.yaml` 里的 `caddy-net` 必须和上面一致。Caddy 的配置改在
-`/root/main/Caddyfile`，参考 `docker/Caddyfile.example`：
+`compose.yaml` 里的 `caddy-net` 必须和上面一致。把 `docker/Caddyfile.example`
+的站点块并进现有的 `"$CADDY_CONFIG_DIR"/Caddyfile`，把域名换成 `$APP_HOST`：
 
-- 删除旧的 `dan-pb` 站点里的 `/db/sync`、`/spa/*`、`/repo/sync`；
 - `/db/*` 用 `handle_path` 去掉前缀后转到 `mimi-pb:8090`，保留 `flush_interval -1`；
 - `/api/*` 和兜底路径转到 `mimi-app:9001`；
 - 保留静态缓存头（或者只靠 app 自己发的头）。
@@ -53,56 +65,37 @@ docker inspect main-caddy-1 --format '{{range $k,$v := .NetworkSettings.Networks
 校验并热加载：
 
 ```bash
-docker exec main-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-docker exec main-caddy-1 caddy reload  --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec "$CADDY_CONTAINER" \
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec "$CADDY_CONTAINER" \
+  caddy reload  --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-### 3. 停旧栈、备份、启动
+### 3. 挂上 Watchtower
 
-```bash
-# 旧的 supervisor 会同时停掉它的 PocketBase 子进程
-pkill -f 'pocketbase/server.ts'
-sleep 3
-ss -ltnp | grep -E ':(8090|9001)' || echo "ports closed"
-
-mkdir -p /root/backups
-tar czf "/root/backups/pb_data-pre-container-$(date +%Y%m%d-%H%M%S).tar.gz" \
-  -C /root/mimi-base/pocketbase pb_data
-
-cd /root/mimi-base
-docker compose config >/dev/null
-docker compose up -d
-docker compose ps
-docker compose logs --tail=50 mimi-pb mimi-app
-```
-
-等两个健康检查都通过后，再 `caddy reload`（或先 reload 再启动容器也行，
-Caddy 会短暂 502）。
-
-### 4. 挂上 Watchtower
-
-Watchtower 当前按**容器名**监控，并且是 HTTP API 模式（没有
-`--http-api-periodic-polls`），所以必须把两个名字加进去，并让 CI 调用它的
-更新接口。编辑 `/root/watch-tower/docker-compose.yml`：
+Watchtower 按**容器名**监控，并且是 HTTP API 模式（没有
+`--http-api-periodic-polls`），所以必须把 `mimi-app`、`mimi-pb` 加进它的
+容器列表，并让 CI 调用它的更新接口。在现有 Watchtower 的 compose 文件里，
+保留列表里原有的容器名，只追加这两个：
 
 ```yaml
-command: zhengxing-web-app zhengxing-web-staging-app mimi-app mimi-pb --http-api-update
+command: <原有容器…> mimi-app mimi-pb --http-api-update
 ```
 
 ```bash
-docker compose -f /root/watch-tower/docker-compose.yml up -d
-docker logs --tail=30 watch-tower-watchtower-1
+docker compose -f <watchtower-compose-file> up -d
+docker logs --tail=30 <watchtower-container>
 ```
 
-它已经挂载了 `/root/.docker/config.json`，里面有阿里云 ACR 的登录信息，所以
-私有仓库可以直接拉取。
+它需要能读到 ACR 的登录信息（例如挂载 `/root/.docker/config.json`），
+否则私有仓库拉不下来。
 
-### 5. 冒烟检查
+### 4. 冒烟检查
 
 ```bash
-curl -fsS https://dan-pb.zxvcn.com/api/health
-curl -fsS https://dan-pb.zxvcn.com/db/api/health
-curl -fsS https://dan-pb.zxvcn.com/version.json
+curl -fsS "https://$APP_HOST/api/health"
+curl -fsS "https://$APP_HOST/db/api/health"
+curl -fsS "https://$APP_HOST/version.json"
 ```
 
 浏览器：登录、发一条带图/视频的动态、AI 流式回复、`sandbox_run`、问题反馈。
@@ -114,8 +107,7 @@ curl -fsS https://dan-pb.zxvcn.com/version.json
 1. `ci` 通过；
 2. `images` 构建并推送 `mimi-base-app` / `mimi-base-pb` 的 `:latest` 和 `:$sha`
    到阿里云 ACR（只有相关路径变化时才构建对应镜像）；
-3. `deploy` 调用 Watchtower 的
-   `https://zxvcn.com/_watchtower/v1/update?image=...`；
+3. `deploy` 调用 Watchtower 的 `$WATCHTOWER_HTTP_API_URL`；
 4. Watchtower 拉取并重建对应容器；`deploy` 轮询 `version.json` 确认新 sha。
 
 手动触发（CI 之外的紧急更新）：
@@ -123,9 +115,12 @@ curl -fsS https://dan-pb.zxvcn.com/version.json
 ```bash
 curl -fsS -G \
   -H "Authorization: Bearer $WATCHTOWER_HTTP_API_TOKEN" \
-  --data-urlencode "image=registry.cn-guangzhou.aliyuncs.com/xiaohai-huang/mimi-base-app" \
-  "https://zxvcn.com/_watchtower/v1/update"
+  --data-urlencode "image=$ALIYUN_ACR/$NAMESPACE/mimi-base-app" \
+  "$WATCHTOWER_HTTP_API_URL"
 ```
+
+`WATCHTOWER_HTTP_API_URL` / `WATCHTOWER_HTTP_API_TOKEN` 来自仓库 secrets
+（`Production` environment）。
 
 **迁移规则**：两个镜像都自动更新，所以 `pb_migrations` 必须只做增量
 （新增字段/集合，不删不改语义），应用代码必须能容忍上一个 schema 几秒钟。
@@ -134,13 +129,13 @@ curl -fsS -G \
 **回滚**：
 
 ```bash
-cd /root/mimi-base
+cd "$REPO_DIR"
 MIMI_TAG=<old-sha> docker compose up -d
 ```
 
 `MIMI_TAG` 是 shell 变量，compose 会用它替换镜像 tag；恢复时去掉它再
 `docker compose up -d`。如果这次发布包含破坏性迁移，先停 PB，
-从 `/root/backups` 或 `pb_data/backups` 恢复 `pb_data` 再启动。
+从 `$BACKUP_DIR` 或 `pb_data/backups` 恢复 `pb_data` 再启动。
 
 ## 三、备份
 
@@ -149,10 +144,11 @@ PB 的定时备份（Dashboard → Settings → Backups）会把 `pb_data`（含
 
 ```bash
 # /etc/cron.d/mimi-backup
-15 3 * * * root rsync -a --delete /root/mimi-base/pocketbase/pb_data/backups/ /root/backups/pb/
+15 3 * * * root rsync -a --delete \
+  "$REPO_DIR/pocketbase/pb_data/backups/" "$BACKUP_DIR/pb/"
 ```
 
-每天确认一次 `/root/backups/pb/` 有新文件；恢复演练：停 `mimi-pb`，把 zip
+每天确认一次 `$BACKUP_DIR/pb/` 有新文件；恢复演练：停 `mimi-pb`，把 zip
 解到空的 `pb_data`，再启动。
 
 ## 四、日志和排障
@@ -171,30 +167,7 @@ wget -qO- http://mimi-pb:8090/api/health`）。
   重建容器（`restart` 不会重读 env_file）。
 - 沙箱 503：`mimi-app` 启动时 QuickJS 加载失败，看日志里的 `[sandbox]`。
 
-## 五、清理旧部署（确认稳定 24–48 小时后）
-
-旧 supervisor 的 Docker 沙箱留下了网络、iptables 链和镜像；新沙箱是进程内
-QuickJS，这些都不再需要：
-
-```bash
-iptables -D INPUT -s 172.31.250.0/24 -j MIMI-SANDBOX-HOST 2>/dev/null || true
-iptables -D DOCKER-USER -s 172.31.250.0/24 -j MIMI-SANDBOX 2>/dev/null || true
-iptables -F MIMI-SANDBOX 2>/dev/null || true
-iptables -X MIMI-SANDBOX 2>/dev/null || true
-iptables -F MIMI-SANDBOX-HOST 2>/dev/null || true
-iptables -X MIMI-SANDBOX-HOST 2>/dev/null || true
-docker network rm mimi-sandbox 2>/dev/null || true
-docker images --filter 'reference=mimi-sandbox-*' -q | xargs -r docker rmi
-
-# 旧构建产物和快照；保留 pb_data 和一份最近的 tar 备份
-rm -rf /root/mimi-base/build.next /root/mimi-base/pb_data_snapshots
-docker builder prune -f
-```
-
-保留 `/root/mimi-base` 这个 checkout 作为 compose 目录和回滚参考；旧
-`build/` 符号链接和 `mimi-db.log` 可以一并删掉。
-
-## 六、环境变量
+## 五、环境变量
 
 `mimi-app` 的 `.env.app`（完整示例见 `docker/.env.app.example`）：
 

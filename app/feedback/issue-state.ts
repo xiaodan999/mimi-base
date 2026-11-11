@@ -1,6 +1,6 @@
 /**
  * GitHub issue state is persisted on the report row (`issue_state`) and
- * refreshed through the supervisor while the issue is still open. Both
+ * refreshed through the Bun API while the issue is still open. Both
  * parsers are defensive: an unknown value is ignored, so the badge falls back
  * to「已建 Issue」instead of showing garbage or breaking the list.
  */

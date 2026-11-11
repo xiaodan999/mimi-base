@@ -23,7 +23,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 const PORT = Number(process.env.PERF_PORT ?? 4500);
 const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8090);
-const REQUESTED_API_PORT = Number(process.env.SUPERVISOR_PORT ?? 9001);
+const REQUESTED_API_PORT = Number(process.env.API_PORT ?? 9001);
 const LOCK_FILE = `${process.cwd()}/pocketbase/pb_data/.dev-server.json`;
 const ROUTES = process.argv.slice(2).length
     ? process.argv.slice(2)
@@ -55,8 +55,8 @@ if (process.env.PERF_BUILD !== "0") {
 function readLock() {
     try {
         const parsed = JSON.parse(readFileSync(LOCK_FILE, "utf8"));
-        const pbPort = parsed.pbPort ?? parsed.port;
-        const apiPort = parsed.apiPort ?? parsed.supervisorPort;
+        const pbPort = parsed.pbPort;
+        const apiPort = parsed.apiPort;
         if (typeof pbPort !== "number" || typeof apiPort !== "number") {
             return null;
         }
@@ -73,7 +73,7 @@ const db = spawn("bun", ["scripts/backends.ts"], {
     env: {
         ...process.env,
         PB_PORT: String(REQUESTED_PB_PORT),
-        SUPERVISOR_PORT: String(REQUESTED_API_PORT),
+        API_PORT: String(REQUESTED_API_PORT),
     },
 });
 

@@ -253,7 +253,7 @@ const vite = spawn(process.execPath, ["run", "dev"], {
             : {}),
         VITE_PORT: String(vitePort),
         PB_PORT: String(pbPort),
-        SUPERVISOR_PORT: String(apiPort),
+        API_PORT: String(apiPort),
         VITE_POCKETBASE_URL: "same-origin",
     },
 });

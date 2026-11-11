@@ -38,7 +38,7 @@ export type FeedbackReportRecord = {
     issue_number?: number;
     /** Persisted GitHub state; `closed` stops further refreshes. */
     issue_state?: string;
-    /** When the supervisor last confirmed the GitHub state. */
+    /** When the Bun API last confirmed the GitHub state. */
     issue_state_checked?: string;
     error?: string;
     /** Public GitHub URLs + display metadata; no file bytes live in PB. */
@@ -98,8 +98,8 @@ type UploadResponse = {
 };
 
 /**
- * Upload images/files to GitHub through the supervisor *before* creating the
- * report. GitHub has no issue-attachment REST API, so the supervisor stores
+ * Upload images/files to GitHub through the Bun API *before* creating the
+ * report. GitHub has no issue-attachment REST API, so the Bun API stores
  * them on the `feedback-assets` release and returns public URLs. Any failure
  * throws: the row must never claim attachments that are not reachable.
  */
@@ -154,7 +154,7 @@ async function uploadAttachments(files: File[]): Promise<FeedbackAttachment[]> {
 /**
  * Create the owner-scoped report. Attachments were uploaded to GitHub first,
  * so this only writes their metadata: no File parts, no bytes in PocketBase.
- * Status is always `stored` at create time; only the supervisor may flip it.
+ * Status is always `stored` at create time; only the Bun API may flip it.
  */
 async function createReport(
     userId: string,
@@ -216,7 +216,7 @@ function parseIssue(value: SyncResponse["issue"]): FeedbackIssue | null {
 }
 
 /**
- * Ask the supervisor to open the GitHub issue. Any failure here is non-fatal:
+ * Ask the Bun API to open the GitHub issue. Any failure here is non-fatal:
  * the report already exists, so the caller shows 已收到反馈，暂未同步 GitHub.
  */
 async function syncIssue(reportId: string): Promise<{
@@ -336,7 +336,7 @@ export function useFeatureSuggestions() {
 /**
  * Keep the GitHub state on the reports currently listed. The persisted
  * `issue_state` is what the badge paints first; this refreshes rows that are
- * still `issue_created` and not already known closed. The supervisor skips
+ * still `issue_created` and not already known closed. The Bun API skips
  * GitHub for closed rows and writes new results back, and failures are
  * silent so a GitHub outage never turns the list into an error state.
  */
@@ -428,7 +428,7 @@ export function useSubmitFeedback() {
 }
 
 /**
- * Retry a stored/failed report from the list. The supervisor is idempotent:
+ * Retry a stored/failed report from the list. The Bun API is idempotent:
  * an already-created issue is returned as-is, a stored/failed row gets a new
  * GitHub attempt, and GitHub being unconfigured is a non-fatal `issue: null`
  * result.

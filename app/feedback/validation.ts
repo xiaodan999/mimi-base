@@ -1,6 +1,6 @@
 /**
- * Client-side validation shared by the form and its tests. The supervisor
- * (`pocketbase/feedback.ts`) enforces the same caps for uploaded attachments
+ * Client-side validation shared by the form and its tests. The Bun API
+ * (`server/feedback.ts`) enforces the same caps for uploaded attachments
  * (3 files, 10MB each, any MIME type) and is the backstop; nothing but
  * metadata is written to `feedback_reports`, so the collection itself no
  * longer caps file size.

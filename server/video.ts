@@ -1,5 +1,5 @@
 /**
- * Video compression -> smaller MP4 (Bun supervisor).
+ * Video compression -> smaller MP4 (Bun API).
  *
  * `POST /api/video/compress` receives the original video from the post
  * composer, authenticates the caller with their PocketBase token, and returns

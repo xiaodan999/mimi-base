@@ -1,8 +1,8 @@
 /**
  * Locate (or download) the pinned PocketBase binary for local dev.
  *
- * The container image bakes its own binary; this is only for `bun run db` /
- * `dev:all` / preview. New worktrees first look in the other registered
+ * The container image bakes its own binary; this is only for `bun run backend`
+ * / `dev:all` / preview. New worktrees first look in the other registered
  * worktrees, then sibling checkouts, then the shared cache, so a fresh
  * checkout starts without network access.
  */

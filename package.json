@@ -5,8 +5,8 @@
     "type": "module",
     "packageManager": "bun@1.4.4",
     "scripts": {
+        "backend": "bun scripts/backends.ts",
         "build": "vite build && bun check",
-        "db": "bun scripts/backends.ts",
         "dev": "vite --host",
         "dev:all": "bun scripts/dev.ts",
         "format": "bun fmt",

@@ -1,5 +1,5 @@
 /**
- * Feedback -> GitHub issues (Bun supervisor).
+ * Feedback -> GitHub issues (Bun API).
  *
  * Handles both kinds stored in `feedback_reports`: bug reports (`kind=bug`,
  * the #39 flow) and feature suggestions (`kind=feature`, #40).

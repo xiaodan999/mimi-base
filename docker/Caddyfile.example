@@ -1,11 +1,11 @@
-# Replace dan-pb.zxvcn.com with the real host and keep this block inside the
-# site that already exists in /root/main/Caddyfile. `caddy-net` is the network
-# the main Caddy container is attached to (172.19.0.0/16 on the VPS).
+# Replace app.example.com with the real host and keep this block inside the
+# site that already exists in your Caddy config. `caddy-net` is the external
+# network the main Caddy container is attached to.
 #
-#   docker exec main-caddy-1 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-#   docker exec main-caddy-1 caddy reload  --config /etc/caddy/Caddyfile --adapter caddyfile
+#   docker exec <caddy-container> caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+#   docker exec <caddy-container> caddy reload  --config /etc/caddy/Caddyfile --adapter caddyfile
 
-dan-pb.zxvcn.com {
+app.example.com {
     handle /db/_ { redir /db/_/ 308 }
     handle /db   { redir /db/ 308 }
 

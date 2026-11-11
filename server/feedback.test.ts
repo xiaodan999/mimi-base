@@ -107,7 +107,7 @@ function submit(token: string | null = "pb-token", id = REPORT_ID) {
         "content-type": "application/json",
     };
     if (token) headers.Authorization = token;
-    return new Request(`http://supervisor${FEEDBACK_REPORT_PATH}`, {
+    return new Request(`http://api${FEEDBACK_REPORT_PATH}`, {
         method: "POST",
         headers,
         body: JSON.stringify({ reportId: id }),
@@ -122,7 +122,7 @@ function issueStateRequest(
         "content-type": "application/json",
     };
     if (token) headers.Authorization = token;
-    return new Request(`http://supervisor${FEEDBACK_ISSUE_STATE_PATH}`, {
+    return new Request(`http://api${FEEDBACK_ISSUE_STATE_PATH}`, {
         method: "POST",
         headers,
         body: JSON.stringify({ reportIds }),
@@ -293,7 +293,7 @@ function uploadRequest(
     }
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = token;
-    return new Request(`http://supervisor${FEEDBACK_UPLOAD_PATH}`, {
+    return new Request(`http://api${FEEDBACK_UPLOAD_PATH}`, {
         method: "POST",
         headers,
         body: form,
@@ -612,7 +612,7 @@ describe("feedback service", () => {
         const { service } = setup(pbHandler({}));
         expect(
             await service(
-                new Request("http://supervisor/api/ai/models", {
+                new Request("http://api/api/ai/models", {
                     method: "GET",
                 }),
             ),
@@ -1025,7 +1025,7 @@ describe("feedback service", () => {
         const badId = await service(submit("pb-token", "short"));
         expect(badId?.status).toBe(400);
         const badJson = await service(
-            new Request(`http://supervisor${FEEDBACK_REPORT_PATH}`, {
+            new Request(`http://api${FEEDBACK_REPORT_PATH}`, {
                 method: "POST",
                 headers: { Authorization: "pb-token" },
                 body: "{",
@@ -1033,7 +1033,7 @@ describe("feedback service", () => {
         );
         expect(badJson?.status).toBe(400);
         const notFound = await service(
-            new Request("http://supervisor/api/feedback/nope", {
+            new Request("http://api/api/feedback/nope", {
                 method: "POST",
             }),
         );
@@ -1273,7 +1273,7 @@ describe("feedback issue state service", () => {
     test("rejects a malformed body", async () => {
         const { service } = setup((url) => json({}, 404));
         const res = await service(
-            new Request(`http://supervisor${FEEDBACK_ISSUE_STATE_PATH}`, {
+            new Request(`http://api${FEEDBACK_ISSUE_STATE_PATH}`, {
                 method: "POST",
                 headers: {
                     Authorization: "pb-token",
@@ -1481,7 +1481,7 @@ describe("feedback upload service", () => {
     test("only accepts POST on the upload path", async () => {
         const { service } = setup(githubUploads({}));
         const res = await service(
-            new Request(`http://supervisor${FEEDBACK_UPLOAD_PATH}`, {
+            new Request(`http://api${FEEDBACK_UPLOAD_PATH}`, {
                 method: "GET",
             }),
         );

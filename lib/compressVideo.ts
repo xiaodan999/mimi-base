@@ -3,7 +3,7 @@ import pb from "@/lib/pb";
 import { compressedVideoFileName, VIDEO_MAX_BYTES } from "@/lib/postMedia";
 
 /**
- * Only ask the supervisor to re-encode when the file is big enough for the
+ * Only ask the Bun API to re-encode when the file is big enough for the
  * round-trip and CPU cost to pay off. Small clips are already cheap to load.
  */
 export const VIDEO_COMPRESS_MIN_BYTES = 8 * 1024 * 1024;
@@ -20,8 +20,8 @@ export type VideoCompressionResult = {
 };
 
 /**
- * Compress a picked video through the Bun supervisor (`POST
- * /api/video/compress`). The original is uploaded to the supervisor once and
+ * Compress a picked video through the Bun API (`POST
+ * /api/video/compress`). The original is uploaded to the Bun API once and
  * only the returned MP4 is sent to PocketBase, so the stored copy is small
  * from the first load.
  *

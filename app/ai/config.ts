@@ -1,7 +1,7 @@
 /**
  * AI 设置只存在浏览器 localStorage，不会经过 PocketBase。
  *
- * 站点统一提供 API Key（见 pocketbase/ai-relay.ts），所以这里只剩通知和
+ * 站点统一提供 API Key（见 server/ai-relay.ts），所以这里只剩通知和
  * 本机预算两项；旧版本保存的服务商地址 / Key 会在读取时被清掉。
  */
 
@@ -86,7 +86,7 @@ export function writeAiSettings(settings: AiSettings) {
     }
 }
 
-/** 站点 AI 中转路由（Bun supervisor，挂在 `/api/ai` 下）。 */
+/** 站点 AI 中转路由（Bun API，挂在 `/api/ai` 下）。 */
 export const OPENCODE_RELAY_PATH = "/ai/opencode/v1";
 
 /**

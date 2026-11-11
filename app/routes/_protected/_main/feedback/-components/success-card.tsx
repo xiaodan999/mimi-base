@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Shared post-submit card. The row is always stored; `issue` is only present
- * when the supervisor managed to open a GitHub issue.
+ * when the Bun API managed to open a GitHub issue.
  */
 export function SuccessCard({
     kind,

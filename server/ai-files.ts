@@ -146,7 +146,7 @@ async function openPdf(data: Uint8Array): Promise<PDFDocumentProxy> {
             cMapUrl: CMAP_URL,
             cMapPacked: true,
             standardFontDataUrl: STANDARD_FONT_URL,
-            // Parsing happens in the key-holding supervisor process; don't
+            // Parsing happens in the key-holding API process; don't
             // evaluate font programs from an untrusted file.
             isEvalSupported: false,
             disableFontFace: true,
@@ -304,7 +304,7 @@ async function renderPdfPages(
     let createCanvas: typeof import("@napi-rs/canvas").createCanvas;
     try {
         // Native and installed for the linux host; importing it lazily keeps
-        // the supervisor alive (and text attachments working) if a deploy
+        // the Bun API alive (and text attachments working) if a deploy
         // predates the dependency.
         ({ createCanvas } = await import("@napi-rs/canvas"));
     } catch {

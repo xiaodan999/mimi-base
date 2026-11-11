@@ -19,7 +19,7 @@ type ResolvedUrls = {
  * and normalize both to `<origin>/db`.
  *
  * Dev uses `same-origin`: the phone reaches Vite, which proxies `/db` to
- * PocketBase and `/api` to the Bun supervisor.
+ * PocketBase and `/api` to the Bun API.
  */
 function resolveUrls(value: string | undefined): ResolvedUrls {
     if (value === "same-origin") {

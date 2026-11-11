@@ -1,7 +1,7 @@
 import { aiUrl, chatHeaders, readChatError } from "./api";
 
 /**
- * Client side of the server data tools (`pocketbase/ai-tools.ts`). These
+ * Client side of the server data tools (`server/ai-tools.ts`). These
  * endpoints authenticate with the PocketBase token and enforce their own
  * scoping and limits server-side; the browser never queries another user's
  * data and never constructs filters.

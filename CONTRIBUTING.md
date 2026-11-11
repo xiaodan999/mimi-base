@@ -7,7 +7,7 @@
 ```bash
 bun install
 cp .env.example .env
-bun run db        # PocketBase，另开一个终端
+bun run backend   # PocketBase，另开一个终端
 bun run dev       # Vite，默认 3000
 ```
 

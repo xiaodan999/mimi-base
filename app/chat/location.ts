@@ -18,7 +18,7 @@ function textOf(value: unknown): string | undefined {
 
 /**
  * City estimate for the chat location feature. `GET /api/ai/geo/ip` resolves the
- * caller's public IP to a city on the server (see pocketbase/geo-ip.ts) —
+ * caller's public IP to a city on the server (see server/geo-ip.ts) —
  * there are no coordinates, and the panel asks the user to confirm the
  * estimate before it reaches the model. An empty city or a failed request
  * rejects; the panel then offers manual input.

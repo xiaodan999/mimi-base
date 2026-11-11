@@ -102,10 +102,9 @@ export default defineConfig(({ mode }) => {
     // `bun run dev` falls back to the default PocketBase port.
     const pocketBasePort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
 
-    // The Bun supervisor serves the streaming AI relay next to the deploy
-    // endpoints. `dev:all` picks a free port per worktree.
-    const supervisorPort =
-        Number(process.env.SUPERVISOR_PORT ?? env.SUPERVISOR_PORT) || 9001;
+    // The Bun API serves the streaming AI relay next to the deploy endpoints.
+    // `dev:all` picks a free port per worktree.
+    const apiPort = Number(process.env.API_PORT ?? env.API_PORT) || 9001;
 
     // The first auth/profile request goes to a different origin; opening the
     // TCP+TLS connection while the entry chunk downloads saves a full RTT on
@@ -166,7 +165,7 @@ export default defineConfig(({ mode }) => {
                 // address so /api/ai/geo/ip can tell the proxy hop from the
                 // actual caller.
                 "/api": {
-                    target: `http://127.0.0.1:${supervisorPort}`,
+                    target: `http://127.0.0.1:${apiPort}`,
                     xfwd: true,
                 },
             },

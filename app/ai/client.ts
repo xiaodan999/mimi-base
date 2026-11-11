@@ -8,7 +8,7 @@ import { type AiUsage, isOverBudget, recordUsage } from "./usage";
 
 /*
  * 站点统一提供 AI：浏览器只带自己的 PocketBase 令牌调用 `/ai` 中转，
- * API Key 永远留在服务端（pocketbase/ai-relay.ts）。这里不再保存或发送
+ * API Key 永远留在服务端（server/ai-relay.ts）。这里不再保存或发送
  * 任何用户 Key，也不再支持自定义服务商地址。
  */
 

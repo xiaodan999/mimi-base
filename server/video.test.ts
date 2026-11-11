@@ -63,7 +63,7 @@ function compressRequest(
     if (options.token !== null) {
         headers.Authorization = options.token ?? "pb-token";
     }
-    return new Request(`http://supervisor${VIDEO_COMPRESS_PATH}`, {
+    return new Request(`http://api${VIDEO_COMPRESS_PATH}`, {
         method: "POST",
         headers,
         body: form,
@@ -75,7 +75,7 @@ describe("video compression service", () => {
         const { service } = setup(async () => ({ ok: true }));
         expect(
             await service(
-                new Request("http://supervisor/api/feedback/report", {
+                new Request("http://api/api/feedback/report", {
                     method: "POST",
                 }),
             ),
@@ -163,7 +163,7 @@ describe("video compression service", () => {
         expect(text?.status).toBe(400);
 
         const oversized = await service(
-            new Request(`http://supervisor${VIDEO_COMPRESS_PATH}`, {
+            new Request(`http://api${VIDEO_COMPRESS_PATH}`, {
                 method: "POST",
                 headers: {
                     Authorization: "pb-token",

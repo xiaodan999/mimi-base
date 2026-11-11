@@ -18,6 +18,7 @@
 - 聊天沙箱从 Docker 里的 Python/Node 换成 QuickJS（WASM + Worker）：只支持 JavaScript，单次运行 64MB 堆、60 秒硬超时；`sandbox.fetch` / `sandbox.download` 由 API 侧复用 `read_url` 的 SSRF 校验代取。删除 `pocketbase/sandbox/`、`sandbox-exec.ts`、两个语言镜像和 `SANDBOX_BASE_IMAGE*`，`SandboxLanguage` 只剩 `javascript`。
 - 部署改为容器：`mimi-base-app`（Bun API + SPA + QuickJS）和 `mimi-base-pb`（PocketBase + 迁移/钩子）由 GitHub Actions 构建并推送到阿里云 ACR，CI 推送后触发 Watchtower；宿主机现有的 Caddy 继续在 `caddy-net` 上反代 `/api/*` 与 `/db/*`，两个容器不发布端口。
 - 服务端代码从 `pocketbase/` 拆到 `server/`，删除 supervisor 的二进制下载、`pb_data` 快照和 `/db/sync`、`/repo/sync`、`/spa/publish`、`/spa/rollback` 部署端点；PocketBase 作为独立容器运行，`pb_data` 直接 bind mount，生产配置改由 `.env.app` 提供。
+- 清理旧部署的命名和文档：`bun run db` 改名 `bun run backend`（日志前缀同步改成 `[backend]`），`SUPERVISOR_PORT` 改名 `API_PORT`，`supervisor` 统一称为 Bun API，注释里过时的 `pocketbase/*.ts` 路径改回 `server/*.ts`；`docker/README.md` 与 `docker/Caddyfile.example` 改用占位符（域名、目录、容器名、ACR 命名空间），删掉只对某台机器有意义的清理步骤。
 
 ## 2026-11-10
 

@@ -1,6 +1,6 @@
 /**
  * Attachment metadata shared by the feedback form, its list and the data
- * layer. Attachments are uploaded to GitHub by the supervisor *before* the
+ * layer. Attachments are uploaded to GitHub by the Bun API *before* the
  * report row is created; the row's `attachments` JSONField stores only this
  * shape. Keep the parser pure (no PocketBase / browser imports) so it can be
  * unit-tested and reused by the issue-body renderer's client mirror.
@@ -11,7 +11,7 @@ import { MAX_FEEDBACK_ATTACHMENTS } from "./validation";
 export type FeedbackAttachment = {
     /** Original browser file name, shown in the UI and the issue body. */
     name: string;
-    /** Public GitHub release/destination URL returned by the supervisor. */
+    /** Public GitHub release/destination URL returned by the Bun API. */
     url: string;
     /** Bytes; omitted when the server did not report one. */
     size?: number;
