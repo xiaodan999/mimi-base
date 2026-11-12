@@ -142,7 +142,16 @@ server does not fit; on a machine that can afford one, keep
 
 - `PREVIEW_PORT` (4500), `PB_PORT` (8110) and `API_PORT` (9110) override
   the ports, so it can run next to a dev stack; `PREVIEW_BUILD=0` reuses the
-  existing `build/`. A PocketBase already answering on `PB_PORT` is reused.
+  existing `build/`. One preview per worktree: starting it stops any previous
+  preview or `dev:backend` stack recorded in this worktree's locks first.
+- Starting preview stops the previous preview and its PocketBase/API before
+  the build, even when the previous run was SIGKILLed. The preview PID/port
+  live in `pb_data/.preview-server.json`; `backends.ts` keeps its own
+  `pb_data/.dev-server.json`. The new run terminates both, waits for the
+  ports, and fails with a clear error if one is still held instead of silently
+  starting a second PocketBase on a higher port. Cleanup is per worktree, so
+  another checkout's preview is never touched; use different ports for
+  side-by-side worktrees.
 - The build must be the `same-origin` one. A bundle made for another origin
   calls that origin directly and bypasses the `/db` proxy.
 - Log in with the dev seed account `test@mimi.local` / `mimi123456`.

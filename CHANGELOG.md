@@ -4,6 +4,10 @@
 
 ## 2026-11-12
 
+### 变更
+
+- `preview` 会先停掉同一 worktree 上一次的预览（#80 调试时 agent 因重复预览/构建把 1GB 容器顶爆）：`scripts/preview.mjs` 新增 `pb_data/.preview-server.json` 记录预览 PID/端口，启动时读取它和 `backends.ts` 的 `pb_data/.dev-server.json`，先对旧预览发 SIGTERM、对旧的 PocketBase/API 进程组发 SIGTERM（必要时 SIGKILL），等端口释放后再构建和启动；旧进程没写锁、端口仍被占用时直接报错，不会偷偷换端口再起一套。清理只读本 worktree 的锁，不会影响另一个 checkout；`AGENTS.md` 的预览说明同步更新。
+
 ### 修复
 
 - 聊天沙箱第二次成功调用 `sandbox.fetch` 会把 QuickJS 崩掉（#88）：`server/sandbox-worker.ts` 原来用 `newAsyncifiedFunction` 包 `fetch` / `download`，asyncify 在同一个 run 里第二次成功返回时会触发 WASM 的 `ref_count` 断言（`Out of bounds memory access` / `free_zero_refcount`），而单次调用和失败调用都不会报错，所以一直没被发现。现在宿主函数改为返回 `server/sandbox-promise.ts` 里 `hostPromise` 桥接的 QuickJS Promise：宿主回调保持同步，VM 用普通 Promise 挂起，worker 已有的 `executePendingJobs()` 循环负责落地结果；重复调用、`Promise.all` 并发和错误拒绝都正常。回归测试 `server/sandbox-promise.test.ts` 覆盖连续两次、并发四次和连续两次拒绝。顺带把 `sandbox.fetch` 的返回值写清楚：它直接返回正文文本，不是 `Response` 对象，AI 的工具说明和系统提示都要求用 `JSON.parse(await sandbox.fetch(url))`，不要写 `.body` / `.text()`（截图里的 `unexpected token: 'undefined'` 就是 `r.body` 为 undefined 导致的）。
