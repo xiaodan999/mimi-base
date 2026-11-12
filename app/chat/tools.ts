@@ -55,7 +55,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "sandbox_run",
             description:
-                "在服务器的 QuickJS 沙箱里运行 JavaScript（标准库，没有 Node API、npm 和文件系统）。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 读取公网网页/接口，用 sandbox.download(url, path) 把公网图片下载到沙箱（PNG/JPEG/WebP/GIF，最大 1.5MB）。用 console.log 输出、用 return 返回结果（也可以赋给 result）。沙箱访问不到本站内网、PocketBase 或本站文件/密钥。本轮下载的图片会自动显示给用户，文本文件用 send_file 发送。适合计算、处理文本/JSON、验证代码和查公开网页；不能画图，需要图表时用 show_chart。",
+                "在服务器的 QuickJS 沙箱里运行 JavaScript（标准库，没有 Node API、npm 和文件系统）。用 sandbox.read(path)、sandbox.write(path, text)、sandbox.list()、sandbox.remove(path) 读写本次对话的文件；用 sandbox.fetch(url) 读取公网网页/接口（直接返回正文文本，不是 Response 对象，JSON 用 JSON.parse(await sandbox.fetch(url))，不要写 .body/.text()；同一次运行可以多次或并发读取），用 sandbox.download(url, path) 把公网图片下载到沙箱（PNG/JPEG/WebP/GIF，最大 1.5MB）。用 console.log 输出、用 return 返回结果（也可以赋给 result）。沙箱访问不到本站内网、PocketBase 或本站文件/密钥。本轮下载的图片会自动显示给用户，文本文件用 send_file 发送。适合计算、处理文本/JSON、验证代码和查公开网页；不能画图，需要图表时用 show_chart。",
             parameters: {
                 type: "object",
                 properties: {

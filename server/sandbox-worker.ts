@@ -7,10 +7,11 @@
  * the only bridge is the `sandbox` object and `console`. Multi-megabyte
  * downloads stay on the host and are returned as one-shot artifacts.
  *
- * The asyncify build is deliberate: `sandbox.fetch` can await the host fetch
- * while the VM is suspended. Its interrupt handler is unreliable for a hot
- * loop, so the parent's `worker.terminate()` at SANDBOX_TIMEOUT_MS is the
- * real time limit.
+ * `sandbox.fetch` / `sandbox.download` return a QuickJS Promise bridged from
+ * the native fetch (see sandbox-promise.ts) instead of using an asyncified
+ * host function. Asyncify traps on the second successful call in one run, and
+ * its interrupt handler is unreliable for a hot loop, so the parent's
+ * `worker.terminate()` at SANDBOX_TIMEOUT_MS is the real time limit.
  */
 
 import {
@@ -34,6 +35,7 @@ import {
     sanitizeFiles,
 } from "../lib/sandbox-protocol";
 import { fetchPublic } from "./safe-fetch";
+import { hostPromise } from "./sandbox-promise";
 
 declare var self: Worker;
 
@@ -220,60 +222,64 @@ async function execute(request: WorkerRequest): Promise<WorkerResult> {
         vm.setProp(sandbox, "remove", removeFn);
         removeFn.dispose();
 
-        const fetchFn = vm.newAsyncifiedFunction("fetch", async (urlHandle) => {
+        const fetchFn = vm.newFunction("fetch", (urlHandle) => {
             const url = vm.getString(urlHandle);
-            const result = await fetchPublic(url, {
-                maxBytes: MAX_FETCH_CHARS,
-                timeoutMs: FETCH_TIMEOUT_MS,
-                headers: {
-                    Accept: "text/*, application/json;q=0.9, */*;q=0.5",
-                },
+            return hostPromise(vm, async () => {
+                const result = await fetchPublic(url, {
+                    maxBytes: MAX_FETCH_CHARS,
+                    timeoutMs: FETCH_TIMEOUT_MS,
+                    headers: {
+                        Accept: "text/*, application/json;q=0.9, */*;q=0.5",
+                    },
+                });
+                if (result.kind !== "text") throw new Error("只能读取文本内容");
+                return vm.newString(result.body);
             });
-            if (result.kind !== "text") throw new Error("只能读取文本内容");
-            return vm.newString(result.body);
         });
         vm.setProp(sandbox, "fetch", fetchFn);
         fetchFn.dispose();
 
-        const downloadFn = vm.newAsyncifiedFunction(
+        const downloadFn = vm.newFunction(
             "download",
-            async (urlHandle, pathHandle) => {
+            (urlHandle, pathHandle) => {
                 const url = vm.getString(urlHandle);
                 const path = normalizeSandboxPath(vm.getString(pathHandle));
                 if (!path) throw new Error("文件路径不合法");
-                const result = await fetchPublic(url, {
-                    maxBytes: MAX_ARTIFACT_BYTES,
-                    timeoutMs: FETCH_TIMEOUT_MS,
-                    binary: true,
+                return hostPromise(vm, async () => {
+                    const result = await fetchPublic(url, {
+                        maxBytes: MAX_ARTIFACT_BYTES,
+                        timeoutMs: FETCH_TIMEOUT_MS,
+                        binary: true,
+                    });
+                    if (result.kind !== "bytes") throw new Error("下载失败");
+                    const mime = sniffImageMime(result.body);
+                    if (!mime) {
+                        throw new Error("只支持 PNG/JPEG/WebP/GIF 图片");
+                    }
+                    if (result.body.length === 0) {
+                        throw new Error("下载到的内容是空的");
+                    }
+                    let total = 0;
+                    for (const item of binaries.values())
+                        total += item.bytes.length;
+                    if (
+                        (!binaries.has(path) && binaries.size >= 3) ||
+                        total + result.body.length > MAX_ARTIFACT_TOTAL_BYTES ||
+                        result.body.length > MAX_ARTIFACT_BYTES
+                    ) {
+                        throw new Error("下载的图片太多了");
+                    }
+                    textFiles.delete(path);
+                    binaries.set(path, { mime, bytes: result.body });
+                    const object = vm.newObject();
+                    const pathProp = vm.newString(path);
+                    vm.setProp(object, "path", pathProp);
+                    pathProp.dispose();
+                    const sizeProp = vm.newNumber(result.body.length);
+                    vm.setProp(object, "size", sizeProp);
+                    sizeProp.dispose();
+                    return object;
                 });
-                if (result.kind !== "bytes") throw new Error("下载失败");
-                const mime = sniffImageMime(result.body);
-                if (!mime) {
-                    throw new Error("只支持 PNG/JPEG/WebP/GIF 图片");
-                }
-                if (result.body.length === 0) {
-                    throw new Error("下载到的内容是空的");
-                }
-                let total = 0;
-                for (const item of binaries.values())
-                    total += item.bytes.length;
-                if (
-                    (!binaries.has(path) && binaries.size >= 3) ||
-                    total + result.body.length > MAX_ARTIFACT_TOTAL_BYTES ||
-                    result.body.length > MAX_ARTIFACT_BYTES
-                ) {
-                    throw new Error("下载的图片太多了");
-                }
-                textFiles.delete(path);
-                binaries.set(path, { mime, bytes: result.body });
-                const object = vm.newObject();
-                const pathProp = vm.newString(path);
-                vm.setProp(object, "path", pathProp);
-                pathProp.dispose();
-                const sizeProp = vm.newNumber(result.body.length);
-                vm.setProp(object, "size", sizeProp);
-                sizeProp.dispose();
-                return object;
             },
         );
         vm.setProp(sandbox, "download", downloadFn);

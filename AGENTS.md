@@ -62,8 +62,9 @@ Chinese; keep that style when adding user-facing text.
 - `server/` — the Bun API container's code: `main.ts` (routing + static SPA),
   `config.ts` (env), `ai-relay.ts`, `ai-tools.ts`, `ai-files.ts`, `feedback.ts`,
   `video.ts`, `geo-ip.ts`, `chat-models.ts`, `safe-fetch.ts` (the shared
-  `read_url` / sandbox SSRF guard), `sandbox.ts` + `sandbox-worker.ts` (QuickJS),
-  and their tests. `package.json` / `bun.lock` hold the server-only deps
+  `read_url` / sandbox SSRF guard), `sandbox.ts` + `sandbox-worker.ts`
+  (QuickJS), `sandbox-promise.ts` (native-Promise bridge), and their tests.
+  `package.json` / `bun.lock` hold the server-only deps
   (pdf.js, canvas, ip2region, quickjs-emscripten). Read `docker/README.md`
   before touching deploys.
 - `pocketbase/` — PocketBase only: `pb_migrations/` (schema), `pb_hooks/`
@@ -634,15 +635,20 @@ which the app build deliberately does not install. Re-check
   pending `ask_user` carries its `conversationId` and survives navigation, so
   only stop/logout cancels it. The sandbox runs **JavaScript in QuickJS** on
   the server (`server/sandbox.ts` + `server/sandbox-worker.ts`): one fresh
-  asyncify WASM runtime per run inside a Worker, 64MB heap, a 60s hard limit
+  QuickJS runtime per run inside a Worker, 64MB heap, a 60s hard limit
   enforced by `worker.terminate()`, and a fresh in-memory text snapshot. The
   VM has no filesystem, no `fetch`/`process`/`require`, and no network; the
   only bridge is `console.*` and `sandbox.read/write/list/remove/fetch/download`.
   `fetch`/`download` are host functions that go through `server/safe-fetch.ts`
   (the same DNS/private-range/redirect guard as `read_url`), so there is no
-  Docker socket, host network or host firewall involved. Python is not
-  supported. Don't expose new host globals without re-evaluating prompt
-  injection against the AI key and `pb_data`.
+  Docker socket, host network or host firewall involved. They return a QuickJS
+  Promise bridged from the native fetch (`server/sandbox-promise.ts`), not an
+  asyncified host function: quickjs-emscripten 0.32's asyncify traps on a
+  second successful call in one run. `sandbox.fetch` resolves to the response
+  body text (not a `Response`), so `JSON.parse(await sandbox.fetch(url))` is
+  the pattern the model is told to use; repeated and concurrent calls work.
+  Python is not supported. Don't expose new host globals without re-evaluating
+  prompt injection against the AI key and `pb_data`.
   `ask_user` is client-side: it pauses the tool loop, shows the inline panel
   (text/choice/confirm/location/expense), and resolves the tool result so the
   same run continues. Location is a **city-only IP estimate**: the panel calls
