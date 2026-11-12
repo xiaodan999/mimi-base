@@ -29,7 +29,8 @@
  * alone.
  *
  * Env:
- *   PREVIEW_PORT     (default 4500) where the preview server listens
+ *   PREVIEW_PORT     (default 4500) first port to try; if it is busy the next
+ *                    free one is used and the chosen URL is printed
  *   PREVIEW_BUILD=0  skip `bun run build`
  *   PB_PORT          (default 8110) PocketBase
  *   API_PORT         (default 9110) Bun API, serves /api
@@ -54,7 +55,7 @@ if (!existsSync(`${ROOT}/pocketbase`) || !existsSync(`${ROOT}/package.json`)) {
 }
 const ROOT_REAL = realpathSync(ROOT);
 
-const PORT = Number(process.env.PREVIEW_PORT ?? 4500);
+const REQUESTED_PREVIEW_PORT = Number(process.env.PREVIEW_PORT ?? 4500);
 const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8110);
 const REQUESTED_API_PORT = Number(process.env.API_PORT ?? 9110);
 const BUILD_DIR = `${ROOT}/build`;
@@ -230,6 +231,21 @@ async function waitForPortFree(port, timeoutMs) {
     return portFree(port);
 }
 
+/**
+ * A foreign process can hold the requested port (another worktree, a dev
+ * server, anything). Skip it instead of waiting or killing; the printed URL is
+ * the source of truth. `backends.ts` does the same for PocketBase/API.
+ */
+async function pickPort(start, label) {
+    for (let port = start; port < start + 20; port += 1) {
+        if (await portFree(port)) return port;
+        console.log(
+            `[preview] port ${port} is busy; trying ${port + 1} for ${label}`,
+        );
+    }
+    throw new Error(`no free port near ${start} for ${label}`);
+}
+
 async function stopPreviousPreview() {
     const preview = readJsonLock(PREVIEW_LOCK);
     const backends = readJsonLock(LOCK_FILE);
@@ -239,6 +255,7 @@ async function stopPreviousPreview() {
         pidAlive(previewPid) && isOurProcess(previewPid, "preview.mjs");
     const backendOwned =
         pidAlive(backendPid) && isOurProcess(backendPid, "backends.ts");
+    const killedPorts = new Set();
     let stopped = false;
 
     if (previewOwned && previewPid !== process.pid) {
@@ -249,6 +266,7 @@ async function stopPreviousPreview() {
             signalPid(previewPid, "SIGKILL");
             await waitForExit(previewPid, 1000);
         }
+        if (Number.isInteger(preview?.port)) killedPorts.add(preview.port);
         stopped = true;
     } else if (pidAlive(previewPid) && !previewOwned) {
         console.log(
@@ -268,6 +286,11 @@ async function stopPreviousPreview() {
             killBackendTree(backendPid, true);
             await waitForExit(backendPid, 1000);
         }
+        for (const key of ["pbPort", "apiPort"]) {
+            if (Number.isInteger(backends?.[key])) {
+                killedPorts.add(backends[key]);
+            }
+        }
         stopped = true;
     } else if (pidAlive(backendPid) && !backendOwned) {
         console.log(
@@ -275,17 +298,10 @@ async function stopPreviousPreview() {
         );
     }
 
-    // The old preview may not have written its lock (an older version), and
-    // `backends.ts` can leave PocketBase behind if its parent was SIGKILLed.
-    // Refuse to start on a port that is still held instead of silently
-    // creating a second stack on a higher port.
-    const ports = new Set([PORT, REQUESTED_PB_PORT, REQUESTED_API_PORT]);
-    for (const lock of [preview, backends]) {
-        for (const key of ["port", "pbPort", "apiPort"]) {
-            if (Number.isInteger(lock?.[key])) ports.add(lock[key]);
-        }
-    }
-    for (const port of ports) {
+    // Only wait for ports owned by the stack we just stopped. A port held by
+    // someone else is not ours: the preview and backends simply pick the next
+    // free one, without waiting or killing the holder.
+    for (const port of killedPorts) {
         if (!(await waitForPortFree(port, CLEANUP_TIMEOUT_MS))) {
             throw new Error(
                 `port ${port} is still in use after stopping the previous preview; ` +
@@ -329,6 +345,7 @@ function removePreviewLock() {
 }
 
 await stopPreviousPreview();
+const PORT = await pickPort(REQUESTED_PREVIEW_PORT, "the preview");
 writePreviewLock();
 process.on("exit", removePreviewLock);
 

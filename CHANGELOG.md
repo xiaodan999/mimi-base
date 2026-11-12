@@ -6,7 +6,7 @@
 
 ### 变更
 
-- `preview` 会先停掉同一 worktree 上一次的预览（#80 调试时 agent 因重复预览/构建把 1GB 容器顶爆）：`scripts/preview.mjs` 新增 `pb_data/.preview-server.json` 记录预览 PID/端口，启动时读取它和 `backends.ts` 的 `pb_data/.dev-server.json`，先对旧预览发 SIGTERM、对旧的 PocketBase/API 进程组发 SIGTERM（必要时 SIGKILL），等端口释放后再构建和启动；旧进程没写锁、端口仍被占用时直接报错，不会偷偷换端口再起一套。发信号前会核对 PID 的命令行（Linux 上还核对 cwd）仍属于本 worktree 的 preview/backends，PID 被复用时只删锁，不会杀别的 agent 的进程；端口被别人占用时也只报错，不按端口杀进程。清理只读本 worktree 的锁，不会影响另一个 checkout；`AGENTS.md` 的预览说明同步更新。
+- `preview` 会先停掉同一 worktree 上一次的预览（#80 调试时 agent 因重复预览/构建把 1GB 容器顶爆）：`scripts/preview.mjs` 新增 `pb_data/.preview-server.json` 记录预览 PID/端口，启动时读取它和 `backends.ts` 的 `pb_data/.dev-server.json`，先对旧预览发 SIGTERM、对旧的 PocketBase/API 进程组发 SIGTERM（必要时 SIGKILL），等自己刚停掉的那套栈占用的端口释放后再构建和启动；如果这些端口仍被占住就报错，不会假装清理成功。发信号前会核对 PID 的命令行（Linux 上还核对 cwd）仍属于本 worktree 的 preview/backends，PID 被复用时只删锁，不会杀别的 agent 的进程；端口被别人占用时不等待也不按端口杀进程，preview 和 backends 直接顺延到下一个空闲端口，启动日志里的 URL 为准。清理只读本 worktree 的锁，不会影响另一个 checkout；`AGENTS.md` 的预览说明同步更新。
 
 ### 修复
 
