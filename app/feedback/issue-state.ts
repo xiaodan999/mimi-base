@@ -17,6 +17,16 @@ export function parseRecordIssueState(
     return value === "open" || value === "closed" ? value : undefined;
 }
 
+/**
+ * GitHub issue numbers are positive integers. The PB number field may still
+ * hold 0 or a stale/partial value, so callers must not print those as `#0`.
+ */
+export function parseIssueNumber(value: unknown): number | undefined {
+    return typeof value === "number" && Number.isInteger(value) && value > 0
+        ? value
+        : undefined;
+}
+
 export function parseFeedbackIssueStates(value: unknown): FeedbackIssueStates {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         return {};

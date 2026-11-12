@@ -15,6 +15,7 @@
 
 ### 修复
 
+- 反馈列表不显示 GitHub Issue 编号、已关闭状态和普通状态一样灰（#91）：`report-list.tsx` 的 Issue 链接改成「查看 Issue #91」，编号来自 `app/feedback/issue-state.ts` 新增的 `parseIssueNumber`（只认正整数，0 / 小数 / 字符串都不显示，避免出现 `#0`）；有编号但没有 `issue_url` 时只显示「Issue #编号」，不伪造链接。`statusClass` 的已关闭分支从灰色改成 GitHub 风格的紫色（`border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300`），亮色和暗色都保持可读，其它状态不变；`useFeedbackIssueStates` 的有效编号判断也复用同一个解析函数。`issue-state.test.ts` 覆盖编号解析。
 - 聊天沙箱第二次成功调用 `sandbox.fetch` 会把 QuickJS 崩掉（#88）：`server/sandbox-worker.ts` 原来用 `newAsyncifiedFunction` 包 `fetch` / `download`，asyncify 在同一个 run 里第二次成功返回时会触发 WASM 的 `ref_count` 断言（`Out of bounds memory access` / `free_zero_refcount`），而单次调用和失败调用都不会报错，所以一直没被发现。现在宿主函数改为返回 `server/sandbox-promise.ts` 里 `hostPromise` 桥接的 QuickJS Promise：宿主回调保持同步，VM 用普通 Promise 挂起，worker 已有的 `executePendingJobs()` 循环负责落地结果；重复调用、`Promise.all` 并发和错误拒绝都正常。回归测试 `server/sandbox-promise.test.ts` 覆盖连续两次、并发四次和连续两次拒绝。顺带把 `sandbox.fetch` 的返回值写清楚：它直接返回正文文本，不是 `Response` 对象，AI 的工具说明和系统提示都要求用 `JSON.parse(await sandbox.fetch(url))`，不要写 `.body` / `.text()`（截图里的 `unexpected token: 'undefined'` 就是 `r.body` 为 undefined 导致的）。
 
 ## 2026-11-11

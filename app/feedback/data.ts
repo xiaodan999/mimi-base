@@ -16,6 +16,7 @@ import { getFeedbackErrors } from "./error-buffer";
 import {
     type FeedbackIssueStates,
     parseFeedbackIssueStates,
+    parseIssueNumber,
     parseRecordIssueState,
 } from "./issue-state";
 
@@ -346,9 +347,7 @@ export function useFeedbackIssueStates(reports: FeedbackReportRecord[]) {
         .filter(
             (report) =>
                 report.status === "issue_created" &&
-                typeof report.issue_number === "number" &&
-                Number.isInteger(report.issue_number) &&
-                report.issue_number > 0 &&
+                parseIssueNumber(report.issue_number) !== undefined &&
                 parseRecordIssueState(report.issue_state) !== "closed",
         )
         .map((report) => report.id);

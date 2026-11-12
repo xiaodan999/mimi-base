@@ -18,6 +18,7 @@ import {
 } from "@/app/feedback/data";
 import {
     type FeedbackIssueState,
+    parseIssueNumber,
     parseRecordIssueState,
 } from "@/app/feedback/issue-state";
 import TouXiang from "@/components/TouXiang";
@@ -46,7 +47,7 @@ function statusClass(
 ): string {
     if (status === "issue_created") {
         return issueState === "closed"
-            ? "border-border bg-muted/60 text-muted-foreground"
+            ? "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300"
             : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
     }
     if (status === "failed") {
@@ -103,8 +104,9 @@ export function ReportList({
                     : null;
                 const authorName = author?.user_name || "朋友";
                 const attachments = parseAttachmentList(report.attachments);
-                const issueState = report.issue_number
-                    ? (issueStates[report.issue_number] ??
+                const issueNumber = parseIssueNumber(report.issue_number);
+                const issueState = issueNumber
+                    ? (issueStates[issueNumber] ??
                       parseRecordIssueState(report.issue_state))
                     : undefined;
                 return (
@@ -156,6 +158,9 @@ export function ReportList({
                                 </span>
                             )}
                             {report.conversation && <span>附带 AI 对话</span>}
+                            {issueNumber && !report.issue_url && (
+                                <span>Issue #{issueNumber}</span>
+                            )}
                             {report.issue_url && (
                                 <a
                                     className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
@@ -164,6 +169,7 @@ export function ReportList({
                                     target="_blank"
                                 >
                                     查看 Issue
+                                    {issueNumber ? ` #${issueNumber}` : ""}
                                     <ExternalLink
                                         className="size-3"
                                         aria-hidden="true"

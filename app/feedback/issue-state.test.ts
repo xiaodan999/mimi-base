@@ -1,6 +1,26 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseFeedbackIssueStates, parseRecordIssueState } from "./issue-state";
+import {
+    parseFeedbackIssueStates,
+    parseIssueNumber,
+    parseRecordIssueState,
+} from "./issue-state";
+
+describe("parseIssueNumber", () => {
+    test("accepts positive integers", () => {
+        expect(parseIssueNumber(1)).toBe(1);
+        expect(parseIssueNumber(91)).toBe(91);
+    });
+
+    test("drops zero, fractions and non-numbers", () => {
+        expect(parseIssueNumber(0)).toBeUndefined();
+        expect(parseIssueNumber(-3)).toBeUndefined();
+        expect(parseIssueNumber(1.5)).toBeUndefined();
+        expect(parseIssueNumber("91")).toBeUndefined();
+        expect(parseIssueNumber(null)).toBeUndefined();
+        expect(parseIssueNumber(undefined)).toBeUndefined();
+    });
+});
 
 describe("parseRecordIssueState", () => {
     test("accepts the two persisted values", () => {
