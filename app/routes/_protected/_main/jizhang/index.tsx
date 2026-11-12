@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { format, isSameDay, parse, subDays } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
 import { Settings2, Sparkles, Tags, Trash2, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 
 import { ErrorState } from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
@@ -36,6 +37,7 @@ import {
     useExpenseCategories,
     useJiZhang,
 } from "./-data";
+import { takeSharedReceipt } from "./-shared-receipt";
 import {
     buildTrend,
     type ExpenseDay,
@@ -45,7 +47,17 @@ import {
     type TrendPoint,
 } from "./-summary";
 
+type JiZhangSearch = { share?: string; hint?: string };
+
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
+    validateSearch: (search: Record<string, unknown>): JiZhangSearch => ({
+        // Web Share Target: public/sw.js answers POST /share with a 303 here.
+        share: typeof search.share === "string" ? search.share : undefined,
+        hint:
+            typeof search.hint === "string"
+                ? search.hint.slice(0, 200)
+                : undefined,
+    }),
     // Warm the opening range before the page commits. With
     // `defaultPreload: "intent"` a tap starts this loader, so the page mounts
     // with rows in the cache instead of flashing its skeleton.
@@ -64,10 +76,15 @@ export const Route = createFileRoute("/_protected/_main/jizhang/")({
 });
 
 function Page() {
+    const navigate = useNavigate();
+    const search = Route.useSearch();
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         defaultJiZhangRange,
     );
     const [aiEntryOpen, setAiEntryOpen] = useState(false);
+    const [sharedReceipt, setSharedReceipt] = useState<File | null>(null);
+    const [sharedHint, setSharedHint] = useState("");
+    const handledShareRef = useRef<string | null>(null);
     const [reviewOpen, setReviewOpen] = useState(false);
     const [fixOpen, setFixOpen] = useState(false);
     const [manageOpen, setManageOpen] = useState(false);
@@ -84,6 +101,30 @@ function Page() {
         [days, from, to],
     );
     const trend = useMemo(() => buildTrend(days, from, to), [days, from, to]);
+
+    // A Web Share Target POST lands here as `?share=<id>` (public/sw.js). The
+    // image is already in Cache Storage; claim it once, then drop the one-shot
+    // param so a refresh cannot replay the same share.
+    useEffect(() => {
+        const id = search.share;
+        if (!id || handledShareRef.current === id) return;
+        handledShareRef.current = id;
+        const hint = search.hint ?? "";
+        void navigate({
+            to: "/jizhang",
+            search: {},
+            replace: true,
+        });
+        void takeSharedReceipt(id).then((file) => {
+            if (!file) {
+                toast.error("分享的图片过期了，再分享一次吧");
+                return;
+            }
+            setSharedHint(hint);
+            setSharedReceipt(file);
+            setAiEntryOpen(true);
+        });
+    }, [navigate, search.hint, search.share]);
 
     return (
         <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
@@ -193,6 +234,8 @@ function Page() {
             <AiExpenseSheet
                 open={aiEntryOpen}
                 onClose={() => setAiEntryOpen(false)}
+                sharedReceipt={sharedReceipt}
+                sharedHint={sharedHint}
             />
             <AiExpenseReview
                 open={reviewOpen}

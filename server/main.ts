@@ -76,6 +76,17 @@ const server = Bun.serve({
             );
         }
 
+        // Web Share Target POSTs are answered by the service worker. Reaching
+        // the server means the installed PWA still runs an older worker, and
+        // the shared file cannot be recovered here — send the user back with
+        // an explanation instead of the static handler's bare 405.
+        if (req.method === "POST" && url.pathname === "/share") {
+            return new Response(null, {
+                status: 303,
+                headers: { Location: "/share?stale=1" },
+            });
+        }
+
         return serveStatic(req, url);
     },
 });

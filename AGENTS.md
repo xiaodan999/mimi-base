@@ -704,8 +704,9 @@ which the app build deliberately does not install. Re-check
 - Other chat affordances: conversation search/filter/pin on the list page,
   per-message edit-and-resend (`onEdit`), fork-into-new-conversation,
   one-off retry with another model, Markdown export (header), document
-  attachments, pick-images-from-posts, PWA share target (`/share`, GET
-  params → composer draft), and read-aloud via the browser speech adapter.
+  attachments, pick-images-from-posts, PWA share target (text shares → chat
+  composer draft, image shares → AI 记账), and read-aloud via the browser
+  speech adapter.
   Code blocks highlight with a lazy Shiki chunk (`app/chat/highlighter.ts`,
   JS regex engine, no wasm). Attachments are uploaded raw to
   `POST /api/ai/files` and read on the relay (`server/ai-files.ts`): pdf.js
@@ -843,6 +844,18 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
   `lib/service-worker.ts`. New workers wait for `SKIP_WAITING`; the app shows a
   "有新版本可用" toast and reloads only after the user accepts. Navigation
   failures fall back to the cached shell, then to an inline offline page.
+- PWA share target: `public/manifest.json` declares POST
+  `multipart/form-data` with one `image/*` field (`media`). `public/sw.js`
+  handles `POST /share` before its GET-only branch, stores the first image in
+  the `mimi-share` Cache Storage (1h TTL) and 303s to `/jizhang?share=<id>`;
+  text-only shares still 303 to `/share` for the chat draft.
+  `-shared-receipt.ts` mirrors the cache name/prefix, `/jizhang` consumes the
+  one-shot param and `AiExpenseSheet` auto-parses the file. The server answers
+  a stray `POST /share` (a phone still on the old worker) with a 303 to
+  `/share?stale=1`, so the page can ask for a reopen instead of a 405. iOS
+  Safari has no `share_target`, so the gallery picker remains the iPhone path.
+  The build injects `VERSION`, but the installed PWA still needs a relaunch
+  (and sometimes a reinstall) before the new share target appears.
 - `lib/env.ts` validates `VITE_POCKETBASE_URL` at module load — a missing env
   var crashes the app immediately.
 - Default branch is `master`. Pushing to `master` runs

@@ -5,6 +5,14 @@
 const VERSION = "v0.0.1-dev";
 const CACHE_NAME = `mimi-base-${VERSION}`;
 
+// Web Share Target handoff (`public/manifest.json` → `share_target`). Kept out
+// of CACHE_NAME on purpose: a worker update must not drop an image the user
+// just shared. The page-side mirror is
+// `app/routes/_protected/_main/jizhang/-shared-receipt.ts`.
+const SHARE_CACHE = "mimi-share";
+const SHARE_PREFIX = "/__mimi-share/";
+const SHARE_TTL_MS = 60 * 60 * 1000;
+
 console.log(VERSION);
 
 // Shown when a navigation fails and neither the request nor the app shell is
@@ -113,6 +121,12 @@ self.addEventListener("activate", (event) => {
                 }
                 await caches.delete(name);
             }
+            // Unclaimed share stashes expire; do not delete the whole cache,
+            // an update can land while the user is signing in between the
+            // share redirect and the page reading it.
+            if (await caches.has(SHARE_CACHE)) {
+                await pruneShares(await caches.open(SHARE_CACHE));
+            }
             await self.clients.claim();
         })(),
     );
@@ -129,7 +143,21 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
     const { request } = event;
-    if (request.method !== "GET") return;
+    if (request.method !== "GET") {
+        // The OS share sheet hands an image over as a POST navigation to
+        // /share; the SPA router only understands GET. Take the body here,
+        // stash the file, and continue with a 303 → GET navigation.
+        if (request.method === "POST") {
+            const shared = new URL(request.url);
+            if (
+                shared.origin === self.location.origin &&
+                shared.pathname === "/share"
+            ) {
+                event.respondWith(receiveShare(request));
+            }
+        }
+        return;
+    }
     if (request.headers.has("range")) return;
 
     const url = new URL(request.url);
@@ -168,6 +196,70 @@ self.addEventListener("fetch", (event) => {
 
     event.respondWith(staleWhileRevalidate(event, request));
 });
+
+/**
+ * Web Share Target receiver: stash the first shared image and 303 to the
+ * ledger with the stash id. A text-only share keeps the old `/share` → chat
+ * flow. `Response.redirect` is required here: answering the POST with a page
+ * would break refresh and the SPA router, which only handles GET.
+ */
+async function receiveShare(request) {
+    let form = null;
+    try {
+        form = await request.formData();
+    } catch {
+        // No body, or a browser that cannot parse it: fall through to text.
+    }
+
+    const params = new URLSearchParams();
+    for (const field of ["title", "text", "url"]) {
+        const value = form?.get(field);
+        if (typeof value === "string" && value.trim() !== "") {
+            params.set(field, value.trim().slice(0, 500));
+        }
+    }
+
+    const shared = form?.getAll("media") ?? [];
+    const image = shared.find(
+        (value) =>
+            value instanceof File &&
+            value.size > 0 &&
+            value.type.startsWith("image/"),
+    );
+
+    if (!image) {
+        // Text-only share: the existing /share page turns it into a chat draft.
+        return redirect303(`/share${params.size > 0 ? `?${params}` : ""}`);
+    }
+
+    const cache = await caches.open(SHARE_CACHE);
+    await pruneShares(cache);
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await cache.put(
+        new Request(`${SHARE_PREFIX}${id}`),
+        new Response(image, {
+            headers: { "Content-Type": image.type || "image/jpeg" },
+        }),
+    );
+    params.set("share", id);
+    return redirect303(`/jizhang?${params}`);
+}
+
+function redirect303(path) {
+    return Response.redirect(new URL(path, self.location.origin).href, 303);
+}
+
+/** Drop stashes older than SHARE_TTL_MS; they were never claimed by a page. */
+async function pruneShares(cache) {
+    const cutoff = Date.now() - SHARE_TTL_MS;
+    for (const request of await cache.keys()) {
+        const id = new URL(request.url).pathname.slice(SHARE_PREFIX.length);
+        const created = Number.parseInt(id, 10);
+        if (!Number.isFinite(created) || created < cutoff) {
+            await cache.delete(request).catch(() => {});
+        }
+    }
+}
 
 // A stalled cross-border navigation must not keep the cached shell hidden.
 const NAV_TIMEOUT_MS = 3000;

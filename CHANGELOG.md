@@ -4,6 +4,10 @@
 
 ## 2026-11-12
 
+### 新增
+
+- 分享截图直接记账（#82）：PWA 的 `share_target` 从 GET 文本改成 POST `multipart/form-data`，接受 `image/*`；`public/sw.js` 在 fetch 的 GET 分支之前拦截 `POST /share`，把第一张图暂存到独立的 `mimi-share` Cache Storage（1 小时过期，worker 激活时清理旧条目），再用 303 跳到 `/jizhang?share=<id>`，纯文本分享仍 303 回 `/share` 走原来的聊天草稿。`/jizhang` 新增一次性 `share` / `hint` search 参数，`-shared-receipt.ts` 取回并删除暂存文件后交给 `AiExpenseSheet` 的 `sharedReceipt` 立即自动识别，参数在读取后立刻从 URL 移除以免刷新重放；原有手动记账和「✨ AI 记账」入口不变。`server/main.ts` 对漏到服务端的 `POST /share`（手机上还是旧 worker）返回 303 到 `/share?stale=1`，分享页提示重开一次，而不是给静态处理器一个裸 405。
+
 ### 变更
 
 - `preview` 会先停掉同一 worktree 上一次的预览（#80 调试时 agent 因重复预览/构建把 1GB 容器顶爆）：`scripts/preview.mjs` 新增 `pb_data/.preview-server.json` 记录预览 PID/端口，启动时读取它和 `backends.ts` 的 `pb_data/.dev-server.json`，先对旧预览发 SIGTERM、对旧的 PocketBase/API 进程组发 SIGTERM（必要时 SIGKILL），等自己刚停掉的那套栈占用的端口释放后再构建和启动；如果这些端口仍被占住就报错，不会假装清理成功。发信号前会核对 PID 的命令行（Linux 上还核对 cwd）仍属于本 worktree 的 preview/backends，PID 被复用时只删锁，不会杀别的 agent 的进程；端口被别人占用时不等待也不按端口杀进程，preview 和 backends 直接顺延到下一个空闲端口，启动日志里的 URL 为准。清理只读本 worktree 的锁，不会影响另一个 checkout；`AGENTS.md` 的预览说明同步更新。

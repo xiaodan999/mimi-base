@@ -90,9 +90,14 @@ function writeLastParseKey(key: string | null): void {
 export default function AiExpenseSheet({
     open,
     onClose,
+    sharedReceipt = null,
+    sharedHint = "",
 }: {
     open: boolean;
     onClose: () => void;
+    /** 系统分享面板交过来的截图；打开面板后自动识别一次。 */
+    sharedReceipt?: File | null;
+    sharedHint?: string;
 }) {
     const { settings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
@@ -122,6 +127,13 @@ export default function AiExpenseSheet({
     const activeKeyRef = useRef<string | null>(null);
     /** rows 属于哪一次解析；换了描述后旧 rows 不能被当成新结果。 */
     const rowsKeyRef = useRef<string | null>(null);
+    /** 已经接手过的分享截图；同一个 File 只自动识别一次。 */
+    const handledShareRef = useRef<File | null>(null);
+    /** 分享 effect 拿不到最新的 parse 闭包，用 ref 接一下。 */
+    const parseRef = useRef<
+        | ((target?: { file?: File | null; text?: string }) => Promise<void>)
+        | null
+    >(null);
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
     useEffect(() => {
@@ -203,16 +215,20 @@ export default function AiExpenseSheet({
         }
     };
 
-    const parse = async () => {
-        if (!text.trim() && !receipt) {
+    const parse = async (target?: { file?: File | null; text?: string }) => {
+        const nextText = target?.text ?? text;
+        const nextFile = target
+            ? (target.file ?? null)
+            : (receipt?.file ?? null);
+        if (!nextText.trim() && !nextFile) {
             setError("说一句花了什么，或者拍张小票。");
             return;
         }
 
-        const receiptKey = receipt
-            ? `${receipt.file.name}:${receipt.file.size}:${receipt.file.lastModified}`
+        const receiptKey = nextFile
+            ? `${nextFile.name}:${nextFile.size}:${nextFile.lastModified}`
             : "";
-        const key = `expense-parse:${hashText(`${text.trim()}|${receiptKey}`)}`;
+        const key = `expense-parse:${hashText(`${nextText.trim()}|${receiptKey}`)}`;
 
         activeKeyRef.current = key;
         writeLastParseKey(key);
@@ -225,22 +241,25 @@ export default function AiExpenseSheet({
                 group: "expense-parse",
                 cacheKey: key,
                 title: "AI 记账",
-                subtitle: text.trim().slice(0, 30) || receipt?.file.name,
+                subtitle: nextText.trim().slice(0, 30) || nextFile?.name,
                 href: "/jizhang",
                 kind: "json",
                 summarize: (value) => `识别到 ${value.length} 笔`,
                 run: async ({ signal }) => {
                     let messages: AiMessage[];
-                    if (receipt) {
-                        const imageUrl = await imageToDataUrl(receipt.file);
+                    if (nextFile) {
+                        const imageUrl = await imageToDataUrl(nextFile);
                         throwIfAborted(signal);
                         messages = expenseReceiptMessages(
                             [imageUrl],
                             categoryOptions,
-                            text,
+                            nextText,
                         );
                     } else {
-                        messages = expenseTextMessages(text, categoryOptions);
+                        messages = expenseTextMessages(
+                            nextText,
+                            categoryOptions,
+                        );
                     }
 
                     const parsed = await chatJSON<RawParsed>(
@@ -274,6 +293,40 @@ export default function AiExpenseSheet({
             setLoading(false);
         }
     };
+
+    // Keep the latest parse closure for the share effect below: it runs in the
+    // same commit as the new prop, before a later render would rebuild parse.
+    useEffect(() => {
+        parseRef.current = parse;
+    });
+
+    // A screenshot shared from the OS share sheet replaces the current draft
+    // and parses immediately, so the user lands straight on the review rows.
+    useEffect(() => {
+        if (
+            !open ||
+            !sharedReceipt ||
+            handledShareRef.current === sharedReceipt
+        )
+            return;
+        handledShareRef.current = sharedReceipt;
+
+        const hint = sharedHint.trim();
+        // This is a fresh expense: drop whatever draft the restore effect had
+        // just put back (the old task stays in the task center).
+        activeKeyRef.current = null;
+        rowsKeyRef.current = null;
+        writeLastParseKey(null);
+        setStage("input");
+        setRows([]);
+        setError("");
+        setText(hint);
+        setReceipt({
+            file: sharedReceipt,
+            url: URL.createObjectURL(sharedReceipt),
+        });
+        void parseRef.current?.({ file: sharedReceipt, text: hint });
+    }, [open, sharedHint, sharedReceipt]);
 
     const validRows = rows.filter((row) => {
         const price = Number(row.price);
@@ -415,7 +468,7 @@ export default function AiExpenseSheet({
                             type="button"
                             loading={loading}
                             className="h-12 w-full gap-1.5 rounded-xl text-[15px] font-semibold"
-                            onClick={parse}
+                            onClick={() => void parse()}
                             disabled={picking}
                         >
                             <Sparkles className="size-4" />
