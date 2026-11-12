@@ -33,6 +33,7 @@ import { appVersionLabel, ContextChip } from "./context-chips";
 import { PagePicker } from "./page-picker";
 import { ReportList } from "./report-list";
 import { SuccessCard } from "./success-card";
+import { blurOnEnter } from "./title-field";
 
 /**
  * 功能建议 tab: title + want/why/how description + up to 3 attachments. No
@@ -169,12 +170,15 @@ export function FeaturePanel() {
                             </span>
                         </div>
                         <Input
+                            autoComplete="off"
                             className="mt-2"
+                            enterKeyHint="done"
                             id="feature-title"
                             maxLength={MAX_FEEDBACK_TITLE}
                             placeholder="一句话说明你想要什么"
                             value={title}
                             onChange={(event) => setTitle(event.target.value)}
+                            onKeyDown={blurOnEnter}
                         />
                     </div>
 

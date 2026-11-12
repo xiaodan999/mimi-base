@@ -46,6 +46,7 @@ import { appVersionLabel, browserLabel, ContextChip } from "./context-chips";
 import { PagePicker } from "./page-picker";
 import { ReportList } from "./report-list";
 import { SuccessCard } from "./success-card";
+import { blurOnEnter } from "./title-field";
 
 /**
  * 问题反馈 tab: the #39 bug flow, unchanged in behavior. Kept mounted while
@@ -216,12 +217,15 @@ export function BugPanel({
                             </span>
                         </div>
                         <Input
+                            autoComplete="off"
                             className="mt-2"
+                            enterKeyHint="done"
                             id="feedback-title"
                             maxLength={MAX_FEEDBACK_TITLE}
                             placeholder="一句话说明发生了什么"
                             value={title}
                             onChange={(event) => setTitle(event.target.value)}
+                            onKeyDown={blurOnEnter}
                         />
                     </div>
 
