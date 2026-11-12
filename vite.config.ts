@@ -219,6 +219,10 @@ export default defineConfig(({ mode }) => {
             // Same sha as `version.json` / `x-spa-sha`, so the About page can
             // tell whether the running bundle is the deployed one.
             APP_SHA: JSON.stringify(appSha),
+            // `bun run preview` opts in so the local build keeps the dev
+            // account shortcuts. Deploys never set it, so the list stays
+            // eliminated from their bundles.
+            DEV_BUILD: JSON.stringify(process.env.DEV_BUILD === "1"),
         },
     };
 });

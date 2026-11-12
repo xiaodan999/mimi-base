@@ -145,7 +145,10 @@ server does not fit; on a machine that can afford one, keep
   agents can share the defaults. The printed `preview ready: <url>` is the
   authoritative URL. `PREVIEW_BUILD=0` reuses the existing `build/`. One
   preview per worktree: starting it stops any previous preview or
-  `dev:backend` stack recorded in this worktree's locks first.
+  `dev:backend` stack recorded in this worktree's locks first. The build sets
+  `DEV_BUILD=1`, so the login page keeps the 「开发账号」 card and `?dev=` URLs
+  (see the dev-account rules below); `DEV_BUILD=0 bun run preview` builds
+  without them to check the deploy's login page.
 - Starting preview stops the previous preview and its PocketBase/API before
   the build, even when the previous run was SIGKILLed. The preview PID/port
   live in `pb_data/.preview-server.json`; `backends.ts` keeps its own
@@ -537,8 +540,12 @@ which the app build deliberately does not install. Re-check
   URL accepts `?dev=test` / `?dev=test2` to sign in as that account and then
   replaces the URL without the param, and the profile page's 开发账号 section
   switches between them in place (`lib/dev-accounts.ts`, `ensureDevSession` in
-  `lib/auth.tsx`). `DEV_ACCOUNTS` is empty in a production build, so none of
-  these entries appears. Documented in the root `README.md`.
+  `lib/auth.tsx`). `DEV_ACCOUNTS` is empty unless the build opts in:
+  `import.meta.env.DEV` covers the dev server, and `bun run preview` bakes
+  `DEV_BUILD=1` (the define in `vite.config.ts`) so its production-style build
+  keeps the same card and `?dev=` URLs against the seeded database; deploy
+  builds set neither, so the list folds to `[]`. Documented in the root
+  `README.md`.
 
 ## Frontend conventions
 
@@ -827,8 +834,10 @@ are migrated — `outline-hidden`, `shadow-xs`, `bg-linear-to-*`, and `!` as a
 - Run `bun run setup:hooks` once per clone to enable `.githooks/pre-commit`,
   which runs `bun fmt --staged`, `bun run typecheck`, `bun run test`,
   `bun run lint`, and `bun run format:check`.
-- `APP_VERSION` and `APP_SHA` are Vite `define` globals (declared in
-  `vite-env.d.ts`), not environment variables. The app shows the build sha,
+- `APP_VERSION`, `APP_SHA` and `DEV_BUILD` are Vite `define` globals
+  (declared in `vite-env.d.ts`), not environment variables. `DEV_BUILD` is
+  true only for `bun run preview` (its `scripts/preview.mjs` sets the env var
+  the define reads); never set it for a deploy. The app shows the build sha,
   not a version number: there is no release-bump step.
 - `pb.autoCancellation(false)` in `lib/pb.ts` is intentional: the feed and like
   queries would otherwise abort each other.

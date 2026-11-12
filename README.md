@@ -72,6 +72,11 @@
     http://localhost:3000/jizhang?dev=test 。登录成功后这个参数会自动从
     地址栏去掉。
 
+    用 `bun run preview` 检查生产构建时同样可以用这两个入口（预览默认
+    带上开发账号），地址以终端打印的 `preview ready` 为准，例如
+    http://127.0.0.1:4500/login?dev=test 。如果想看没有「开发账号」卡片的
+    登录页，用 `DEV_BUILD=0 bun run preview`。
+
 7. 想停下来时，在终端里按 `Ctrl + C`。
 
 ## 三、测试账号说明

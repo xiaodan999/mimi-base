@@ -381,7 +381,7 @@ function Page() {
                 </Link>
             </Section>
 
-            {import.meta.env.DEV && DEV_ACCOUNTS.length > 0 ? (
+            {DEV_ACCOUNTS.length > 0 ? (
                 <Section title="开发账号">
                     {DEV_ACCOUNTS.map((account) => {
                         const current = account.email === currentEmail;

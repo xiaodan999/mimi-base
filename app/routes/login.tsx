@@ -194,7 +194,7 @@ function Login() {
                         </CardFooter>
                     </Card>
 
-                    {import.meta.env.DEV && DEV_ACCOUNTS.length > 0 ? (
+                    {DEV_ACCOUNTS.length > 0 ? (
                         <Card className="w-full max-w-sm border-dashed">
                             <CardHeader>
                                 <CardTitle className="text-base">

@@ -32,6 +32,8 @@
  *   PREVIEW_PORT     (default 4500) first port to try; if it is busy the next
  *                    free one is used and the chosen URL is printed
  *   PREVIEW_BUILD=0  skip `bun run build`
+ *   DEV_BUILD=0      build without the dev account shortcuts (the login page
+ *                    then looks exactly like a deploy's)
  *   PB_PORT          (default 8110) PocketBase
  *   API_PORT         (default 9110) Bun API, serves /api
  */
@@ -62,6 +64,11 @@ const BUILD_DIR = `${ROOT}/build`;
 const LOCK_FILE = `${ROOT}/pocketbase/pb_data/.dev-server.json`;
 const PREVIEW_LOCK = `${ROOT}/pocketbase/pb_data/.preview-server.json`;
 const CLEANUP_TIMEOUT_MS = 5000;
+
+// The preview always runs against the dev-seeded PocketBase, so its build
+// keeps the 「开发账号」 card and `?dev=test` shortcuts unless the caller opts
+// out to check the login page exactly as a deploy renders it.
+const DEV_ACCOUNTS_ENABLED = process.env.DEV_BUILD !== "0";
 
 // ---------------------------------------------------------------------------
 // previous stack cleanup
@@ -352,14 +359,27 @@ process.on("exit", removePreviewLock);
 // ---------------------------------------------------------------------------
 // build
 
+// Set when this run built the bundle, so the banner only advertises the dev
+// login when it is actually in the served build (PREVIEW_BUILD=0 reuses an
+// older one, whose flag we cannot know).
+let builtWithDevAccounts = false;
+
 if (process.env.PREVIEW_BUILD !== "0") {
     console.log("building…");
     const build = spawnSync("bun", ["run", "build"], {
         cwd: ROOT,
-        env: { ...process.env, VITE_POCKETBASE_URL: "same-origin" },
+        env: {
+            ...process.env,
+            VITE_POCKETBASE_URL: "same-origin",
+            // Baked into the bundle by `vite.config.ts`; it is what keeps the
+            // login page's 「开发账号」 card and `?dev=` shortcuts in a
+            // production build. Deploys never set it.
+            DEV_BUILD: DEV_ACCOUNTS_ENABLED ? "1" : "0",
+        },
         stdio: ["ignore", "ignore", "inherit"],
     });
     if (build.status !== 0) process.exit(build.status ?? 1);
+    builtWithDevAccounts = DEV_ACCOUNTS_ENABLED;
 } else if (!existsSync(`${BUILD_DIR}/index.html`)) {
     console.error("PREVIEW_BUILD=0 but build/index.html is missing");
     process.exit(1);
@@ -537,6 +557,11 @@ console.log(
         `  /db  -> PocketBase 127.0.0.1:${pbPort}`,
         `  /api -> the API 127.0.0.1:${apiPort}`,
         "  log in as test@mimi.local / mimi123456 (dev seed)",
+        ...(builtWithDevAccounts
+            ? [
+                  `  dev login: ${BASE}/login?dev=test  (?dev=test works on any page)`,
+              ]
+            : []),
         "  ctrl-c stops the preview and its backends",
         "",
     ].join("\n"),

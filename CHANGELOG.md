@@ -10,6 +10,7 @@
 
 ### 变更
 
+- `preview` 可以用开发账号直接登录：`scripts/preview.mjs` 构建时传入 `DEV_BUILD=1`，`vite.config.ts` 把它写成 `DEV_BUILD` define（和 `APP_VERSION` / `APP_SHA` 同类，声明在 `vite-env.d.ts`），`lib/dev-accounts.ts` 的 `DEV_ACCOUNTS` 改为 `import.meta.env.DEV || DEV_BUILD` 才填充。这样 `bun run preview` 的构建里登录页保留「开发账号」卡片，`/login?dev=test`、`/jizhang?dev=test2` 这类地址也能一键进入，不必手输密码；登录页和个人资料页原先各自叠加的 `import.meta.env.DEV` 判断删掉，改由账号列表是否为空决定。部署构建（Vercel、`docker/app.Dockerfile`）不设置该变量，列表仍会折叠成 `[]` 并从包里消除。预览默认开启，`DEV_BUILD=0 bun run preview` 可关掉，用于检查与线上一致的登录页；`PREVIEW_BUILD=0` 复用旧构建时启动日志不会声称带开发账号。`AGENTS.md` 与 `README.md` 同步说明。
 - `preview` 会先停掉同一 worktree 上一次的预览（#80 调试时 agent 因重复预览/构建把 1GB 容器顶爆）：`scripts/preview.mjs` 新增 `pb_data/.preview-server.json` 记录预览 PID/端口，启动时读取它和 `backends.ts` 的 `pb_data/.dev-server.json`，先对旧预览发 SIGTERM、对旧的 PocketBase/API 进程组发 SIGTERM（必要时 SIGKILL），等自己刚停掉的那套栈占用的端口释放后再构建和启动；如果这些端口仍被占住就报错，不会假装清理成功。发信号前会核对 PID 的命令行（Linux 上还核对 cwd）仍属于本 worktree 的 preview/backends，PID 被复用时只删锁，不会杀别的 agent 的进程；端口被别人占用时不等待也不按端口杀进程，preview 和 backends 直接顺延到下一个空闲端口，启动日志里的 URL 为准。清理只读本 worktree 的锁，不会影响另一个 checkout；`AGENTS.md` 的预览说明同步更新。
 
 ### 修复

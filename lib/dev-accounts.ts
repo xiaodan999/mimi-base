@@ -2,8 +2,9 @@
  * Dev-only accounts. `pocketbase/pb_hooks/dev_seed.pb.js` creates these rows
  * when the server runs with `MIMI_DEV=1`; keep the two lists in sync.
  *
- * In a production build Vite folds `import.meta.env.DEV` to false, so the
- * list is empty and the login page / `?dev=` URLs cannot sign anyone in.
+ * Vite folds both flags at build time: `import.meta.env.DEV` is false in any
+ * build, and only `bun run preview` sets `DEV_BUILD`, so a deploy's bundle
+ * gets an empty list and the login page / `?dev=` URLs cannot sign anyone in.
  * These credentials are public (they are in the README) and the accounts do
  * not exist outside a dev database, so they are not secrets.
  */
@@ -15,7 +16,13 @@ export type DevAccount = {
     name: string;
 };
 
-export const DEV_ACCOUNTS: readonly DevAccount[] = import.meta.env.DEV
+// `DEV_BUILD` is a Vite define, so it does not exist when Bun loads this
+// module in tests; `typeof` keeps that path from throwing. Vite replaces both
+// occurrences with the literal, so a deploy build still folds this to false.
+const DEV_ACCOUNTS_ENABLED =
+    import.meta.env.DEV || (typeof DEV_BUILD !== "undefined" && DEV_BUILD);
+
+export const DEV_ACCOUNTS: readonly DevAccount[] = DEV_ACCOUNTS_ENABLED
     ? [
           {
               key: "test",
