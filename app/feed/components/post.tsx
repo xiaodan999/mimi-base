@@ -14,8 +14,10 @@ import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
 import { PostData, useDeletePostMutation, usePostLikeMutation } from "../data";
+import { parseDinnerResult } from "../dinner-result";
 import { formatRelativeTime } from "../utils";
 import AvatarPreview from "./avatar-preview";
+import { DinnerResultCard } from "./dinner-result";
 import type { ViewerImage } from "./image-viewer";
 import {
     InstagramCarousel,
@@ -263,6 +265,11 @@ export default function Post({
         );
     }
 
+    // A saved dinner result gets its own little ticket; ordinary text —
+    // including a dinner post edited to add a second line — stays a tweet
+    // body. The full-bleed branch above keeps its caption untouched.
+    const dinner = text ? parseDinnerResult(text) : null;
+
     // Everything else is the compact tweet card; `toPostData` folds the
     // retired moments layout into `twitter`.
     return (
@@ -285,7 +292,11 @@ export default function Post({
                         {menu}
                     </div>
 
-                    {text && <TweetText text={text} />}
+                    {dinner ? (
+                        <DinnerResultCard name={dinner.name} />
+                    ) : (
+                        text && <TweetText text={text} />
+                    )}
 
                     {/* One ordered media set: a lone clip is still the normal
                         player, everything else follows X's single / pair /
