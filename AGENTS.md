@@ -149,9 +149,12 @@ server does not fit; on a machine that can afford one, keep
   live in `pb_data/.preview-server.json`; `backends.ts` keeps its own
   `pb_data/.dev-server.json`. The new run terminates both, waits for the
   ports, and fails with a clear error if one is still held instead of silently
-  starting a second PocketBase on a higher port. Cleanup is per worktree, so
-  another checkout's preview is never touched; use different ports for
-  side-by-side worktrees.
+  starting a second PocketBase on a higher port. Signals are only sent when the
+  PID still runs `preview.mjs` / `backends.ts` (and, on Linux, its cwd is this
+  worktree), so a recycled PID from another agent is left alone; a foreign
+  process holding a port is never killed. Cleanup is per worktree, so another
+  checkout's preview is never touched; use different ports for side-by-side
+  worktrees.
 - The build must be the `same-origin` one. A bundle made for another origin
   calls that origin directly and bypasses the `/db` proxy.
 - Log in with the dev seed account `test@mimi.local` / `mimi123456`.

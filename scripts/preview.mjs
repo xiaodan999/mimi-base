@@ -23,7 +23,10 @@
  * live in `pb_data/.preview-server.json`; `backends.ts` keeps its own
  * `pb_data/.dev-server.json`. Cleanup runs before the build, so a build never
  * overlaps the old stack, and a still-held port fails the start instead of
- * silently creating a second PocketBase.
+ * silently creating a second PocketBase. A signal is only sent after checking
+ * that the PID still runs `preview.mjs` / `backends.ts` (and, on Linux, that
+ * its cwd is this worktree), so a recycled PID from another agent is left
+ * alone.
  *
  * Env:
  *   PREVIEW_PORT     (default 4500) where the preview server listens
@@ -37,6 +40,8 @@ import {
     existsSync,
     mkdirSync,
     readFileSync,
+    readlinkSync,
+    realpathSync,
     rmSync,
     writeFileSync,
 } from "node:fs";
@@ -47,6 +52,7 @@ if (!existsSync(`${ROOT}/pocketbase`) || !existsSync(`${ROOT}/package.json`)) {
     console.error("run this from the repo root");
     process.exit(1);
 }
+const ROOT_REAL = realpathSync(ROOT);
 
 const PORT = Number(process.env.PREVIEW_PORT ?? 4500);
 const REQUESTED_PB_PORT = Number(process.env.PB_PORT ?? 8110);
@@ -123,6 +129,60 @@ function signalPid(pid, signal) {
     }
 }
 
+/** The target's command line, for verifying a lock PID before signalling it. */
+function processCommandLine(pid) {
+    if (process.platform === "linux") {
+        try {
+            return readFileSync(`/proc/${pid}/cmdline`, "utf8")
+                .split("\0")
+                .join(" ")
+                .trim();
+        } catch {
+            return "";
+        }
+    }
+    if (process.platform === "win32") {
+        const result = spawnSync(
+            "powershell",
+            [
+                "-NoProfile",
+                "-Command",
+                `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}").CommandLine`,
+            ],
+            { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+        );
+        return result.status === 0 ? result.stdout.trim() : "";
+    }
+    const result = spawnSync("ps", ["-p", String(pid), "-o", "command="], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+    });
+    return result.status === 0 ? result.stdout.trim() : "";
+}
+
+function processCwd(pid) {
+    if (process.platform !== "linux") return "";
+    try {
+        return readlinkSync(`/proc/${pid}/cwd`);
+    } catch {
+        return "";
+    }
+}
+
+/**
+ * A lock is only trustworthy while its PID still belongs to the script that
+ * wrote it. PIDs are recycled on a busy machine, and a stale lock from a
+ * SIGKILLed preview could otherwise make us kill an unrelated agent's
+ * process. Require the script name and, on Linux, this worktree's cwd.
+ */
+function isOurProcess(pid, marker) {
+    const command = processCommandLine(pid);
+    if (!command || !command.includes(marker)) return false;
+    const cwd = processCwd(pid);
+    if (cwd && cwd !== ROOT_REAL) return false;
+    return true;
+}
+
 function killBackendTree(pid, force) {
     if (process.platform === "win32") {
         spawnSync("taskkill", ["/pid", String(pid), "/t", "/f"], {
@@ -175,9 +235,13 @@ async function stopPreviousPreview() {
     const backends = readJsonLock(LOCK_FILE);
     const previewPid = Number(preview?.pid);
     const backendPid = Number(backends?.pid);
+    const previewOwned =
+        pidAlive(previewPid) && isOurProcess(previewPid, "preview.mjs");
+    const backendOwned =
+        pidAlive(backendPid) && isOurProcess(backendPid, "backends.ts");
     let stopped = false;
 
-    if (pidAlive(previewPid) && previewPid !== process.pid) {
+    if (previewOwned && previewPid !== process.pid) {
         console.log(`[preview] stopping previous preview (pid ${previewPid})`);
         signalPid(previewPid, "SIGTERM");
         if (!(await waitForExit(previewPid, CLEANUP_TIMEOUT_MS))) {
@@ -186,9 +250,13 @@ async function stopPreviousPreview() {
             await waitForExit(previewPid, 1000);
         }
         stopped = true;
+    } else if (pidAlive(previewPid) && !previewOwned) {
+        console.log(
+            `[preview] lock pid ${previewPid} is no longer this worktree's preview; leaving it alone`,
+        );
     }
 
-    if (pidAlive(backendPid) && backendPid !== process.pid) {
+    if (backendOwned && backendPid !== process.pid) {
         console.log(
             `[preview] stopping previous backend stack (pid ${backendPid})`,
         );
@@ -201,6 +269,10 @@ async function stopPreviousPreview() {
             await waitForExit(backendPid, 1000);
         }
         stopped = true;
+    } else if (pidAlive(backendPid) && !backendOwned) {
+        console.log(
+            `[preview] lock pid ${backendPid} is no longer this worktree's backend stack; leaving it alone`,
+        );
     }
 
     // The old preview may not have written its lock (an older version), and
@@ -222,10 +294,10 @@ async function stopPreviousPreview() {
         }
     }
 
-    if (preview && !pidAlive(previewPid)) {
+    if (preview && (!pidAlive(previewPid) || !previewOwned)) {
         rmSync(PREVIEW_LOCK, { force: true });
     }
-    if (backends && !pidAlive(backendPid)) {
+    if (backends && (!pidAlive(backendPid) || !backendOwned)) {
         rmSync(LOCK_FILE, { force: true });
     }
     if (stopped) console.log("[preview] previous preview stopped");
