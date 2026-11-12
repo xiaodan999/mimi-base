@@ -16,6 +16,7 @@
 ### 修复
 
 - 反馈列表不显示 GitHub Issue 编号、已关闭状态和普通状态一样灰（#91）：`report-list.tsx` 的 Issue 链接改成「查看 Issue #91」，编号来自 `app/feedback/issue-state.ts` 新增的 `parseIssueNumber`（只认正整数，0 / 小数 / 字符串都不显示，避免出现 `#0`）；有编号但没有 `issue_url` 时只显示「Issue #编号」，不伪造链接。`statusClass` 的已关闭分支从灰色改成 GitHub 风格的紫色（`border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300`），亮色和暗色都保持可读，其它状态不变；`useFeedbackIssueStates` 的有效编号判断也复用同一个解析函数。`issue-state.test.ts` 覆盖编号解析。
+- 晚餐抽奖机的待机提示占满弹窗宽度、浮在一片空白中间（#90）：`-dialog.tsx` 的 idle / spinning 状态不再放在 12.5rem 预留槽里渲染全宽虚线胶囊，而是收成 `max-w-[320px]`（与转盘同宽）内居中显示的一行提示，空闲时结果槽用 `grid-rows-[0fr]` 折叠为 0 高度，面板高度从 702px 降到 526px（390×844）、698px 降到 522px（1024×800），提示上下不再各留 77px 空白。结果卡仍保留 12.5rem 槽位居中，结果出现和「再抽一次」时用 `grid-template-rows` 0fr↔1fr 的 300ms 过渡展开/收起，不再硬跳；`prefers-reduced-motion` 下过渡关闭，转盘 40ms 内落定。实测 390×844 的结果卡完整可见（top 637 / bottom 803，面板无滚动），桌面弹窗同样可见。
 - 聊天沙箱第二次成功调用 `sandbox.fetch` 会把 QuickJS 崩掉（#88）：`server/sandbox-worker.ts` 原来用 `newAsyncifiedFunction` 包 `fetch` / `download`，asyncify 在同一个 run 里第二次成功返回时会触发 WASM 的 `ref_count` 断言（`Out of bounds memory access` / `free_zero_refcount`），而单次调用和失败调用都不会报错，所以一直没被发现。现在宿主函数改为返回 `server/sandbox-promise.ts` 里 `hostPromise` 桥接的 QuickJS Promise：宿主回调保持同步，VM 用普通 Promise 挂起，worker 已有的 `executePendingJobs()` 循环负责落地结果；重复调用、`Promise.all` 并发和错误拒绝都正常。回归测试 `server/sandbox-promise.test.ts` 覆盖连续两次、并发四次和连续两次拒绝。顺带把 `sandbox.fetch` 的返回值写清楚：它直接返回正文文本，不是 `Response` 对象，AI 的工具说明和系统提示都要求用 `JSON.parse(await sandbox.fetch(url))`，不要写 `.body` / `.text()`（截图里的 `unexpected token: 'undefined'` 就是 `r.body` 为 undefined 导致的）。
 
 ## 2026-11-11

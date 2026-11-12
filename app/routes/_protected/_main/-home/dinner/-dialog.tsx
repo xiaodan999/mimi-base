@@ -294,119 +294,137 @@ export default function DinnerLotteryDialog({
                                 </Button>
                             </div>
 
-                            {/* Reserve the result card's height up front: the
-                                sheet is bottom-anchored on phones, so growing
-                                it when the result appears pushes the wheel up
-                                and reads as a layout jump. */}
-                            <div className="mt-3 flex min-h-[12.5rem] flex-col justify-center">
-                                {phase === "spinning" && (
-                                    <div
-                                        role="status"
-                                        aria-live="polite"
-                                        className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-sm text-muted-foreground"
-                                    >
-                                        <Loader2
-                                            className="size-4 animate-spin"
-                                            aria-hidden="true"
-                                        />
-                                        正在挑一个今晚的答案…
-                                    </div>
-                                )}
-
-                                {phase === "idle" && (
-                                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-center text-sm text-muted-foreground">
-                                        <Sparkles
-                                            className="size-4 text-amber-500"
-                                            aria-hidden="true"
-                                        />
-                                        点中间的「开转」，让运气决定今晚
-                                    </div>
-                                )}
-
-                                {phase === "result" && picked && (
-                                    <div
-                                        key={picked.id}
-                                        role="status"
-                                        aria-live="polite"
-                                        className="relative w-full animate-in overflow-hidden rounded-2xl border border-primary/25 bg-linear-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft fade-in-0 slide-in-from-bottom-2"
-                                    >
+                            {/* Idle and spinning share one compact line under
+                                the wheel, capped at the wheel's width, so the
+                                sheet does not open with a wide pill floating
+                                in a blank block. */}
+                            {phase !== "result" && (
+                                <div className="mt-4 flex justify-center">
+                                    {phase === "idle" ? (
+                                        <p className="flex max-w-[320px] items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                                            <Sparkles
+                                                className="size-4 shrink-0 text-amber-500"
+                                                aria-hidden="true"
+                                            />
+                                            点中间的「开转」，让运气决定今晚
+                                        </p>
+                                    ) : (
                                         <div
-                                            aria-hidden="true"
-                                            className="pointer-events-none absolute inset-0 overflow-hidden"
+                                            role="status"
+                                            aria-live="polite"
+                                            className="flex max-w-[320px] items-center justify-center gap-2 text-center text-sm text-muted-foreground"
                                         >
-                                            {CONFETTI.map((piece, index) => (
-                                                <span
-                                                    key={index}
-                                                    className="dinner-confetti absolute top-1/2 left-1/2 size-1.5 rounded-[1px]"
-                                                    style={
-                                                        {
-                                                            backgroundColor: `hsl(var(--chart-${piece.color}))`,
-                                                            "--tx": `${piece.x}px`,
-                                                            "--ty": `${piece.y}px`,
-                                                            "--rot": `${piece.rot}deg`,
-                                                            animationDelay: `${piece.delay}ms`,
-                                                        } as CSSProperties
-                                                    }
-                                                />
-                                            ))}
+                                            <Loader2
+                                                className="size-4 shrink-0 animate-spin"
+                                                aria-hidden="true"
+                                            />
+                                            正在挑一个今晚的答案…
                                         </div>
+                                    )}
+                                </div>
+                            )}
 
-                                        <div className="relative text-center">
-                                            <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
-                                                今晚就吃
-                                            </p>
-                                            <p
-                                                className={cn(
-                                                    "mt-1 bg-linear-to-r from-primary via-chart-2 to-chart-4 bg-clip-text font-extrabold tracking-tight text-transparent",
-                                                    resultNameClass(
-                                                        picked.name,
-                                                    ),
-                                                )}
-                                            >
-                                                {picked.name}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                保存后会记一条动态
-                                            </p>
-                                            <div className="mt-3 flex gap-2">
-                                                <Button
-                                                    type="button"
-                                                    className="h-11 flex-1 gap-1.5 font-semibold"
-                                                    disabled={saving}
-                                                    onClick={() =>
-                                                        void handleSave()
-                                                    }
-                                                >
-                                                    {saving ? (
-                                                        <Loader2
-                                                            className="size-4 animate-spin"
-                                                            aria-hidden="true"
-                                                        />
-                                                    ) : (
-                                                        <Carrot
-                                                            className="size-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                    就吃这个
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    className="h-11 shrink-0 gap-1.5"
-                                                    disabled={saving}
-                                                    onClick={handleSpin}
-                                                >
-                                                    <RefreshCw
-                                                        className="size-4"
-                                                        aria-hidden="true"
-                                                    />
-                                                    再抽一次
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
+                            {/* Only the result needs the tall slot. Expanding
+                                its grid row keeps the bottom-anchored sheet
+                                from jumping when the card appears. */}
+                            <div
+                                className={cn(
+                                    "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none",
+                                    phase === "result" && picked
+                                        ? "grid-rows-[1fr]"
+                                        : "grid-rows-[0fr]",
                                 )}
+                            >
+                                <div className="min-h-0 overflow-hidden">
+                                    <div className="mt-3 flex min-h-[12.5rem] flex-col justify-center">
+                                        {phase === "result" && picked && (
+                                            <div
+                                                key={picked.id}
+                                                role="status"
+                                                aria-live="polite"
+                                                className="relative w-full animate-in overflow-hidden rounded-2xl border border-primary/25 bg-linear-to-br from-primary/10 via-card to-chart-3/10 p-4 shadow-soft fade-in-0 slide-in-from-bottom-2"
+                                            >
+                                                <div
+                                                    aria-hidden="true"
+                                                    className="pointer-events-none absolute inset-0 overflow-hidden"
+                                                >
+                                                    {CONFETTI.map(
+                                                        (piece, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="dinner-confetti absolute top-1/2 left-1/2 size-1.5 rounded-[1px]"
+                                                                style={
+                                                                    {
+                                                                        backgroundColor: `hsl(var(--chart-${piece.color}))`,
+                                                                        "--tx": `${piece.x}px`,
+                                                                        "--ty": `${piece.y}px`,
+                                                                        "--rot": `${piece.rot}deg`,
+                                                                        animationDelay: `${piece.delay}ms`,
+                                                                    } as CSSProperties
+                                                                }
+                                                            />
+                                                        ),
+                                                    )}
+                                                </div>
+
+                                                <div className="relative text-center">
+                                                    <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground">
+                                                        今晚就吃
+                                                    </p>
+                                                    <p
+                                                        className={cn(
+                                                            "mt-1 bg-linear-to-r from-primary via-chart-2 to-chart-4 bg-clip-text font-extrabold tracking-tight text-transparent",
+                                                            resultNameClass(
+                                                                picked.name,
+                                                            ),
+                                                        )}
+                                                    >
+                                                        {picked.name}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        保存后会记一条动态
+                                                    </p>
+                                                    <div className="mt-3 flex gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            className="h-11 flex-1 gap-1.5 font-semibold"
+                                                            disabled={saving}
+                                                            onClick={() =>
+                                                                void handleSave()
+                                                            }
+                                                        >
+                                                            {saving ? (
+                                                                <Loader2
+                                                                    className="size-4 animate-spin"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            ) : (
+                                                                <Carrot
+                                                                    className="size-4"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            )}
+                                                            就吃这个
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            className="h-11 shrink-0 gap-1.5"
+                                                            disabled={saving}
+                                                            onClick={handleSpin}
+                                                        >
+                                                            <RefreshCw
+                                                                className="size-4"
+                                                                aria-hidden="true"
+                                                            />
+                                                            再抽一次
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
