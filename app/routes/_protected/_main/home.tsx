@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Camera, Sparkles } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { Camera, Soup, Sparkles } from "lucide-react";
+import { lazy, Suspense } from "react";
 
 import NotificationBell from "@/app/notifications/components/notification-bell";
 import { streakDays } from "@/app/study/engine";
@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 
 import { useHomeStats } from "./-home-data";
 import DailyLine from "./-home/daily-line";
-import DinnerLotteryDialog from "./-home/dinner/-dialog";
 
 // The feed owns the post, composer, comment and viewer chunks; keeping it in
 // its own bundle lets the greeting header paint before they load.
@@ -113,7 +112,17 @@ function Page() {
                         </h1>
                     </div>
                     <NotificationBell />
-                    <DinnerPicker />
+                    <Link
+                        to="/dinner"
+                        aria-label="打开晚餐抽奖机"
+                        className="relative grid size-9 shrink-0 place-items-center rounded-full border border-amber-500/30 bg-linear-to-br from-amber-400/25 via-amber-500/10 to-chart-3/15 text-amber-700 shadow-soft transition-transform hover:scale-105 active:scale-90 dark:text-amber-300"
+                    >
+                        <Soup className="size-[18px]" aria-hidden="true" />
+                        <Sparkles
+                            aria-hidden="true"
+                            className="absolute -top-0.5 -right-0.5 size-3 text-amber-500"
+                        />
+                    </Link>
                     <ThemeToggle className="shrink-0" />
                 </div>
 
@@ -194,33 +203,5 @@ function Stat({
         >
             {body}
         </Link>
-    );
-}
-
-/**
- * The bowl in the greeting card opens the shared dinner wheel. The dialog
- * shell is part of this route chunk so the sheet opens on the first tap; the
- * SVG wheel and the management surface load lazily inside it, behind their
- * own "正在准备转盘…" status.
- */
-function DinnerPicker() {
-    const [open, setOpen] = useState(false);
-
-    return (
-        <>
-            <button
-                type="button"
-                aria-label="打开晚餐抽奖机"
-                onClick={() => setOpen(true)}
-                className="relative grid size-9 shrink-0 place-items-center rounded-full border border-amber-500/30 bg-linear-to-br from-amber-400/25 via-amber-500/10 to-chart-3/15 text-lg leading-none shadow-soft transition-transform hover:scale-105 active:scale-90"
-            >
-                <span aria-hidden="true">🍜</span>
-                <Sparkles
-                    aria-hidden="true"
-                    className="absolute -top-0.5 -right-0.5 size-3 text-amber-500"
-                />
-            </button>
-            {open && <DinnerLotteryDialog open={open} onOpenChange={setOpen} />}
-        </>
     );
 }

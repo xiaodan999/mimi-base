@@ -2,7 +2,7 @@ import { Loader2, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-import type { DinnerOption } from "./options";
+import type { DinnerOption } from "../options";
 import {
     segmentAngle,
     segmentCenterAngle,
@@ -10,7 +10,7 @@ import {
     shouldDrawWheelLabel,
     wheelLabel,
     wheelLabelFontSize,
-} from "./options";
+} from "../options";
 
 const CX = 160;
 const CY = 160;
@@ -76,7 +76,7 @@ export function DinnerWheel({
         selectedIndex >= 0 && selectedIndex < count ? selectedIndex : -1;
 
     return (
-        <div className="relative mx-auto w-full max-w-[320px] select-none">
+        <div className="relative mx-auto w-full max-w-[26rem] select-none">
             <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-2 rounded-full bg-[radial-gradient(circle_at_50%_30%,hsl(var(--chart-3)/0.22),transparent_65%)] blur-xl"

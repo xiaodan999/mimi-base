@@ -15,6 +15,7 @@ export type UpdatePath =
     | "/chat"
     | "/jizhang"
     | "/study"
+    | "/dinner"
     | "/profile"
     | "/report"
     | "/feedback";
@@ -47,7 +48,10 @@ export const UPDATES: Update[] = [
         summary: "付款后把截图分享到基地，AI 自动填好金额和分类。",
         highlight:
             "付款后把支付截图分享到「基地」，会自动打开记账面板并填好金额、商户和分类，确认一下就记下了。",
-        links: [{ label: "去记账", to: "/jizhang" }],
+        links: [
+            { label: "去记账", to: "/jizhang" },
+            { label: "去抽晚餐", to: "/dinner" },
+        ],
         added: [
             "付款后把支付截图分享到「基地」，会自动打开记账面板并填好金额、商户和分类，确认一下就记下了。",
             "原来的手动记账和「AI 记账」都还在：想自己选图、拍小票或打字随时可以用。",
@@ -60,6 +64,7 @@ export const UPDATES: Update[] = [
         ],
         changed: [
             "晚餐抽奖机记到首页的结果不再是一行干巴巴的文字，而是一张暖色晚餐卡：有碗形徽标、点阵纸底和星光装饰，菜名更醒目，长菜名也会自动换行。",
+            "晚餐抽奖机从弹窗搬到独立页面：转盘更大，答案有固定的展示区，抽出结果时页面不再跳动，菜单管理也收在页面下方。",
         ],
     },
     {

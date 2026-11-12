@@ -22,6 +22,7 @@ import { Route as ProtectedMainStudyRouteImport } from './routes/_protected/_mai
 import { Route as ProtectedPostNewPooRouteImport } from './routes/_protected/post/new-poo'
 import { Route as ProtectedMainChatIndexRouteImport } from './routes/_protected/_main/chat/index'
 import { Route as ProtectedMainChatConversationIdRouteImport } from './routes/_protected/_main/chat/$conversationId'
+import { Route as ProtectedMainDinnerIndexRouteImport } from './routes/_protected/_main/dinner/index'
 import { Route as ProtectedMainFeedbackIndexRouteImport } from './routes/_protected/_main/feedback/index'
 import { Route as ProtectedMainJizhangIndexRouteImport } from './routes/_protected/_main/jizhang/index'
 import { Route as ProtectedMainNotificationsIndexRouteImport } from './routes/_protected/_main/notifications/index'
@@ -96,6 +97,12 @@ const ProtectedMainChatConversationIdRoute =
   ProtectedMainChatConversationIdRouteImport.update({
     id: '/chat/$conversationId',
     path: '/chat/$conversationId',
+    getParentRoute: () => ProtectedMainRoute,
+  } as any)
+const ProtectedMainDinnerIndexRoute =
+  ProtectedMainDinnerIndexRouteImport.update({
+    id: '/dinner/',
+    path: '/dinner/',
     getParentRoute: () => ProtectedMainRoute,
   } as any)
 const ProtectedMainFeedbackIndexRoute =
@@ -176,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/chat/$conversationId': typeof ProtectedMainChatConversationIdRoute
   '/study/$subjectId': typeof ProtectedMainStudySubjectIdRouteWithChildren
   '/chat/': typeof ProtectedMainChatIndexRoute
+  '/dinner/': typeof ProtectedMainDinnerIndexRoute
   '/feedback/': typeof ProtectedMainFeedbackIndexRoute
   '/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/notifications/': typeof ProtectedMainNotificationsIndexRoute
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/post/new-poo': typeof ProtectedPostNewPooRoute
   '/chat/$conversationId': typeof ProtectedMainChatConversationIdRoute
   '/chat': typeof ProtectedMainChatIndexRoute
+  '/dinner': typeof ProtectedMainDinnerIndexRoute
   '/feedback': typeof ProtectedMainFeedbackIndexRoute
   '/jizhang': typeof ProtectedMainJizhangIndexRoute
   '/notifications': typeof ProtectedMainNotificationsIndexRoute
@@ -225,6 +234,7 @@ export interface FileRoutesById {
   '/_protected/_main/chat/$conversationId': typeof ProtectedMainChatConversationIdRoute
   '/_protected/_main/study/$subjectId': typeof ProtectedMainStudySubjectIdRouteWithChildren
   '/_protected/_main/chat/': typeof ProtectedMainChatIndexRoute
+  '/_protected/_main/dinner/': typeof ProtectedMainDinnerIndexRoute
   '/_protected/_main/feedback/': typeof ProtectedMainFeedbackIndexRoute
   '/_protected/_main/jizhang/': typeof ProtectedMainJizhangIndexRoute
   '/_protected/_main/notifications/': typeof ProtectedMainNotificationsIndexRoute
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/study/$subjectId'
     | '/chat/'
+    | '/dinner/'
     | '/feedback/'
     | '/jizhang/'
     | '/notifications/'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/post/new-poo'
     | '/chat/$conversationId'
     | '/chat'
+    | '/dinner'
     | '/feedback'
     | '/jizhang'
     | '/notifications'
@@ -299,6 +311,7 @@ export interface FileRouteTypes {
     | '/_protected/_main/chat/$conversationId'
     | '/_protected/_main/study/$subjectId'
     | '/_protected/_main/chat/'
+    | '/_protected/_main/dinner/'
     | '/_protected/_main/feedback/'
     | '/_protected/_main/jizhang/'
     | '/_protected/_main/notifications/'
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/chat/$conversationId'
       fullPath: '/chat/$conversationId'
       preLoaderRoute: typeof ProtectedMainChatConversationIdRouteImport
+      parentRoute: typeof ProtectedMainRoute
+    }
+    '/_protected/_main/dinner/': {
+      id: '/_protected/_main/dinner/'
+      path: '/dinner'
+      fullPath: '/dinner/'
+      preLoaderRoute: typeof ProtectedMainDinnerIndexRouteImport
       parentRoute: typeof ProtectedMainRoute
     }
     '/_protected/_main/feedback/': {
@@ -529,6 +549,7 @@ interface ProtectedMainRouteChildren {
   ProtectedMainStudyRoute: typeof ProtectedMainStudyRouteWithChildren
   ProtectedMainChatConversationIdRoute: typeof ProtectedMainChatConversationIdRoute
   ProtectedMainChatIndexRoute: typeof ProtectedMainChatIndexRoute
+  ProtectedMainDinnerIndexRoute: typeof ProtectedMainDinnerIndexRoute
   ProtectedMainFeedbackIndexRoute: typeof ProtectedMainFeedbackIndexRoute
   ProtectedMainJizhangIndexRoute: typeof ProtectedMainJizhangIndexRoute
   ProtectedMainNotificationsIndexRoute: typeof ProtectedMainNotificationsIndexRoute
@@ -543,6 +564,7 @@ const ProtectedMainRouteChildren: ProtectedMainRouteChildren = {
   ProtectedMainStudyRoute: ProtectedMainStudyRouteWithChildren,
   ProtectedMainChatConversationIdRoute: ProtectedMainChatConversationIdRoute,
   ProtectedMainChatIndexRoute: ProtectedMainChatIndexRoute,
+  ProtectedMainDinnerIndexRoute: ProtectedMainDinnerIndexRoute,
   ProtectedMainFeedbackIndexRoute: ProtectedMainFeedbackIndexRoute,
   ProtectedMainJizhangIndexRoute: ProtectedMainJizhangIndexRoute,
   ProtectedMainNotificationsIndexRoute: ProtectedMainNotificationsIndexRoute,

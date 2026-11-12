@@ -174,6 +174,21 @@ export function segmentPaletteIndex(index: number, count: number): number {
     return slot;
 }
 
+/** How large the winner's name may render in the fixed-height result card. */
+export type DinnerResultNameSize = "long" | "medium" | "short";
+
+/**
+ * Pick a result-name size by code-point length. The result card keeps a fixed
+ * height (so the page never jumps), and a name is allowed at most two lines:
+ * shrinking long names keeps even the 24-character maximum inside its slot.
+ */
+export function resultNameSize(name: string): DinnerResultNameSize {
+    const length = Array.from(name).length;
+    if (length > 16) return "long";
+    if (length > 8) return "medium";
+    return "short";
+}
+
 /** Short label drawn on a slice; the management list keeps the full name. */
 export function wheelLabel(name: string, max = 6): string {
     const chars = Array.from(name);

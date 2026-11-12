@@ -7,6 +7,7 @@ import {
     normalizeAngle,
     normalizeDinnerName,
     randomIndex,
+    resultNameSize,
     rotationForIndex,
     segmentCenterAngle,
     segmentPaletteIndex,
@@ -161,6 +162,21 @@ describe("wheel presentation", () => {
     test("labels shrink as the wheel fills up", () => {
         expect(wheelLabelFontSize(4)).toBeGreaterThan(wheelLabelFontSize(16));
         expect(wheelLabelFontSize(16)).toBeGreaterThan(wheelLabelFontSize(28));
+    });
+
+    test("result names shrink before they can outgrow the card", () => {
+        expect(resultNameSize("火锅")).toBe("short");
+        expect(resultNameSize("一二三四五六七八")).toBe("short");
+        expect(resultNameSize("一二三四五六七八九")).toBe("medium");
+        expect(resultNameSize("一二三四五六七八九十一二三四五六")).toBe(
+            "medium",
+        );
+        expect(resultNameSize("一二三四五六七八九十一二三四五六七")).toBe(
+            "long",
+        );
+        expect(resultNameSize("一二三四五六七八九十一二三四五六七八")).toBe(
+            "long",
+        );
     });
 
     test("small wheels keep every slice label", () => {

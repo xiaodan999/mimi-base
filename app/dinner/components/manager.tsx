@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -11,25 +11,24 @@ import {
     useAddDinnerOption,
     useDeleteDinnerOption,
     useRenameDinnerOption,
-} from "./-data";
+} from "../data";
 import {
     dinnerNameError,
     type DinnerOption,
     MAX_DINNER_NAME_LENGTH,
     normalizeDinnerName,
-} from "./options";
+} from "../options";
 
 type DinnerManagerProps = {
     options: DinnerOption[];
-    onBack: () => void;
 };
 
 /**
- * Add / rename / delete the shared dinner list. Kept inside the same dialog
- * as the wheel: on a phone a nested surface would add another overlay without
- * making the list any easier to reach.
+ * Add / rename / delete the shared dinner list. It sits inline on the dinner
+ * page instead of behind a nested overlay, so the wheel stays in view and the
+ * list gets the full width it needs for inline rename errors.
  */
-export function DinnerManager({ options, onBack }: DinnerManagerProps) {
+export function DinnerManager({ options }: DinnerManagerProps) {
     const addOption = useAddDinnerOption();
     const renameOption = useRenameDinnerOption();
     const deleteOption = useDeleteDinnerOption();
@@ -114,16 +113,6 @@ export function DinnerManager({ options, onBack }: DinnerManagerProps) {
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="-ml-1 size-9 shrink-0"
-                    aria-label="返回转盘"
-                    onClick={onBack}
-                >
-                    <ArrowLeft className="size-5" aria-hidden="true" />
-                </Button>
                 <div className="min-w-0 flex-1">
                     <h3 className="truncate text-base font-semibold">
                         管理晚餐选项
@@ -186,7 +175,7 @@ export function DinnerManager({ options, onBack }: DinnerManagerProps) {
                     还没有选项，在上面加一个想吃的吧。
                 </div>
             ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="grid gap-2 sm:grid-cols-2">
                     {options.map((option) => {
                         const isEditing = editingId === option.id;
                         return (
