@@ -101,10 +101,86 @@ export const ALL_REALTIME_INVALIDATION_KEYS: readonly RealtimeQueryKey[] =
         ]),
     );
 
-export type InvalidationBatcher = {
-    /** Queue prefixes; duplicates collapse into the current batch. */
-    add(keys: readonly RealtimeQueryKey[]): void;
-    /** Run the queued invalidations immediately. */
+export type RealtimeAction = "create" | "update" | "delete";
+
+export type RealtimeEvent = {
+    collection: string;
+    action: RealtimeAction;
+    record: Record<string, unknown>;
+};
+
+/** Narrow a PocketBase SSE action; unknown values are ignored. */
+export function parseRealtimeAction(value: unknown): RealtimeAction | null {
+    return value === "create" || value === "update" || value === "delete"
+        ? value
+        : null;
+}
+
+/** A reducer owns a collection and updates its cache in place. */
+export type RealtimeReducer = (event: {
+    action: RealtimeAction;
+    record: Record<string, unknown>;
+}) => boolean;
+
+/**
+ * Collections that apply record events directly instead of invalidating.
+ *
+ * The registry is module-level because the subscription is mounted once in
+ * `_main` while the affected page owns the transform; the page registers on
+ * mount and unregisters on unmount. An event nobody handles falls back to the
+ * prefix invalidation below.
+ */
+const reducers = new Map<string, Set<RealtimeReducer>>();
+
+export function registerRealtimeReducer(
+    collection: string,
+    reducer: RealtimeReducer,
+): () => void {
+    let registered = reducers.get(collection);
+    if (!registered) {
+        registered = new Set();
+        reducers.set(collection, registered);
+    }
+    registered.add(reducer);
+    return () => {
+        const current = reducers.get(collection);
+        if (!current) return;
+        current.delete(reducer);
+        if (current.size === 0) reducers.delete(collection);
+    };
+}
+
+/** Apply one event; `true` means at least one reducer handled it. */
+export function dispatchRealtimeEvent(event: RealtimeEvent): boolean {
+    const registered = reducers.get(event.collection);
+    if (!registered || registered.size === 0) return false;
+
+    let handled = false;
+    for (const reducer of [...registered]) {
+        try {
+            if (reducer({ action: event.action, record: event.record })) {
+                handled = true;
+            }
+        } catch (error) {
+            // A broken reducer must not stop the rest of the batch, and its
+            // event still falls back to invalidation.
+            console.warn(`Realtime reducer failed: ${event.collection}`, error);
+        }
+    }
+    return handled;
+}
+
+/** Test support: forget every registration between cases. */
+export function clearRealtimeReducers(): void {
+    reducers.clear();
+}
+
+export type RealtimeEventBatcher = {
+    /** Queue a record event. */
+    add(event: RealtimeEvent): void;
+    /** Queue prefixes that are not tied to one record (reconnect catch-up). */
+    addKeys(keys: readonly RealtimeQueryKey[]): void;
+    /** Apply queued events and run the remaining invalidations immediately. */
     flush(): void;
     /** Drop queued work (unmount/logout) so no late invalidation fires. */
     dispose(): void;
@@ -113,13 +189,16 @@ export type InvalidationBatcher = {
 
 /**
  * Coalesce a burst of record events (a category delete clears several rows,
- * a chat run writes several messages) into one invalidation per prefix.
+ * a chat run writes several messages) into one pass: reducers run first, and
+ * only the events nobody claimed turn into prefix invalidations.
  */
-export function createInvalidationBatcher(
+export function createRealtimeEventBatcher(
+    apply: (event: RealtimeEvent) => boolean,
     invalidate: (key: RealtimeQueryKey) => void,
     delay = 120,
-): InvalidationBatcher {
-    const pending = new Map<string, RealtimeQueryKey>();
+): RealtimeEventBatcher {
+    const pending: RealtimeEvent[] = [];
+    const pendingKeys = new Map<string, RealtimeQueryKey>();
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     const flush = () => {
@@ -127,16 +206,38 @@ export function createInvalidationBatcher(
             clearTimeout(timer);
             timer = null;
         }
-        if (pending.size === 0) return;
-        const keys = [...pending.values()];
-        pending.clear();
-        for (const key of keys) invalidate(key);
+        if (pending.length === 0 && pendingKeys.size === 0) return;
+
+        const events = pending.splice(0, pending.length);
+        const keys: RealtimeQueryKey[] = [...pendingKeys.values()];
+        pendingKeys.clear();
+
+        for (const event of events) {
+            let handled = false;
+            try {
+                handled = apply(event);
+            } catch (error) {
+                console.warn(
+                    `Realtime event failed: ${event.collection}`,
+                    error,
+                );
+            }
+            if (!handled) {
+                keys.push(...realtimeInvalidationKeys(event.collection));
+            }
+        }
+
+        for (const key of dedupeQueryKeys(keys)) invalidate(key);
     };
 
     return {
-        add(keys) {
+        add(event) {
+            pending.push(event);
+            if (timer === null) timer = setTimeout(flush, delay);
+        },
+        addKeys(keys) {
             for (const key of keys) {
-                pending.set(queryKeyFingerprint(key), key);
+                pendingKeys.set(queryKeyFingerprint(key), key);
             }
             if (timer === null) timer = setTimeout(flush, delay);
         },
@@ -144,10 +245,11 @@ export function createInvalidationBatcher(
         dispose() {
             if (timer !== null) clearTimeout(timer);
             timer = null;
-            pending.clear();
+            pending.length = 0;
+            pendingKeys.clear();
         },
         pendingCount() {
-            return pending.size;
+            return pending.length + pendingKeys.size;
         },
     };
 }

@@ -6,6 +6,8 @@ import {
     Paperclip,
     RefreshCw,
 } from "lucide-react";
+import { useEffect } from "react";
+import { useInView } from "react-intersection-observer";
 
 import {
     attachmentSizeLabel,
@@ -13,6 +15,7 @@ import {
     parseAttachmentList,
 } from "@/app/feedback/attachments";
 import {
+    FEEDBACK_PAGE_SIZE,
     type FeedbackReportRecord,
     useFeedbackIssueStates,
 } from "@/app/feedback/data";
@@ -21,6 +24,7 @@ import {
     parseIssueNumber,
     parseRecordIssueState,
 } from "@/app/feedback/issue-state";
+import { ErrorState } from "@/components/ErrorState";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +68,11 @@ export function ReportList({
     viewerId,
     onRetry,
     retryingId = null,
+    hasNextPage = false,
+    fetchingNextPage = false,
+    onLoadMore,
+    loadError = null,
+    onReload,
 }: {
     reports: FeedbackReportRecord[];
     loading: boolean;
@@ -74,13 +83,44 @@ export function ReportList({
     viewerId?: string;
     onRetry?: (report: FeedbackReportRecord) => void;
     retryingId?: string | null;
+    /** More rows exist behind the loaded window. */
+    hasNextPage?: boolean;
+    fetchingNextPage?: boolean;
+    /** Omit for a single-page list (no footer). */
+    onLoadMore?: () => void;
+    /** Page fetch failed while earlier rows are still on screen. */
+    loadError?: string | null;
+    onReload?: () => void;
 }) {
     const issueStates = useFeedbackIssueStates(reports).data ?? {};
+    const { ref, inView } = useInView();
+
+    useEffect(() => {
+        if (
+            !inView ||
+            !onLoadMore ||
+            !hasNextPage ||
+            fetchingNextPage ||
+            // A failed page would otherwise retry on every render; the user
+            // gets the footer's 重试 button instead.
+            loadError
+        ) {
+            return;
+        }
+        onLoadMore();
+    }, [inView, onLoadMore, hasNextPage, fetchingNextPage, loadError]);
 
     if (loading) {
         return (
             <div className="mt-3 flex justify-center py-8">
                 <LoadingSpinner />
+            </div>
+        );
+    }
+    if (loadError && reports.length === 0) {
+        return (
+            <div className="mt-3 rounded-2xl border border-border/60 bg-card shadow-soft">
+                <ErrorState message={loadError} onRetry={onReload} />
             </div>
         );
     }
@@ -252,6 +292,61 @@ export function ReportList({
                     </li>
                 );
             })}
+            {onLoadMore && (
+                <li className="pt-1">
+                    {loadError ? (
+                        <div className="flex flex-col items-center gap-1 py-2 text-center">
+                            <p className="text-[11px] text-muted-foreground">
+                                后面的反馈没加载出来
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 gap-1 px-2 text-[11px]"
+                                onClick={onReload}
+                            >
+                                <RefreshCw
+                                    className="size-3"
+                                    aria-hidden="true"
+                                />
+                                重试
+                            </Button>
+                        </div>
+                    ) : fetchingNextPage ? (
+                        <div className="flex items-center justify-center gap-2 py-3 text-[11px] text-muted-foreground">
+                            <LoadingSpinner className="size-3.5" />
+                            加载更多…
+                        </div>
+                    ) : hasNextPage ? (
+                        <>
+                            <div className="flex justify-center pb-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-3 text-[11px] text-muted-foreground"
+                                    onClick={onLoadMore}
+                                >
+                                    加载更多
+                                </Button>
+                            </div>
+                            {/* Scroll sentinel: the button covers the accessible
+                                path, the observer makes reaching the end load
+                                the next page on its own. */}
+                            <div
+                                ref={ref}
+                                aria-hidden="true"
+                                className="h-1 w-full"
+                            />
+                        </>
+                    ) : reports.length > FEEDBACK_PAGE_SIZE ? (
+                        <p className="py-2 text-center text-[11px] text-muted-foreground">
+                            没有更多了
+                        </p>
+                    ) : null}
+                </li>
+            )}
         </ul>
     );
 }

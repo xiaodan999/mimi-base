@@ -53,11 +53,13 @@ Chinese; keep that style when adding user-facing text.
   `components/notification-bell.tsx`. The page lives at `_main/notifications/`
   and is reachable from the home header bell and the profile's 功能 section.
 - `app/feedback/` — feedback domain for both kinds: `data.ts` (attachment
-  upload + bug/feature report create + API sync + owner-only bug list +
-  shared suggestion query + persisted/refreshed GitHub issue state),
-  `attachments.ts` (metadata parse/display), `issue-state.ts` (issue state
-  parsers for the row field and the API response),
-  `filters.ts` (visibility helpers mirroring the PB rules),
+  upload + bug/feature report create + API sync + paged owner-only bug list +
+  paged shared suggestion query + persisted/refreshed GitHub issue state),
+  `reports.ts` (record/page types, page flattening and the pure
+  `applyFeedbackEvent` transform), `realtime.ts` (`useFeedbackRealtime`, which
+  patches both lists from record events), `attachments.ts` (metadata
+  parse/display), `issue-state.ts` (issue state parsers for the row field and
+  the API response), `filters.ts` (visibility helpers mirroring the PB rules),
   `error-buffer.ts` (20-entry console/page-error ring buffer),
   `validation.ts`, `prompt.ts` (bug and feature AI tidy-up). The page lives at
   `_main/feedback/` with 问题反馈 / 功能建议 tabs (`?tab=feature` deep link);
@@ -437,7 +439,18 @@ which the app build deliberately does not install. Re-check
   `enhancement`/`from-app`, never fetch a transcript, and their body is the
   idea plus inline attachment images/links. Retrying an already-synced report
   reuses its existing issue without another GitHub call. The feature tab's
-  大家的建议 is shared; the bug tab's 我的反馈 stays owner-only. Realtime
+  大家的建议 is shared; the bug tab's 我的反馈 stays owner-only. Both lists page
+  20 rows at a time (`useInfiniteQuery` + `getList` with `FEEDBACK_PAGE_SIZE`
+  and a `fields` projection that keeps `console`/`user_agent` off the wire);
+  `report-list.tsx` renders a 加载更多 button plus an IntersectionObserver
+  sentinel, and the counters read `totalItems` from page 1, not the loaded
+  window. While the page is open `useFeedbackRealtime` registers a reducer for
+  both list keys: create prepends (then fetches that one row to expand the
+  author), update merges while keeping `expand`, delete removes. Those events
+  are applied in place through `lib/realtime.ts`'s reducer registry instead of
+  invalidating `qk.feedback.all`, which is what stops the issue-state write-back
+  from re-triggering itself; anything a reducer does not claim still falls back
+  to prefix invalidation. Realtime
   subscriptions are row-filtered by PocketBase, so the other account receives
   feature events only. Closing an issue happens on GitHub, so
   `POST /api/feedback/issue-state` (auth-only, max 50 report ids) re-reads the

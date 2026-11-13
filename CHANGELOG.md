@@ -2,6 +2,18 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-13
+
+### 新增
+
+- 反馈列表分页并支持实时插入：`app/feedback/reports.ts` 抽出纯逻辑（`FeedbackReportRecord` / `FeedbackReportPage`、`flattenReportPages` 按 id 去重、`reportTotal` 取首页 `totalItems`、`applyFeedbackEvent` 把一条 realtime 事件应用到 infinite 缓存），`app/feedback/data.ts` 的两个列表从 `getFullList`（每次把整个集合拉完）改成 `useInfiniteQuery` + `getList`，`FEEDBACK_PAGE_SIZE = 20`，并用 `fields` 只取卡片要画的字段（`expand.owner` 的 id / collectionId / collectionName / 头像 / 环），不再随行搬运最多约 15KB 的 `console`、`user_agent` 和构建信息；`staleTime` 60 秒。`report-list.tsx` 新增底部 `加载更多` 按钮 + `IntersectionObserver` 哨兵（`react-intersection-observer`）、分页 spinner、「没有更多了」和分页失败的行内重试，首次加载失败改用 `ErrorState`（以前会显示成空列表）；两个面板的计数改用 `totalItems`。新增迁移 `1796500000_feedback_list_index.js` 给 `feedback_reports` 加 `(kind, created)` 索引（「大家的建议」按 kind 过滤、按 created 排序，owner 列表继续用原有的 `(owner, created)`）。
+- 实时事件可以按记录应用，不再一律按前缀失效：`lib/realtime.ts` 新增 `RealtimeEvent` / `parseRealtimeAction` / `registerRealtimeReducer` / `dispatchRealtimeEvent` 和 `createRealtimeEventBatcher`（先跑 reducer，只有没人认领的事件才走 `realtimeInvalidationKeys`，`addKeys` 保留重连时的整片失效），替换原来的 `createInvalidationBatcher`；`hooks/useRealtimeSync.ts` 把 PocketBase 的 `create` / `update` / `delete` 和 record 一起入队。`app/feedback/realtime.ts` 的 `useFeedbackRealtime` 在反馈页挂载时给两个列表各注册一个 reducer，`create` 前插并 +1 总数（用同账号的另一个会话提交时作者名不会变成「朋友」：会再 `getOne` 一次带 `expand` 的那条记录替换进缓存），`update` 合并并保留 `expand`，`delete` 移除并 -1。`issue_state_checked` 这类不参与渲染的写入不再产生新的缓存引用，因此不会再触发 `useFeedbackIssueStates` 的 key 变化。
+
+### 修复
+
+- 反馈列表的 issue 状态同步会和实时失效互相触发：`POST /api/feedback/issue-state` 每次都会把 `issue_state` / `issue_state_checked` 写回行，这些写入产生 realtime 事件，原来的 `qk.feedback.all` 前缀失效又会重跑状态查询、再次写入。现在反馈页用 reducer 就地更新列表，状态查询的 key 只有在该刷新的反馈集合真正变化时才变（例如某条变成 closed），整页仍能实时看到「已关闭」。
+- 反馈列表加载失败看起来像「还没有反馈」：查询出错时 `isPending` 为 false、数据为空，`ReportList` 落到空状态。现在有 `loadError` 时首屏显示 `ErrorState`、已有数据时在底部显示重试。
+
 ## 2026-11-12
 
 ### 新增

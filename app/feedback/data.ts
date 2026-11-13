@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    useInfiniteQuery,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from "@tanstack/react-query";
 
 import {
     type ChatConversationRecord,
@@ -8,7 +13,6 @@ import type { ChatConversation } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
 import { apiUrl } from "@/lib/env";
 import pb from "@/lib/pb";
-import type { UserRecord } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
 import { type FeedbackAttachment, parseAttachmentList } from "./attachments";
@@ -19,39 +23,18 @@ import {
     parseIssueNumber,
     parseRecordIssueState,
 } from "./issue-state";
+import type {
+    FeedbackKind,
+    FeedbackReportPage,
+    FeedbackReportRecord,
+} from "./reports";
 
-export type FeedbackStatus = "stored" | "issue_created" | "failed";
-export type FeedbackKind = "bug" | "feature";
-
-export type FeedbackReportRecord = {
-    id: string;
-    owner: string;
-    kind: FeedbackKind;
-    title: string;
-    description: string;
-    route?: string;
-    app_version?: string;
-    app_sha?: string;
-    user_agent?: string;
-    console?: unknown;
-    status: FeedbackStatus;
-    issue_url?: string;
-    issue_number?: number;
-    /** Persisted GitHub state; `closed` stops further refreshes. */
-    issue_state?: string;
-    /** When the Bun API last confirmed the GitHub state. */
-    issue_state_checked?: string;
-    error?: string;
-    /** Public GitHub URLs + display metadata; no file bytes live in PB. */
-    attachments?: FeedbackAttachment[];
-    conversation?: string;
-    /** `owner` is expanded by the shared suggestion list. */
-    expand?: {
-        owner?: UserRecord;
-    };
-    created: string;
-    updated: string;
-};
+export type {
+    FeedbackKind,
+    FeedbackReportPage,
+    FeedbackReportRecord,
+    FeedbackStatus,
+} from "./reports";
 
 export type FeedbackIssue = { url: string; number: number | null };
 
@@ -288,25 +271,86 @@ async function syncIssue(reportId: string): Promise<{
     };
 }
 
+/** Rows per request; ~2.5 phone screens of cards. */
+export const FEEDBACK_PAGE_SIZE = 20;
+
+/**
+ * Everything the list paints. `console`, `user_agent` and the build metadata
+ * are write-only diagnostics: a bug report carries up to ~15KB of console
+ * output that the card never renders, which would dominate the page payload.
+ */
+const REPORT_FIELDS = [
+    "id",
+    "owner",
+    "kind",
+    "title",
+    "description",
+    "status",
+    "issue_url",
+    "issue_number",
+    "issue_state",
+    "issue_state_checked",
+    "error",
+    "attachments",
+    "conversation",
+    "created",
+    "updated",
+    "expand.owner.id",
+    "expand.owner.collectionId",
+    "expand.owner.collectionName",
+    "expand.owner.user_name",
+    "expand.owner.tou_xiang",
+    "expand.owner.circle",
+    "expand.owner.circle_preset",
+].join(",");
+
+type RawReportPage = {
+    items: FeedbackReportRecord[];
+    page: number;
+    totalPages: number;
+    totalItems: number;
+};
+
+function toReportPage(result: RawReportPage): FeedbackReportPage {
+    return {
+        items: result.items,
+        totalItems: result.totalItems,
+        nextPage: result.page < result.totalPages ? result.page + 1 : null,
+    };
+}
+
+/** The viewer's own bug reports, newest first, 20 per request. */
 export function useFeedbackReports() {
     const user = useCurrentUser();
-    return useQuery({
+    return useInfiniteQuery({
         queryKey: qk.feedback.reports(user.id),
-        queryFn: async () =>
-            pb
-                .collection("feedback_reports")
-                .getFullList<FeedbackReportRecord>({
-                    // The collection rule now also exposes other owners'
-                    // feature suggestions, so the bug tab asks for its own
-                    // kind explicitly instead of relying on owner alone.
-                    filter: pb.filter("owner = {:owner} && kind = {:kind}", {
-                        owner: user.id,
-                        kind: "bug",
-                    }),
-                    sort: "-created",
-                    perPage: 50,
-                    expand: "owner",
-                }),
+        queryFn: async ({ pageParam, signal }) =>
+            toReportPage(
+                await pb
+                    .collection("feedback_reports")
+                    .getList<FeedbackReportRecord>(
+                        pageParam,
+                        FEEDBACK_PAGE_SIZE,
+                        {
+                            // The collection rule now also exposes other owners'
+                            // feature suggestions, so the bug tab asks for its own
+                            // kind explicitly instead of relying on owner alone.
+                            filter: pb.filter(
+                                "owner = {:owner} && kind = {:kind}",
+                                { owner: user.id, kind: "bug" },
+                            ),
+                            sort: "-created",
+                            fields: REPORT_FIELDS,
+                            expand: "owner",
+                            signal,
+                        },
+                    ),
+            ),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => lastPage.nextPage,
+        // A minute of staleness is invisible for a feedback inbox and saves a
+        // full page-window refetch on every app foreground.
+        staleTime: 60_000,
     });
 }
 
@@ -318,19 +362,29 @@ export function useFeedbackReports() {
  */
 export function useFeatureSuggestions() {
     const user = useCurrentUser();
-    return useQuery({
+    return useInfiniteQuery({
         queryKey: qk.feedback.features(user.id),
-        queryFn: async () =>
-            pb
-                .collection("feedback_reports")
-                .getFullList<FeedbackReportRecord>({
-                    filter: pb.filter("kind = {:kind}", {
-                        kind: "feature",
-                    }),
-                    sort: "-created",
-                    perPage: 50,
-                    expand: "owner",
-                }),
+        queryFn: async ({ pageParam, signal }) =>
+            toReportPage(
+                await pb
+                    .collection("feedback_reports")
+                    .getList<FeedbackReportRecord>(
+                        pageParam,
+                        FEEDBACK_PAGE_SIZE,
+                        {
+                            filter: pb.filter("kind = {:kind}", {
+                                kind: "feature",
+                            }),
+                            sort: "-created",
+                            fields: REPORT_FIELDS,
+                            expand: "owner",
+                            signal,
+                        },
+                    ),
+            ),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => lastPage.nextPage,
+        staleTime: 60_000,
     });
 }
 

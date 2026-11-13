@@ -29,6 +29,7 @@ import {
     feedbackPolishMessages,
     sanitizePolishedFeedback,
 } from "@/app/feedback/prompt";
+import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
 import {
     MAX_FEEDBACK_DESCRIPTION,
@@ -98,7 +99,11 @@ export function BugPanel({
     const retry = useFeedbackRetry();
 
     const busy = submit.isPending || polishing;
-    const bugReports = selectOwnBugReports(reports.data ?? [], user.id);
+    const bugReports = selectOwnBugReports(
+        flattenReportPages(reports.data),
+        user.id,
+    );
+    const bugTotal = reportTotal(reports.data);
 
     const polish = async () => {
         if (!description.trim()) {
@@ -358,16 +363,25 @@ export function BugPanel({
                 <div className="flex items-baseline justify-between px-1">
                     <h2 className="text-sm font-semibold">我的反馈</h2>
                     <span className="text-[11px] text-muted-foreground">
-                        最近 {bugReports.length} 条
+                        共 {bugTotal} 条
                     </span>
                 </div>
                 <ReportList
-                    loading={reports.isLoading}
+                    loading={reports.isPending}
                     reports={bugReports}
                     showAuthor
                     viewerId={user.id}
                     onRetry={retry.run}
                     retryingId={retry.retryingId}
+                    hasNextPage={reports.hasNextPage}
+                    fetchingNextPage={reports.isFetchingNextPage}
+                    onLoadMore={() => void reports.fetchNextPage()}
+                    loadError={
+                        reports.isError
+                            ? (reports.error?.message ?? "加载失败")
+                            : null
+                    }
+                    onReload={() => void reports.refetch()}
                 />
             </section>
 

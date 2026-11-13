@@ -2,7 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Bug, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useFeedbackRealtime } from "@/app/feedback/realtime";
 import PageHeader from "@/components/PageHeader";
+import { useCurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 import { BugPanel } from "./-components/bug-panel";
@@ -43,7 +45,12 @@ const TABS: Array<{
 function Page() {
     const search = Route.useSearch();
     const navigate = useNavigate();
+    const user = useCurrentUser();
     const tab: FeedbackTab = search.tab === "feature" ? "feature" : "bug";
+
+    // Both lists are mounted after their first visit, so one registration
+    // keeps either tab patched from realtime without a refetch.
+    useFeedbackRealtime(user.id);
 
     // Mount a tab on first visit and keep it mounted afterwards: switching
     // tabs must not throw away a half-written draft. The `hidden` wrapper

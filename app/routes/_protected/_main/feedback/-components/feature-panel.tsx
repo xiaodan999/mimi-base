@@ -16,6 +16,7 @@ import {
     FEEDBACK_POLISH_SCHEMA,
     sanitizePolishedFeedback,
 } from "@/app/feedback/prompt";
+import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
 import {
     MAX_FEEDBACK_DESCRIPTION,
@@ -61,7 +62,10 @@ export function FeaturePanel() {
     const retry = useFeedbackRetry();
 
     const busy = submit.isPending || polishing;
-    const shared = selectFeatureSuggestions(suggestions.data ?? []);
+    const shared = selectFeatureSuggestions(
+        flattenReportPages(suggestions.data),
+    );
+    const sharedTotal = reportTotal(suggestions.data);
 
     const polish = async () => {
         if (!description.trim()) {
@@ -276,17 +280,26 @@ export function FeaturePanel() {
                 <div className="flex items-baseline justify-between px-1">
                     <h2 className="text-sm font-semibold">大家的建议</h2>
                     <span className="text-[11px] text-muted-foreground">
-                        共 {shared.length} 条
+                        共 {sharedTotal} 条
                     </span>
                 </div>
                 <ReportList
                     emptyText="还没有人提过建议，来当第一个吧"
-                    loading={suggestions.isLoading}
+                    loading={suggestions.isPending}
                     reports={shared}
                     showAuthor
                     viewerId={user.id}
                     onRetry={retry.run}
                     retryingId={retry.retryingId}
+                    hasNextPage={suggestions.hasNextPage}
+                    fetchingNextPage={suggestions.isFetchingNextPage}
+                    onLoadMore={() => void suggestions.fetchNextPage()}
+                    loadError={
+                        suggestions.isError
+                            ? (suggestions.error?.message ?? "加载失败")
+                            : null
+                    }
+                    onReload={() => void suggestions.refetch()}
                 />
             </section>
 

@@ -5,9 +5,10 @@ import { useAuth } from "@/lib/auth";
 import pb from "@/lib/pb";
 import {
     ALL_REALTIME_INVALIDATION_KEYS,
-    createInvalidationBatcher,
+    createRealtimeEventBatcher,
+    dispatchRealtimeEvent,
+    parseRealtimeAction,
     REALTIME_COLLECTIONS,
-    realtimeInvalidationKeys,
 } from "@/lib/realtime";
 
 /** Backgrounded for longer than this: refetch even if SSE still claims up. */
@@ -17,9 +18,11 @@ const RESUMED_AFTER_MS = 30_000;
  * One PocketBase realtime subscription for the whole signed-in shell.
  *
  * Mounted by `_main`, so logout unmounts it and closes every subscription;
- * login mounts it again. On reconnect / a long background pause it marks all
- * app data stale, because PocketBase does not replay events missed while the
- * SSE connection was down.
+ * login mounts it again. Record events go through the reducer registry first
+ * (a page can patch its own cache in place); anything unclaimed invalidates
+ * the collection's query prefixes. On reconnect / a long background pause it
+ * marks all app data stale, because PocketBase does not replay events missed
+ * while the SSE connection was down.
  */
 export function useRealtimeSync() {
     const queryClient = useQueryClient();
@@ -31,9 +34,12 @@ export function useRealtimeSync() {
 
         let disposed = false;
         const cleanups: Array<() => Promise<void>> = [];
-        const batcher = createInvalidationBatcher((key) => {
-            void queryClient.invalidateQueries({ queryKey: key });
-        });
+        const batcher = createRealtimeEventBatcher(
+            (event) => dispatchRealtimeEvent(event),
+            (key) => {
+                void queryClient.invalidateQueries({ queryKey: key });
+            },
+        );
 
         const keep = (unsubscribe: () => Promise<void>) => {
             // The listener may resolve after logout/unmount: close it then
@@ -45,8 +51,17 @@ export function useRealtimeSync() {
         for (const collection of REALTIME_COLLECTIONS) {
             void pb
                 .collection(collection)
-                .subscribe("*", () => {
-                    batcher.add(realtimeInvalidationKeys(collection));
+                .subscribe("*", (event) => {
+                    const action = parseRealtimeAction(event?.action);
+                    const record = event?.record;
+                    if (!action || !record || typeof record !== "object") {
+                        return;
+                    }
+                    batcher.add({
+                        collection,
+                        action,
+                        record: record as Record<string, unknown>,
+                    });
                 })
                 .then(keep)
                 .catch((error) => {
@@ -61,7 +76,7 @@ export function useRealtimeSync() {
         // The SDK reconnects and re-subscribes by itself, but events sent
         // while the socket was down are lost; a full invalidation catches up.
         const catchUp = () => {
-            batcher.add(ALL_REALTIME_INVALIDATION_KEYS);
+            batcher.addKeys(ALL_REALTIME_INVALIDATION_KEYS);
         };
         window.addEventListener("online", catchUp);
 
