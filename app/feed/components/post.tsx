@@ -1,6 +1,7 @@
 import { Ellipsis, Heart, MessageCircle, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -59,6 +60,7 @@ export default function Post({
     // like re-arms it. `motion-safe:` keeps it out of the reduced-motion path
     // entirely (no animation, only the red fill).
     const [likePop, setLikePop] = useState(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
     // Files are protected: build the URLs with the current file token each
     // time, instead of baking a soon-to-expire token into the query cache.
@@ -164,49 +166,61 @@ export default function Post({
         </div>
     );
 
+    const deletePost = async () => {
+        try {
+            await toastPromise(deleteMutation.mutateAsync({ id }), {
+                loading: "删除中...",
+                success: "已删除帖子",
+                error: "删除失败",
+            });
+            setConfirmDeleteOpen(false);
+        } catch {
+            // toastPromise already surfaced the error.
+        }
+    };
+
     // Only the author may edit or delete a post, so only they see the menu.
     const menu = isMine ? (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 shrink-0 text-muted-foreground"
-                    aria-label="更多操作"
-                >
-                    <Ellipsis className="size-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                    className="hover:cursor-pointer"
-                    onClick={onEdit}
-                >
-                    <Pencil className="mr-2 size-4" />
-                    <span>编辑</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                    className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive!"
-                    onClick={async () => {
-                        try {
-                            await toastPromise(
-                                deleteMutation.mutateAsync({ id }),
-                                {
-                                    loading: "删除中...",
-                                    success: "已删除帖子",
-                                    error: "删除失败",
-                                },
-                            );
-                        } catch {
-                            // toastPromise already surfaced the error.
-                        }
-                    }}
-                >
-                    <Trash2 className="mr-2 size-4" />
-                    <span>删除</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-muted-foreground"
+                        aria-label="更多操作"
+                    >
+                        <Ellipsis className="size-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                        className="hover:cursor-pointer"
+                        onClick={onEdit}
+                    >
+                        <Pencil className="mr-2 size-4" />
+                        <span>编辑</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                        className="text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive!"
+                        onClick={() => setConfirmDeleteOpen(true)}
+                    >
+                        <Trash2 className="mr-2 size-4" />
+                        <span>删除</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <ConfirmDialog
+                open={confirmDeleteOpen}
+                onOpenChange={setConfirmDeleteOpen}
+                title="删除这条动态？"
+                description="删除后这条动态和下面的评论都会消失，无法恢复。"
+                confirmLabel="删除"
+                destructive
+                busy={deleteMutation.isPending}
+                onConfirm={() => void deletePost()}
+            />
+        </>
     ) : null;
 
     // `toPostData` already folds a media-less post to `twitter`; keep the

@@ -2,6 +2,7 @@ import { ImagePlus, SendHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
     Drawer,
@@ -187,6 +188,7 @@ export default function CommentSheet({
     const [replyingTo, setReplyingTo] = useState<CommentData | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState<CommentData | null>(null);
     const [images, setImages] = useState<CommentImageDraft[]>([]);
     const [preparing, setPreparing] = useState(false);
     const [viewer, setViewer] = useState<{
@@ -210,6 +212,7 @@ export default function CommentSheet({
         setReplyingTo(null);
         setEditingId(null);
         setEditText("");
+        setDeleteTarget(null);
         setImages([]);
         previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
         previewUrls.current = [];
@@ -378,7 +381,9 @@ export default function CommentSheet({
         }
     };
 
-    const removeComment = async (comment: CommentData) => {
+    const removeComment = async () => {
+        if (!deleteTarget) return;
+        const comment = deleteTarget;
         try {
             await toastPromise(deleteComment.mutateAsync({ id: comment.id }), {
                 loading: "删除中...",
@@ -387,6 +392,7 @@ export default function CommentSheet({
             });
             if (replyingTo?.id === comment.id) setReplyingTo(null);
             if (editingId === comment.id) cancelEdit();
+            setDeleteTarget(null);
         } catch {
             // toastPromise already surfaced the error.
         }
@@ -537,7 +543,7 @@ export default function CommentSheet({
                                                                     className="hover:text-red-500"
                                                                     aria-label={`删除 ${rootLabel}`}
                                                                     onClick={() =>
-                                                                        removeComment(
+                                                                        setDeleteTarget(
                                                                             root,
                                                                         )
                                                                     }
@@ -717,7 +723,7 @@ export default function CommentSheet({
                                                                             className="hover:text-red-500"
                                                                             aria-label={`删除 ${replyLabel}`}
                                                                             onClick={() =>
-                                                                                removeComment(
+                                                                                setDeleteTarget(
                                                                                     reply,
                                                                                 )
                                                                             }
@@ -844,6 +850,19 @@ export default function CommentSheet({
                     </div>
                 </DrawerContent>
             </Drawer>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(next) => {
+                    if (!next) setDeleteTarget(null);
+                }}
+                title="删除这条评论？"
+                description="删除后无法恢复；如果这条评论下面有回复，回复也会一起删除。"
+                confirmLabel="删除"
+                destructive
+                busy={deleteComment.isPending}
+                onConfirm={() => void removeComment()}
+            />
 
             {viewer && (
                 <ImageViewer
