@@ -297,6 +297,26 @@ git push
 - Push `master` only when the user asks; the cleanup rule above applies once
   it is fast-forwarded and pushed.
 
+## Commit messages
+
+Keep messages short: a conventional, imperative subject, then at most one or
+two short body lines saying what changed and why.
+
+```text
+fix(feed): insert a newline in the comment box
+
+Enter now inserts a newline; only the send button posts.
+
+Closes #99
+```
+
+- Leave reproduction steps, screenshot notes and verification detail to the
+  report and `CHANGELOG.md`; they do not belong in the commit body.
+- When the commit resolves an issue, the closing keyword (`Closes #N`) stays
+  on its own line after a blank line.
+- Do not reword or rebase a commit that is already on `master` just to shorten
+  it; this guidance applies to new commits.
+
 ## Update log
 
 User-facing changes are recorded in two places **in the same commit**:
