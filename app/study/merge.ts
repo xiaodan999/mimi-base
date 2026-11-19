@@ -187,8 +187,18 @@ function mergeGames(
     return out;
 }
 
+/**
+ * Daily counters belong to one calendar day. When the two snapshots are from
+ * different days, the newer one wins: a tab left open overnight still holds
+ * yesterday's counters, and returning `local` would write yesterday over the
+ * progress another device already recorded today.
+ */
 function mergeDaily(server: DailyStats, local: DailyStats): DailyStats {
-    if (server.date !== local.date) return local;
+    const serverDay = dayNum(server.date);
+    const localDay = dayNum(local.date);
+    if (serverDay !== localDay) {
+        return serverDay > localDay ? server : local;
+    }
     return {
         date: local.date,
         questions: Math.max(server.questions, local.questions),
@@ -198,8 +208,16 @@ function mergeDaily(server: DailyStats, local: DailyStats): DailyStats {
     };
 }
 
+/**
+ * Same rule for the daily-quest marker. Taking yesterday's snapshot would drop
+ * today's `awarded` flag and let the 30 XP bonus be granted twice.
+ */
 function mergeQuest(server: QuestState, local: QuestState): QuestState {
-    if (server.date !== local.date) return local;
+    const serverDay = dayNum(server.date);
+    const localDay = dayNum(local.date);
+    if (serverDay !== localDay) {
+        return serverDay > localDay ? server : local;
+    }
     return {
         date: local.date,
         ...(server.awarded || local.awarded ? { awarded: 1 as const } : {}),

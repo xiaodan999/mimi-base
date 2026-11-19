@@ -146,6 +146,8 @@ export function useStudyProgress(subjectId: string) {
     const appliedRemote = useRef<string | null>(null);
     /** 写入期间又有新改动：结束后补写一次。 */
     const dirtyAfterFlush = useRef(false);
+    /** 被顶掉的那次是 reset() 的清空写入：补写时仍要整份替换。 */
+    const replaceAfterFlush = useRef(false);
     const prevScope = useRef({ userId, subjectId });
 
     const queryKey = useMemo(
@@ -240,6 +242,7 @@ export function useStudyProgress(subjectId: string) {
             // 但这次改动不能被丢掉——记下来，当前请求结束后再写一遍。
             if (savingNow.current) {
                 dirtyAfterFlush.current = true;
+                if (replace) replaceAfterFlush.current = true;
                 return;
             }
             savingNow.current = true;
@@ -264,7 +267,13 @@ export function useStudyProgress(subjectId: string) {
                     });
                     recordId.current = created.id;
                 }
-                setPending(userId, subjectId, false);
+                // Only clear the unsynced marker when this request saved the
+                // newest snapshot. A change made while it was in flight is
+                // still local-only; clearing the marker here would let the
+                // next launch overwrite it from the server.
+                if (latest.current === snapshot) {
+                    setPending(userId, subjectId, false);
+                }
                 setError(false);
                 hadError.current = false;
                 // 总览（首页 / 报告）此前从不失效，进度写完就刷新它。
@@ -290,7 +299,9 @@ export function useStudyProgress(subjectId: string) {
                 });
                 if (dirtyAfterFlush.current) {
                     dirtyAfterFlush.current = false;
-                    void flush();
+                    const replaceNext = replaceAfterFlush.current;
+                    replaceAfterFlush.current = false;
+                    void flush(replaceNext);
                 }
             }
         },
@@ -302,13 +313,17 @@ export function useStudyProgress(subjectId: string) {
             const next = mutate(latest.current);
             latest.current = next;
             setProgress(next);
+            // Mark the snapshot dirty immediately, not only when the debounced
+            // write starts: closing the tab in that window must still retry
+            // the local copy on the next launch.
+            setPending(userId, subjectId, true);
             if (timer.current) window.clearTimeout(timer.current);
             timer.current = window.setTimeout(() => {
                 timer.current = null;
                 void flush();
             }, SAVE_DELAY);
         },
-        [flush],
+        [flush, subjectId, userId],
     );
 
     // 页面隐藏 / 卸载前把未落库的改动刷出去

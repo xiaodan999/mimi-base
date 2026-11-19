@@ -201,6 +201,79 @@ describe("mergeProgress：并发合并写入", () => {
         expect(merged.srs.q1.due).toBe(NOW + 10 * 60_000);
         expect(merged.srs.q1.lapses).toBe(1);
     });
+
+    test("daily：本地停在昨天时不能覆盖服务端的今天", () => {
+        // 标签页跨夜没关：latest 还是昨天的计数，另一台设备今天已经答了题。
+        const server = normalizeProgress({
+            daily: {
+                date: "2026-11-19",
+                questions: 8,
+                correct: 7,
+                cards: 1,
+                games: 0,
+            },
+        });
+        const local = normalizeProgress({
+            daily: {
+                date: "2026-11-18",
+                questions: 2,
+                correct: 1,
+                cards: 0,
+                games: 0,
+            },
+        });
+        const merged = mergeProgress(server, local);
+        expect(merged.daily).toEqual({
+            date: "2026-11-19",
+            questions: 8,
+            correct: 7,
+            cards: 1,
+            games: 0,
+        });
+    });
+
+    test("daily：本地已经是今天时保留本地较新的计数", () => {
+        const server = normalizeProgress({
+            daily: {
+                date: "2026-11-18",
+                questions: 8,
+                correct: 7,
+                cards: 1,
+                games: 0,
+            },
+        });
+        const local = normalizeProgress({
+            daily: {
+                date: "2026-11-19",
+                questions: 2,
+                correct: 2,
+                cards: 0,
+                games: 0,
+            },
+        });
+        const merged = mergeProgress(server, local);
+        expect(merged.daily.date).toBe("2026-11-19");
+        expect(merged.daily.questions).toBe(2);
+    });
+
+    test("quest：日期不同时取较新的一天，避免重复发每日奖励", () => {
+        const server = normalizeProgress({
+            quest: { date: "2026-11-19", awarded: 1 },
+        });
+        const local = normalizeProgress({
+            quest: { date: "2026-11-18", awarded: 1 },
+        });
+        expect(mergeProgress(server, local).quest).toEqual({
+            date: "2026-11-19",
+            awarded: 1,
+        });
+        expect(
+            mergeProgress(
+                normalizeProgress({ quest: { date: "2026-11-18" } }),
+                normalizeProgress({ quest: { date: "2026-11-19" } }),
+            ).quest,
+        ).toEqual({ date: "2026-11-19" });
+    });
 });
 
 describe("SM-2 排程", () => {
