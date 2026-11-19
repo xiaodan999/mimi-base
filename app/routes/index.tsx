@@ -2,8 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 
-import Logo from "./logo512.png";
-
 export const Route = createFileRoute("/")({
     component: Home,
 });
@@ -14,7 +12,7 @@ function Home() {
             <h1 className="text-center text-3xl font-semibold">秘密基地</h1>
             <img
                 className="mx-auto flex size-80"
-                src={Logo}
+                src="/images/logo512.png"
                 title="秘密基地"
                 alt="秘密基地的图标"
             />

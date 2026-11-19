@@ -1,7 +1,3 @@
 {
-    "recommendations": [
-        "bradlc.vscode-tailwindcss",
-        "dbaeumer.vscode-eslint",
-        "maattdd.gitless"
-    ]
+    "recommendations": ["biomejs.biome", "bradlc.vscode-tailwindcss"]
 }

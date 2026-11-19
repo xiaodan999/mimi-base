@@ -15,36 +15,19 @@
         "lint": "biome lint .",
         "perf": "bun scripts/perf.mjs",
         "preview": "bun scripts/preview.mjs",
-        "serve": "vite preview --port=3001",
         "setup:hooks": "git config core.hooksPath .githooks",
-        "start": "vite",
         "test": "bun test --path-ignore-patterns=\"tmp/**\"",
         "typecheck": "bun check && cd server && bun check"
-    },
-    "browserslist": {
-        "production": [
-            ">0.2%",
-            "not dead",
-            "not op_mini all"
-        ],
-        "development": [
-            "last 1 chrome version",
-            "last 1 firefox version",
-            "last 1 safari version"
-        ]
     },
     "dependencies": {
         "@assistant-ui/react": "0.15.32",
         "@assistant-ui/react-markdown": "0.14.24",
         "@hookform/resolvers": "^7.0.1",
-        "@radix-ui/react-avatar": "^1.1.1",
         "@radix-ui/react-context-menu": "^2.2.2",
         "@radix-ui/react-dialog": "^1.1.2",
         "@radix-ui/react-dropdown-menu": "^2.1.2",
         "@radix-ui/react-label": "^2.1.0",
         "@radix-ui/react-popover": "^1.1.2",
-        "@radix-ui/react-scroll-area": "^1.2.0",
-        "@radix-ui/react-select": "^2.1.2",
         "@radix-ui/react-slot": "^1.1.0",
         "@radix-ui/react-switch": "^1.1.1",
         "@react-three/drei": "^9",
