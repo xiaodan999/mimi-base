@@ -139,9 +139,6 @@ function InlineCommentEditor({
                     if (event.key === "Escape") {
                         event.preventDefault();
                         onCancel();
-                    } else if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        if (!error) onSave();
                     }
                 }}
             />
@@ -815,15 +812,6 @@ export default function CommentSheet({
                                 onChange={(event) =>
                                     setText(event.target.value)
                                 }
-                                onKeyDown={(event) => {
-                                    if (
-                                        event.key === "Enter" &&
-                                        !event.shiftKey
-                                    ) {
-                                        event.preventDefault();
-                                        void submit();
-                                    }
-                                }}
                                 placeholder={
                                     replyingTo
                                         ? `回复 ${replyingTo.author.user_name || "朋友"}...`
