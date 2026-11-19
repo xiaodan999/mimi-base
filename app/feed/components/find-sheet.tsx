@@ -40,7 +40,7 @@ export default function FindSheet({
     onClear,
 }: FindSheetProps) {
     const [text, setText] = useState("");
-    const { data: months, isPending } = usePostMonths(open);
+    const { data: months, isPending, isError, refetch } = usePostMonths(open);
     const filtering = Boolean(activeMonth || activeQuery);
 
     useEffect(() => {
@@ -95,6 +95,21 @@ export default function FindSheet({
                             {isPending ? (
                                 <div className="grid place-items-center py-10">
                                     <LoadingSpinner />
+                                </div>
+                            ) : isError && !months ? (
+                                <div className="py-10 text-center">
+                                    <p className="text-sm text-muted-foreground">
+                                        月份加载失败
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-3"
+                                        onClick={() => void refetch()}
+                                    >
+                                        重试
+                                    </Button>
                                 </div>
                             ) : months && months.length > 0 ? (
                                 <div className="space-y-1">

@@ -177,10 +177,12 @@ export default function CommentSheet({
     onOpenChange,
 }: CommentSheetProps) {
     const user = useCurrentUser();
-    const { data: comments = [], isPending } = useComments(
-        postId ?? "",
-        open && !!postId,
-    );
+    const {
+        data: comments = [],
+        isPending,
+        isError,
+        refetch,
+    } = useComments(postId ?? "", open && !!postId);
     const newComment = useNewCommentMutation(postId ?? "");
     const editComment = useEditCommentMutation(postId ?? "");
     const deleteComment = useDeleteCommentMutation(postId ?? "");
@@ -426,6 +428,21 @@ export default function CommentSheet({
                         {isPending ? (
                             <div className="flex justify-center py-10">
                                 <LoadingSpinner />
+                            </div>
+                        ) : isError && threads.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <p className="text-sm text-muted-foreground">
+                                    评论加载失败
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-3"
+                                    onClick={() => void refetch()}
+                                >
+                                    重试
+                                </Button>
                             </div>
                         ) : threads.length === 0 ? (
                             <p className="py-10 text-center text-sm text-muted-foreground">

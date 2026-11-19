@@ -43,7 +43,10 @@ function Page() {
         if (
             !inView ||
             !notifications.hasNextPage ||
-            notifications.isFetchingNextPage
+            notifications.isFetchingNextPage ||
+            // Don't hammer the same failing page while the sentinel stays in
+            // view; the retry button below starts a new attempt.
+            notifications.isFetchNextPageError
         ) {
             return;
         }
@@ -51,6 +54,7 @@ function Page() {
     }, [
         inView,
         notifications.hasNextPage,
+        notifications.isFetchNextPageError,
         notifications.isFetchingNextPage,
         notifications.fetchNextPage,
     ]);
@@ -110,7 +114,7 @@ function Page() {
                 <div className="grid place-items-center py-20">
                     <LoadingSpinner />
                 </div>
-            ) : notifications.isError ? (
+            ) : notifications.isError && items.length === 0 ? (
                 <div className="mt-4">
                     <ErrorState
                         message={notifications.error?.message ?? "消息加载失败"}
@@ -133,6 +137,25 @@ function Page() {
                 </div>
             ) : (
                 <>
+                    {notifications.isError && (
+                        <div
+                            role="status"
+                            className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
+                        >
+                            <span>刷新失败，显示的是之前的消息</span>
+                            <button
+                                type="button"
+                                className="shrink-0 font-semibold"
+                                onClick={() =>
+                                    void (notifications.isFetchNextPageError
+                                        ? notifications.fetchNextPage()
+                                        : notifications.refetch())
+                                }
+                            >
+                                重试
+                            </button>
+                        </div>
+                    )}
                     <div className="mt-4 divide-y divide-border/60 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-soft">
                         {items.map((item) => (
                             <NotificationRow
@@ -145,9 +168,19 @@ function Page() {
                     <div className="flex min-h-12 items-center justify-center py-2">
                         {notifications.hasNextPage ? (
                             <div ref={ref} className="flex h-8 items-center">
-                                {notifications.isFetchingNextPage && (
+                                {notifications.isFetchingNextPage ? (
                                     <LoadingSpinner />
-                                )}
+                                ) : notifications.isFetchNextPageError ? (
+                                    <button
+                                        type="button"
+                                        className="text-xs font-semibold text-warning"
+                                        onClick={() =>
+                                            void notifications.fetchNextPage()
+                                        }
+                                    >
+                                        加载失败，点这里重试
+                                    </button>
+                                ) : null}
                             </div>
                         ) : (
                             <p className="text-xs text-muted-foreground">

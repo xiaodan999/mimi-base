@@ -64,6 +64,7 @@ export default function HomeFeed() {
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
+        isFetchNextPageError,
         refetch,
         refresh,
     } = usePostsInfinite(8, filter);
@@ -109,9 +110,24 @@ export default function HomeFeed() {
     const { visible: showBackToTop, scrollToTop } = useScrollToTop();
 
     useEffect(() => {
-        if (!inView || !hasNextPage || isFetchingNextPage) return;
+        // A failed next page keeps the sentinel in view; without this guard
+        // the effect would immediately retry the same request in a loop.
+        if (
+            !inView ||
+            !hasNextPage ||
+            isFetchingNextPage ||
+            isFetchNextPageError
+        ) {
+            return;
+        }
         fetchNextPage();
-    }, [fetchNextPage, hasNextPage, inView, isFetchingNextPage]);
+    }, [
+        fetchNextPage,
+        hasNextPage,
+        inView,
+        isFetchNextPageError,
+        isFetchingNextPage,
+    ]);
 
     const posts = useMemo(
         () => data?.pages.flatMap((page) => page.posts) ?? [],
@@ -175,13 +191,32 @@ export default function HomeFeed() {
 
             {isPending ? (
                 <FeedLoading />
-            ) : isError ? (
+            ) : isError && posts.length === 0 ? (
                 <ErrorState
                     message={error?.message ?? "未知错误"}
                     onRetry={() => void refetch()}
                 />
             ) : (
                 <>
+                    {isError && (
+                        <div
+                            role="status"
+                            className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
+                        >
+                            <span>刷新失败，显示的是之前的动态</span>
+                            <button
+                                type="button"
+                                className="shrink-0 font-semibold"
+                                onClick={() =>
+                                    void (isFetchNextPageError
+                                        ? fetchNextPage()
+                                        : refetch())
+                                }
+                            >
+                                重试
+                            </button>
+                        </div>
+                    )}
                     {posts.map((post, index) => {
                         const previous = posts[index - 1];
                         const showDivider =
@@ -239,7 +274,17 @@ export default function HomeFeed() {
                     <div className="flex min-h-10 items-center justify-center py-2">
                         {hasNextPage ? (
                             <div ref={ref} className="flex h-8 items-center">
-                                {isFetchingNextPage && <LoadingSpinner />}
+                                {isFetchingNextPage ? (
+                                    <LoadingSpinner />
+                                ) : isFetchNextPageError ? (
+                                    <button
+                                        type="button"
+                                        className="text-xs font-semibold text-warning"
+                                        onClick={() => void fetchNextPage()}
+                                    >
+                                        加载失败，点这里重试
+                                    </button>
+                                ) : null}
                             </div>
                         ) : posts.length > 0 ? (
                             <p className="text-xs text-muted-foreground">
