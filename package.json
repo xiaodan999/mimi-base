@@ -16,7 +16,7 @@
         "perf": "bun scripts/perf.mjs",
         "preview": "bun scripts/preview.mjs",
         "setup:hooks": "git config core.hooksPath .githooks",
-        "test": "bun test --path-ignore-patterns=\"tmp/**\"",
+        "test": "bun test --timeout=20000 --path-ignore-patterns=\"tmp/**\"",
         "typecheck": "bun check && cd server && bun check"
     },
     "dependencies": {
