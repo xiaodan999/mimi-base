@@ -4,6 +4,11 @@
 
 ## 2026-11-19
 
+### 变更
+
+- 清理仓库：删除无引用的组件、路由、UI 原语与三个 Radix 依赖，订正部署/环境变量文档。
+- 精简 `AGENTS.md` 与更新日志规则；新增 `scripts/docs-facts.test.ts` 防止过期说法回流。
+
 ### 修复
 
 - 删除动态和评论前没有确认（#100）：`app/feed/components/post.tsx` 的「更多操作 → 删除」不再直接调用 `toastPromise` 删除动态，而是先打开共享的 `components/ConfirmDialog`（标题「删除这条动态？」，说明动态和下面的评论都会消失，取消/返回/Escape 可关闭，`busy` 绑定 `useDeletePostMutation().isPending`），确认后仍走原来的「删除中... / 已删除帖子 / 删除失败」toast，成功才关闭。`app/feed/components/comment-sheet.tsx` 的根评论与回复删除按钮改为共用一个 `deleteTarget` 状态和同一个确认弹窗（「删除这条评论？」，说明下面的回复会一起删除，`busy` 绑定 `useDeleteCommentMutation().isPending`），确认后保留原有的 toast、回复/编辑状态清理和列表刷新，切换动态时清空待删目标。只有作者能看到的更多菜单和删除按钮不变。preview + Playwright 在桌面（1280×800）和手机（390×844、`isMobile` + `hasTouch`）实测：修复前点删除立即发出 1 次 DELETE、没有弹窗、动态/评论立刻消失；修复后点删除只开弹窗、0 次 DELETE，取消、返回手势和 Escape 都保留内容，确认后动态、根评论、回复各只发 1 次 DELETE（删根评论时客户端只删根，回复由服务端级联）并显示原成功 toast；把删除请求延迟时确认按钮 `disabled` 且 `aria-busy="true"`、取消按钮同时禁用，评论抽屉在弹窗取消或删除后仍保持打开。预览代理会让 PocketBase 的长连接 realtime SSE 在 10 秒后报 `ERR_INCOMPLETE_CHUNKED_ENCODING`，与本改动无关。
