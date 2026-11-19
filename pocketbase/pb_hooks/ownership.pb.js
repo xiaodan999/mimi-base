@@ -100,6 +100,44 @@ onRecordUpdateRequest((e) => {
     return e.next();
 }, "chat_messages");
 
+onRecordCreateRequest((e) => {
+    const authId = e.auth && e.auth.id ? e.auth.id : "";
+    const conversationId = e.record.getString("conversation");
+    if (!conversationId) return e.next();
+    let conversation = null;
+    try {
+        conversation = e.app.findRecordById(
+            "chat_conversations",
+            conversationId,
+        );
+    } catch {
+        throw new BadRequestError("对话不存在");
+    }
+    if (!authId || conversation.getString("owner") !== authId) {
+        throw new ForbiddenError("不能把附件挂到别人的对话");
+    }
+    return e.next();
+}, "chat_attachments");
+
+onRecordCreateRequest((e) => {
+    const authId = e.auth && e.auth.id ? e.auth.id : "";
+    const conversationId = e.record.getString("conversation");
+    if (!conversationId) return e.next();
+    let conversation = null;
+    try {
+        conversation = e.app.findRecordById(
+            "chat_conversations",
+            conversationId,
+        );
+    } catch {
+        throw new BadRequestError("对话不存在");
+    }
+    if (!authId || conversation.getString("owner") !== authId) {
+        throw new ForbiddenError("不能把文件挂到别人的对话");
+    }
+    return e.next();
+}, "chat_artifacts");
+
 onRecordUpdateRequest((e) => {
     const original = e.app.findRecordById("chat_personas", e.record.id);
     e.record.set("owner", original.getString("owner"));

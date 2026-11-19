@@ -295,8 +295,11 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `owner` / `author_id` / `user_id` and chat relations before saving; keep new
   ownership fields out of client updates. `feedback_reports.status` and
   `issue_*` are server-only (the hook skips superuser writes). `chat_messages`
-  creates are rejected unless the conversation belongs to the caller. File
-  fields are `protected`, so unauthenticated `/api/files/...` requests 404.
+  creates are rejected unless the conversation belongs to the caller; the same
+  check covers `chat_attachments` / `chat_artifacts`. Feature suggestions drop
+  `route` / `user_agent` / `console` / `conversation` because both accounts can
+  read them. File fields are `protected`, so unauthenticated `/api/files/...`
+  requests 404.
 - Filters are parameterized (`pb.filter("post_id = {:postId}", {...})`); date
   literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
 - File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`,
