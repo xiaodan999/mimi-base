@@ -34,12 +34,17 @@ describe("realtimeInvalidationKeys", () => {
             qk.posts.all,
             qk.homeStats.all,
             qk.yearReportAll,
+            qk.notifications.all,
         ]);
         expect(realtimeInvalidationKeys("comments")).toEqual([
             qk.comments.root,
             qk.posts.all,
+            qk.notifications.all,
         ]);
-        expect(realtimeInvalidationKeys("post_likes")).toEqual([qk.posts.all]);
+        expect(realtimeInvalidationKeys("post_likes")).toEqual([
+            qk.posts.all,
+            qk.notifications.all,
+        ]);
         expect(realtimeInvalidationKeys("notifications")).toEqual([
             qk.notifications.all,
         ]);
@@ -236,12 +241,13 @@ describe("createRealtimeEventBatcher", () => {
             qk.posts.all,
             qk.homeStats.all,
             qk.yearReportAll,
+            qk.notifications.all,
         ]);
         expect(batcher.pendingCount()).toBe(0);
 
         // A second flush with nothing queued is a no-op.
         batcher.flush();
-        expect(seen.length).toBe(3);
+        expect(seen.length).toBe(4);
     });
 
     test("a claimed event invalidates nothing", () => {

@@ -50,9 +50,17 @@ const EMPTY: readonly RealtimeQueryKey[] = [];
 const INVALIDATIONS: Record<RealtimeCollection, readonly RealtimeQueryKey[]> = {
     ji_zhang_biao: [qk.jiZhang.all, qk.homeStats.all, qk.yearReportAll],
     ji_zhang_category: [qk.jiZhang.all, qk.yearReportAll],
-    posts: [qk.posts.all, qk.homeStats.all, qk.yearReportAll],
-    comments: [qk.comments.root, qk.posts.all],
-    post_likes: [qk.posts.all],
+    // The inbox derives from posts/comments/likes, and the server removes
+    // notification rows with raw SQL (no realtime event), so a like or
+    // comment change must also refresh the inbox and its unread badge.
+    posts: [
+        qk.posts.all,
+        qk.homeStats.all,
+        qk.yearReportAll,
+        qk.notifications.all,
+    ],
+    comments: [qk.comments.root, qk.posts.all, qk.notifications.all],
+    post_likes: [qk.posts.all, qk.notifications.all],
     notifications: [qk.notifications.all],
     study_progress: [qk.studyProgressAll, qk.studySummariesAll],
     dinner_options: [qk.dinner.all],
