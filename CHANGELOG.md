@@ -7,6 +7,7 @@
 ### 修复
 
 - 聊天页的输入框按回车会立刻把消息发出去，没法输入多行（#97）：`-chat-composer.tsx` 的 `ComposerPrimitive.Input` 改成 `submitMode="none"`（与 assistant-ui 已废弃的 `submitOnEnter={false}` 等价，但用的是当前 API），Enter 和 Shift+Enter 都只插入换行，发送只由 `ComposerPrimitive.Send` 的按钮触发；输入框下方的提示从「Enter 发送 · Shift+Enter 换行」改成「Enter 换行 · 点发送按钮发送」。消息编辑框（`-chat-thread.tsx` 的「保存并重发」）也设成 `submitMode="none"`，编辑时回车换行、点按钮才保存重发，避免同一种误发。ask_user 的单行输入不变。桌面和手机（390×844、`isMobile` + `hasTouch`）都用 preview + Playwright 验证：回车后输入框值从「第一行」变成「第一行\n」且没有发出请求，点发送按钮才清空并请求 `/api/ai/chat/completions`（本地未配置 AI Key，返回 503 属于预期）。
+- 聊天页每发一条消息，模型都会收到两遍（#98）：`send()` 先用 `createMessage` 把用户消息写进消息缓存，`appendChatRunMessage` 又放进 run store 的 optimistic 列表，`messagesRef.current` 经 `mergeById` 后已经包含这条新行，随后 `runAssistant([...messagesRef.current, userMessage])` 再追加一次，`/api/ai/chat/completions` 的 `messages` 里同一条用户消息于是出现两次（界面按 id 合并只显示一个气泡），模型会误以为用户重复发送。新增 `app/chat/history.ts` 的纯函数 `appendUniqueMessage`：按消息 id 去重、不按文本，故意重复同一句话仍是两轮；发送处改用它，其它历史构建路径（重新生成、编辑重发、恢复中断）本来就没有重复。`app/chat/history.test.ts` 覆盖追加、已存在、同文本不同 id 和输入不可变。preview + Playwright 实测：修复前一次发送在请求体里出现 2 次（2 条 user message、1 个气泡），修复后 1 次；同一句话分两次发送时第二个请求包含 2 条（没有过度去重）。本地未配置 AI Key，请求返回 503 属预期。
 
 ## 2026-11-13
 

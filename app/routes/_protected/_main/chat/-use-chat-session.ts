@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
+import { appendUniqueMessage } from "@/app/chat/history";
 import {
     detectInterruptedRun,
     INTERRUPTED_TOOL_ERROR,
@@ -537,7 +538,7 @@ export function useChatSession({
                 }
 
                 outcome = await runAssistant(
-                    [...messagesRef.current, userMessage],
+                    appendUniqueMessage(messagesRef.current, userMessage),
                     modelInfo,
                     seq + 1,
                     controller,
