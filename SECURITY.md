@@ -19,8 +19,8 @@
 
 ## 敏感信息约定
 
-- `.env` / `.env.prod` 永不提交；`VITE_POCKETBASE_URL` 在前端属于公开值。
-- AI Provider 的密钥只保存在浏览器 localStorage，只发往 Provider，绝不写入
-  PocketBase。
+- `.env` / `.env.app` 永不提交；`VITE_POCKETBASE_URL` 在前端属于公开值。
+- AI Provider 的密钥只保存在服务端环境变量里，由 Bun API 使用，绝不下发到
+  浏览器，也不写入 PocketBase。
 - PocketBase 数据集合均要求登录（`@request.auth.id != ""`），文件字段为
   protected。

@@ -545,7 +545,7 @@ export function buildIssueBody(input: IssueBodyInput): string {
 
 /**
  * Build the `/feedback` handler. Returns `null` for paths it does not own, so
- * server.ts can keep it next to the AI relay and deploy endpoints.
+ * `server/main.ts` can mount it next to the AI relay.
  */
 export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     const fetchImpl = deps.fetch ?? fetch;

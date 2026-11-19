@@ -1,5 +1,3 @@
-// vite.config.ts
-
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -17,10 +15,10 @@ const require = createRequire(import.meta.url);
 const pkg = require("./package.json") as { version: string };
 
 /**
- * Full commit sha this bundle was built from. CI exports GITHUB_SHA (== the
- * `github.sha` the deploy workflow sends as `x-spa-sha`); local builds fall
- * back to `git rev-parse HEAD`. It is written verbatim into `build/version.json`
- * so the post-deploy check can assert the *new* bundle is the one being served.
+ * Full commit sha this bundle was built from. CI exports GITHUB_SHA; local
+ * builds fall back to `git rev-parse HEAD`. It is written verbatim into
+ * `build/version.json` so the post-deploy check can assert the *new* bundle is
+ * the one being served.
  */
 function resolveAppSha(): string {
     const fromEnv =
@@ -102,7 +100,7 @@ export default defineConfig(({ mode }) => {
     // `bun run dev:frontend` falls back to the default PocketBase port.
     const pocketBasePort = Number(process.env.PB_PORT ?? env.PB_PORT) || 8090;
 
-    // The Bun API serves the streaming AI relay next to the deploy endpoints.
+    // The Bun API serves the streaming AI relay and the other `/api` handlers.
     // `dev:all` picks a free port per worktree.
     const apiPort = Number(process.env.API_PORT ?? env.API_PORT) || 9001;
 
@@ -216,8 +214,8 @@ export default defineConfig(({ mode }) => {
         ],
         define: {
             APP_VERSION: JSON.stringify(pkg.version),
-            // Same sha as `version.json` / `x-spa-sha`, so the About page can
-            // tell whether the running bundle is the deployed one.
+            // Same sha as `version.json`, so the About page can tell whether
+            // the running bundle is the deployed one.
             APP_SHA: JSON.stringify(appSha),
             // `bun run preview` opts in so the local build keeps the dev
             // account shortcuts. Deploys never set it, so the list stays

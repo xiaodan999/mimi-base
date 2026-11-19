@@ -29,8 +29,9 @@
     bun run install:server
     ```
 
-    `install:server` 只装服务端解析 PDF 用的两个包（`pocketbase/package.json`），
-    和前端构建分开；不跑也能启动，只是聊天里的文件附件会读不出来。
+    `install:server` 只装服务端自己的依赖（`server/package.json`：PDF 解析、
+    ip2region、QuickJS 沙箱），和前端构建分开；不跑也能启动，只是聊天里的
+    文件附件和沙箱工具会不可用。
 
     建议再运行一次 `bun run setup:hooks`，这样每次提交前会自动
     整理格式并检查类型和测试。
@@ -230,7 +231,7 @@ https://bun.sh 按提示安装。
 
 ## 十、注意事项
 
-- 不要提交 `.env`、`.env.prod` 和 `pocketbase/pb_data/`。
+- 不要提交 `.env`、`.env.app` 和 `pocketbase/pb_data/`。
 - 修改账号密码等正式环境的事情，请先看 `docker/README.md`。
 - 更详细的开发约定（英文）在 `AGENTS.md` 里。
 
@@ -242,12 +243,12 @@ https://bun.sh 按提示安装。
   `framework: vite` / `buildCommand: bun run build` / `outputDirectory: build`）。
 - **自托管**：GitHub Actions 构建 `mimi-base-app`（Bun API + SPA + QuickJS）
   和 `mimi-base-pb`（PocketBase + 迁移/钩子），推到腾讯云容器镜像服务香港
-  （`hkccr.ccs.tencentyun.com`，公开仓库，宿主机匿名拉取）；宿主机上已有的
+  （`hkccr.ccs.tencentyun.com`，私有仓库，宿主机先 `docker login` 一次）；宿主机上已有的
   Caddy 把 `/api/*` 和页面转发到 `mimi-app`，把 `/db/*` 转发到 `mimi-pb`。
   Watchtower 负责更新这两个容器，`pb_data` 直接 bind mount 到
   `pocketbase/pb_data`。完整的服务器步骤见 `docker/README.md`。
 
-**Vercel 必须设置环境变量**：`deploy-spa` 用 `same-origin`，而 Vercel 页面
+**Vercel 必须设置环境变量**：自托管构建用 `same-origin`，而 Vercel 页面
 和数据库不在同一个域名，所以在 Vercel 项目的 Environment Variables 里必须
 把 `VITE_POCKETBASE_URL` 写成绝对地址：
 

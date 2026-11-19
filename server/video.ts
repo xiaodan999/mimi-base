@@ -184,7 +184,8 @@ function createFfmpegRunner(
 
 /**
  * Build the video compression handler. Returns `null` for paths it does not
- * own, so server.ts can mount it next to the AI relay and feedback service.
+ * own, so `server/main.ts` can mount it next to the AI relay and feedback
+ * service.
  */
 export function createVideoService(deps: VideoCompressDeps): VideoService {
     const fetchImpl = deps.fetch ?? fetch;

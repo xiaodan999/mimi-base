@@ -1,8 +1,8 @@
 /**
  * Server configuration, read once from the environment.
  *
- * There is no `.env.prod` probing here: the container or the dev script
- * supplies every value. `MIMI_DEV=1` is the only mode switch (it enables the
+ * There is no dotenv probing here: the container or the dev script supplies
+ * every value. `MIMI_DEV=1` is the only mode switch (it enables the
  * dev geo fallback and the seeded superuser defaults in `scripts/backends.ts`,
  * which passes the same var to PocketBase for `dev_seed.pb.js`).
  */

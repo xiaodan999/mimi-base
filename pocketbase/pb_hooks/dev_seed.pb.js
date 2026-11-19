@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Dev-only accounts, created when they are missing.
-// server.ts sets MIMI_DEV=1 only in dev (i.e. when .env.prod is absent), so
-// the deployed server never creates these accounts.
+// scripts/backends.ts sets MIMI_DEV=1 only for local dev, so the deployed
+// server never creates these accounts.
 onBootstrap((e) => {
     e.next();
 

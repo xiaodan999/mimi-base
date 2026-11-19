@@ -4,8 +4,8 @@ on:
     push:
         branches: [master]
     pull_request:
-    # Reusable: deploy-db / deploy-spa call this as their `ci` gate, so a
-    # publish can never run before typecheck/lint/format:check/tests pass.
+    # Reusable: `images` calls this as its `ci` gate, so an image publish can
+    # never run before typecheck/lint/format:check/tests pass.
     workflow_call:
 
 # Only read the repository; nothing here pushes or creates releases.
@@ -14,10 +14,10 @@ permissions:
 
 concurrency:
     # A called workflow inherits the caller's context, so `github.workflow` is
-    # "ci" for a direct push run but "deploy-db" / "deploy-spa" for the gate
-    # copy they call. Keeping the caller in the group lets the deploy gate and
-    # the standalone push run coexist instead of cancelling each other, which
-    # otherwise leaves a cancelled "ci / checks" check on the commit.
+    # "ci" for a direct push run but "images" for the gate copy `images.yml`
+    # calls. Keeping the caller in the group lets the gate and the standalone
+    # push run coexist instead of cancelling each other, which otherwise
+    # leaves a cancelled "ci / checks" check on the commit.
     group: ci-${{ github.workflow }}-${{ github.ref }}
     # Only drop superseded runs for PRs. Cancelling a push run on `master`
     # shows up as a failed check on the commit, which is not what we want.

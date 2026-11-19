@@ -10,9 +10,9 @@ name: images
 # `deploy` is the actual rollout step.
 #
 # Registry coordinates come from repository secrets (DOCKER_REGISTRY,
-# DOCKER_NAMESPACE, DOCKER_USERNAME, DOCKER_PASSWORD). The repos are public, so
-# the host pulls them anonymously and Watchtower needs no credentials; a public
-# repo also avoids the personal edition's storage quota.
+# DOCKER_NAMESPACE, DOCKER_USERNAME, DOCKER_PASSWORD). The repos are private:
+# the host logs in once with `docker login hkccr.ccs.tencentyun.com`, and
+# Watchtower mounts the same /root/.docker/config.json.
 
 on:
     push:

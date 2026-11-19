@@ -112,8 +112,8 @@ export type AiRelayDeps = {
     sandbox?: SandboxService;
     /**
      * IP -> city resolver for /api/ai/geo/ip. Built on first use (without the
-     * dev egress fallback) when omitted; server.ts injects the real one so
-     * dev can resolve loopback callers.
+     * dev egress fallback) when omitted; `server/main.ts` injects the real one
+     * so dev can resolve loopback callers.
      */
     geoLookup?: IpCityLookup;
     /** Injectable for tests. */
