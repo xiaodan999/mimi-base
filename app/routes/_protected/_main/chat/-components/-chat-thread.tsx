@@ -254,7 +254,7 @@ function UserMessage() {
         <MessagePrimitive.Root className="group/message mb-5 flex flex-col items-end">
             <ComposerPrimitive.If editing>
                 <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-xs">
-                    <ComposerPrimitive.Input asChild>
+                    <ComposerPrimitive.Input asChild submitMode="none">
                         <textarea
                             rows={3}
                             autoFocus

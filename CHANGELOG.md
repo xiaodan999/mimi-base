@@ -2,6 +2,12 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-19
+
+### 修复
+
+- 聊天页的输入框按回车会立刻把消息发出去，没法输入多行（#97）：`-chat-composer.tsx` 的 `ComposerPrimitive.Input` 改成 `submitMode="none"`（与 assistant-ui 已废弃的 `submitOnEnter={false}` 等价，但用的是当前 API），Enter 和 Shift+Enter 都只插入换行，发送只由 `ComposerPrimitive.Send` 的按钮触发；输入框下方的提示从「Enter 发送 · Shift+Enter 换行」改成「Enter 换行 · 点发送按钮发送」。消息编辑框（`-chat-thread.tsx` 的「保存并重发」）也设成 `submitMode="none"`，编辑时回车换行、点按钮才保存重发，避免同一种误发。ask_user 的单行输入不变。桌面和手机（390×844、`isMobile` + `hasTouch`）都用 preview + Playwright 验证：回车后输入框值从「第一行」变成「第一行\n」且没有发出请求，点发送按钮才清空并请求 `/api/ai/chat/completions`（本地未配置 AI Key，返回 503 属于预期）。
+
 ## 2026-11-13
 
 ### 新增

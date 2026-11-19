@@ -24,9 +24,9 @@ export type ChatComposerProps = {
 };
 
 /**
- * Composer built on assistant-ui's composer primitives (Enter to send,
- * Shift+Enter for a newline, autosizing textarea). Dictation is intentionally
- * left to the phone keyboard — there is no in-app recorder.
+ * Composer built on assistant-ui's composer primitives (Enter always inserts a
+ * newline, the send button submits, autosizing textarea). Dictation is
+ * intentionally left to the phone keyboard — there is no in-app recorder.
  */
 export function ChatComposer({
     images,
@@ -150,6 +150,7 @@ export function ChatComposer({
                     }
                     minRows={1}
                     maxRows={6}
+                    submitMode="none"
                     disabled={disabled || inputPending}
                     className="min-h-9 flex-1 resize-none [scrollbar-width:none] bg-transparent px-1 py-2 text-[15px] leading-relaxed outline-hidden placeholder:text-muted-foreground [&::-webkit-scrollbar]:hidden"
                 />
@@ -184,7 +185,7 @@ export function ChatComposer({
             </ComposerPrimitive.Root>
 
             <div className="mt-1 flex items-center justify-between gap-2 px-1 text-[10px] text-muted-foreground/80">
-                <span className="truncate">Enter 发送 · Shift+Enter 换行</span>
+                <span className="truncate">Enter 换行 · 点发送按钮发送</span>
                 {percent !== null && contextUsage && (
                     <span
                         className={cn(
