@@ -168,10 +168,12 @@ export function createAuthStore(deps: AuthStoreDeps): AuthStore {
 
             let user: User | null = null;
             try {
-                // Protected files need a token before any avatar renders.
+                // Protected files need a token before any avatar renders. A
+                // token failure must not sign the user out: the heartbeat
+                // retries it, while the profile and normal API keep working.
                 [user] = await Promise.all([
                     fetchUser(userId),
-                    fileTokens.ensure(true),
+                    fileTokens.ensure(true).catch(() => null),
                 ]);
             } catch {
                 user = null;

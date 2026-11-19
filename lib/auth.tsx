@@ -14,6 +14,16 @@ import { toUser, type User, type UserRecord } from "./pb-types";
 export type { User, Circle } from "./pb-types";
 export type { AuthSnapshot, AuthStatus, AuthStore } from "./auth-store";
 
+/**
+ * A 401/403/404 means the credential or the account is gone. Anything else
+ * (offline, DNS, 5xx, timeout) is transient: signing out here would strand a
+ * valid session on the login page until a full reload.
+ */
+function isCredentialGone(error: unknown): boolean {
+    const status = (error as { status?: unknown } | null)?.status;
+    return status === 401 || status === 403 || status === 404;
+}
+
 const fetchUserProfile = async (id: string): Promise<User | null> => {
     // `pb.authStore.record` has no expand, so fetch the profile with the
     // expanded circle for the avatar / circle rendering.
@@ -23,6 +33,14 @@ const fetchUserProfile = async (id: string): Promise<User | null> => {
         });
         return toUser(record);
     } catch (error) {
+        // Keep the last credential record as a stale profile while the
+        // network is down; a later refresh replaces it with expanded data.
+        if (!isCredentialGone(error)) {
+            const stored = pb.authStore.record;
+            if (stored?.id === id) {
+                return toUser(stored as UserRecord);
+            }
+        }
         console.log("Failed to fetch the user profile", error);
         return null;
     }

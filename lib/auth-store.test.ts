@@ -119,6 +119,23 @@ describe("createAuthStore", () => {
         expect((await h.store.hydrate()).status).toBe("anonymous");
     });
 
+    test("keeps the session when only the file token fails", async () => {
+        const h = harness({
+            fileTokens: {
+                ensure: async () => {
+                    throw new Error("offline");
+                },
+                clear: () => {},
+            },
+        });
+        h.credential.valid = true;
+        h.credential.id = "user-1";
+
+        const snapshot = await h.store.hydrate();
+        expect(snapshot.status).toBe("authenticated");
+        expect(snapshot.user?.id).toBe("user-1");
+    });
+
     test("notifies subscribers only when the value changes", async () => {
         const h = harness();
         let renders = 0;
