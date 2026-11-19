@@ -308,6 +308,12 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         return null;
     }
 
+    // pdf.js runs on the event loop, so two pathological files at once can
+    // starve every other request on the 2-core box. This is a concurrency
+    // cap; the extraction itself still has no preemptive timeout.
+    const FILE_PARSE_MAX_IN_FLIGHT = 2;
+    let fileParseInFlight = 0;
+
     const TOOL_PATHS = new Set<string>([
         AI_TOOLS_EXPENSES_PATH,
         AI_TOOLS_POSTS_PATH,
@@ -405,6 +411,12 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 ? requestedImages
                 : 0;
 
+        if (fileParseInFlight >= FILE_PARSE_MAX_IN_FLIGHT) {
+            return json(429, {
+                error: { message: "正在处理其他附件，稍后再试" },
+            });
+        }
+        fileParseInFlight += 1;
         try {
             const file = await extractUploadedFile(name, data, {
                 pageImageLimit,
@@ -423,6 +435,8 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             return json(500, {
                 error: { message: "文件读取失败，再试一次" },
             });
+        } finally {
+            fileParseInFlight -= 1;
         }
     }
 
@@ -492,6 +506,12 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         );
         if (!data.ok) return data.response;
 
+        if (fileParseInFlight >= FILE_PARSE_MAX_IN_FLIGHT) {
+            return json(429, {
+                error: { message: "正在处理其他附件，稍后再试" },
+            });
+        }
+        fileParseInFlight += 1;
         try {
             if (typeof body.pages === "string" && body.pages.trim() !== "") {
                 const file = await extractPdfPageImages(
@@ -523,6 +543,8 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             return json(500, {
                 error: { message: "文件读取失败，再试一次" },
             });
+        } finally {
+            fileParseInFlight -= 1;
         }
     }
 
