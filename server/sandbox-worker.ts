@@ -35,6 +35,7 @@ import {
     sanitizeFiles,
 } from "../lib/sandbox-protocol";
 import { fetchPublic } from "./safe-fetch";
+import { createHostFetchBudget } from "./sandbox-budget";
 import { hostPromise } from "./sandbox-promise";
 
 declare var self: Worker;
@@ -129,6 +130,8 @@ async function execute(request: WorkerRequest): Promise<WorkerResult> {
         string,
         { mime: SandboxArtifact["mime"]; bytes: Uint8Array }
     >();
+    // Native fetches are not bounded by QuickJS's heap limit.
+    const fetchBudget = createHostFetchBudget({ maxActive: 4, maxTotal: 30 });
     const logs: string[] = [];
     let logChars = 0;
     let logLines = 0;
@@ -225,15 +228,22 @@ async function execute(request: WorkerRequest): Promise<WorkerResult> {
         const fetchFn = vm.newFunction("fetch", (urlHandle) => {
             const url = vm.getString(urlHandle);
             return hostPromise(vm, async () => {
-                const result = await fetchPublic(url, {
-                    maxBytes: MAX_FETCH_CHARS,
-                    timeoutMs: FETCH_TIMEOUT_MS,
-                    headers: {
-                        Accept: "text/*, application/json;q=0.9, */*;q=0.5",
-                    },
-                });
-                if (result.kind !== "text") throw new Error("只能读取文本内容");
-                return vm.newString(result.body);
+                const release = fetchBudget.acquire();
+                try {
+                    const result = await fetchPublic(url, {
+                        maxBytes: MAX_FETCH_CHARS,
+                        timeoutMs: FETCH_TIMEOUT_MS,
+                        headers: {
+                            Accept: "text/*, application/json;q=0.9, */*;q=0.5",
+                        },
+                    });
+                    if (result.kind !== "text") {
+                        throw new Error("只能读取文本内容");
+                    }
+                    return vm.newString(result.body);
+                } finally {
+                    release();
+                }
             });
         });
         vm.setProp(sandbox, "fetch", fetchFn);
@@ -246,39 +256,48 @@ async function execute(request: WorkerRequest): Promise<WorkerResult> {
                 const path = normalizeSandboxPath(vm.getString(pathHandle));
                 if (!path) throw new Error("文件路径不合法");
                 return hostPromise(vm, async () => {
-                    const result = await fetchPublic(url, {
-                        maxBytes: MAX_ARTIFACT_BYTES,
-                        timeoutMs: FETCH_TIMEOUT_MS,
-                        binary: true,
-                    });
-                    if (result.kind !== "bytes") throw new Error("下载失败");
-                    const mime = sniffImageMime(result.body);
-                    if (!mime) {
-                        throw new Error("只支持 PNG/JPEG/WebP/GIF 图片");
+                    const release = fetchBudget.acquire();
+                    try {
+                        const result = await fetchPublic(url, {
+                            maxBytes: MAX_ARTIFACT_BYTES,
+                            timeoutMs: FETCH_TIMEOUT_MS,
+                            binary: true,
+                        });
+                        if (result.kind !== "bytes") {
+                            throw new Error("下载失败");
+                        }
+                        const mime = sniffImageMime(result.body);
+                        if (!mime) {
+                            throw new Error("只支持 PNG/JPEG/WebP/GIF 图片");
+                        }
+                        if (result.body.length === 0) {
+                            throw new Error("下载到的内容是空的");
+                        }
+                        let total = 0;
+                        for (const item of binaries.values()) {
+                            total += item.bytes.length;
+                        }
+                        if (
+                            (!binaries.has(path) && binaries.size >= 3) ||
+                            total + result.body.length >
+                                MAX_ARTIFACT_TOTAL_BYTES ||
+                            result.body.length > MAX_ARTIFACT_BYTES
+                        ) {
+                            throw new Error("下载的图片太多了");
+                        }
+                        textFiles.delete(path);
+                        binaries.set(path, { mime, bytes: result.body });
+                        const object = vm.newObject();
+                        const pathProp = vm.newString(path);
+                        vm.setProp(object, "path", pathProp);
+                        pathProp.dispose();
+                        const sizeProp = vm.newNumber(result.body.length);
+                        vm.setProp(object, "size", sizeProp);
+                        sizeProp.dispose();
+                        return object;
+                    } finally {
+                        release();
                     }
-                    if (result.body.length === 0) {
-                        throw new Error("下载到的内容是空的");
-                    }
-                    let total = 0;
-                    for (const item of binaries.values())
-                        total += item.bytes.length;
-                    if (
-                        (!binaries.has(path) && binaries.size >= 3) ||
-                        total + result.body.length > MAX_ARTIFACT_TOTAL_BYTES ||
-                        result.body.length > MAX_ARTIFACT_BYTES
-                    ) {
-                        throw new Error("下载的图片太多了");
-                    }
-                    textFiles.delete(path);
-                    binaries.set(path, { mime, bytes: result.body });
-                    const object = vm.newObject();
-                    const pathProp = vm.newString(path);
-                    vm.setProp(object, "path", pathProp);
-                    pathProp.dispose();
-                    const sizeProp = vm.newNumber(result.body.length);
-                    vm.setProp(object, "size", sizeProp);
-                    sizeProp.dispose();
-                    return object;
                 });
             },
         );

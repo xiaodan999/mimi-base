@@ -19,6 +19,8 @@
 - 停止生成时若 AI 已开始流式输出工具调用但没有结果，下一轮会把没有 `role:"tool"` 回复的 `tool_calls` 发给模型而被 400 拒绝，整段对话卡死；现在构建请求时只发送已完成的工具调用，保留该轮文字，未完成的调用不再进入历史。
 - 实时订阅首次连接失败（例如离线打开 PWA）后不会自愈：现在联网/回到前台会重试失败的集合，并监听 SDK 的 `PB_CONNECT`，在静默重连后补齐错过的点赞、评论和消息事件；`dispose` 后到达的旧事件不再失效下一个账号的缓存。
 - 取消点赞、删除评论或编辑动态后，互动消息列表和铃铛未读数会一起刷新；服务端删除通知走的是 SQL，不会发实时事件，现在由来源集合的失效覆盖。
+- P0 加固：请求体统一经 `server/request-body.ts` 按流计数（chunked 请求也不能绕过上限）；沙箱每轮联网最多 4 并发 / 30 次；视频压缩最多 2 并发，损坏的 MP4 不再被误判为「没装 ffmpeg」而禁用整个服务；`issue-state` 每用户 6 次/分钟、50 次/天。
+- PocketBase 所有权字段在更新时从旧行恢复（`owner` / `author_id` / `user_id` 与聊天关联），`chat_messages` 不能写进别人的对话；`feedback_reports.status` / `issue_*` 改为服务端专用，防止伪造「查看 Issue」链接。
 - AI 附件的页数范围改为先做安全整数检查、再夹到文档范围后循环，超大范围（如 `1-999999999999999999`）不会再卡死 API 的事件循环；反馈转录只取最新 20 条并限制字段，不再读取 200 条完整消息。
 - 请求体为 JSON `null` 时接口返回 400 而不是抛异常；Bun 关闭开发错误页并加上 64MB 请求体上限。
 - 删除动态和评论前没有确认（#100）：`app/feed/components/post.tsx` 的「更多操作 → 删除」不再直接调用 `toastPromise` 删除动态，而是先打开共享的 `components/ConfirmDialog`（标题「删除这条动态？」，说明动态和下面的评论都会消失，取消/返回/Escape 可关闭，`busy` 绑定 `useDeletePostMutation().isPending`），确认后仍走原来的「删除中... / 已删除帖子 / 删除失败」toast，成功才关闭。`app/feed/components/comment-sheet.tsx` 的根评论与回复删除按钮改为共用一个 `deleteTarget` 状态和同一个确认弹窗（「删除这条评论？」，说明下面的回复会一起删除，`busy` 绑定 `useDeleteCommentMutation().isPending`），确认后保留原有的 toast、回复/编辑状态清理和列表刷新，切换动态时清空待删目标。只有作者能看到的更多菜单和删除按钮不变。preview + Playwright 在桌面（1280×800）和手机（390×844、`isMobile` + `hasTouch`）实测：修复前点删除立即发出 1 次 DELETE、没有弹窗、动态/评论立刻消失；修复后点删除只开弹窗、0 次 DELETE，取消、返回手势和 Escape 都保留内容，确认后动态、根评论、回复各只发 1 次 DELETE（删根评论时客户端只删根，回复由服务端级联）并显示原成功 toast；把删除请求延迟时确认按钮 `disabled` 且 `aria-busy="true"`、取消按钮同时禁用，评论抽屉在弹窗取消或删除后仍保持打开。预览代理会让 PocketBase 的长连接 realtime SSE 在 10 秒后报 `ERR_INCOMPLETE_CHUNKED_ENCODING`，与本改动无关。

@@ -155,6 +155,51 @@ describe("video compression service", () => {
         });
     });
 
+    test("a malformed video does not disable later compressions", async () => {
+        let attempts = 0;
+        const { service } = setup(async () => {
+            attempts += 1;
+            return { ok: false, missing: false, error: "moov atom not found" };
+        });
+
+        expect((await service(compressRequest("one")))?.status).toBe(502);
+        expect((await service(compressRequest("two")))?.status).toBe(502);
+        // Not the cached 503 path: both calls reached the compressor.
+        expect(attempts).toBe(2);
+    });
+
+    test("rejects a second compression while one is running", async () => {
+        let started!: () => void;
+        let release!: () => void;
+        const startedPromise = new Promise<void>((resolve) => {
+            started = resolve;
+        });
+        const gate = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        const { service } = setup(
+            async (_inputPath, outputPath) => {
+                started();
+                await gate;
+                await Bun.write(outputPath, new Uint8Array([1]));
+                return { ok: true };
+            },
+            { maxInFlight: 1 },
+        );
+
+        const first = service(compressRequest("first"));
+        await startedPromise;
+        const second = await service(compressRequest("second"));
+        expect(second?.status).toBe(429);
+        expect(await second!.json()).toEqual({
+            ok: false,
+            error: "视频压缩忙不过来，稍后再试",
+        });
+
+        release();
+        expect((await first)?.status).toBe(200);
+    });
+
     test("rejects non-video files and oversized bodies", async () => {
         const { service } = setup(async () => ({ ok: true }));
         const text = await service(

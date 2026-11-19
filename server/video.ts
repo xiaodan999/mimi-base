@@ -16,6 +16,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { BodyTooLargeError, readFormDataBody } from "./request-body";
+
 export const VIDEO_COMPRESS_PATH = "/api/video/compress";
 
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
@@ -50,6 +52,8 @@ export type VideoCompressDeps = {
     authCacheMs?: number;
     /** Injectable temp root; defaults to the OS temp directory. */
     tmpDir?: string;
+    /** Maximum concurrent compressions; defaults to 2. */
+    maxInFlight?: number;
     /** Injectable compressor; defaults to spawning ffmpeg. */
     compress?: (
         inputPath: string,
@@ -159,9 +163,12 @@ function createFfmpegRunner(
                     stderrPromise,
                 ]);
                 if (code === 0) return { ok: true };
+                // A malformed video prints "moov atom not found" and exits
+                // non-zero. That is not a missing binary; only a spawn
+                // failure (handled below) may disable the service.
                 return {
                     ok: false,
-                    missing: /ENOENT|no such file|not found/i.test(stderr),
+                    missing: false,
                     error:
                         stderr.trim().slice(0, 500) ||
                         `ffmpeg exited with code ${code}`,
@@ -195,6 +202,8 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
     const compress =
         deps.compress ??
         createFfmpegRunner(deps.ffmpegPath?.trim() || "ffmpeg");
+    const maxInFlight = Math.max(1, deps.maxInFlight ?? 2);
+    let inFlight = 0;
     let ffmpegUnavailable = false;
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
@@ -247,23 +256,6 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
 
         const auth = await authenticate(req);
         if (!auth.ok) return auth.response;
-
-        let form: FormData;
-        try {
-            form = await req.formData();
-        } catch {
-            return badRequest("请求内容不是合法的表单");
-        }
-        const file = form.get("file");
-        if (!(file instanceof File) || file.size === 0) {
-            return badRequest("没有收到视频");
-        }
-        if (file.size > MAX_VIDEO_BYTES) {
-            return json({ ok: false, error: "视频不能超过 50MB" }, 413);
-        }
-        if (!isAllowedVideo(file)) {
-            return badRequest("只支持 MP4、WebM 或 MOV 视频");
-        }
         if (ffmpegUnavailable) {
             return json(
                 {
@@ -274,9 +266,38 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
                 503,
             );
         }
+        if (inFlight >= maxInFlight) {
+            return json(
+                { ok: false, error: "视频压缩忙不过来，稍后再试" },
+                429,
+            );
+        }
 
+        // Reserve the slot before reading the multipart body: a 50 MB upload
+        // buffered for a compressor that will immediately reject is wasteful.
+        inFlight += 1;
         let dir = "";
         try {
+            let form: FormData;
+            try {
+                form = await readFormDataBody(req, MAX_BODY_BYTES);
+            } catch (error) {
+                if (error instanceof BodyTooLargeError) {
+                    return json({ ok: false, error: "视频不能超过 50MB" }, 413);
+                }
+                return badRequest("请求内容不是合法的表单");
+            }
+            const file = form.get("file");
+            if (!(file instanceof File) || file.size === 0) {
+                return badRequest("没有收到视频");
+            }
+            if (file.size > MAX_VIDEO_BYTES) {
+                return json({ ok: false, error: "视频不能超过 50MB" }, 413);
+            }
+            if (!isAllowedVideo(file)) {
+                return badRequest("只支持 MP4、WebM 或 MOV 视频");
+            }
+
             dir = await mkdtemp(
                 path.join(deps.tmpDir ?? tmpdir(), "mimi-video-"),
             );
@@ -346,6 +367,7 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
                 502,
             );
         } finally {
+            inFlight -= 1;
             if (dir) await rm(dir, { recursive: true, force: true });
         }
     }

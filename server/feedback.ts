@@ -54,6 +54,12 @@
  * reach the browser.
  */
 
+import {
+    BodyTooLargeError,
+    readFormDataBody,
+    readJsonBody,
+} from "./request-body";
+
 export const FEEDBACK_PREFIX = "/api/feedback";
 /** POST { reportId } — create the GitHub issue for an existing report. */
 export const FEEDBACK_REPORT_PATH = "/api/feedback/report";
@@ -81,6 +87,9 @@ const MAX_ISSUE_STATE_REPORTS = 50;
 /** GitHub issue state is read for display only; a minute is plenty fresh. */
 const ISSUE_STATE_CACHE_MS = 60_000;
 const ISSUE_STATE_CONCURRENCY = 5;
+/** A list visit triggers this endpoint; these caps only stop abuse. */
+const ISSUE_STATE_PER_MINUTE = 6;
+const ISSUE_STATE_PER_DAY = 50;
 
 const MAX_ISSUE_TITLE = 180;
 const MAX_DESCRIPTION_CHARS = 5000;
@@ -578,6 +587,30 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         number,
         { state: FeedbackIssueState; expiresAt: number }
     >();
+    /** Per-user request buckets for `/issue-state` (no GitHub token burn). */
+    const issueStateMinute = new Map<string, number[]>();
+    const issueStateDaily = new Map<string, { day: string; count: number }>();
+
+    function checkIssueStateRate(uid: string): Response | null {
+        const stamp = now();
+        const minute = (issueStateMinute.get(uid) ?? []).filter(
+            (time) => stamp - time < 60_000,
+        );
+        if (minute.length >= ISSUE_STATE_PER_MINUTE) {
+            return json({ ok: false, error: "刷新太频繁，稍后再试" }, 429);
+        }
+        minute.push(stamp);
+        issueStateMinute.set(uid, minute);
+
+        const day = new Date(stamp).toISOString().slice(0, 10);
+        const daily = issueStateDaily.get(uid);
+        const count = daily?.day === day ? daily.count : 0;
+        if (count >= ISSUE_STATE_PER_DAY) {
+            return json({ ok: false, error: "今天刷新的次数用完了" }, 429);
+        }
+        issueStateDaily.set(uid, { day, count: count + 1 });
+        return null;
+    }
 
     async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
         const header = req.headers.get("authorization")?.trim() ?? "";
@@ -1001,10 +1034,14 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         req: Request,
         auth: AuthOk,
     ): Promise<Response> {
+        const limited = checkIssueStateRate(auth.uid);
+        if (limited) return limited;
+
         let body: { reportIds?: unknown };
         try {
-            body = JSON.parse(await req.text()) as typeof body;
-        } catch {
+            body = await readJsonBody<typeof body>(req, MAX_BODY_BYTES);
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) return tooLarge();
             return badRequest("请求内容不是合法 JSON");
         }
         // `JSON.parse("null")` succeeds but yields null.
@@ -1096,8 +1133,14 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         }
         let form: FormData;
         try {
-            form = await req.formData();
-        } catch {
+            form = await readFormDataBody(req, MAX_UPLOAD_BYTES);
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(
+                    { ok: false, error: "附件太大了（最多 3 个，每个 10MB）" },
+                    413,
+                );
+            }
             return badRequest("请求内容不是合法的表单");
         }
         const files = form
@@ -1295,10 +1338,12 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
 
         let body: { reportId?: unknown };
         try {
-            const raw = await req.text();
-            if (raw.length > MAX_BODY_BYTES) return tooLarge();
-            body = JSON.parse(raw) as { reportId?: unknown };
-        } catch {
+            body = await readJsonBody<{ reportId?: unknown }>(
+                req,
+                MAX_BODY_BYTES,
+            );
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) return tooLarge();
             return badRequest("请求内容不是合法 JSON");
         }
         if (!body || typeof body !== "object") {

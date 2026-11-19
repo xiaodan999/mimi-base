@@ -44,6 +44,11 @@ import {
     type IpCityLookup,
     resolveClientIp,
 } from "./geo-ip";
+import {
+    BodyTooLargeError,
+    readJsonBody,
+    readRequestBody,
+} from "./request-body";
 
 export const AI_RELAY_PREFIX = "/api/ai";
 export const AI_CHAT_PATH = "/api/ai/opencode/v1/chat/completions";
@@ -318,14 +323,12 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         const limited = checkToolsRate(auth.uid);
         if (limited) return limited;
 
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (Number.isFinite(declared) && declared > MAX_TOOLS_BODY_BYTES) {
-            return json(413, { error: { message: "请求体过大" } });
-        }
-
         let body: Record<string, unknown>;
         try {
-            const parsed = (await req.json()) as unknown;
+            const parsed = await readJsonBody<unknown>(
+                req,
+                MAX_TOOLS_BODY_BYTES,
+            );
             if (
                 typeof parsed !== "object" ||
                 parsed === null ||
@@ -334,7 +337,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 return json(400, { error: { message: "请求体格式不正确" } });
             }
             body = parsed as Record<string, unknown>;
-        } catch {
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(413, { error: { message: "请求体过大" } });
+            }
             return json(400, { error: { message: "请求体不是合法的 JSON" } });
         }
 
@@ -366,26 +372,21 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         const limited = checkToolsRate(auth.uid);
         if (limited) return limited;
 
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {
-            return json(413, {
-                error: { message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）` },
-            });
-        }
-
         const quota = checkToolsQuota(auth.uid);
         if (quota) return quota;
 
         let data: Uint8Array;
         try {
-            data = new Uint8Array(await req.arrayBuffer());
-        } catch {
+            data = await readRequestBody(req, MAX_UPLOAD_BYTES);
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(413, {
+                    error: {
+                        message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）`,
+                    },
+                });
+            }
             return json(400, { error: { message: "文件读取失败，再试一次" } });
-        }
-        if (data.byteLength > MAX_UPLOAD_BYTES) {
-            return json(413, {
-                error: { message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）` },
-            });
         }
         if (data.byteLength === 0) {
             return json(400, { error: { message: "文件是空的" } });
@@ -462,14 +463,11 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             pages?: unknown;
         };
         try {
-            const text = await req.text();
-            if (text.length > MAX_TOOLS_BODY_BYTES) {
-                return json(413, {
-                    error: { message: "请求太大了" },
-                });
+            body = await readJsonBody<typeof body>(req, MAX_TOOLS_BODY_BYTES);
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(413, { error: { message: "请求太大了" } });
             }
-            body = JSON.parse(text) as typeof body;
-        } catch {
             return json(400, { error: { message: "请求格式不对" } });
         }
         if (!body || typeof body !== "object") {
@@ -646,14 +644,12 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             });
         }
 
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (Number.isFinite(declared) && declared > MAX_SANDBOX_BODY_BYTES) {
-            return json(413, { error: { message: "请求体过大" } });
-        }
-
         let body: Record<string, unknown>;
         try {
-            const parsed = (await req.json()) as unknown;
+            const parsed = await readJsonBody<unknown>(
+                req,
+                MAX_SANDBOX_BODY_BYTES,
+            );
             if (
                 typeof parsed !== "object" ||
                 parsed === null ||
@@ -662,7 +658,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 return json(400, { error: { message: "请求体格式不正确" } });
             }
             body = parsed as Record<string, unknown>;
-        } catch {
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(413, { error: { message: "请求体过大" } });
+            }
             return json(400, { error: { message: "请求体不是合法的 JSON" } });
         }
 
@@ -724,14 +723,9 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             });
         }
 
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-            return json(413, { error: { message: "请求体过大" } });
-        }
-
         let body: Record<string, unknown>;
         try {
-            const parsed = (await req.json()) as unknown;
+            const parsed = await readJsonBody<unknown>(req, MAX_BODY_BYTES);
             if (
                 typeof parsed !== "object" ||
                 parsed === null ||
@@ -740,7 +734,10 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                 return json(400, { error: { message: "请求体格式不正确" } });
             }
             body = parsed as Record<string, unknown>;
-        } catch {
+        } catch (error) {
+            if (error instanceof BodyTooLargeError) {
+                return json(413, { error: { message: "请求体过大" } });
+            }
             return json(400, { error: { message: "请求体不是合法的 JSON" } });
         }
 

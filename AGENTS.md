@@ -290,8 +290,13 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   accounts; `ji_zhang_biao` is shared for reads but owner-scoped for
   update/delete. If a third account is ever added, migrate the per-collection
   scope _before_ it exists. `notifications` is recipient-scoped: the recipient
-  can only flip `read`; create/delete are server-only. File fields are
-  `protected`, so unauthenticated `/api/files/...` requests 404.
+  can only flip `read`; create/delete are server-only. Update rules see the
+  **pre-update** row, so `pocketbase/pb_hooks/ownership.pb.js` restores
+  `owner` / `author_id` / `user_id` and chat relations before saving; keep new
+  ownership fields out of client updates. `feedback_reports.status` and
+  `issue_*` are server-only (the hook skips superuser writes). `chat_messages`
+  creates are rejected unless the conversation belongs to the caller. File
+  fields are `protected`, so unauthenticated `/api/files/...` requests 404.
 - Filters are parameterized (`pb.filter("post_id = {:postId}", {...})`); date
   literals use `pbDate(date)` (`YYYY-MM-DD HH:mm:ss.SSSZ`).
 - File fields (`users.tou_xiang`, `tou_xiang_circle.image`, `posts.images`,
@@ -329,7 +334,11 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `closed` (60s cache), and treats a stored `closed` as terminal; a GitHub read
   failure leaves the stored label. Writes use `SUPERUSER_EMAIL` /
   `SUPERUSER_PASSWORD` from `.env.app` (dev: `dev@mimi.local`) so shared
-  suggestions persist for the non-owner.
+  suggestions persist for the non-owner. `issue-state` is rate-limited per user
+  (6/min, 50/day); request bodies go through `server/request-body.ts` so a
+  chunked upload still respects the route's byte cap. Video compression runs at
+  most 2 at a time, and only a spawn failure disables ffmpeg (a malformed MP4
+  must not poison the service).
 - Avatar rings: `users.circle_preset` stores a built-in key
   (`components/TouXiang/presets.tsx`; `""` = default, `"none"` hides it);
   `users.circle` points at an uploaded `tou_xiang_circle` row scoped by
@@ -474,8 +483,10 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `server/safe-fetch.ts` (same DNS/private-range/redirect guard as `read_url`)
   and return a QuickJS Promise bridged from native fetch
   (`server/sandbox-promise.ts`) — not an asyncified host function, which traps
-  on a second success in one run. `sandbox.fetch` resolves to the body text, so
-  `JSON.parse(await sandbox.fetch(url))` is the pattern. Python is not
+  on a second success in one run. Each run shares a host-fetch budget
+  (`server/sandbox-budget.ts`: 4 concurrent, 30 total) because native fetch
+  buffers are not bounded by the QuickJS heap. `sandbox.fetch` resolves to the
+  body text, so `JSON.parse(await sandbox.fetch(url))` is the pattern. Python is not
   supported. Don't expose new host globals without re-evaluating prompt
   injection against the AI key and `pb_data`. `ask_user` is client-side and
   pauses the loop (text/choice/confirm/location/expense). Location is a

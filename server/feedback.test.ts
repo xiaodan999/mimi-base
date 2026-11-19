@@ -1317,6 +1317,22 @@ describe("feedback issue state service", () => {
             expect(res?.status).toBe(400);
         }
     });
+
+    test("rate-limits issue-state refreshes per user", async () => {
+        const { handler } = issueStatePb({ rows: [] });
+        const { service } = setup(handler);
+
+        for (let index = 0; index < 6; index += 1) {
+            const res = await service(issueStateRequest([issueReportId(1)]));
+            expect(res?.status).toBe(200);
+        }
+        const limited = await service(issueStateRequest([issueReportId(1)]));
+        expect(limited?.status).toBe(429);
+        expect(await limited!.json()).toEqual({
+            ok: false,
+            error: "刷新太频繁，稍后再试",
+        });
+    });
 });
 
 describe("feedback upload service", () => {
