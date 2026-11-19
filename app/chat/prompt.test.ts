@@ -158,12 +158,68 @@ describe("buildApiMessages", () => {
             ],
             "",
         );
-        expect(result).toHaveLength(2);
-        expect(result[1]).toMatchObject({ role: "assistant" });
-        expect((result[1] as { tool_calls?: unknown }).tool_calls).toEqual([
-            expect.objectContaining({ id: "call_1" }),
-        ]);
+        // Only the system prompt remains: answering a provider with a
+        // tool_call that has no tool reply is a 400 on the next turn.
+        expect(result).toHaveLength(1);
         expect(result.some((item) => item.role === "tool")).toBe(false);
+    });
+
+    test("keeps the text of a stopped tool turn but drops the call", () => {
+        const result = buildApiMessages(
+            [
+                message({
+                    role: "assistant",
+                    parts: [
+                        { type: "text", text: "我先查一下" },
+                        {
+                            type: "tool-call",
+                            toolCallId: "call_1",
+                            toolName: "sandbox_run",
+                            argsText: "{}",
+                        },
+                    ],
+                }),
+            ],
+            "",
+        );
+        expect(result).toHaveLength(2);
+        expect(result[1]).toEqual({
+            role: "assistant",
+            content: "我先查一下",
+        });
+    });
+
+    test("sends only the resolved calls of a mixed round", () => {
+        const result = buildApiMessages(
+            [
+                message({
+                    role: "assistant",
+                    parts: [
+                        {
+                            type: "tool-call",
+                            toolCallId: "call_1",
+                            toolName: "sandbox_run",
+                            argsText: "{}",
+                            result: { ok: true, result: 1 },
+                        },
+                        {
+                            type: "tool-call",
+                            toolCallId: "call_2",
+                            toolName: "sandbox_run",
+                            argsText: "{}",
+                        },
+                    ],
+                }),
+            ],
+            "",
+        );
+        const assistant = result.find((item) => item.role === "assistant") as {
+            tool_calls?: { id: string }[];
+        };
+        expect(assistant.tool_calls?.map((call) => call.id)).toEqual([
+            "call_1",
+        ]);
+        expect(result.filter((item) => item.role === "tool")).toHaveLength(1);
     });
 
     test("trimming never starts the history on a tool result", () => {

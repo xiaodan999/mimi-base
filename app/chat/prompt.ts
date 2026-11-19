@@ -241,9 +241,14 @@ export function buildApiMessages(
             (part): part is Extract<ChatPart, { type: "tool-call" }> =>
                 part.type === "tool-call",
         );
-        if (!text && calls.length === 0) continue;
+        // An unanswered tool call is not valid provider history: OpenAI-style
+        // APIs require a `role:"tool"` reply for every call id. A run stopped
+        // while the arguments were streaming persists such a call, so send
+        // only the calls that actually completed.
+        const resolvedCalls = calls.filter((call) => call.result !== undefined);
+        if (!text && resolvedCalls.length === 0) continue;
 
-        if (calls.length === 0) {
+        if (resolvedCalls.length === 0) {
             result.push({ role: "assistant", content: text });
             continue;
         }
@@ -251,7 +256,7 @@ export function buildApiMessages(
         result.push({
             role: "assistant",
             content: text || null,
-            tool_calls: calls.map((call) => ({
+            tool_calls: resolvedCalls.map((call) => ({
                 id: call.toolCallId,
                 type: "function",
                 function: {
@@ -260,8 +265,7 @@ export function buildApiMessages(
                 },
             })),
         });
-        for (const call of calls) {
-            if (call.result === undefined) continue;
+        for (const call of resolvedCalls) {
             result.push({
                 role: "tool",
                 tool_call_id: call.toolCallId,
