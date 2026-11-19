@@ -94,6 +94,103 @@ function isBinary(data: Uint8Array): boolean {
     return head.includes(0);
 }
 
+/**
+ * Serializable work handed to `pdf-worker.ts`. The worker owns pdf.js and
+ * `@napi-rs/canvas`, so a pathological PDF can be killed with
+ * `worker.terminate()` instead of blocking the API's event loop.
+ */
+export type PdfJob =
+    | {
+          mode: "extract";
+          name: string;
+          data: Uint8Array;
+          pageImageLimit: number;
+      }
+    | {
+          mode: "pages";
+          name: string;
+          data: Uint8Array;
+          spec: string;
+      };
+
+/** Run one pdf.js job in a disposable worker with a hard wall-clock limit. */
+function runPdfInWorker(job: PdfJob): Promise<ExtractedFile> {
+    return new Promise((resolve, reject) => {
+        let worker: Worker;
+        try {
+            worker = new Worker(
+                new URL("./pdf-worker.ts", import.meta.url).href,
+            );
+        } catch {
+            reject(new FileReadError("PDF 解析器启动失败", 500));
+            return;
+        }
+
+        let settled = false;
+        const finish = (callback: () => void) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            void worker.terminate();
+            callback();
+        };
+        const timer = setTimeout(() => {
+            finish(() =>
+                reject(
+                    new FileReadError(
+                        "这个 PDF 解析超时了，试试只发前几页",
+                        504,
+                    ),
+                ),
+            );
+        }, MAX_PDF_MS + 5_000);
+
+        worker.onmessage = (event: MessageEvent) => {
+            const message = event.data as
+                | { ok: true; result: ExtractedFile }
+                | {
+                      ok: false;
+                      error: {
+                          message: string;
+                          status?: number;
+                          code?: string;
+                      };
+                  };
+            if (message && message.ok) {
+                finish(() => resolve(message.result));
+                return;
+            }
+            const error = message?.error;
+            finish(() =>
+                reject(
+                    new FileReadError(
+                        error?.message || "PDF 解析失败",
+                        error?.status ?? 500,
+                        error?.code,
+                    ),
+                ),
+            );
+        };
+        worker.onerror = () => {
+            finish(() => reject(new FileReadError("PDF 解析失败", 500)));
+        };
+
+        try {
+            worker.postMessage(job, [job.data.buffer as ArrayBuffer]);
+        } catch {
+            finish(() => reject(new FileReadError("PDF 解析失败", 500)));
+        }
+    });
+}
+
+/** Worker-side entry point; never spawns another worker. */
+export async function runPdfJob(job: PdfJob): Promise<ExtractedFile> {
+    if (job.mode === "pages") {
+        return extractPdfPageImagesDirect(job.name, job.data, job.spec);
+    }
+    return extractPdf(job.name, job.data, job.pageImageLimit);
+}
+
 export async function extractUploadedFile(
     rawName: string,
     data: Uint8Array,
@@ -113,7 +210,12 @@ export async function extractUploadedFile(
         );
     }
     if (isPdfFileName(name)) {
-        return extractPdf(name, data, options.pageImageLimit ?? 0);
+        return runPdfInWorker({
+            mode: "extract",
+            name,
+            data,
+            pageImageLimit: options.pageImageLimit ?? 0,
+        });
     }
     return extractText(name, data);
 }
@@ -262,6 +364,14 @@ export async function extractPdfPageImages(
     if (!isAllowedFileSize(data.byteLength)) {
         throw new FileReadError("文件太大了，读不了", 413);
     }
+    return runPdfInWorker({ mode: "pages", name, data, spec });
+}
+
+async function extractPdfPageImagesDirect(
+    name: string,
+    data: Uint8Array,
+    spec: string,
+): Promise<ExtractedFile> {
     const doc = await openPdf(data);
     const deadline = Date.now() + MAX_PDF_MS;
     try {

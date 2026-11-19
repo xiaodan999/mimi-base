@@ -9,7 +9,14 @@
  */
 
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import {
+    type IncomingMessage,
+    request as httpRequest,
+    type RequestOptions,
+} from "node:http";
+import { request as httpsRequest } from "node:https";
+import { isIP, type LookupFunction } from "node:net";
+import { Readable } from "node:stream";
 
 export class UrlPolicyError extends Error {}
 
@@ -23,17 +30,34 @@ export function isRedirect(status: number): boolean {
     );
 }
 
-/** Refuse hostnames that are (or resolve to) private/reserved addresses. */
-export async function assertPublicHost(hostname: string): Promise<void> {
-    if (isIP(hostname) !== 0) {
-        if (isPrivateIp(hostname)) {
+export type ResolvedHost = { address: string; family: 4 | 6 };
+
+function bareHostname(hostname: string): string {
+    return hostname.startsWith("[") && hostname.endsWith("]")
+        ? hostname.slice(1, -1)
+        : hostname;
+}
+
+/**
+ * Resolve once and return the exact address the connection must use. The
+ * caller passes it to a custom `lookup`, so DNS is not resolved a second time
+ * (the TOCTOU hole behind DNS-rebinding SSRF).
+ */
+export async function resolvePublicHost(
+    hostname: string,
+): Promise<ResolvedHost> {
+    const host = bareHostname(hostname);
+    const literal = isIP(host);
+    if (literal !== 0) {
+        if (isPrivateIp(host)) {
             throw new UrlPolicyError("不能访问内网地址");
         }
-        return;
+        return { address: host, family: literal === 6 ? 6 : 4 };
     }
-    let addrs: Array<{ address: string }>;
+
+    let addrs: Array<{ address: string; family: number }>;
     try {
-        addrs = await lookup(hostname, { all: true, verbatim: true });
+        addrs = await lookup(host, { all: true, verbatim: true });
     } catch {
         throw new UrlPolicyError("解析不了这个域名");
     }
@@ -43,6 +67,16 @@ export async function assertPublicHost(hostname: string): Promise<void> {
             throw new UrlPolicyError("不能访问内网地址");
         }
     }
+    const chosen = addrs[0]!;
+    return {
+        address: chosen.address,
+        family: chosen.family === 6 ? 6 : 4,
+    };
+}
+
+/** Refuse hostnames that are (or resolve to) private/reserved addresses. */
+export async function assertPublicHost(hostname: string): Promise<void> {
+    await resolvePublicHost(hostname);
 }
 
 /** True for IPv4/IPv6 loopback, private, link-local and reserved ranges. */
@@ -80,10 +114,83 @@ export function isPrivateIp(ip: string): boolean {
         }
         // fc00::/7 unique local, fe80::/10 link local, ff00::/8 multicast
         return (
-            /^f[cd]/.test(lower) || /^fe[89ab]/.test(lower) || /^ff/.test(lower)
+            /^f[cd]/.test(lower) ||
+            /^fe[89ab]/.test(lower) ||
+            /^fe[c-f]/.test(lower) || // deprecated site-local fec0::/10
+            /^ff/.test(lower) ||
+            lower.startsWith("64:ff9b:") || // NAT64 well-known prefix
+            lower.startsWith("2002:") || // 6to4
+            lower.startsWith("2001:db8:") || // documentation
+            lower.startsWith("100:") // discard-only 100::/64
         );
     }
     return true; // not an IP literal → unsafe default
+}
+
+/**
+ * `fetch` with a pinned DNS answer. Node's HTTP client calls our `lookup`
+ * instead of resolving the hostname again, so a DNS server cannot answer the
+ * validation query with a public IP and the connection query with 127.0.0.1.
+ */
+export async function pinnedFetch(
+    input: RequestInfo | URL,
+    init?: RequestInit,
+): Promise<Response> {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new UrlPolicyError("只支持 http/https");
+    }
+
+    const { address, family } = await resolvePublicHost(url.hostname);
+    const host = bareHostname(url.hostname);
+    const isHttps = url.protocol === "https:";
+    const headers = new Headers(init?.headers);
+    const requestHeaders: Record<string, string> = {};
+    headers.forEach((value, key) => {
+        requestHeaders[key] = value;
+    });
+
+    const lookupPinned: LookupFunction = (_hostname, options, callback) => {
+        if (options && (options as { all?: boolean }).all) {
+            callback(null, [{ address, family }]);
+            return;
+        }
+        callback(null, address, family);
+    };
+
+    const options: RequestOptions = {
+        hostname: host,
+        port: url.port || undefined,
+        path: `${url.pathname}${url.search}`,
+        method: init?.method ?? "GET",
+        headers: requestHeaders,
+        lookup: lookupPinned,
+        signal: init?.signal ?? undefined,
+        ...(isHttps ? { servername: isIP(host) ? undefined : host } : {}),
+    };
+
+    const response = await new Promise<IncomingMessage>((resolve, reject) => {
+        const req = (isHttps ? httpsRequest : httpRequest)(options, resolve);
+        req.on("error", reject);
+        req.end();
+    });
+
+    const responseHeaders = new Headers();
+    for (const [key, value] of Object.entries(response.headers)) {
+        if (Array.isArray(value)) {
+            for (const item of value) responseHeaders.append(key, item);
+        } else if (value !== undefined) {
+            responseHeaders.set(key, value);
+        }
+    }
+
+    const body = Readable.toWeb(
+        response,
+    ) as unknown as ReadableStream<Uint8Array>;
+    return new Response(body, {
+        status: response.statusCode ?? 502,
+        headers: responseHeaders,
+    });
 }
 
 export type PublicFetchText = {
@@ -134,7 +241,7 @@ export async function fetchPublic(
         throw new UrlPolicyError("只支持 http/https");
     }
 
-    const fetchImpl = options.fetchImpl ?? fetch;
+    const fetchImpl = options.fetchImpl ?? pinnedFetch;
     let hops = options.maxRedirects ?? 3;
     for (;;) {
         await assertPublicHost(current.hostname);
@@ -148,6 +255,9 @@ export async function fetchPublic(
             signal: AbortSignal.timeout(options.timeoutMs),
         });
         if (isRedirect(res.status)) {
+            // The body of a redirect is never used; close it so the socket
+            // does not stay occupied until GC.
+            await res.body?.cancel().catch(() => {});
             const location = res.headers.get("location");
             if (!location || hops <= 0) {
                 throw new UrlPolicyError("重定向次数太多");
@@ -165,7 +275,10 @@ export async function fetchPublic(
             current = next;
             continue;
         }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            await res.body?.cancel().catch(() => {});
+            throw new Error(`HTTP ${res.status}`);
+        }
 
         const { bytes, truncated } = await readBodyBytes(res, options.maxBytes);
         const contentType = res.headers.get("content-type") ?? "";

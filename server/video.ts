@@ -16,6 +16,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { AuthBusyError, authGate } from "./auth-gate";
 import { BodyTooLargeError, readFormDataBody } from "./request-body";
 
 export const VIDEO_COMPRESS_PATH = "/api/video/compress";
@@ -218,18 +219,29 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
 
         let res: Response;
         try {
-            res = await fetchImpl(
-                `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
-                {
-                    method: "POST",
-                    headers: { Authorization: token },
-                    signal: AbortSignal.timeout(5_000),
-                },
+            res = await authGate(() =>
+                fetchImpl(
+                    `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: token },
+                        signal: AbortSignal.timeout(5_000),
+                    },
+                ),
             );
-        } catch {
+        } catch (error) {
             return {
                 ok: false,
-                response: json({ ok: false, error: "无法验证登录状态" }, 503),
+                response: json(
+                    {
+                        ok: false,
+                        error:
+                            error instanceof AuthBusyError
+                                ? "登录验证服务繁忙，稍后再试"
+                                : "无法验证登录状态",
+                    },
+                    503,
+                ),
             };
         }
         if (res.status === 401 || res.status === 403) {

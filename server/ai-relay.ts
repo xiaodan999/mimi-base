@@ -30,6 +30,7 @@ import {
     type AiToolsCall,
     createAiToolsService,
 } from "./ai-tools";
+import { AuthBusyError, authGate } from "./auth-gate";
 import {
     type ChatModelInfo,
     findChatModel,
@@ -181,15 +182,25 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         let res: Response;
         try {
-            res = await fetchImpl(
-                `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
-                {
-                    method: "POST",
-                    headers: { Authorization: token },
-                    signal: AbortSignal.timeout(5_000),
-                },
+            res = await authGate(() =>
+                fetchImpl(
+                    `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: token },
+                        signal: AbortSignal.timeout(5_000),
+                    },
+                ),
             );
-        } catch {
+        } catch (error) {
+            if (error instanceof AuthBusyError) {
+                return {
+                    ok: false,
+                    response: json(503, {
+                        error: { message: "登录验证服务繁忙，稍后再试" },
+                    }),
+                };
+            }
             return { ok: false, response: serviceUnavailable() };
         }
 

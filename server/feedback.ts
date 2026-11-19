@@ -54,6 +54,7 @@
  * reach the browser.
  */
 
+import { AuthBusyError, authGate } from "./auth-gate";
 import {
     BodyTooLargeError,
     readFormDataBody,
@@ -625,15 +626,23 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
 
         let res: Response;
         try {
-            res = await fetchImpl(
-                `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
-                {
-                    method: "POST",
-                    headers: { Authorization: pbToken },
-                    signal: AbortSignal.timeout(5_000),
-                },
+            res = await authGate(() =>
+                fetchImpl(
+                    `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: pbToken },
+                        signal: AbortSignal.timeout(5_000),
+                    },
+                ),
             );
-        } catch {
+        } catch (error) {
+            if (error instanceof AuthBusyError) {
+                return {
+                    ok: false,
+                    response: unavailable("登录验证服务繁忙，稍后再试"),
+                };
+            }
             return { ok: false, response: unavailable("无法验证登录状态") };
         }
         if (res.status === 401 || res.status === 403) {

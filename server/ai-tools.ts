@@ -20,8 +20,8 @@
 import { isRecordId } from "../lib/chat-files";
 import {
     assertPublicHost,
+    fetchPublic,
     isPrivateIp,
-    isRedirect,
     UrlPolicyError,
 } from "./safe-fetch";
 
@@ -578,77 +578,53 @@ export function createAiToolsService(deps: AiToolsDeps): AiToolsService {
             typeof call.body.url === "string" ? call.body.url.trim() : "";
         if (raw === "") return toolFail("缺少网址");
 
-        let current: URL;
         try {
-            current = new URL(raw);
-        } catch {
-            return toolFail("网址格式不对");
-        }
-        if (current.protocol !== "http:" && current.protocol !== "https:") {
-            return toolFail("只支持 http/https 链接");
-        }
-
-        try {
-            let hops = MAX_URL_REDIRECTS;
-            for (;;) {
-                await assertPublicHost(current.hostname);
-                const res = await fetchImpl(current.toString(), {
-                    redirect: "manual",
-                    headers: {
-                        "User-Agent": URL_USER_AGENT,
-                        Accept: "text/html, text/*;q=0.9, application/json;q=0.8, */*;q=0.5",
-                    },
-                    signal: AbortSignal.timeout(URL_TIMEOUT_MS),
-                });
-                if (isRedirect(res.status)) {
-                    const location = res.headers.get("location");
-                    if (!location || hops <= 0) {
-                        return toolFail("网页重定向次数太多");
-                    }
-                    hops -= 1;
-                    try {
-                        current = new URL(location, current);
-                    } catch {
-                        return toolFail("网页重定向的地址不对");
-                    }
-                    if (
-                        current.protocol !== "http:" &&
-                        current.protocol !== "https:"
-                    ) {
-                        return toolFail("网页重定向到了不支持的协议");
-                    }
-                    continue;
-                }
-                if (!res.ok) {
-                    return toolFail(`网页返回了 ${res.status}`);
-                }
-
-                const contentType = res.headers.get("content-type") ?? "";
-                if (!isTextContentType(contentType)) {
-                    return toolFail("这个链接不是文本内容，读不了");
-                }
-                const body = await readBodyCap(res, MAX_URL_BODY_BYTES);
-                if (/html/i.test(contentType)) {
-                    const { title, text: extracted } = htmlToText(body);
-                    return toolOk({
-                        ok: true,
-                        url: current.toString(),
-                        contentType,
-                        ...(title ? { title } : {}),
-                        text: extracted.slice(0, MAX_URL_TEXT_CHARS),
-                        truncated: extracted.length > MAX_URL_TEXT_CHARS,
-                    });
-                }
+            // `fetchPublic` resolves once, validates every address, pins the
+            // connection to the validated IP and re-checks each redirect.
+            const result = await fetchPublic(raw, {
+                maxBytes: MAX_URL_BODY_BYTES,
+                timeoutMs: URL_TIMEOUT_MS,
+                maxRedirects: MAX_URL_REDIRECTS,
+                headers: {
+                    "User-Agent": URL_USER_AGENT,
+                    Accept: "text/html, text/*;q=0.9, application/json;q=0.8, */*;q=0.5",
+                },
+                // Production must use the pinned transport; tests inject a
+                // fake fetch to exercise the policy without the network.
+                ...(deps.fetch ? { fetchImpl: deps.fetch } : {}),
+            });
+            if (
+                result.kind !== "text" ||
+                !isTextContentType(result.contentType)
+            ) {
+                return toolFail("这个链接不是文本内容，读不了");
+            }
+            if (/html/i.test(result.contentType)) {
+                const { title, text: extracted } = htmlToText(result.body);
                 return toolOk({
                     ok: true,
-                    url: current.toString(),
-                    contentType,
-                    text: body.slice(0, MAX_URL_TEXT_CHARS),
-                    truncated: body.length > MAX_URL_TEXT_CHARS,
+                    url: result.url,
+                    contentType: result.contentType,
+                    ...(title ? { title } : {}),
+                    text: extracted.slice(0, MAX_URL_TEXT_CHARS),
+                    truncated:
+                        result.truncated ||
+                        extracted.length > MAX_URL_TEXT_CHARS,
                 });
             }
+            return toolOk({
+                ok: true,
+                url: result.url,
+                contentType: result.contentType,
+                text: result.body.slice(0, MAX_URL_TEXT_CHARS),
+                truncated:
+                    result.truncated || result.body.length > MAX_URL_TEXT_CHARS,
+            });
         } catch (error) {
-            if (error instanceof Error && error.name === "TimeoutError") {
+            if (
+                error instanceof Error &&
+                (error.name === "TimeoutError" || error.name === "AbortError")
+            ) {
                 return toolFail("网页加载超时了");
             }
             if (error instanceof UrlPolicyError) return toolFail(error.message);
@@ -703,25 +679,6 @@ export function decodeEntities(input: string): string {
         .replace(/&gt;/gi, ">")
         .replace(/&quot;/gi, '"')
         .replace(/&apos;/gi, "'");
-}
-
-async function readBodyCap(res: Response, maxBytes: number): Promise<string> {
-    const reader = res.body?.getReader();
-    if (!reader) return "";
-    const decoder = new TextDecoder();
-    let bytes = 0;
-    let out = "";
-    for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        bytes += value.byteLength;
-        out += decoder.decode(value, { stream: true });
-        if (bytes >= maxBytes) {
-            void reader.cancel();
-            break;
-        }
-    }
-    return out;
 }
 
 function parseDateField(value: unknown): string | null {

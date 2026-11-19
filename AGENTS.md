@@ -510,7 +510,8 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   not the persona prompt, is the security boundary. It authenticates,
   rate-limits (30/min) and quotas (200/day), scopes rows with explicit PB
   filters (ledger/posts/comments shared on purpose; `chat_memories` owner-only
-  with PB rules as backstop), and `read_url` resolves DNS and refuses
+  with PB rules as backstop), and `read_url` resolves DNS once, pins the
+  validated address for the connection (no rebinding), and refuses
   private/reserved hosts and redirects. The system prompt says tool output is
   data, not instructions — keep that line in `app/chat/prompt.ts`. Memories
   (top 30) are injected into every run and managed in 「AI 的记忆」.
@@ -524,9 +525,13 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   chunk (JS regex engine, no wasm). Attachments upload raw to `/api/ai/files`
   and are read server-side by `server/ai-files.ts` (pdf.js with CMaps/standard
   fonts from `server/node_modules`; Chinese PDFs extract empty without them;
-  scanned pages render to JPEG for vision). The phone never loads pdf.js;
-  uploads are not persisted. Caps: 30MB, 50k chars, 20 text pages, 4 images
-  (`lib/chat-files.ts`).
+  scanned pages render to JPEG for vision). pdf.js runs in a disposable
+  `server/pdf-worker.ts` worker with a hard kill, so a pathological file
+  cannot block the API's event loop; at most 2 parse at once. The phone never
+  loads pdf.js; uploads are not persisted. Caps: 30MB, 50k chars, 20 text
+  pages, 4 images (`lib/chat-files.ts`). Every API service authenticates
+  through the shared `server/auth-gate.ts` slot (max 6 concurrent
+  `auth-refresh` calls) to blunt random-token floods.
 - Chat artifacts: text files stay in `chat_conversations.sandbox_files` and the
   part references the path; binary images come back once in `sandbox_run`
   (base64), upload to `chat_artifacts` (owner-scoped, protected, cascade), and
