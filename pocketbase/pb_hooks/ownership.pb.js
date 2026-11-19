@@ -140,6 +140,15 @@ onRecordCreateRequest((e) => {
     e.record.set("issue_state", "");
     e.record.set("issue_state_checked", "");
     e.record.set("error", "");
+    // Feature suggestions are readable by the other account. A chat id in
+    // `route`, the console ring buffer and the conversation relation are
+    // diagnostics from one person's session, not part of the suggestion.
+    if (e.record.getString("kind") === "feature") {
+        e.record.set("route", "");
+        e.record.set("user_agent", "");
+        e.record.set("console", "[]");
+        e.record.set("conversation", "");
+    }
     return e.next();
 }, "feedback_reports");
 
@@ -147,6 +156,9 @@ onRecordUpdateRequest((e) => {
     if (e.hasSuperuserAuth()) return e.next();
     const original = e.app.findRecordById("feedback_reports", e.record.id);
     e.record.set("owner", original.getString("owner"));
+    // Changing a bug into a feature would expose its diagnostics through the
+    // shared view.
+    e.record.set("kind", original.getString("kind"));
     for (const field of [
         "status",
         "issue_url",
