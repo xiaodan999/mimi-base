@@ -316,4 +316,32 @@ describe("createRealtimeEventBatcher", () => {
         batcher.flush();
         expect(seen).toEqual([]);
     });
+
+    test("ignores events delivered after dispose", () => {
+        const seen: RealtimeQueryKey[] = [];
+        const applied: string[] = [];
+        const batcher = createRealtimeEventBatcher(
+            (event) => {
+                applied.push(event.record.id as string);
+                return false;
+            },
+            (key) => seen.push(key),
+            10_000,
+        );
+        batcher.dispose();
+
+        // A listener left over from a rejected connect can still fire after
+        // logout; it must not invalidate the next account's cache.
+        batcher.add({
+            collection: "posts",
+            action: "create",
+            record: { id: "late" },
+        });
+        batcher.addKeys([qk.posts.all]);
+        batcher.flush();
+
+        expect(applied).toEqual([]);
+        expect(seen).toEqual([]);
+        expect(batcher.pendingCount()).toBe(0);
+    });
 });

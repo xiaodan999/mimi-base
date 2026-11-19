@@ -200,6 +200,7 @@ export function createRealtimeEventBatcher(
     const pending: RealtimeEvent[] = [];
     const pendingKeys = new Map<string, RealtimeQueryKey>();
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
 
     const flush = () => {
         if (timer !== null) {
@@ -232,10 +233,14 @@ export function createRealtimeEventBatcher(
 
     return {
         add(event) {
+            // A listener left behind by a failed subscription can still fire
+            // after unmount/logout; it must not refetch for the new account.
+            if (disposed) return;
             pending.push(event);
             if (timer === null) timer = setTimeout(flush, delay);
         },
         addKeys(keys) {
+            if (disposed) return;
             for (const key of keys) {
                 pendingKeys.set(queryKeyFingerprint(key), key);
             }
@@ -243,6 +248,7 @@ export function createRealtimeEventBatcher(
         },
         flush,
         dispose() {
+            disposed = true;
             if (timer !== null) clearTimeout(timer);
             timer = null;
             pending.length = 0;

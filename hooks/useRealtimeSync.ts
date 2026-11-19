@@ -33,7 +33,11 @@ export function useRealtimeSync() {
         if (status !== "authenticated" || !userId) return;
 
         let disposed = false;
-        const cleanups: Array<() => Promise<void>> = [];
+        const cleanups = new Map<string, () => Promise<void>>();
+        /** Subscriptions whose first connect failed; retried on reconnect. */
+        const failed = new Set<string>();
+        /** Subscribes that have not resolved or rejected yet. */
+        const pending = new Set<string>();
         const batcher = createRealtimeEventBatcher(
             (event) => dispatchRealtimeEvent(event),
             (key) => {
@@ -41,17 +45,14 @@ export function useRealtimeSync() {
             },
         );
 
-        const keep = (unsubscribe: () => Promise<void>) => {
-            // The listener may resolve after logout/unmount: close it then
-            // instead of leaving a subscription behind.
-            if (disposed) void unsubscribe();
-            else cleanups.push(unsubscribe);
-        };
-
-        for (const collection of REALTIME_COLLECTIONS) {
+        const subscribe = (collection: string) => {
+            pending.add(collection);
             void pb
                 .collection(collection)
                 .subscribe("*", (event) => {
+                    // A listener left behind by a rejected connection can
+                    // resolve later; never let it patch the next session.
+                    if (disposed) return;
                     const action = parseRealtimeAction(event?.action);
                     const record = event?.record;
                     if (!action || !record || typeof record !== "object") {
@@ -63,22 +64,77 @@ export function useRealtimeSync() {
                         record: record as Record<string, unknown>,
                     });
                 })
-                .then(keep)
+                .then((unsubscribe) => {
+                    pending.delete(collection);
+                    failed.delete(collection);
+                    // The listener may resolve after logout/unmount: close it
+                    // then instead of leaving a subscription behind.
+                    if (disposed) void unsubscribe();
+                    else cleanups.set(collection, unsubscribe);
+                })
                 .catch((error) => {
+                    pending.delete(collection);
+                    if (!disposed) failed.add(collection);
                     // One unreadable collection must not take the others down.
                     console.warn(
                         `Realtime subscribe failed: ${collection}`,
                         error,
                     );
                 });
-        }
+        };
+
+        for (const collection of REALTIME_COLLECTIONS) subscribe(collection);
+
+        /**
+         * The SDK reconnects an established socket by itself, but a first
+         * connect that failed (app opened offline) is never retried: every
+         * `subscribe()` rejected and no client id exists yet. Drop the
+         * listener the rejected call left in the SDK, then subscribe again.
+         */
+        const retryFailed = () => {
+            if (disposed || failed.size === 0) return;
+            const collections = [...failed];
+            failed.clear();
+            for (const collection of collections) {
+                void pb
+                    .collection(collection)
+                    .unsubscribe("*")
+                    .catch(() => {})
+                    .then(() => {
+                        if (!disposed) subscribe(collection);
+                    });
+            }
+        };
 
         // The SDK reconnects and re-subscribes by itself, but events sent
         // while the socket was down are lost; a full invalidation catches up.
         const catchUp = () => {
             batcher.addKeys(ALL_REALTIME_INVALIDATION_KEYS);
         };
-        window.addEventListener("online", catchUp);
+
+        // `PB_CONNECT` fires on the first connection and on every silent SDK
+        // reconnect (server restart, dropped stream). The first one is the
+        // page's own startup fetch, so only later ones need a catch-up.
+        let connectedOnce = false;
+        void pb.realtime
+            .subscribe("PB_CONNECT", () => {
+                if (disposed) return;
+                retryFailed();
+                if (connectedOnce) catchUp();
+                connectedOnce = true;
+            })
+            .catch(() => {
+                // The online/visibility retries re-establish the collections;
+                // an established reconnect will still fire PB_CONNECT because
+                // the SDK kept this listener.
+            });
+
+        const onOnline = () => {
+            catchUp();
+            retryFailed();
+        };
+        window.addEventListener("online", onOnline);
+        window.addEventListener("focus", retryFailed);
 
         let hiddenAt = 0;
         const onVisibility = () => {
@@ -91,15 +147,26 @@ export function useRealtimeSync() {
             if (!pb.realtime.isConnected || away >= RESUMED_AFTER_MS) {
                 catchUp();
             }
+            retryFailed();
         };
         document.addEventListener("visibilitychange", onVisibility);
 
         return () => {
             disposed = true;
-            window.removeEventListener("online", catchUp);
+            window.removeEventListener("online", onOnline);
+            window.removeEventListener("focus", retryFailed);
             document.removeEventListener("visibilitychange", onVisibility);
             batcher.dispose();
-            for (const cleanup of cleanups) void cleanup();
+            void pb.realtime.unsubscribe("PB_CONNECT").catch(() => {});
+            for (const unsubscribe of cleanups.values()) void unsubscribe();
+            // A rejected or still-pending subscribe left its listener inside
+            // the SDK; remove those topics before the next session subscribes.
+            for (const collection of new Set([...failed, ...pending])) {
+                void pb
+                    .collection(collection)
+                    .unsubscribe("*")
+                    .catch(() => {});
+            }
         };
     }, [queryClient, status, userId]);
 }
