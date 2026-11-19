@@ -9,6 +9,7 @@
 - 清理仓库：删除无引用的组件、路由、UI 原语与三个 Radix 依赖，订正部署/环境变量文档。
 - 精简 `AGENTS.md` 与更新日志规则；新增 `scripts/docs-facts.test.ts` 防止过期说法回流。
 - 移除在低配机器上偶发超时的中文 PDF 中转用例。
+- 升级 GitHub Actions 的 checkout / setup-buildx / login 动作，消除 Node.js 20 弃用告警。
 
 ### 修复
 
