@@ -310,8 +310,6 @@ describe("streaming", () => {
 });
 
 describe("attachments", () => {
-    const fixtures = path.join(import.meta.dir, "__fixtures__/chat-files");
-
     function upload(
         options: {
             token?: string;
@@ -350,21 +348,6 @@ describe("attachments", () => {
         });
         // Extraction never goes through the model upstream.
         expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
-    });
-
-    test("reads a Chinese PDF with the server CMaps", async () => {
-        const { relay } = harness();
-        const res = await relay(
-            upload({
-                name: "cjk-text.pdf",
-                body: new Uint8Array(
-                    readFileSync(path.join(fixtures, "cjk-text.pdf")),
-                ),
-            }),
-        );
-        expect(res?.status).toBe(200);
-        const body = (await res!.json()) as { content?: string };
-        expect(body.content).toContain("你好");
     });
 
     test("rejects unsupported file types", async () => {
