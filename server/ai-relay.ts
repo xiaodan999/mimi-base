@@ -472,6 +472,9 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         } catch {
             return json(400, { error: { message: "请求格式不对" } });
         }
+        if (!body || typeof body !== "object") {
+            return json(400, { error: { message: "请求格式不对" } });
+        }
         const attachmentId =
             typeof body.attachmentId === "string"
                 ? body.attachmentId.trim()

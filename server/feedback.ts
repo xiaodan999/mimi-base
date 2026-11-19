@@ -1007,6 +1007,10 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         } catch {
             return badRequest("请求内容不是合法 JSON");
         }
+        // `JSON.parse("null")` succeeds but yields null.
+        if (!body || typeof body !== "object") {
+            return badRequest("请求内容不是合法 JSON");
+        }
         if (!Array.isArray(body.reportIds)) {
             return badRequest("缺少反馈编号");
         }
@@ -1161,15 +1165,20 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             typeof conversation.data.title === "string"
                 ? conversation.data.title
                 : "";
+        // Only the newest messages are used. `sort=-seq` + a 20-row page
+        // keeps a long conversation from pulling 200 x 5 MB JSON rows and
+        // fixes the old ascending fetch, which returned the *first* page.
         const listing = await pbGet<{ items?: unknown[] }>(
-            `/api/collections/chat_messages/records?perPage=200&sort=seq&filter=${encodeURIComponent(
+            `/api/collections/chat_messages/records?perPage=${MAX_TRANSCRIPT_MESSAGES}&sort=-seq&fields=role,parts,content&filter=${encodeURIComponent(
                 `conversation = "${report.conversation.replace(/[^a-z0-9]/gi, "")}"`,
             )}`,
             pbToken,
         );
         if (!listing.ok) return { transcript: "", title };
         const messages: TranscriptMessage[] = [];
-        for (const row of listing.data.items ?? []) {
+        // Newest first from PocketBase; the transcript builder expects
+        // chronological order so the latest message wins truncation.
+        for (const row of [...(listing.data.items ?? [])].reverse()) {
             if (!row || typeof row !== "object") continue;
             const record = row as {
                 role?: unknown;
@@ -1290,6 +1299,9 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             if (raw.length > MAX_BODY_BYTES) return tooLarge();
             body = JSON.parse(raw) as { reportId?: unknown };
         } catch {
+            return badRequest("请求内容不是合法 JSON");
+        }
+        if (!body || typeof body !== "object") {
             return badRequest("请求内容不是合法 JSON");
         }
         const reportId =

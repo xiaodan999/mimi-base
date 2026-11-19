@@ -54,6 +54,11 @@ const server = Bun.serve({
     // Bun defaults to 10s. SSE can pause longer between chunks, and video
     // compression can run for minutes before the response starts.
     idleTimeout: 255,
+    // Never serve Bun's development error page (stack/cwd/source line) from
+    // the API container, and keep a hard ceiling above the largest legitimate
+    // body (50 MB video + multipart overhead).
+    development: false,
+    maxRequestBodySize: 64 * 1024 * 1024,
     async fetch(req, srv) {
         const url = new URL(req.url);
 

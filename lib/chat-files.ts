@@ -101,21 +101,35 @@ export function isAllowedFileSize(bytes: number): boolean {
  */
 export function parsePageSpec(spec: string, maxPage: number): number[] {
     const ceiling = Math.max(0, Math.min(maxPage, MAX_PDF_RENDER_PAGE));
+    if (ceiling < 1) return [];
+
+    // A crafted spec can carry hundreds of digits. Values outside the safe
+    // integer range are treated as infinity so the caller's range still
+    // clamps to the document instead of overflowing into an endless loop.
+    const parseBound = (digits: string): number => {
+        if (digits.length > 15) return Number.POSITIVE_INFINITY;
+        const value = Number(digits);
+        return Number.isSafeInteger(value) ? value : Number.POSITIVE_INFINITY;
+    };
+
     const pages = new Set<number>();
     for (const chunk of spec.split(/[,，]/)) {
         const range = chunk.trim().match(/^(\d+)\s*[-—~]\s*(\d+)$/);
         if (range) {
-            const from = Number(range[1]);
-            const to = Number(range[2]);
-            const [start, end] = from <= to ? [from, to] : [to, from];
+            const from = parseBound(range[1]);
+            const to = parseBound(range[2]);
+            const low = Math.min(from, to);
+            const high = Math.max(from, to);
+            if (high < 1 || low > ceiling) continue;
+            const start = Math.max(1, low);
+            const end = Math.min(ceiling, high);
             for (let page = start; page <= end; page++) pages.add(page);
             continue;
         }
         const single = chunk.trim().match(/^\d+$/);
-        if (single) pages.add(Number(single[0]));
+        if (!single) continue;
+        const page = parseBound(single[0]);
+        if (page >= 1 && page <= ceiling) pages.add(page);
     }
-    return [...pages]
-        .filter((page) => page >= 1 && page <= ceiling)
-        .sort((a, b) => a - b)
-        .slice(0, MAX_PAGE_IMAGES);
+    return [...pages].sort((a, b) => a - b).slice(0, MAX_PAGE_IMAGES);
 }

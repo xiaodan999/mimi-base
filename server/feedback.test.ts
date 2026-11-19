@@ -252,7 +252,14 @@ function pbHandler(options: {
             return json({ id: "conv1234567890", title: "聊天标题" });
         }
         if (url.pathname === "/api/collections/chat_messages/records") {
-            return json({ items: options.messages ?? [] });
+            const items = options.messages ?? [];
+            // Model PocketBase's `sort=-seq`: newest first.
+            return json({
+                items:
+                    url.searchParams.get("sort") === "-seq"
+                        ? [...items].reverse()
+                        : items,
+            });
         }
         if (url.pathname === "/repos/owner/repo/issues") {
             options.onGithub?.(url, init!);
@@ -808,7 +815,7 @@ describe("feedback service", () => {
             role: index % 2 === 0 ? "user" : "assistant",
             parts: [{ type: "text", text: `line-${index}` }],
         }));
-        const { service } = setup(
+        const { service, calls } = setup(
             pbHandler({
                 report: report({ conversation: "conv1234567890" }),
                 messages,
@@ -828,6 +835,15 @@ describe("feedback service", () => {
         expect(body).toContain("line-24");
         expect(body).toContain("更早的 5 条消息已省略");
         expect(body).toContain("<details>");
+
+        // Ask for only the newest page, newest first, with a projection;
+        // reading the first 200 full rows could OOM the API.
+        const listing = calls.find((call) =>
+            call.url.pathname.endsWith("/chat_messages/records"),
+        );
+        expect(listing?.url.searchParams.get("perPage")).toBe("20");
+        expect(listing?.url.searchParams.get("sort")).toBe("-seq");
+        expect(listing?.url.searchParams.get("fields")).toContain("parts");
     });
 
     test("still creates the issue when the conversation is unreadable", async () => {
@@ -1283,6 +1299,23 @@ describe("feedback issue state service", () => {
             }),
         );
         expect(res?.status).toBe(400);
+    });
+
+    test("rejects a JSON null body without crashing", async () => {
+        const { service } = setup((url) => json({}, 404));
+        for (const path of [FEEDBACK_ISSUE_STATE_PATH, FEEDBACK_REPORT_PATH]) {
+            const res = await service(
+                new Request(`http://api${path}`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: "pb-token",
+                        "content-type": "application/json",
+                    },
+                    body: "null",
+                }),
+            );
+            expect(res?.status).toBe(400);
+        }
     });
 });
 

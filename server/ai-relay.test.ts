@@ -516,5 +516,16 @@ describe("stored attachments (JSON reads)", () => {
             storedRead({ attachmentId: "../etc/passwd" }),
         );
         expect(missing?.status).toBe(400);
+        const nullBody = await relay(
+            request(AI_FILES_PATH, {
+                method: "POST",
+                headers: {
+                    Authorization: "good-token",
+                    "Content-Type": "application/json",
+                },
+                body: "null",
+            }),
+        );
+        expect(nullBody?.status).toBe(400);
     });
 });

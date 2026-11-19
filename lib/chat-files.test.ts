@@ -69,6 +69,27 @@ describe("parsePageSpec", () => {
         expect(parsePageSpec("1-30", 200)).toHaveLength(10);
         expect(parsePageSpec("1-30", 3)).toEqual([1, 2, 3]);
     });
+
+    test("clamps huge ranges before iterating", () => {
+        // A huge but finite bound used to loop for hours on Bun's event loop.
+        expect(parsePageSpec("1-999999999999999999999999", 20)).toEqual([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        ]);
+        expect(parsePageSpec("999999999999999999999999-1", 20)).toEqual([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        ]);
+        expect(parsePageSpec("1-1000000000", 20)).toHaveLength(10);
+    });
+
+    test("drops ranges outside the document and unsafe integers", () => {
+        expect(parsePageSpec("1000-2000", 20)).toEqual([]);
+        expect(parsePageSpec("0-5", 20)).toEqual([1, 2, 3, 4, 5]);
+        expect(parsePageSpec("9".repeat(400), 20)).toEqual([]);
+        // A reversed huge range still means "the whole document".
+        expect(parsePageSpec(`${"9".repeat(400)}-1`, 20)).toEqual([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        ]);
+    });
 });
 
 describe("isRecordId", () => {
