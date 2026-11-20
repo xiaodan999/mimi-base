@@ -28,6 +28,7 @@
 - 分享截图到记账保持纯图片识别：`sw.js` 的图片重定向只带 `share` id，`/jizhang` 不再接受或使用 `hint`/`text`/`title`，`AiExpenseSheet` 只解析截图本身。
 - `resolveAppSha` 增加 `VERCEL_GIT_COMMIT_SHA`，Vercel 部署的 `version.json` 与 sw.js `VERSION` 也会随提交变化；原有 `GITHUB_SHA` / `GIT_SHA` / `VITE_APP_SHA` / git 回退顺序不变。
 - Service Worker 导航只缓存一份 `/`，激活时清掉新 shell 不再引用的旧 `/assets/` 分块和按路由缓存的 HTML，离线缓存不再随每次部署增长；离线安装读不到新 shell 时保留旧缓存。
+- `AGENTS.md` 的浏览器调试说明改为用 `?dev=test` 登录：截图/探测脚本直接打开目标页并断言没有落在 `/login`，同时写明该参数只在 dev server 和带开发账号的 preview 构建里存在。
 
 ## 2026-11-19
 

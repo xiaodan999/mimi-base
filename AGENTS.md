@@ -107,6 +107,19 @@ preview plus backends ~120MB; the cost is one build per change (no hot reload).
 
 ### Driving the browser
 
+Sign in through the URL, not the form: open the first protected route with
+`?dev=test` (or `?dev=test2`) and let the auth gate log in, then wait for the
+param to be stripped. Any protected route works; this saves scripting the
+login form or clicking the 「开发账号」 card.
+
+```js
+await page.goto(`${base}/home?dev=test`, { waitUntil: "networkidle" });
+if (page.url().includes("/login")) throw new Error("dev sign-in failed");
+```
+
+It works on the dev server and on `preview`; `DEV_BUILD=0` and production
+builds fold it out, hence the explicit assert instead of assuming success.
+
 Drive `playwright-core` directly; there is no screenshot script. It ships no
 browsers, so pass `executablePath` for a system Chromium plus `--no-sandbox`
 and `--disable-dev-shm-usage`. Never `bun add -d playwright`: its bundled
