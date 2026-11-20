@@ -121,6 +121,9 @@ self.addEventListener("activate", (event) => {
                 }
                 await caches.delete(name);
             }
+            // Migration is conservative (a slow link should not re-download
+            // everything), so drop what the new shell can never ask for.
+            await pruneShellCache(cache);
             // Unclaimed share stashes expire; do not delete the whole cache,
             // an update can land while the user is signing in between the
             // share redirect and the page reading it.
@@ -131,6 +134,49 @@ self.addEventListener("activate", (event) => {
         })(),
     );
 });
+
+/**
+ * Drop entries the current build cannot use: hashed chunks from an older
+ * build, and per-route copies of the app shell (every navigation falls back
+ * to "/"). Without this the cache kept one copy of every chunk and every
+ * visited route, per deploy, forever.
+ */
+async function pruneShellCache(cache) {
+    const shell = await cache.match("/");
+    // Offline install: keep whatever the previous worker cached.
+    if (!shell) return;
+    let html = "";
+    try {
+        html = await shell.clone().text();
+    } catch {
+        return;
+    }
+    const live = new Set(
+        [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map(
+            (match) => match[1],
+        ),
+    );
+    // Unexpected shell shape: keeping stale files is safer than deleting the
+    // one the app still needs.
+    if (live.size === 0) return;
+
+    for (const request of await cache.keys()) {
+        const url = new URL(request.url);
+        if (url.origin !== self.location.origin) continue;
+        if (url.pathname.startsWith("/assets/")) {
+            if (!live.has(url.pathname)) {
+                await cache.delete(request).catch(() => {});
+            }
+            continue;
+        }
+        if (url.pathname === "/") continue;
+        const response = await cache.match(request);
+        const type = response?.headers.get("content-type") ?? "";
+        if (type.includes("text/html")) {
+            await cache.delete(request).catch(() => {});
+        }
+    }
+}
 
 // A new worker waits until the page asks it to take over, so an open tab is
 // never handed new code without a chance to reload.
@@ -272,7 +318,10 @@ async function networkFirst(event, request, fallbackUrl) {
         (fallbackUrl ? await cache.match(fallbackUrl) : undefined);
     const network = fetch(request).then(async (response) => {
         if (response.ok) {
-            await cache.put(request, response.clone()).catch(() => {});
+            // Every navigation answers with the same app shell. Store one copy
+            // under "/" instead of one per visited route.
+            const key = request.mode === "navigate" ? "/" : request;
+            await cache.put(key, response.clone()).catch(() => {});
         }
         return response;
     });

@@ -209,6 +209,28 @@ describe("createAuthStore", () => {
         h.store.dispose();
     });
 
+    test("a login that settles after the timeout is not reported as failed", async () => {
+        const h = harness({
+            // The credential is stored, but the profile read outlives the
+            // bounded login. The user is signed in either way.
+            fetchUser: () =>
+                new Promise<User>((resolve) =>
+                    setTimeout(() => resolve(makeUser("user-1")), 50),
+                ),
+            loginTimeoutMs: 10,
+        });
+
+        const result = await h.store.login({
+            email: EMAIL,
+            password: PASSWORD,
+        });
+
+        expect(result.error).toBeNull();
+        expect(h.client.isValid()).toBe(true);
+        expect((await h.store.waitForAuth()).status).toBe("authenticated");
+        h.store.dispose();
+    });
+
     test("logout clears the credential and the file token", async () => {
         const h = harness();
         await h.store.login({ email: EMAIL, password: PASSWORD });

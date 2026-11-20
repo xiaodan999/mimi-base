@@ -6,7 +6,11 @@
 
 ### 修复
 
+- 登录成功后的跳转改为 replace，登录页不再留在历史里；登录页读取 `status`，另一个标签页登录后当前页也会自动进入目标页面。`lib/redirect.ts` 在解析后拒绝 `//` 开头的路径（`/..//evil.com`、`/.//evil.com`、`/%2e%2e//evil.com`、`/\evil.example`）。
+- 登录请求超时但凭证已经落地时按成功处理，不再在会话已建立的情况下报「登录超时」；文件令牌请求记住发起时的用户 id，`clearFileToken()` 同时作废在途请求，切换账号后不会沿用上一个账号的令牌。
 - 首页点赞/评论不再失效整个 `qk.posts.all`（会重取所有已加载分页）。`app/feed/realtime.ts` 就地更新 `PostData.metrics`/`liked`，每个受影响的帖子只做一次 400ms 防抖的计数 `getOne`；点赞失败只回滚该帖，不再恢复整片缓存快照。
+- 首页动态的缓存 key 不再只取第一个过滤条件：`postFilterKey` 拆到 `app/feed/filter.ts` 并编码 `post` + `month` + `q`，`/home?month=2026-11&q=x` 不会复用只有月份的缓存。
+- 返回手势只对后退生效：`lib/useBackDismiss.ts` 在历史状态里记录当前条目的位置，前进到旧条目不再关闭当前弹窗，嵌套弹窗仍逐层关闭。
 - 受保护文件 URL 里的 3 分钟令牌过期后，已渲染的 `<img>` 会 404；`lib/protected-image.ts` 在首次加载失败时换新令牌重试一次（每个图片地址一次），并在加载成功后清除重试标记。
 - AI 缓存/中断台账是设备级 localStorage，可能把 A 的周报、计划、刷题建议或 prompt 留给 B；三个进度相关 key 加上用户 id，`app/ai/reset.ts` 在退出/切换账号时清缓存、台账和记账草稿，`AiProvider` 按用户 id 重挂载。
 - 聊天可以只发图片/文件：composer 的发送按钮改成自定义处理器，空文本但有外部附件时直接调用 `sendWithAttachments`；附件读取/图片处理中发送按钮禁用，不再静默丢附件；空会话 starter 也走同一个包装。
@@ -15,6 +19,8 @@
 ### 变更
 
 - 分享截图到记账保持纯图片识别：`sw.js` 的图片重定向只带 `share` id，`/jizhang` 不再接受或使用 `hint`/`text`/`title`，`AiExpenseSheet` 只解析截图本身。
+- `resolveAppSha` 增加 `VERCEL_GIT_COMMIT_SHA`，Vercel 部署的 `version.json` 与 sw.js `VERSION` 也会随提交变化；原有 `GITHUB_SHA` / `GIT_SHA` / `VITE_APP_SHA` / git 回退顺序不变。
+- Service Worker 导航只缓存一份 `/`，激活时清掉新 shell 不再引用的旧 `/assets/` 分块和按路由缓存的 HTML，离线缓存不再随每次部署增长；离线安装读不到新 shell 时保留旧缓存。
 
 ## 2026-11-19
 

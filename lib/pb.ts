@@ -14,6 +14,11 @@ pb.autoCancellation(false);
 let fileToken = "";
 let fileTokenExpiresAt = 0;
 let pendingFileToken: Promise<string> | null = null;
+// Identifies the token request that may still publish. Bumped by
+// `clearFileToken` (logout / account switch) and by every new request, so a
+// slow answer can never overwrite a newer one.
+let fileTokenRequest = 0;
+let fileTokenUser = "";
 
 function jwtExpiry(token: string): number {
     try {
@@ -41,18 +46,29 @@ export async function ensureFileToken(force = false): Promise<string> {
         return fileToken;
     }
     if (!pendingFileToken) {
+        const request = ++fileTokenRequest;
+        // Remember who asked: a token minted for the previous account must not
+        // be cached for the next one (the file URLs would 404).
+        fileTokenUser = pb.authStore.record?.id ?? "";
         pendingFileToken = pb.files
             .getToken()
             .then((token) => {
-                // The request may resolve after a logout; don't keep it then.
-                if (!pb.authStore.isValid) return "";
+                // The request may resolve after a logout or an account switch;
+                // don't keep it then.
+                if (
+                    request !== fileTokenRequest ||
+                    !pb.authStore.isValid ||
+                    (pb.authStore.record?.id ?? "") !== fileTokenUser
+                ) {
+                    return "";
+                }
                 fileToken = token;
                 fileTokenExpiresAt = jwtExpiry(token);
                 return token;
             })
-            .catch(() => fileToken)
+            .catch(() => (request === fileTokenRequest ? fileToken : ""))
             .finally(() => {
-                pendingFileToken = null;
+                if (request === fileTokenRequest) pendingFileToken = null;
             });
     }
     return pendingFileToken;
@@ -61,6 +77,11 @@ export async function ensureFileToken(force = false): Promise<string> {
 export function clearFileToken() {
     fileToken = "";
     fileTokenExpiresAt = 0;
+    fileTokenUser = "";
+    // Abandon the request in flight: whoever asked after this clear starts a
+    // fresh one instead of joining a token for the session being closed.
+    fileTokenRequest += 1;
+    pendingFileToken = null;
 }
 
 export function getFileToken() {

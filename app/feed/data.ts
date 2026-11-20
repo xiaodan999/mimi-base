@@ -17,6 +17,7 @@ import {
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
+import { type PostFilter, postFilterKey } from "./filter";
 import { applyLikeToggle, revertOptimisticLike } from "./like";
 import { patchPostInPages, type PostsData, type PostsPage } from "./pages";
 import { groupPostMonths, type PostMediaFields } from "./utils";
@@ -25,23 +26,8 @@ import { groupPostMonths, type PostMediaFields } from "./utils";
 // components importing from `./-data` don't need to change.
 export type { PostData, PostImage, PostLayout } from "@/lib/pb-types";
 export type { PostsPage } from "./pages";
-
-export type PostFilter = {
-    /** "YYYY-MM" — show only that month. */
-    month?: string;
-    /** Case-insensitive text search over the post body. */
-    q?: string;
-    /** Show only this post (deep link from the interaction inbox). */
-    post?: string;
-};
-
-/** Stable cache-key suffix for a feed filter. */
-export function postFilterKey(filter: PostFilter = {}) {
-    if (filter.post) return `post:${filter.post}`;
-    if (filter.month) return `month:${filter.month}`;
-    if (filter.q) return `q:${filter.q}`;
-    return "latest";
-}
+export type { PostFilter } from "./filter";
+export { postFilterKey } from "./filter";
 
 function buildFilter({ month, q, post }: PostFilter) {
     const clauses: string[] = [];

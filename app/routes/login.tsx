@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -83,8 +83,11 @@ export const Route = createFileRoute("/login")({
 function Login() {
     const navigate = useNavigate();
     const search = Route.useSearch();
-    const { login } = useAuth();
+    const { status, login } = useAuth();
     const [devPending, setDevPending] = useState<string | null>(null);
+    // Both the form and the cross-tab watcher can reach the target; only the
+    // first one navigates.
+    const leaving = useRef(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: formResolver,
@@ -93,12 +96,35 @@ function Login() {
 
     const busy = form.formState.isSubmitting || devPending !== null;
 
+    const leaveForTarget = useCallback(async () => {
+        if (leaving.current) return;
+        leaving.current = true;
+        try {
+            // Replace, not push: Back after signing in must leave the login
+            // page behind instead of bouncing through it.
+            await navigate({
+                href: loginTarget(search.redirect),
+                replace: true,
+            });
+        } catch {
+            // A cancelled navigation keeps the form usable.
+            leaving.current = false;
+        }
+    }, [navigate, search.redirect]);
+
+    // PocketBase mirrors the credential through localStorage, so a sign-in in
+    // another tab makes this store publish `authenticated` too. Leave the form
+    // instead of showing it to an account that is already signed in.
+    useEffect(() => {
+        if (status === "authenticated") void leaveForTarget();
+    }, [status, leaveForTarget]);
+
     async function onSubmit(values: z.infer<typeof formSchema>) {
         const { error } = await login(values);
         if (!error) {
             // `login` waits for the profile fetch, so the guard on the target
             // route already sees the authenticated state.
-            await navigate({ href: loginTarget(search.redirect) });
+            await leaveForTarget();
             return;
         }
         form.setError("password", {
@@ -119,10 +145,7 @@ function Login() {
                 toast.error(error.message);
                 return;
             }
-            await navigate({
-                href: loginTarget(search.redirect),
-                replace: true,
-            });
+            await leaveForTarget();
         } finally {
             setDevPending(null);
         }

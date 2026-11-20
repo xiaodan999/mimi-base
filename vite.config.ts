@@ -15,15 +15,17 @@ const require = createRequire(import.meta.url);
 const pkg = require("./package.json") as { version: string };
 
 /**
- * Full commit sha this bundle was built from. CI exports GITHUB_SHA; local
- * builds fall back to `git rev-parse HEAD`. It is written verbatim into
- * `build/version.json` so the post-deploy check can assert the *new* bundle is
- * the one being served.
+ * Full commit sha this bundle was built from. GitHub Actions exports
+ * GITHUB_SHA, Vercel exports VERCEL_GIT_COMMIT_SHA (their checkout is not
+ * always a usable git repository), and local builds fall back to
+ * `git rev-parse HEAD`. It is written verbatim into `build/version.json` so
+ * the post-deploy check can assert the *new* bundle is the one being served.
  */
 function resolveAppSha(): string {
     const fromEnv =
         process.env.GITHUB_SHA ||
         process.env.GIT_SHA ||
+        process.env.VERCEL_GIT_COMMIT_SHA ||
         process.env.VITE_APP_SHA;
     if (fromEnv) return fromEnv.trim();
     try {

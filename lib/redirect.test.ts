@@ -32,6 +32,27 @@ describe("toInternalHref", () => {
         expect(toInternalHref(null, ORIGIN)).toBeNull();
         expect(toInternalHref(undefined, ORIGIN)).toBeNull();
     });
+
+    test("rejects dot segments that normalize into a network path", () => {
+        // These input strings start with a single slash, but URL parsing
+        // collapses the dot segments and leaves a protocol-relative path.
+        expect(toInternalHref("/..//evil.com", ORIGIN)).toBeNull();
+        expect(toInternalHref("/.//evil.com", ORIGIN)).toBeNull();
+        expect(toInternalHref("/%2e%2e//evil.com", ORIGIN)).toBeNull();
+        expect(toInternalHref("/\\evil.example", ORIGIN)).toBeNull();
+        expect(toLoginTarget("/..//evil.com", ORIGIN)).toBe(
+            DEFAULT_LOGIN_TARGET,
+        );
+    });
+
+    test("still keeps normal in-app paths that begin with a dot", () => {
+        expect(toInternalHref("/.well-known", ORIGIN)).toBe("/.well-known");
+        // Only the parsed path is judged; the same text inside a query value
+        // stays a value.
+        expect(toInternalHref("/home?next=/..//evil.com", ORIGIN)).toBe(
+            "/home?next=/..//evil.com",
+        );
+    });
 });
 
 describe("hrefWithoutDev", () => {

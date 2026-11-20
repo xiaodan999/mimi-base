@@ -14,6 +14,11 @@ export function toInternalHref(
     try {
         const url = new URL(value, origin);
         if (url.origin !== origin) return null;
+        // Path normalization can turn a single leading slash into two:
+        // `/..//evil.com` and `/.//evil.com` both parse to `//evil.com`, and
+        // a network-path reference like that leaves the site when it is used
+        // as a location. The check above only sees the raw input.
+        if (url.pathname.startsWith("//")) return null;
         return `${url.pathname}${url.search}${url.hash}`;
     } catch {
         return null;

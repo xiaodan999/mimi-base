@@ -2,6 +2,12 @@ import { useEffect, useRef } from "react";
 
 /** History state flag for the sentinel entry pushed while an overlay is open. */
 const HISTORY_MARKER = "__mimiOverlay";
+/**
+ * History state position used to tell a back traversal from a forward one.
+ * Both the entry we leave and the sentinel carry it; a pop that lands on a
+ * higher value went forward.
+ */
+const HISTORY_DEPTH = "__mimiOverlayDepth";
 
 type Entry = {
     dismiss: () => void;
@@ -12,23 +18,49 @@ const stack: Entry[] = [];
 let listening = false;
 /** Set while `history.back()` runs from a UI close, not a back gesture. */
 let ignoreNextPop = false;
+/** Position of the history entry the browser is currently on. */
+let currentDepth = 0;
+/** Last position handed to a sentinel; only ever incremented. */
+let nextDepth = 0;
 
 const hasMarker = (state: unknown) =>
     Boolean((state as Record<string, unknown> | null)?.[HISTORY_MARKER]);
 
+const readDepth = (state: unknown) => {
+    const value = (state as Record<string, unknown> | null)?.[HISTORY_DEPTH];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+};
+
 function pushSentinel() {
+    const state = window.history.state ?? {};
+    // Record where the entry we are leaving sits, so the pop back into it is
+    // recognisable as a back traversal later.
+    window.history.replaceState(
+        { ...state, [HISTORY_DEPTH]: currentDepth },
+        "",
+    );
+    currentDepth = ++nextDepth;
     window.history.pushState(
-        { ...(window.history.state ?? {}), [HISTORY_MARKER]: true },
+        { ...state, [HISTORY_MARKER]: true, [HISTORY_DEPTH]: currentDepth },
         "",
     );
 }
 
-function handlePopState() {
+function handlePopState(event: PopStateEvent) {
+    // Entries we never stamped read as 0, which is always "behind" a sentinel.
+    const next = readDepth(event.state);
+    const forward = next > currentDepth;
+    currentDepth = next;
+
     // We popped the sentinel ourselves after a UI close; not a back gesture.
     if (ignoreNextPop) {
         ignoreNextPop = false;
         return;
     }
+
+    // A forward traversal returns to an entry we already left. Its overlay is
+    // gone, so it must not close whatever is open now.
+    if (forward) return;
 
     const top = stack[stack.length - 1];
     if (!top) return;
@@ -63,7 +95,8 @@ function ensureListener() {
  * gesture lands on the same page and popstate closes the overlay instead.
  *
  * Overlays form a stack: back closes the topmost one only, and nested sheets
- * (an AI panel over a drawer, settings over a panel) unwind one at a time.
+ * (an AI panel over a drawer, settings over a panel) unwind one at a time. A
+ * forward navigation does nothing here: only a back traversal dismisses.
  *
  * @param open whether the overlay is currently visible
  * @param onDismiss called to close it; keep the callback stable or not, the

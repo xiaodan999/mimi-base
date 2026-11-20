@@ -132,7 +132,9 @@ export function createAuthStore(deps: AuthStoreDeps): AuthStore {
         const signedIn = snapshot.status === "authenticated";
         if (signedIn && heartbeat === null) {
             heartbeat = timers.setInterval(() => {
-                void fileTokens.ensure(true);
+                // A failed refresh must not surface as an unhandled rejection;
+                // the next tick retries. File URLs just keep the old token.
+                void fileTokens.ensure(true).catch(() => undefined);
             }, fileTokenRefreshMs);
         } else if (!signedIn && heartbeat !== null) {
             timers.clearInterval(heartbeat);
@@ -230,6 +232,11 @@ export function createAuthStore(deps: AuthStoreDeps): AuthStore {
                 ? { error: null }
                 : { error: { message: PROFILE_FAILED_MESSAGE } };
         } catch (error) {
+            // The timeout only bounds how long the form waits. If the
+            // credential landed meanwhile, the session is real: the route
+            // guard awaits the profile read, so reporting "登录超时" here
+            // would send the user back to a form they already passed.
+            if (client.isValid()) return { error: null };
             return { error: error as { message: string } };
         }
     };
