@@ -193,7 +193,7 @@ docker compose ps
 wget -qO- http://mimi-pb:8090/api/health`）。
 - 静态页面 404：确认 `build/` 在镜像里（`docker run --rm --entrypoint ls
 <image> /app/build`），以及 Caddy 兜底指向 `mimi-app:9001`。
-- AI 503：`.env.app` 里 `OPENCODE_API_KEY` 为空；改完 `docker compose up -d`
+- AI 503：`.env.app` 里 `AI_API_KEY` 为空；改完 `docker compose up -d`
   重建容器（`restart` 不会重读 env_file）。
 - 沙箱 503：`mimi-app` 启动时 QuickJS 加载失败，看日志里的 `[sandbox]`。
 
@@ -205,10 +205,11 @@ wget -qO- http://mimi-pb:8090/api/health`）。
 | ---------------------------------------- | ------------------------------------------ |
 | `PB_URL`                                 | `http://mimi-pb:8090`（不能带 `/db`）      |
 | `PORT`                                   | 容器内监听端口，默认 9001                  |
-| `OPENCODE_API_KEY`                       | 站点 AI key；空则 AI 返回 503              |
-| `OPENCODE_MODEL`                         | 旧接口强制模型，默认 `deepseek-v4.1-flash` |
-| `OPENCODE_CHAT_MODELS`                   | 可选，聊天模型白名单                       |
-| `OPENCODE_CHAT_MODEL_DEFAULT`            | 可选，默认聊天模型                         |
+| `AI_API_KEY`                             | 站点 AI key；空则 AI 返回 503              |
+| `AI_API_URL`                             | 可选，上游基础地址，默认 OpenCode Go       |
+| `AI_MODEL`                               | 旧接口强制模型，默认 `deepseek-v4.1-flash` |
+| `AI_CHAT_MODELS`                         | 可选，聊天模型白名单                       |
+| `AI_CHAT_MODEL_DEFAULT`                  | 可选，默认聊天模型                         |
 | `AI_DAILY_REQUESTS_PER_USER`             | 每用户每日 AI 请求上限，`0` 不限           |
 | `GITHUB_TOKEN` / `GITHUB_REPO`           | 反馈 → GitHub issue                        |
 | `SUPERUSER_EMAIL` / `SUPERUSER_PASSWORD` | 功能建议状态写回；也是 dashboard 账号      |

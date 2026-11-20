@@ -3,7 +3,8 @@
  *
  * Mounted on the Bun API's HTTP server (see main.ts). The browser never
  * sees an API key: it authenticates with its PocketBase token, and this module
- * forwards the OpenAI-compatible request to opencode.ai with the server key.
+ * forwards the OpenAI-compatible request to the configured upstream (OpenCode
+ * Go by default) with the server key.
  * Unlike the old JSVM hook, the upstream body is piped back as a
  * ReadableStream, so SSE reaches the client token by token.
  *
@@ -50,7 +51,7 @@ export const AI_HEALTH_PATH = "/api/ai/health";
 /** Chat location feature: caller IP -> city estimate (see geo-ip.ts). */
 export const AI_GEO_IP_PATH = "/api/ai/geo/ip";
 
-const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
+const DEFAULT_API_URL = "https://opencode.ai/zen/go/v1";
 /**
  * Data-URL page images in the history and in read_attachment bursts are the
  * payload driver; 4MB 413-ed long PDF chats. Tool results and attachments
@@ -112,6 +113,11 @@ export type AiRelayDeps = {
     /** Injectable for tests. */
     fetch?: typeof fetch;
     now?: () => number;
+    /**
+     * OpenAI-compatible API base, before `/chat/completions`. Defaults to
+     * OpenCode Go; set `AI_API_URL` to point it elsewhere (see config.ts).
+     */
+    apiUrl?: string;
 };
 
 type AuthOk = { ok: true; uid: string; token: string };
@@ -133,6 +139,7 @@ export type AiRelay = (
 export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const fetchImpl = deps.fetch ?? fetch;
     const now = deps.now ?? Date.now;
+    const apiUrl = (deps.apiUrl?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
     let geoLookup: IpCityLookup | null = null;
     const chatModels =
         deps.chatModels && deps.chatModels.length > 0
@@ -543,7 +550,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         let upstream: Response;
         try {
-            upstream = await fetchImpl(UPSTREAM_URL, {
+            upstream = await fetchImpl(`${apiUrl}/chat/completions`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

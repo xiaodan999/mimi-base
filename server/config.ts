@@ -35,10 +35,12 @@ export const config = {
         text("STATIC_DIR", path.join(import.meta.dir, "../build")),
     ),
     ai: {
-        apiKey: text("OPENCODE_API_KEY"),
-        model: text("OPENCODE_MODEL", "deepseek-v4.1-flash"),
-        chatModels: text("OPENCODE_CHAT_MODELS"),
-        defaultChatModel: text("OPENCODE_CHAT_MODEL_DEFAULT"),
+        apiKey: text("AI_API_KEY"),
+        /** Optional OpenAI-compatible base; defaults to OpenCode Go. */
+        apiUrl: text("AI_API_URL"),
+        model: text("AI_MODEL", "deepseek-v4.1-flash"),
+        chatModels: text("AI_CHAT_MODELS"),
+        defaultChatModel: text("AI_CHAT_MODEL_DEFAULT"),
         dailyLimit: integer("AI_DAILY_REQUESTS_PER_USER", 100),
     },
     feedback: {

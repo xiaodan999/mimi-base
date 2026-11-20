@@ -166,6 +166,26 @@ describe("request forwarding", () => {
         expect(authHeader(upstream.init)).toBe("Bearer server-key");
     });
 
+    test("uses a custom API base when configured", async () => {
+        const { relay, calls } = harness({
+            apiUrl: "http://127.0.0.1:4000/v1/",
+        });
+        expect((await relay(chatRequest()))?.status).toBe(200);
+        expect(
+            calls.some(
+                (call) =>
+                    call.url === "http://127.0.0.1:4000/v1/chat/completions",
+            ),
+        ).toBe(true);
+        expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
+    });
+
+    test("blank API base keeps the OpenCode default", async () => {
+        const { relay, calls } = harness({ apiUrl: "  " });
+        await relay(chatRequest());
+        expect(calls.some((call) => call.url === UPSTREAM)).toBe(true);
+    });
+
     test("forces the server model and clamps max_tokens", async () => {
         const { relay, calls } = harness();
         await relay(

@@ -154,6 +154,23 @@ MIMI_DEV_LOWMEM=1
 `dev:all` 的峰值内存会从约 1.9GB 降到约 1.5GB，代价是首次打开页面慢
 一成左右（想自己定线程数就设 `RAYON_NUM_THREADS`，它优先）。
 
+不想花 AI 额度时，可以起一个本地模拟器：
+
+```bash
+bunx emulate --service ai
+```
+
+然后在 `.env` 里把 AI 指过去（模拟器不校验 Key，填什么都行）：
+
+```dotenv
+AI_API_KEY=test
+AI_API_URL=http://127.0.0.1:4000/v1
+```
+
+`AI_API_URL` 是上游基础地址，中转会自己拼 `/chat/completions`；不设时仍用
+OpenCode Go。换成别的 OpenAI 兼容服务商时，改 `AI_API_KEY`、`AI_API_URL`
+和 `AI_MODEL` 即可。
+
 分开启动时，`bun run dev:frontend` 默认代理到 8090（PocketBase）和 9001（API）；
 后端换了端口就加 `PB_PORT=8091 API_PORT=9002 bun run dev:frontend`。
 
@@ -260,13 +277,13 @@ VITE_POCKETBASE_URL=https://pb.example.com
 也接受）。不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载
 时会直接抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
 
-**AI 由站点统一提供**：服务器在 `.env.app` 里配置 `OPENCODE_API_KEY`（开发
-时放 `.env`），浏览器只带登录令牌访问 `/api/ai` 中转，不需要也不能填自己的 Key。
+**AI 由站点统一提供**：服务器在 `.env.app` 里配置 `AI_API_KEY`（开发时放
+`.env`），浏览器只带登录令牌访问 `/api/ai` 中转，不需要也不能填自己的 Key。
 反向代理必须把 `/api/*` 转发到 `mimi-app:9001` 并关闭响应缓冲（Caddy
 `flush_interval -1`），否则流式输出会退化成一次性返回。
 
 **聊天**：底部的「聊天」标签是通用 AI 对话。可选模型由服务端白名单决定
-（`OPENCODE_CHAT_MODELS`，见 `docker/README.md`），客户端传其它模型 id
+（`AI_CHAT_MODELS`，见 `docker/README.md`），客户端传其它模型 id
 会被拒绝；聊天记录保存在 PocketBase 的 `chat_*` 集合里，只有本人能读写。
 AI 的 `sandbox_*` 工具在服务器的 QuickJS 沙箱里运行 JavaScript（标准库，
 没有 Node/npm），不读写宿主机文件、不直接联网；`sandbox.fetch` /

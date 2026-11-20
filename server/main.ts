@@ -21,6 +21,7 @@ await sandbox.ensure();
 const aiRelay = createAiRelay({
     pbBaseUrl: config.pbUrl,
     apiKey: config.ai.apiKey,
+    apiUrl: config.ai.apiUrl,
     model: config.ai.model,
     chatModels: resolveChatModels(config.ai.chatModels),
     defaultChatModel: config.ai.defaultChatModel || undefined,

@@ -329,7 +329,7 @@ export function NewChatSheet({
                     {models.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
                             站点还没有配置可用的聊天模型，请联系管理员配置
-                            OPENCODE_CHAT_MODELS。
+                            AI_CHAT_MODELS。
                         </p>
                     ) : (
                         <div className="space-y-1.5">

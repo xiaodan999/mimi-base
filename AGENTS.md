@@ -451,14 +451,19 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   503 keeps the original text and the 反馈 form still submits.
   **The site owns the only key; there is no BYOK path.** The Bun API mounts
   `ai-relay.ts` at `/api/ai/opencode/v1/chat/completions` (legacy path, forces
-  `OPENCODE_MODEL`) and `POST /api/ai/chat/completions` + `GET /api/ai/models`
+  the configured model) and `POST /api/ai/chat/completions` + `GET /api/ai/models`
   for chat: the model must be in the server allowlist
-  (`chat-models.ts`, narrowed by `OPENCODE_CHAT_MODELS`), unknown ids get 400,
+  (`chat-models.ts`, narrowed by `AI_CHAT_MODELS`), unknown ids get 400,
   text-only models lose `tools`, non-vision models reject images, and
   `reasoning_effort` is checked against `thinkingLevels`. Keys and quotas
-  (`OPENCODE_API_KEY`, `OPENCODE_MODEL`, `AI_DAILY_REQUESTS_PER_USER`) come
-  from `.env.app` (dev: `.env`) and never reach the browser, PocketBase or
-  logs. Only notification/budget prefs live in `localStorage` (`mimi:ai:v1`);
+  (`AI_API_KEY`, `AI_API_URL`, `AI_MODEL`, `AI_CHAT_MODELS`,
+  `AI_CHAT_MODEL_DEFAULT`, `AI_DAILY_REQUESTS_PER_USER`) come from `.env.app`
+  (dev: `.env`) and never reach the browser, PocketBase or logs.
+  `AI_API_URL` is an optional OpenAI-compatible base (the relay appends
+  `/chat/completions`); for local no-cost tests run
+  `bunx emulate --service ai`, set it to `http://127.0.0.1:4000/v1`, and use
+  any `AI_API_KEY`. Only notification/budget prefs live in
+  `localStorage` (`mimi:ai:v1`);
   old saved API keys are scrubbed on load. Generated content is cached under
   `mimi:ai-cache:v1:*`; keys derived from progress include the user id, and
   `app/ai/reset.ts` clears the cache + interrupted ledger on logout/account

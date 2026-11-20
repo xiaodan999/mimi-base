@@ -4,6 +4,10 @@
 
 ## 2026-11-20
 
+### 新增
+
+- AI 配置改用通用的 `AI_*` 变量：`AI_API_URL` 切换上游基础地址（中转自己拼 `/chat/completions`，默认 OpenCode Go），`AI_API_KEY` / `AI_MODEL` / `AI_CHAT_MODELS` / `AI_CHAT_MODEL_DEFAULT` 分别对应 Key、模型和聊天白名单。本地不花钱调试时跑 `bunx emulate --service ai`，再把地址指到 `http://127.0.0.1:4000/v1`、`AI_API_KEY` 填 `test`。
+
 ### 修复
 
 - 反馈「重新同步」提示成功却仍显示「待同步」，再点还会重复创建 GitHub Issue：`feedback_reports` 的状态写回此前用调用者的 PocketBase token，`ownership.pb.js` 会把 `status` / `issue_*` 从旧行还原（PATCH 仍返回 200），现在改用 superuser token，并补了回归用例。
