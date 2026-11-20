@@ -228,7 +228,7 @@ function Page() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
+        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8 lg:pt-8">
             {/* 个人资料 is a bottom-nav tab root: no back arrow, same as the
                 other tab roots. The nav bar is the way back. */}
             <PageHeader title="个人资料" description="头像、昵称和基地设置" />

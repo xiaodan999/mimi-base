@@ -159,7 +159,7 @@ export function ConversationList({
 
     return (
         <>
-            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3">
+            <div className="mx-auto w-full max-w-2xl px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 lg:pt-8">
                 <PageHeader
                     title="聊天"
                     stackedDescription
@@ -288,7 +288,7 @@ export function ConversationList({
                 )}
             </div>
 
-            <div className="mx-auto w-full max-w-md space-y-2 px-3 pb-24">
+            <div className="mx-auto w-full max-w-2xl space-y-2 px-3 pb-24">
                 {loading && conversations.length === 0 && (
                     <>
                         <Skeleton className="h-16 w-full rounded-2xl" />

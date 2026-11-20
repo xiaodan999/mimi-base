@@ -80,7 +80,7 @@ function Page() {
     }).format(now);
 
     return (
-        <div className="pt-[calc(1rem+env(safe-area-inset-top))]">
+        <div className="mx-auto w-full max-w-2xl pt-[calc(1rem+env(safe-area-inset-top))] lg:pt-8">
             <section className="mx-4 rounded-3xl border border-border/60 bg-card p-4 shadow-soft">
                 <div className="flex items-center gap-2">
                     <Link

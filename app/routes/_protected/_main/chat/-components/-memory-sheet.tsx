@@ -52,7 +52,7 @@ export function MemorySheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="bottom"
-                className="flex max-h-[70dvh] flex-col gap-2 px-4 pb-6"
+                className="mx-auto flex max-h-[70dvh] w-full max-w-xl flex-col gap-2 px-4 pb-6"
             >
                 <SheetHeader className="shrink-0 text-left">
                     <SheetTitle className="flex items-center gap-1.5">

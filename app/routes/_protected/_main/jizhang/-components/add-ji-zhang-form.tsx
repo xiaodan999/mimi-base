@@ -69,7 +69,7 @@ export default function AddJiZhangForm() {
     return (
         <Drawer open={open} onOpenChange={setOpen}>
             <DrawerTrigger asChild>{TriggerButton}</DrawerTrigger>
-            <DrawerContent className="kb-max-h overflow-y-auto">
+            <DrawerContent className="kb-max-h mx-auto w-full max-w-xl overflow-y-auto">
                 <DrawerHeader className="text-left">
                     <DrawerTitle>开始记账</DrawerTitle>
                     <DrawerDescription>请如实交代吧</DrawerDescription>

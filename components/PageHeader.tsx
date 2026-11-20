@@ -45,7 +45,10 @@ export default function PageHeader({
         <header
             className={cn(
                 "flex items-start",
-                compact ? "gap-1" : "gap-2",
+                // `compact` is the in-thread chat bar. Its back button used to
+                // sit 4px from the title, which read as one cramped cluster on
+                // a desktop screen; keep a clear gap at every width.
+                compact ? "gap-2.5" : "gap-2",
                 className,
             )}
         >

@@ -101,114 +101,123 @@ export function ChatHeader({
 
     return (
         <>
-            <div className="border-b border-border/70 bg-background/95 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-1.5 backdrop-blur-xl">
-                <PageHeader
-                    compact
-                    backTo="/chat"
-                    backLabel="返回对话列表"
-                    title={conversation.title}
-                    description={`${
-                        conversation.personaName || DEFAULT_PERSONA_NAME
-                    }${running ? " · 正在回复" : ""}`}
-                    actions={
-                        <>
-                            <ModelPicker
-                                models={models}
-                                value={conversation.model}
-                                thinking={thinking}
-                                onChange={onChangeModel}
-                                onThinkingChange={onChangeThinking}
-                                disabled={running}
-                            />
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 shrink-0 rounded-lg text-muted-foreground"
-                                        aria-label="对话操作"
-                                    >
-                                        <MoreHorizontal className="size-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                            void toastPromise(onTogglePin(), {
-                                                loading: "处理中…",
-                                                success: conversation.pinned
-                                                    ? "已取消置顶"
-                                                    : "已置顶",
-                                                error: "操作失败",
-                                            }).catch(() => {});
-                                        }}
-                                    >
-                                        {conversation.pinned ? (
-                                            <PinOff className="mr-2 size-4" />
-                                        ) : (
-                                            <Pin className="mr-2 size-4" />
-                                        )}
-                                        {conversation.pinned
-                                            ? "取消置顶"
-                                            : "置顶"}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={onExport}
-                                    >
-                                        <Download className="mr-2 size-4" />
-                                        导出 Markdown
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={onReportProblem}
-                                    >
-                                        <Bug className="mr-2 size-4" />
-                                        反馈问题
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="cursor-pointer"
-                                        onClick={() => {
-                                            setTitleDraft(conversation.title);
-                                            setRenameOpen(true);
-                                        }}
-                                    >
-                                        <Pencil className="mr-2 size-4" />
-                                        重命名
-                                    </DropdownMenuItem>
-                                    {sandboxCount > 0 && (
+            <div className="border-b border-border/70 bg-background/95 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-1.5 backdrop-blur-xl lg:pt-6">
+                <div className="mx-auto w-full max-w-3xl">
+                    <PageHeader
+                        compact
+                        backTo="/chat"
+                        backLabel="返回对话列表"
+                        title={conversation.title}
+                        description={`${
+                            conversation.personaName || DEFAULT_PERSONA_NAME
+                        }${running ? " · 正在回复" : ""}`}
+                        actions={
+                            <>
+                                <ModelPicker
+                                    models={models}
+                                    value={conversation.model}
+                                    thinking={thinking}
+                                    onChange={onChangeModel}
+                                    onThinkingChange={onChangeThinking}
+                                    disabled={running}
+                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="size-8 shrink-0 rounded-lg text-muted-foreground"
+                                            aria-label="对话操作"
+                                        >
+                                            <MoreHorizontal className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
                                         <DropdownMenuItem
                                             className="cursor-pointer"
                                             onClick={() => {
                                                 void toastPromise(
-                                                    onClearSandbox(),
+                                                    onTogglePin(),
                                                     {
-                                                        loading: "清理中…",
+                                                        loading: "处理中…",
                                                         success:
-                                                            "沙箱文件已清空",
-                                                        error: "清理失败",
+                                                            conversation.pinned
+                                                                ? "已取消置顶"
+                                                                : "已置顶",
+                                                        error: "操作失败",
                                                     },
                                                 ).catch(() => {});
                                             }}
                                         >
-                                            <X className="mr-2 size-4" />
-                                            清空沙箱（{sandboxCount} 个文件）
+                                            {conversation.pinned ? (
+                                                <PinOff className="mr-2 size-4" />
+                                            ) : (
+                                                <Pin className="mr-2 size-4" />
+                                            )}
+                                            {conversation.pinned
+                                                ? "取消置顶"
+                                                : "置顶"}
                                         </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                        onClick={() => setDeleteOpen(true)}
-                                    >
-                                        <Trash2 className="mr-2 size-4" />
-                                        删除对话
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </>
-                    }
-                />
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={onExport}
+                                        >
+                                            <Download className="mr-2 size-4" />
+                                            导出 Markdown
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={onReportProblem}
+                                        >
+                                            <Bug className="mr-2 size-4" />
+                                            反馈问题
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={() => {
+                                                setTitleDraft(
+                                                    conversation.title,
+                                                );
+                                                setRenameOpen(true);
+                                            }}
+                                        >
+                                            <Pencil className="mr-2 size-4" />
+                                            重命名
+                                        </DropdownMenuItem>
+                                        {sandboxCount > 0 && (
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                    void toastPromise(
+                                                        onClearSandbox(),
+                                                        {
+                                                            loading: "清理中…",
+                                                            success:
+                                                                "沙箱文件已清空",
+                                                            error: "清理失败",
+                                                        },
+                                                    ).catch(() => {});
+                                                }}
+                                            >
+                                                <X className="mr-2 size-4" />
+                                                清空沙箱（{sandboxCount}{" "}
+                                                个文件）
+                                            </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                            onClick={() => setDeleteOpen(true)}
+                                        >
+                                            <Trash2 className="mr-2 size-4" />
+                                            删除对话
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </>
+                        }
+                    />
+                </div>
             </div>
 
             <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

@@ -24,6 +24,7 @@
 
 ### 变更
 
+- 桌面端改用左侧导航栏：底部标签在 `lg` 以上收起，动态/聊天/记账/学习/年度报告收进居中内容列；聊天标题与返回键留出间距，评论、查找、新对话等底部面板在大屏居中显示（#104）。
 - 聊天附件改在设备上读取：PDF 用懒加载的 pdf.js 渲染成页面图片，文本文件在本机解码；移除服务端的 pdf.js / `@napi-rs/canvas` 与 `/api/ai/files`，根依赖里的 pdf.js 也不再下载原生 canvas，`bun test` 不再加载这两个包。
 - 分享截图到记账保持纯图片识别：`sw.js` 的图片重定向只带 `share` id，`/jizhang` 不再接受或使用 `hint`/`text`/`title`，`AiExpenseSheet` 只解析截图本身。
 - `resolveAppSha` 增加 `VERCEL_GIT_COMMIT_SHA`，Vercel 部署的 `version.json` 与 sw.js `VERSION` 也会随提交变化；原有 `GITHUB_SHA` / `GIT_SHA` / `VITE_APP_SHA` / git 回退顺序不变。

@@ -253,7 +253,7 @@ function UserMessage() {
     return (
         <MessagePrimitive.Root className="group/message mb-5 flex flex-col items-end">
             <ComposerPrimitive.If editing>
-                <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-xs">
+                <div className="w-[88%] rounded-3xl rounded-br-lg border border-primary/40 bg-card px-3 py-2 shadow-xs lg:w-[75%]">
                     <ComposerPrimitive.Input asChild submitMode="none">
                         <textarea
                             rows={3}
@@ -287,7 +287,7 @@ function UserMessage() {
                 </div>
             </ComposerPrimitive.If>
             <ComposerPrimitive.If editing={false}>
-                <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-xs">
+                <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-primary-foreground shadow-xs lg:max-w-[75%]">
                     <MessagePrimitive.Parts
                         components={{
                             Text: UserText,
@@ -773,12 +773,14 @@ export function ChatThread({
                                         onSend={sendWithAttachments}
                                     />
                                 ) : (
-                                    <ThreadPrimitive.Messages
-                                        components={{
-                                            UserMessage,
-                                            AssistantMessage,
-                                        }}
-                                    />
+                                    <div className="mx-auto w-full max-w-3xl">
+                                        <ThreadPrimitive.Messages
+                                            components={{
+                                                UserMessage,
+                                                AssistantMessage,
+                                            }}
+                                        />
+                                    </div>
                                 )}
                             </ThreadPrimitive.Viewport>
                             {showScrollDown && (
@@ -867,7 +869,10 @@ export function ChatThread({
                             if (!open) setRetryTarget(null);
                         }}
                     >
-                        <SheetContent side="bottom" className="px-4 pb-6">
+                        <SheetContent
+                            side="bottom"
+                            className="mx-auto w-full max-w-md px-4 pb-6"
+                        >
                             <SheetHeader className="pb-1 text-left">
                                 <SheetTitle>换个模型重新生成</SheetTitle>
                             </SheetHeader>

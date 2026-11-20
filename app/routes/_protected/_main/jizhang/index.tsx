@@ -122,7 +122,7 @@ function Page() {
     }, [navigate, search.share]);
 
     return (
-        <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8 lg:pt-8">
             <PageHeader
                 title="记账基地"
                 description="两个人的共享账本"

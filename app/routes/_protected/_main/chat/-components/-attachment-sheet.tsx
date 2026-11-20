@@ -66,7 +66,10 @@ export function AttachmentSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="px-4 pb-6">
+            <SheetContent
+                side="bottom"
+                className="mx-auto w-full max-w-xl px-4 pb-6"
+            >
                 <SheetHeader className="pb-1 text-left">
                     <SheetTitle>添加附件</SheetTitle>
                 </SheetHeader>

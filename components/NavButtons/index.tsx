@@ -26,6 +26,81 @@ const routes: NavRoute[] = [
     { name: "我的", path: "/profile", icon: UserRound },
 ];
 
+function isActive(pathname: string, route: NavRoute): boolean {
+    return route.exact
+        ? pathname === route.path
+        : pathname === route.path || pathname.startsWith(`${route.path}/`);
+}
+
+/**
+ * Desktop shell rail. The bottom tabs are a phone pattern; on a wide screen
+ * they stretched into five huge targets, so `lg` moves the same destinations
+ * into a persistent sidebar and leaves the content to scroll beside it.
+ */
+export function DesktopNav() {
+    const { pathname } = useLocation();
+
+    return (
+        <aside className="hidden w-60 shrink-0 flex-col border-r border-border/70 bg-card/40 lg:flex">
+            <Link
+                to="/home"
+                aria-label="秘密基地首页"
+                className="flex items-center gap-2.5 border-b border-border/60 px-5 py-5"
+            >
+                <img
+                    src="/images/logo-transparent.png"
+                    alt=""
+                    width={36}
+                    height={36}
+                    loading="lazy"
+                    className="size-9 shrink-0"
+                />
+                <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">
+                        秘密基地
+                    </span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                        两个人的小窝
+                    </span>
+                </span>
+            </Link>
+            <nav
+                aria-label="主导航"
+                className="flex flex-1 flex-col gap-1 overflow-y-auto p-3"
+            >
+                {routes.map((route) => {
+                    const { name, path, icon: Icon } = route;
+                    const active = isActive(pathname, route);
+
+                    return (
+                        <Link
+                            key={path}
+                            to={path}
+                            aria-current={active ? "page" : undefined}
+                            className={cn(
+                                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                                active
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                            )}
+                        >
+                            <Icon
+                                className="size-[18px]"
+                                strokeWidth={active ? 2.4 : 2}
+                                aria-hidden="true"
+                            />
+                            {name}
+                        </Link>
+                    );
+                })}
+            </nav>
+            <p className="border-t border-border/60 px-5 py-4 text-[11px] leading-4 text-muted-foreground">
+                记录生活的小窝
+            </p>
+        </aside>
+    );
+}
+
 /**
  * Warm the other tabs once per app session instead of waiting for the tap.
  * `defaultPreload: "intent"` only starts a route's chunk on touchstart, so the
@@ -149,12 +224,11 @@ export default function NavButtons() {
     return (
         <nav
             aria-label="主导航"
-            className="z-30 flex items-stretch gap-0.5 border-t border-border/70 bg-background/85 pr-[calc(0.375rem+env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[calc(0.375rem+env(safe-area-inset-left))] backdrop-blur-xl"
+            className="z-30 flex items-stretch gap-0.5 border-t border-border/70 bg-background/85 pr-[calc(0.375rem+env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[calc(0.375rem+env(safe-area-inset-left))] backdrop-blur-xl lg:hidden"
         >
-            {routes.map(({ name, path, icon: Icon, exact }) => {
-                const active = exact
-                    ? pathname === path
-                    : pathname === path || pathname.startsWith(`${path}/`);
+            {routes.map((route) => {
+                const { name, path, icon: Icon } = route;
+                const active = isActive(pathname, route);
 
                 return (
                     <Link

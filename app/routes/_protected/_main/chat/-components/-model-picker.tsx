@@ -61,7 +61,10 @@ export function ModelPicker({
                     }${thinking ? `，${THINKING_LABELS[thinking] ?? thinking}` : ""}`}
                 >
                     <Sparkles className="size-3.5 shrink-0" />
-                    <span className="truncate">
+                    {/* A phone bar has no room for the full allowlist label;
+                        the title is more important. The dropdown and the
+                        accessible name keep the model discoverable. */}
+                    <span className="hidden truncate sm:inline">
                         {current?.label ?? "无可用模型"}
                     </span>
                     {thinking && (

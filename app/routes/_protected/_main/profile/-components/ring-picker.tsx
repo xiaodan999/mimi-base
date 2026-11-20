@@ -217,7 +217,7 @@ export default function RingPicker({
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="max-h-[88dvh]">
+            <DrawerContent className="mx-auto max-h-[88dvh] w-full max-w-xl">
                 <DrawerHeader>
                     <DrawerTitle>选择头像框</DrawerTitle>
                     <DrawerDescription>

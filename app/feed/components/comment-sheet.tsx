@@ -407,7 +407,7 @@ export default function CommentSheet({
         <>
             <Drawer open={open} onOpenChange={onOpenChange}>
                 <DrawerContent
-                    className="kb-max-h h-[80dvh]"
+                    className="kb-max-h mx-auto h-[80dvh] w-full max-w-2xl"
                     // vaul turns off text selection on fine pointers so that
                     // dragging the sheet never selects text. That also broke
                     // selecting comment text on a PC; this sheet is read-heavy,

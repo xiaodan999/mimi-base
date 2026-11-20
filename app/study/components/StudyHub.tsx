@@ -15,14 +15,14 @@ export default function StudyHub() {
 
     return (
         <div className="study-root">
-            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))]">
+            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] lg:max-w-2xl lg:pt-8">
                 <PageHeader
                     title="学习基地"
                     description="所有科目都在这里，进度会跟着账号走。"
                 />
             </div>
 
-            <div className="study-body mx-auto w-full max-w-md">
+            <div className="study-body mx-auto w-full max-w-md lg:max-w-2xl">
                 <div className="hub-grid">
                     {SUBJECT_META.map((subject) => {
                         const progress = summaries?.[subject.id];
@@ -112,17 +112,19 @@ export default function StudyHub() {
                             </Link>
                         );
                     })}
-                </div>
 
-                <div className="st-card mt-4">
-                    <div className="text-[13px] font-extrabold">
-                        ➕ 以后加科目
-                    </div>
-                    <div className="st-tiny mt-1">
-                        在 app/study/meta.ts 加一份元数据、在 loadSubject
-                        里补一个 动态
-                        import，这里就会自动多一张卡片，题库、知识卡、模拟考、
-                        错题本全部通用。
+                    {/* Inside the grid so the note fills the second desktop
+                        column instead of leaving an empty cell above it. */}
+                    <div className="st-card">
+                        <div className="text-[13px] font-extrabold">
+                            ➕ 以后加科目
+                        </div>
+                        <div className="st-tiny mt-1">
+                            在 app/study/meta.ts 加一份元数据、在 loadSubject
+                            里补一个 动态
+                            import，这里就会自动多一张卡片，题库、知识卡、模拟考、
+                            错题本全部通用。
+                        </div>
                     </div>
                 </div>
             </div>

@@ -80,7 +80,7 @@ function Page() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-28">
+        <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-28 lg:pt-8">
             <PageHeader
                 backTo="/home"
                 backLabel="返回首页"

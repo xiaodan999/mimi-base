@@ -390,51 +390,56 @@ export default function HomeFeed() {
                 left-aligned day dividers, so a date chip can never cover a
                 button. z-30 keeps them above the sticky date rows (z-10)
                 and the filter bar (z-20); the day rows are also
-                pointer-events-none so they cannot swallow taps. */}
-            <div className="fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-center gap-2">
-                {showBackToTop && (
+                pointer-events-none so they cannot swallow taps. The fixed
+                row uses the feed's column: `lg:left-60` skips the desktop
+                rail instead of hugging the viewport edge. */}
+            <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex w-full max-w-2xl justify-end pr-[calc(1rem+env(safe-area-inset-right))] lg:bottom-8 lg:left-60">
+                <div className="pointer-events-auto flex flex-col items-center gap-2">
+                    {showBackToTop && (
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            className="size-11 rounded-full border border-border/60 shadow-soft"
+                            onClick={scrollToTop}
+                            aria-label="回到顶部"
+                        >
+                            <ArrowUp className="size-5" />
+                        </Button>
+                    )}
+                    {/* Phones refresh with the pull gesture; a mouse needs a
+                        visible target, so only hover-capable devices show
+                        this. */}
                     <Button
                         variant="secondary"
                         size="icon"
-                        className="size-11 rounded-full border border-border/60 shadow-soft"
-                        onClick={scrollToTop}
-                        aria-label="回到顶部"
+                        className="hidden size-11 rounded-full border border-border/60 shadow-soft [@media(hover:hover)]:inline-flex"
+                        onClick={() => void refreshFeed()}
+                        disabled={refreshingFeed}
+                        aria-label="刷新动态"
                     >
-                        <ArrowUp className="size-5" />
+                        {refreshingFeed ? (
+                            <LoadingSpinner size={18} />
+                        ) : (
+                            <RotateCw className="size-5" />
+                        )}
                     </Button>
-                )}
-                {/* Phones refresh with the pull gesture; a mouse needs a
-                    visible target, so only hover-capable devices show this. */}
-                <Button
-                    variant="secondary"
-                    size="icon"
-                    className="hidden size-11 rounded-full border border-border/60 shadow-soft [@media(hover:hover)]:inline-flex"
-                    onClick={() => void refreshFeed()}
-                    disabled={refreshingFeed}
-                    aria-label="刷新动态"
-                >
-                    {refreshingFeed ? (
-                        <LoadingSpinner size={18} />
-                    ) : (
-                        <RotateCw className="size-5" />
-                    )}
-                </Button>
-                <Button
-                    variant="secondary"
-                    size="icon"
-                    className="size-12 rounded-full border border-border/60 shadow-soft"
-                    onClick={() => setFindOpen(true)}
-                    aria-label="查找动态"
-                >
-                    <Search className="size-5" />
-                </Button>
-                <Button
-                    className="size-14 rounded-full p-0"
-                    onClick={() => setComposer({ mode: "new" })}
-                    aria-label="发布动态"
-                >
-                    <Pencil className="size-[50%]" />
-                </Button>
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-12 rounded-full border border-border/60 shadow-soft"
+                        onClick={() => setFindOpen(true)}
+                        aria-label="查找动态"
+                    >
+                        <Search className="size-5" />
+                    </Button>
+                    <Button
+                        className="size-14 rounded-full p-0"
+                        onClick={() => setComposer({ mode: "new" })}
+                        aria-label="发布动态"
+                    >
+                        <Pencil className="size-[50%]" />
+                    </Button>
+                </div>
             </div>
 
             <FindSheet

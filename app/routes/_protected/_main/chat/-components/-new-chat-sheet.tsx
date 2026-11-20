@@ -159,7 +159,7 @@ export function NewChatSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="bottom"
-                className="max-h-[90dvh] overflow-y-auto rounded-t-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]"
+                className="mx-auto max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]"
             >
                 <SheetHeader>
                     <SheetTitle>新对话</SheetTitle>

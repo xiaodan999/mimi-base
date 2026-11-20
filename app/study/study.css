@@ -305,6 +305,14 @@
     gap: 12px;
 }
 
+/* The desktop column is wide enough for the subject card and the "future
+   subjects" note to sit side by side instead of stacking in a phone strip. */
+@media (min-width: 1024px) {
+    .hub-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 .hub-card {
     position: relative;
     display: block;

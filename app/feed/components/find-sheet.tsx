@@ -57,7 +57,7 @@ export default function FindSheet({
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="kb-max-h h-[85dvh]">
+            <DrawerContent className="kb-max-h mx-auto h-[85dvh] w-full max-w-2xl">
                 <DrawerHeader className="border-b pb-3 text-center">
                     <DrawerTitle className="text-base">查找动态</DrawerTitle>
                     <DrawerDescription>

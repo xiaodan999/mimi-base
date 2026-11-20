@@ -33,7 +33,7 @@ export default function StudyShell({
 
     return (
         <div className="study-root study-shell">
-            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-1">
+            <div className="mx-auto w-full max-w-md px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-1 lg:max-w-2xl lg:pt-8">
                 <PageHeader
                     backTo="/study"
                     backLabel="返回学习基地"
@@ -64,7 +64,7 @@ export default function StudyShell({
                 />
             </div>
 
-            <nav className="study-tabs mx-auto mt-2 w-full max-w-md">
+            <nav className="study-tabs mx-auto mt-2 w-full max-w-md lg:max-w-2xl">
                 {TABS.map((tab) => {
                     const active =
                         tab.key === "home"
@@ -99,7 +99,7 @@ export default function StudyShell({
                 })}
             </nav>
 
-            <div className="study-body mx-auto w-full max-w-md">
+            <div className="study-body mx-auto w-full max-w-md lg:max-w-2xl">
                 <div key={pathname} className="section-enter">
                     {children}
                 </div>

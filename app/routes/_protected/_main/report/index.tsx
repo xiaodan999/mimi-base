@@ -36,7 +36,7 @@ function Page() {
     const study = useMemo(() => buildStudyReport(summaries), [summaries]);
 
     return (
-        <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10">
+        <div className="mx-auto w-full max-w-4xl px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-10 lg:pt-8">
             <PageHeader
                 backTo="/home"
                 backLabel="返回首页"

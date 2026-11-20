@@ -139,7 +139,7 @@ function Page() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-4xl overflow-x-clip px-0 pt-[calc(1rem+env(safe-area-inset-top))] pb-28">
+        <div className="mx-auto w-full max-w-4xl overflow-x-clip px-0 pt-[calc(1rem+env(safe-area-inset-top))] pb-28 lg:pt-8">
             <div className="px-4">
                 <PageHeader
                     backTo="/home"
