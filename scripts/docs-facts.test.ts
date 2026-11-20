@@ -29,12 +29,33 @@ const CURRENT_FILES = [
 /** Names from the retired deploy workflow and env layout. */
 const REMOVED = ["x-spa-sha", "deploy-db", "deploy-spa", ".env.prod"];
 
+/** Phrases that described the retired server-side PDF parser. */
+const REMOVED_SERVER_PDF = [
+    "`server/package.json`：PDF 解析",
+    "PDF 附件、ffmpeg",
+];
+
 describe("docs facts", () => {
     test("current docs do not mention removed deploy machinery", () => {
         const hits = CURRENT_FILES.flatMap((file) =>
             REMOVED.filter((needle) => read(file).includes(needle)).map(
                 (needle) => `${file}: ${needle}`,
             ),
+        );
+        expect(hits).toEqual([]);
+    });
+
+    test("the PDF parser stays client-side", () => {
+        const pkg = JSON.parse(read("server/package.json")) as {
+            dependencies: Record<string, string>;
+        };
+        expect(Object.keys(pkg.dependencies)).not.toContain("pdfjs-dist");
+        expect(Object.keys(pkg.dependencies)).not.toContain("@napi-rs/canvas");
+
+        const hits = CURRENT_FILES.flatMap((file) =>
+            REMOVED_SERVER_PDF.filter((needle) =>
+                read(file).includes(needle),
+            ).map((needle) => `${file}: ${needle}`),
         );
         expect(hits).toEqual([]);
     });

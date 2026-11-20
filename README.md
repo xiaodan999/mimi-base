@@ -29,8 +29,8 @@
     bun run install:server
     ```
 
-    `install:server` 只装服务端自己的依赖（`server/package.json`：PDF 解析、
-    ip2region、QuickJS 沙箱），和前端构建分开；不跑也能启动，只是聊天里的
+    `install:server` 只装服务端自己的依赖（`server/package.json`：ip2region、
+    QuickJS 沙箱），和前端构建分开；不跑也能启动，只是聊天里的
     文件附件和沙箱工具会不可用。
 
     建议再运行一次 `bun run setup:hooks`，这样每次提交前会自动

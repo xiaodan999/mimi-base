@@ -13,7 +13,8 @@
 
 - `mimi-pb`：PocketBase 0.40.6，启动时先 `migrate up` 再 `serve`，数据在
   `./pocketbase/pb_data`（宿主机目录直接 bind mount）。
-- `mimi-app`：Bun API、静态 SPA、QuickJS 沙箱；PDF 附件、ffmpeg、AI 中转都在这里。
+- `mimi-app`：Bun API、静态 SPA、QuickJS 沙箱、ffmpeg、AI 中转；PDF 在浏览器里
+  渲染，这里只提供 `build/pdfjs/` 的静态资源。
 - 两个容器都只加入外部网络 `caddy-net`，**不发布任何端口**。Caddy 按容器名反代。
 - 镜像来自腾讯云容器镜像服务香港（`hkccr.ccs.tencentyun.com/<namespace>/mimi-base-app`、
   `.../mimi-base-pb`），由 Watchtower 更新；不再使用 `/db/sync`、`/spa/publish`、
