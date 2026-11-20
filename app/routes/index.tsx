@@ -12,7 +12,7 @@ function Home() {
             <h1 className="text-center text-3xl font-semibold">秘密基地</h1>
             <img
                 className="mx-auto flex size-80"
-                src="/images/logo512.png"
+                src="/images/logo-transparent.png"
                 title="秘密基地"
                 alt="秘密基地的图标"
             />
