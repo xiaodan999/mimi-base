@@ -2,6 +2,17 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-20
+
+### 修复
+
+- 首页点赞/评论不再失效整个 `qk.posts.all`（会重取所有已加载分页）。`app/feed/realtime.ts` 就地更新 `PostData.metrics`/`liked`，每个受影响的帖子只做一次 400ms 防抖的计数 `getOne`；点赞失败只回滚该帖，不再恢复整片缓存快照。
+- 受保护文件 URL 里的 3 分钟令牌过期后，已渲染的 `<img>` 会 404；`lib/protected-image.ts` 在首次加载失败时换新令牌重试一次（每个图片地址一次），并在加载成功后清除重试标记。
+- AI 缓存/中断台账是设备级 localStorage，可能把 A 的周报、计划、刷题建议或 prompt 留给 B；三个进度相关 key 加上用户 id，`app/ai/reset.ts` 在退出/切换账号时清缓存、台账和记账草稿，`AiProvider` 按用户 id 重挂载。
+- 聊天可以只发图片/文件：composer 的发送按钮改成自定义处理器，空文本但有外部附件时直接调用 `sendWithAttachments`；附件读取/图片处理中发送按钮禁用，不再静默丢附件；空会话 starter 也走同一个包装。
+- 离线时 chunk 加载失败不再触发整页刷新（只会丢状态并再次失败）；`reloadOnce` 先检查 `navigator.onLine`，`NavButtons` 的空闲预热也跳过离线。
+- 分享截图到记账时，`sw.js` 已带上的 `text`/`title` 现在会作为 AI 识别提示（`hint` 优先），不再只读图片。
+
 ## 2026-11-19
 
 ### 变更

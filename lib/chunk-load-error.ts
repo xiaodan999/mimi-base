@@ -27,15 +27,28 @@ export function isChunkLoadError(error: unknown): boolean {
     return CHUNK_ERROR_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+/** Whether a reload can actually recover (online) and is not rate-limited. */
+export function shouldReload(
+    now: number,
+    lastReload: number,
+    online: boolean,
+): boolean {
+    return online && now - lastReload >= RELOAD_WINDOW_MS;
+}
+
 /**
- * Reloads the page to recover from a chunk load error. Returns false when a
- * reload already happened within the last minute (or storage is unavailable),
- * so the caller can show the error instead of reloading forever.
+ * Reloads the page to recover from a chunk load error. Returns false when the
+ * browser is offline (a reload would just lose state and fail again), a reload
+ * already happened within the last minute, or storage is unavailable, so the
+ * caller can show the error instead of reloading forever.
  */
 export function reloadOnce(): boolean {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        return false;
+    }
     try {
         const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
-        if (Date.now() - last < RELOAD_WINDOW_MS) return false;
+        if (!shouldReload(Date.now(), last, true)) return false;
         sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
     } catch {
         return false;

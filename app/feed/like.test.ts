@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { PostData } from "@/lib/pb-types";
 
-import { applyLikeToggle } from "./like";
+import { applyLikeToggle, revertOptimisticLike } from "./like";
 
 function makePost(liked: boolean, likeCount: number): PostData {
     return {
@@ -61,5 +61,16 @@ describe("applyLikeToggle", () => {
         applyLikeToggle(post, true);
         expect(post.liked).toBe(false);
         expect(post.metrics.likeCount).toBe(2);
+    });
+
+    test("revert only undoes the toggle this mutation applied", () => {
+        const optimistic = applyLikeToggle(makePost(false, 2), true);
+        const reverted = revertOptimisticLike(optimistic, true);
+        expect(reverted.liked).toBe(false);
+        expect(reverted.metrics.likeCount).toBe(2);
+
+        // The cache already moved on (e.g. a realtime unlike); leave it.
+        const moved = makePost(false, 1);
+        expect(revertOptimisticLike(moved, true)).toBe(moved);
     });
 });

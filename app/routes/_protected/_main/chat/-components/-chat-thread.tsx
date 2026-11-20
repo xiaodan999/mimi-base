@@ -770,7 +770,7 @@ export function ChatThread({
                                     <ThreadEmpty
                                         personaName={personaName}
                                         starters={starters}
-                                        onSend={onSend}
+                                        onSend={sendWithAttachments}
                                     />
                                 ) : (
                                     <ThreadPrimitive.Messages
@@ -816,6 +816,9 @@ export function ChatThread({
                             onOpenAttach={() => setAttachOpen(true)}
                             onRemoveImage={removeImage}
                             onRemoveDoc={removeDoc}
+                            onSendAttachmentsOnly={() => {
+                                void sendWithAttachments([]);
+                            }}
                             onStop={onStop}
                         />
                     </div>

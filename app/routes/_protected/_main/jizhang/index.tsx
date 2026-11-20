@@ -47,7 +47,13 @@ import {
     type TrendPoint,
 } from "./-summary";
 
-type JiZhangSearch = { share?: string; hint?: string };
+type JiZhangSearch = {
+    share?: string;
+    hint?: string;
+    /** Share-target caption (the worker forwards text/title for an image). */
+    text?: string;
+    title?: string;
+};
 
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
     validateSearch: (search: Record<string, unknown>): JiZhangSearch => ({
@@ -56,6 +62,14 @@ export const Route = createFileRoute("/_protected/_main/jizhang/")({
         hint:
             typeof search.hint === "string"
                 ? search.hint.slice(0, 200)
+                : undefined,
+        text:
+            typeof search.text === "string"
+                ? search.text.slice(0, 200)
+                : undefined,
+        title:
+            typeof search.title === "string"
+                ? search.title.slice(0, 200)
                 : undefined,
     }),
     // Warm the opening range before the page commits. With
@@ -109,7 +123,12 @@ function Page() {
         const id = search.share;
         if (!id || handledShareRef.current === id) return;
         handledShareRef.current = id;
-        const hint = search.hint ?? "";
+        // The system share sheet may include a caption with the screenshot;
+        // sw.js forwards it as `text` (and sometimes `title`).
+        const hint = (search.hint ?? search.text ?? search.title ?? "").slice(
+            0,
+            200,
+        );
         void navigate({
             to: "/jizhang",
             search: {},
@@ -124,7 +143,7 @@ function Page() {
             setSharedReceipt(file);
             setAiEntryOpen(true);
         });
-    }, [navigate, search.hint, search.share]);
+    }, [navigate, search.hint, search.share, search.text, search.title]);
 
     return (
         <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">

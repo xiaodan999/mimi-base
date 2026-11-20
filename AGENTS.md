@@ -306,7 +306,9 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `posts.videos`) store filenames, not URLs. Build URLs with `getFileUrl` /
   `getUserAvatarUrl` / `getUserCircleUrl`, which append the short-lived token;
   never call `pb.files.getURL` for them (an `<img>` cannot send the auth header,
-  so a tokenless URL 404s). Feedback attachments are **not** PB files: the row
+  so a tokenless URL 404s). URL tokens expire after ~3 minutes; a rendered
+  `<img>` keeps its original src, so `lib/protected-image.ts` retries once with
+  a fresh token on error. Feedback attachments are **not** PB files: the row
   stores `{ name, url, size, type }` metadata pointing at GitHub release assets.
 - Feedback flow for both kinds: upload attachments
   (`POST /api/feedback/upload`, max 3 × 10MB) to the `feedback-assets` GitHub
@@ -349,7 +351,10 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
 - `author_id` / `user_id` relations have no DB default — always send them.
 - `posts.like_count` / `comment_count` are denormalized and maintained by
   `pocketbase/pb_hooks/post_counters.pb.js`; never bump them on the client. The
-  delete hook also runs for cascaded replies.
+  delete hook also runs for cascaded replies. Feed reads are patched in place
+  by `app/feed/realtime.ts` (one debounced counter `getOne` per touched post);
+  never invalidate `qk.posts.all` from a like/comment mutation or reducer — an
+  infinite-query invalidation refetches every loaded page.
 - Interaction notifications are created only by `notifications.pb.js`: likes
   notify the content author, comments notify the post author, replies notify
   the parent author (and the post author when different); self-actions are
@@ -455,7 +460,9 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   from `.env.app` (dev: `.env`) and never reach the browser, PocketBase or
   logs. Only notification/budget prefs live in `localStorage` (`mimi:ai:v1`);
   old saved API keys are scrubbed on load. Generated content is cached under
-  `mimi:ai-cache:v1:*` keyed by model.
+  `mimi:ai-cache:v1:*`; keys derived from progress include the user id, and
+  `app/ai/reset.ts` clears the cache + interrupted ledger on logout/account
+  switch (`noteCurrentUser` also catches a direct A→B switch).
   Production Caddy routes `/api/*` to `mimi-app:9001` with
   `flush_interval -1`; Vercel derives the API origin from
   `VITE_POCKETBASE_URL`. Video posts use `POST /api/video/compress`
@@ -521,7 +528,9 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   are prompts only — never gate capabilities on them.
 - Chat affordances: search/filter/pin, edit-and-resend, fork, one-off retry
   with another model, Markdown export, document attachments, pick images from
-  posts, PWA share target, read-aloud. Code blocks highlight with a lazy Shiki
+  posts, PWA share target, read-aloud. The composer's send button is a custom
+  handler: it sends queued images/docs even with empty text and disables while
+  a document is still extracting. Code blocks highlight with a lazy Shiki
   chunk (JS regex engine, no wasm). Attachments upload raw to `/api/ai/files`
   and are read server-side by `server/ai-files.ts` (pdf.js with CMaps/standard
   fonts from `server/node_modules`; Chinese PDFs extract empty without them;
@@ -618,13 +627,16 @@ app's own scale, and v4 renames are migrated (`outline-hidden`, `shadow-xs`,
   it only when caching behavior changes. It registers only in production
   builds (`lib/service-worker.ts`). New workers wait for `SKIP_WAITING`; the
   app shows "有新版本可用" and reloads only after the user accepts. Navigation
-  failures fall back to the cached shell, then an inline offline page.
+  failures fall back to the cached shell, then an inline offline page. A
+  chunk-load error never reloads while `navigator.onLine` is false, and the
+  idle tab prefetch is skipped offline.
 - PWA share target: `public/manifest.json` declares POST
   `multipart/form-data` with one `image/*` field (`media`). `sw.js` handles
   `POST /share` before its GET branch, stores the first image in the
-  `mimi-share` cache (1h TTL) and 303s to `/jizhang?share=<id>`; text shares go
-  to `/share`. `-shared-receipt.ts` mirrors the cache name, `/jizhang` consumes
-  the one-shot param and auto-parses it. A stray `POST /share` on the server
+  `mimi-share` cache (1h TTL) and 303s to `/jizhang?share=<id>`; the forwarded
+  `text`/`title` become the AI receipt hint. Text shares go to `/share`.
+  `-shared-receipt.ts` mirrors the cache name, `/jizhang` consumes the one-shot
+  param and auto-parses it. A stray `POST /share` on the server
   303s to `/share?stale=1` so the page can ask for a reopen (iOS Safari has no
   `share_target`; use the gallery picker). Installed PWAs may need a relaunch
   (sometimes a reinstall) before the new share target appears.

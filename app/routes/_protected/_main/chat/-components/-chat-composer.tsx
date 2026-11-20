@@ -1,4 +1,4 @@
-import { ComposerPrimitive } from "@assistant-ui/react";
+import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { ArrowUp, FileText, Loader2, Paperclip, Square, X } from "lucide-react";
 
 import type { PendingAttachment } from "@/app/chat/attachments";
@@ -20,6 +20,8 @@ export type ChatComposerProps = {
     onOpenAttach: () => void;
     onRemoveImage: (index: number) => void;
     onRemoveDoc: (index: number) => void;
+    /** Send with the app's images/docs even when the text is empty. */
+    onSendAttachmentsOnly: () => void;
     onStop: () => void;
 };
 
@@ -39,12 +41,32 @@ export function ChatComposer({
     onOpenAttach,
     onRemoveImage,
     onRemoveDoc,
+    onSendAttachmentsOnly,
     onStop,
 }: ChatComposerProps) {
+    const aui = useAui();
+    const text = useAuiState((state) => state.composer.text);
     const percent =
         contextUsage && contextUsage.total > 0
             ? contextPercent(contextUsage.used, contextUsage.total)
             : null;
+    const pendingDoc = docs.some((doc) => doc.reading);
+    const hasAttachments = images.length > 0 || docs.length > 0;
+    const canSend =
+        !disabled &&
+        !inputPending &&
+        !addingImages &&
+        !pendingDoc &&
+        (text.trim() !== "" || hasAttachments);
+
+    const send = () => {
+        if (!canSend) return;
+        if (text.trim() === "") {
+            onSendAttachmentsOnly();
+            return;
+        }
+        aui.composer.send();
+    };
 
     return (
         <div className="border-t border-border/70 bg-background/95 px-3 pt-2 pb-2 backdrop-blur-xl">
@@ -167,20 +189,23 @@ export function ChatComposer({
                         <Square className="size-3.5 fill-current" />
                     </Button>
                 ) : (
-                    <ComposerPrimitive.Send asChild>
-                        <Button
-                            type="submit"
-                            size="icon"
-                            aria-label="发送"
-                            title="发送"
-                            disabled={
-                                disabled || inputPending ? true : undefined
-                            }
-                            className="size-9 shrink-0 rounded-xl disabled:opacity-40"
-                        >
-                            <ArrowUp className="size-4" />
-                        </Button>
-                    </ComposerPrimitive.Send>
+                    <Button
+                        type="button"
+                        size="icon"
+                        aria-label="发送"
+                        title={
+                            pendingDoc
+                                ? "附件还在读取，稍等一下"
+                                : addingImages
+                                  ? "图片还在处理，稍等一下"
+                                  : "发送"
+                        }
+                        disabled={!canSend}
+                        onClick={send}
+                        className="size-9 shrink-0 rounded-xl disabled:opacity-40"
+                    >
+                        <ArrowUp className="size-4" />
+                    </Button>
                 )}
             </ComposerPrimitive.Root>
 

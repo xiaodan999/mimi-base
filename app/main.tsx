@@ -7,6 +7,7 @@ import LoadingPage from "@/components/LoadingPage";
 import { RouteError } from "@/components/RouteError";
 import { auth } from "@/lib/auth";
 import { reloadOnce } from "@/lib/chunk-load-error";
+import { installProtectedImageRetry } from "@/lib/protected-image";
 import { registerServiceWorker } from "@/lib/service-worker";
 import { ThemeProvider } from "@/lib/theme";
 
@@ -46,6 +47,10 @@ export const queryClient = new QueryClient({
 // Restore the session in parallel with the first route load. Guards await
 // `waitForAuth()`, which joins this read instead of branching on "loading".
 void auth.hydrate();
+
+// A rendered `<img>` keeps the file token it was created with; retry once
+// with a fresh token when that 3-minute token has expired.
+installProtectedImageRetry();
 
 // Set up a Router instance. The context holds the singleton auth store, so it
 // never changes identity: auth updates reach components through `useAuth()`,

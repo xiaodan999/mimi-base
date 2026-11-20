@@ -5,6 +5,7 @@ import AiCoachCard from "@/app/ai/AiCoachCard";
 import AiPanel from "@/app/ai/AiPanel";
 import { weekKey, WEEKLY_CHIPS, weeklyMessages } from "@/app/ai/prompts";
 import { sprintPlanMessages } from "@/app/ai/study";
+import { useCurrentUser } from "@/lib/auth";
 
 import {
     cardStats,
@@ -17,6 +18,7 @@ import { starText } from "../lib";
 import { useStudy } from "./StudyContext";
 
 export default function SubjectHome() {
+    const user = useCurrentUser();
     const { subject, progress } = useStudy();
     const [weeklyOpen, setWeeklyOpen] = useState(false);
     const [sprintOpen, setSprintOpen] = useState(false);
@@ -29,7 +31,7 @@ export default function SubjectHome() {
         () => weeklyMessages(subject, progress),
         [subject, progress],
     );
-    const weeklyCacheKey = `weekly:v1:${subject.id}:${weekKey()}`;
+    const weeklyCacheKey = `weekly:v1:${user.id}:${subject.id}:${weekKey()}`;
     const sprintPrompt = useMemo(() => {
         const wrongByModule = new Map<string, number>();
         for (const id of Object.keys(progress.wrong)) {
@@ -55,7 +57,7 @@ export default function SubjectHome() {
             }),
         });
     }, [left, progress, streak, subject]);
-    const sprintCacheKey = `sprint:v1:${subject.id}:${dayKey()}:${cards.percent}:${Object.keys(progress.wrong).length}`;
+    const sprintCacheKey = `sprint:v1:${user.id}:${subject.id}:${dayKey()}:${cards.percent}:${Object.keys(progress.wrong).length}`;
 
     return (
         <div>

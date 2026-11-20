@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { dayKey } from "@/app/study/engine";
 import { gameForModule } from "@/app/study/games/registry";
 import type { Progress, StudySubject } from "@/app/study/types";
+import { useCurrentUser } from "@/lib/auth";
 
 import { useAi } from "./AiContext";
 import { readAiCache } from "./cache";
@@ -68,6 +69,7 @@ function normalizePlan(
 }
 
 export default function AiCoachCard({ subject, progress }: Props) {
+    const user = useCurrentUser();
     const { settings } = useAi();
     const { runTask, cancel, tasks, find, getResult, attend } = useAiTasks();
     const [minutes, setMinutes] = useState(20);
@@ -77,7 +79,7 @@ export default function AiCoachCard({ subject, progress }: Props) {
     const requestRef = useRef(0);
     const activeKeyRef = useRef<string | null>(null);
 
-    const group = `plan:${subject.id}:${dayKey()}`;
+    const group = `plan:${user.id}:${subject.id}:${dayKey()}`;
     const cacheKey = `${group}:${minutes}`;
 
     // 统一用 decideAiRestore 决定显示已有结果、接上后台任务还是留空。

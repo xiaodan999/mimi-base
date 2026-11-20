@@ -10,7 +10,6 @@ import { useCallback } from "react";
 import { useCurrentUser } from "@/lib/auth";
 import pb, { pbDate } from "@/lib/pb";
 import {
-    type PostData,
     type PostLayout,
     type PostLikeRecord,
     type PostRecord,
@@ -18,18 +17,14 @@ import {
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-import { applyLikeToggle } from "./like";
+import { applyLikeToggle, revertOptimisticLike } from "./like";
+import { patchPostInPages, type PostsData, type PostsPage } from "./pages";
 import { groupPostMonths, type PostMediaFields } from "./utils";
 
 // The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
 // components importing from `./-data` don't need to change.
 export type { PostData, PostImage, PostLayout } from "@/lib/pb-types";
-
-type PostsPage = {
-    posts: PostData[];
-    nextPage: number | null;
-    total: number;
-};
+export type { PostsPage } from "./pages";
 
 export type PostFilter = {
     /** "YYYY-MM" — show only that month. */
@@ -244,43 +239,30 @@ export function usePostLikeMutation() {
             // (so they don't overwrite our optimistic update)
             await queryClient.cancelQueries({ queryKey: feedKey });
 
-            const previousFeeds = queryClient.getQueriesData<
-                InfiniteData<PostsPage>
-            >({ queryKey: feedKey });
-
-            // The cache holds infinite queries: { pages: PostsPage[] }.
-            queryClient.setQueriesData<InfiniteData<PostsPage>>(
+            // Patch only this post. Snapshotting every feed page made a
+            // failed like on one post roll back other posts' likes and any
+            // pages fetched in between.
+            queryClient.setQueriesData<PostsData>(
                 { queryKey: feedKey },
-                (old) => {
-                    if (!old) return old;
-                    return {
-                        ...old,
-                        pages: old.pages.map((page) => ({
-                            ...page,
-                            posts: page.posts.map((post) =>
-                                post.id === postId
-                                    ? applyLikeToggle(post, like)
-                                    : post,
-                            ),
-                        })),
-                    };
-                },
-            );
-
-            return { previousFeeds };
-        },
-        onError: (err, updatedPost, context) => {
-            // Roll back only the optimistic like; the post itself is fine.
-            context?.previousFeeds.forEach(([key, data]) =>
-                queryClient.setQueryData(key, data),
+                (old) =>
+                    patchPostInPages(old, postId, (post) =>
+                        applyLikeToggle(post, like),
+                    ),
             );
         },
-        onSettled: () => {
-            // like_count / comment_count are maintained by the server hook, so
-            // reconcile the optimistic row with the real counters once the
-            // write settles instead of letting them drift.
-            void queryClient.invalidateQueries({ queryKey: feedKey });
+        onError: (_error, { postId, like }) => {
+            queryClient.setQueriesData<PostsData>(
+                { queryKey: feedKey },
+                (old) =>
+                    patchPostInPages(old, postId, (post) =>
+                        revertOptimisticLike(post, like),
+                    ),
+            );
         },
+        // No settle-time invalidation: the realtime `post_likes` reducer
+        // patches the count and one debounced `getOne` reconciles the server
+        // counter. Refetching every loaded page on every like was the
+        // original request storm.
     });
 }
 

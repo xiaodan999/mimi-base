@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { clearAiDeviceState, forgetCurrentUser } from "@/app/ai/reset";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
@@ -20,8 +21,11 @@ function Page() {
         setPending(true);
         try {
             await logout();
-            // The next account must not see the previous one's cached rows.
+            // The next account must not see the previous one's cached rows,
+            // AI results or interrupted prompts.
             queryClient.clear();
+            clearAiDeviceState();
+            forgetCurrentUser();
             // Land on the login page so switching accounts is one more step.
             await navigate({ href: "/login", replace: true });
         } catch {

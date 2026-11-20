@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isChunkLoadError } from "./chunk-load-error";
+import { isChunkLoadError, shouldReload } from "./chunk-load-error";
 
 describe("isChunkLoadError", () => {
     test("matches the browser message for a failed dynamic import", () => {
@@ -37,5 +37,17 @@ describe("isChunkLoadError", () => {
         ).toBe(false);
         expect(isChunkLoadError(undefined)).toBe(false);
         expect(isChunkLoadError({ message: "Failed to fetch" })).toBe(false);
+    });
+});
+
+describe("shouldReload", () => {
+    test("never reloads offline", () => {
+        expect(shouldReload(120_000, 0, false)).toBe(false);
+    });
+
+    test("rate-limits to one reload per minute", () => {
+        expect(shouldReload(30_000, 0, true)).toBe(false);
+        expect(shouldReload(60_000, 0, true)).toBe(true);
+        expect(shouldReload(90_000, 60_000, true)).toBe(false);
     });
 });

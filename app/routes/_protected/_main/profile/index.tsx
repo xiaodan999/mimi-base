@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { isUpdateUnseen, readSeenUpdate } from "@/app/about/seen";
 import { UPDATES } from "@/app/about/updates";
 import { useAi } from "@/app/ai/AiContext";
+import { clearAiDeviceState } from "@/app/ai/reset";
 import { abortAllChatRuns } from "@/app/chat/run-store";
 import { useUnreadNotificationCount } from "@/app/notifications/data";
 import PageHeader from "@/components/PageHeader";
@@ -171,9 +172,10 @@ function Page() {
                 toast.error(result.error ?? "切换账号失败");
                 return;
             }
-            // Drop the previous account's cached rows before the page
-            // re-renders with the new identity.
+            // Drop the previous account's cached rows, AI results and
+            // interrupted prompts before the page re-renders.
             queryClient.clear();
+            clearAiDeviceState();
             toast.success(`已切换到${account.name}`);
         } catch (error) {
             toast.error(

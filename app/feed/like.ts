@@ -24,3 +24,12 @@ export function applyLikeToggle(post: PostData, like: boolean): PostData {
         },
     };
 }
+
+/**
+ * Undo only the optimistic toggle this mutation applied. If the cache has
+ * already moved on (another like, or a realtime event), leave it alone.
+ */
+export function revertOptimisticLike(post: PostData, like: boolean): PostData {
+    if (post.liked !== like) return post;
+    return applyLikeToggle(post, !like);
+}

@@ -44,6 +44,9 @@ export default function NavButtons() {
 
         // Respect the phone's data-saver preference: warming four routes is a
         // deliberate bandwidth trade, not something to do against the user.
+        // An offline warm-up only produces chunk-load errors (and used to
+        // trigger a page reload).
+        if (navigator.onLine === false) return;
         const connection = (
             navigator as Navigator & { connection?: { saveData?: boolean } }
         ).connection;

@@ -97,10 +97,11 @@ export function useNewCommentMutation(postId: string) {
             await pb.collection("comments").create(formData);
         },
         onSuccess: () => {
+            // The realtime `comments` reducer patches the post's reply count;
+            // only the open thread needs a refetch, not every feed page.
             queryClient.invalidateQueries({
                 queryKey: qk.comments.all(postId),
             });
-            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }
@@ -169,7 +170,6 @@ export function useDeleteCommentMutation(postId: string) {
             queryClient.invalidateQueries({
                 queryKey: qk.comments.all(postId),
             });
-            queryClient.invalidateQueries({ queryKey: qk.posts.all });
         },
     });
 }

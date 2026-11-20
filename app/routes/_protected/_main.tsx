@@ -2,12 +2,15 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { AiProvider } from "@/app/ai/AiContext";
+import { noteCurrentUser } from "@/app/ai/reset";
 import { abortAllChatRuns } from "@/app/chat/run-store";
+import { useFeedRealtime } from "@/app/feed/realtime";
 import { FeedbackCapture } from "@/app/feedback/context";
 import NavButtons from "@/components/NavButtons";
 import OfflineBanner from "@/components/OfflineBanner";
 import { RouteError } from "@/components/RouteError";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useCurrentUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/_protected/_main")({
     component: Layout,
@@ -15,16 +18,26 @@ export const Route = createFileRoute("/_protected/_main")({
 });
 
 function Layout() {
+    const user = useCurrentUser();
     // One realtime subscription layer for every page inside the shell; it
     // closes on logout and reconnects with the auth session.
     useRealtimeSync();
+    // Patch feed counters in place instead of invalidating every loaded page.
+    useFeedRealtime(user.id);
 
     // Chat runs outlive the conversation route on purpose; leaving the app
-    // shell (logout) is the one place they must not keep running.
-    useEffect(() => abortAllChatRuns, []);
+    // shell or switching accounts is the one place they must not keep running.
+    useEffect(() => abortAllChatRuns, [user.id]);
+
+    // A different account on this device must not see the previous user's
+    // cached AI results/interrupted prompts. Keying AiProvider below also
+    // drops the in-memory task center.
+    useEffect(() => {
+        noteCurrentUser(user.id);
+    }, [user.id]);
 
     return (
-        <AiProvider>
+        <AiProvider key={user.id}>
             <FeedbackCapture />
             <div className="flex h-full flex-col bg-background">
                 <a

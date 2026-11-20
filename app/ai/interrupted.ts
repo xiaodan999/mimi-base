@@ -85,6 +85,11 @@ export function readInterruptibleTasks(): InterruptedTaskEntry[] {
     return readStore();
 }
 
+/** Logout/account switch: the ledger may contain the previous user's prompts. */
+export function clearInterruptibleTasks() {
+    writeStore([]);
+}
+
 /** 恢复过的条目标个记号，下次启动不再为它弹提醒。 */
 export function markInterruptibleRestored(ids: readonly string[]) {
     if (ids.length === 0) return;

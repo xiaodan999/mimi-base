@@ -7,6 +7,7 @@ import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { decideAiRestore } from "@/app/ai/restore";
 import { type DrillCandidate, drillPickMessages } from "@/app/ai/study";
 import { useAiTasks } from "@/app/ai/tasks";
+import { useCurrentUser } from "@/lib/auth";
 
 import { dayKey, shuffle } from "../engine";
 import type { Progress, QuizItem, StudySubject } from "../types";
@@ -58,6 +59,7 @@ export default function AiDrillSheet({
     onClose: () => void;
     onStart: (items: QuizItem[]) => void;
 }) {
+    const user = useCurrentUser();
     const { subject, progress } = useStudy();
     const { settings } = useAi();
     const { runTask, find, getResult, attend } = useAiTasks();
@@ -67,7 +69,7 @@ export default function AiDrillSheet({
     const [error, setError] = useState("");
     const [fallbackIds, setFallbackIds] = useState<string[]>([]);
 
-    const cacheKey = `drill:v1:${subject.id}:${dayKey()}`;
+    const cacheKey = `drill:v1:${user.id}:${subject.id}:${dayKey()}`;
 
     const buildCandidates = useCallback((): {
         candidates: QuizItem[];
