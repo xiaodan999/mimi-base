@@ -36,10 +36,10 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
   `query-keys.ts`, `toast-promise.ts`, image picker/compressor.
 - `hooks/` — shared hooks.
 - `server/` — the Bun API: `main.ts` (routing), `static.ts` (SPA), `config.ts`,
-  `ai-relay.ts`, `ai-tools.ts`, `ai-files.ts`, `feedback.ts`, `video.ts`,
+  `ai-relay.ts`, `ai-tools.ts`, `feedback.ts`, `video.ts`,
   `geo-ip.ts`, `chat-models.ts`, `safe-fetch.ts` (shared SSRF guard),
   `sandbox.ts` + `sandbox-worker.ts` (QuickJS), `sandbox-promise.ts`, tests.
-  `server/package.json` holds the server-only deps (pdf.js, canvas, ip2region,
+  `server/package.json` holds the server-only deps (ip2region,
   quickjs-emscripten). Read `docker/README.md` before touching deploys.
 - `pocketbase/` — migrations, JSVM hooks (`post_counters`, `notifications`,
   `dev_seed`); `pb_data/` and the binary are gitignored.
@@ -51,7 +51,7 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
 
 ```bash
 bun install
-bun run install:server   # server/ deps (pdf.js, canvas, ip2region, QuickJS)
+bun run install:server   # server/ deps (ip2region, QuickJS)
 cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
 bun run dev:backend       # PocketBase :8090 + API :9001 (admin at /db/_/)
 bun run dev:frontend      # Vite on :3000 (VITE_PORT=3001 to change)
@@ -530,16 +530,21 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   with another model, Markdown export, document attachments, pick images from
   posts, PWA share target, read-aloud. The composer's send button is a custom
   handler: it sends queued images/docs even with empty text and disables while
-  a document is still extracting. Code blocks highlight with a lazy Shiki
-  chunk (JS regex engine, no wasm). Attachments upload raw to `/api/ai/files`
-  and are read server-side by `server/ai-files.ts` (pdf.js with CMaps/standard
-  fonts from `server/node_modules`; Chinese PDFs extract empty without them;
-  scanned pages render to JPEG for vision). pdf.js runs in a disposable
-  `server/pdf-worker.ts` worker with a hard kill, so a pathological file
-  cannot block the API's event loop; at most 2 parse at once. The phone never
-  loads pdf.js; uploads are not persisted. Caps: 30MB, 50k chars, 20 text
-  pages, 4 images (`lib/chat-files.ts`). Every API service authenticates
-  through the shared `server/auth-gate.ts` slot (max 6 concurrent
+  a document is still being read. Code blocks highlight with a lazy Shiki
+  chunk (JS regex engine, no wasm). Attachments are stored in
+  `chat_attachments` (owner-scoped, protected) and read on-device: text files
+  are decoded in the browser, PDFs are rasterized by a lazy pdf.js chunk
+  (`app/chat/pdf.ts` + `pdf-browser.ts`). `vite.config.ts` serves pdf.js
+  CMaps/standard fonts from `node_modules` in dev and copies them to
+  `build/pdfjs/` for Vercel/Docker/preview; without them some Chinese PDFs
+  render blank. `read_attachment` serves persisted text or fetches the stored
+  bytes and renders the requested pages locally. pdf.js is never loaded until
+  a PDF is actually read, and `/api/ai/files` is gone. pdf.js's Node-only
+  optional `@napi-rs/canvas` is overridden to `empty-npm-package` in the root
+  `package.json`, so installs do not fetch the native binary; the browser
+  draws into the DOM canvas. Caps: 30MB, 50k chars, 10 inline pages, 4 images
+  (`lib/chat-files.ts`). Every API service
+  authenticates through the shared `server/auth-gate.ts` slot (max 6 concurrent
   `auth-refresh` calls) to blunt random-token floods.
 - Chat artifacts: text files stay in `chat_conversations.sandbox_files` and the
   part references the path; binary images come back once in `sandbox_run`

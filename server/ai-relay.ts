@@ -13,14 +13,7 @@
 
 import { createHash } from "node:crypto";
 
-import { isRecordId, MAX_FILE_BYTES } from "../lib/chat-files";
 import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
-import {
-    AI_FILES_PATH,
-    extractPdfPageImages,
-    extractUploadedFile,
-    FileReadError,
-} from "./ai-files";
 import {
     AI_TOOLS_COMMENTS_PATH,
     AI_TOOLS_EXPENSES_PATH,
@@ -45,11 +38,7 @@ import {
     type IpCityLookup,
     resolveClientIp,
 } from "./geo-ip";
-import {
-    BodyTooLargeError,
-    readJsonBody,
-    readRequestBody,
-} from "./request-body";
+import { BodyTooLargeError, readJsonBody } from "./request-body";
 
 export const AI_RELAY_PREFIX = "/api/ai";
 export const AI_CHAT_PATH = "/api/ai/opencode/v1/chat/completions";
@@ -70,8 +59,6 @@ const UPSTREAM_URL = "https://opencode.ai/zen/go/v1/chat/completions";
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 /** Tool calls carry whole files in their arguments; 4k truncated them. */
 const MAX_OUTPUT_TOKENS = 8192;
-const MAX_UPLOAD_BYTES = MAX_FILE_BYTES;
-const MAX_UPLOAD_LABEL = `${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB`;
 const MAX_SANDBOX_BODY_BYTES = 1024 * 1024;
 const SANDBOX_DAILY_LIMIT = 200;
 const SANDBOX_MAX_IN_FLIGHT = 4;
@@ -89,7 +76,7 @@ const CORS_HEADERS: Record<string, string> = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers":
-        "Authorization, Content-Type, x-opencode-session, x-client, x-file-name, x-file-images",
+        "Authorization, Content-Type, x-opencode-session, x-client",
     "Access-Control-Max-Age": "600",
 };
 
@@ -319,12 +306,6 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         return null;
     }
 
-    // pdf.js runs on the event loop, so two pathological files at once can
-    // starve every other request on the 2-core box. This is a concurrency
-    // cap; the extraction itself still has no preemptive timeout.
-    const FILE_PARSE_MAX_IN_FLIGHT = 2;
-    let fileParseInFlight = 0;
-
     const TOOL_PATHS = new Set<string>([
         AI_TOOLS_EXPENSES_PATH,
         AI_TOOLS_POSTS_PATH,
@@ -372,296 +353,6 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         };
         const result = await tools(call);
         return json(result.status, result.body);
-    }
-
-    /**
-     * Reads one chat attachment. The file is parsed here, so the browser never
-     * loads pdf.js and Chinese/scanned PDFs behave the same on every device.
-     * Nothing is persisted: the client appends the returned text (or page
-     * images) to the message like any other attachment.
-     */
-    async function uploadFile(req: Request): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        // Uploads share the data-tool budget: they are user-triggered and
-        // parsing a PDF costs server CPU.
-        const limited = checkToolsRate(auth.uid);
-        if (limited) return limited;
-
-        const quota = checkToolsQuota(auth.uid);
-        if (quota) return quota;
-
-        let data: Uint8Array;
-        try {
-            data = await readRequestBody(req, MAX_UPLOAD_BYTES);
-        } catch (error) {
-            if (error instanceof BodyTooLargeError) {
-                return json(413, {
-                    error: {
-                        message: `文件太大了（最大 ${MAX_UPLOAD_LABEL}）`,
-                    },
-                });
-            }
-            return json(400, { error: { message: "文件读取失败，再试一次" } });
-        }
-        if (data.byteLength === 0) {
-            return json(400, { error: { message: "文件是空的" } });
-        }
-
-        const headerName = req.headers.get("x-file-name") ?? "";
-        let name = headerName;
-        try {
-            name = decodeURIComponent(headerName);
-        } catch {
-            // Keep the raw header; sanitizeFileName handles the rest.
-        }
-        const requestedImages = Number(req.headers.get("x-file-images") ?? "0");
-        const pageImageLimit =
-            Number.isFinite(requestedImages) && requestedImages > 0
-                ? requestedImages
-                : 0;
-
-        if (fileParseInFlight >= FILE_PARSE_MAX_IN_FLIGHT) {
-            return json(429, {
-                error: { message: "正在处理其他附件，稍后再试" },
-            });
-        }
-        fileParseInFlight += 1;
-        try {
-            const file = await extractUploadedFile(name, data, {
-                pageImageLimit,
-            });
-            return json(200, { ok: true, ...file });
-        } catch (error) {
-            if (error instanceof FileReadError) {
-                return json(error.status, {
-                    error: {
-                        message: error.message,
-                        ...(error.code ? { code: error.code } : {}),
-                    },
-                });
-            }
-            console.error("[ai-relay] attachment read failed", error);
-            return json(500, {
-                error: { message: "文件读取失败，再试一次" },
-            });
-        } finally {
-            fileParseInFlight -= 1;
-        }
-    }
-
-    /**
-     * `/api/ai/files`: the current client persists the file in `chat_attachments`
-     * first and asks us to read that stored copy (JSON body). The raw-bytes
-     * path stays for a client that ships ahead of the server (the SPA and the
-     * API deploy independently).
-     */
-    async function readFileAttachment(req: Request): Promise<Response> {
-        const contentType = req.headers.get("content-type") ?? "";
-        if (contentType.trim().toLowerCase().startsWith("application/json")) {
-            return readStoredAttachment(req);
-        }
-        return uploadFile(req);
-    }
-
-    /**
-     * Extract from an attachment the client already stored in
-     * `chat_attachments`. Ownership is enforced by the record's view rule
-     * (fetched with the caller's own token); the bytes are fetched through
-     * the loopback file API with a short-lived file token.
-     */
-    async function readStoredAttachment(req: Request): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        // Same budget as the legacy upload: user-triggered, PDF parsing is
-        // not free.
-        const limited = checkToolsRate(auth.uid);
-        if (limited) return limited;
-        const quota = checkToolsQuota(auth.uid);
-        if (quota) return quota;
-
-        let body: {
-            attachmentId?: unknown;
-            pageImageLimit?: unknown;
-            pages?: unknown;
-        };
-        try {
-            body = await readJsonBody<typeof body>(req, MAX_TOOLS_BODY_BYTES);
-        } catch (error) {
-            if (error instanceof BodyTooLargeError) {
-                return json(413, { error: { message: "请求太大了" } });
-            }
-            return json(400, { error: { message: "请求格式不对" } });
-        }
-        if (!body || typeof body !== "object") {
-            return json(400, { error: { message: "请求格式不对" } });
-        }
-        const attachmentId =
-            typeof body.attachmentId === "string"
-                ? body.attachmentId.trim()
-                : "";
-        if (!isRecordId(attachmentId)) {
-            return json(400, {
-                error: { message: "缺少要读取的附件" },
-            });
-        }
-
-        const record = await fetchStoredRecord(attachmentId, auth.token);
-        if (!record.ok) return record.response;
-        const data = await fetchStoredFile(
-            attachmentId,
-            record.file,
-            auth.token,
-        );
-        if (!data.ok) return data.response;
-
-        if (fileParseInFlight >= FILE_PARSE_MAX_IN_FLIGHT) {
-            return json(429, {
-                error: { message: "正在处理其他附件，稍后再试" },
-            });
-        }
-        fileParseInFlight += 1;
-        try {
-            if (typeof body.pages === "string" && body.pages.trim() !== "") {
-                const file = await extractPdfPageImages(
-                    record.name,
-                    data.bytes,
-                    body.pages,
-                );
-                return json(200, { ok: true, ...file });
-            }
-            const requestedImages = Number(body.pageImageLimit ?? 0);
-            const pageImageLimit =
-                Number.isFinite(requestedImages) && requestedImages > 0
-                    ? Math.floor(requestedImages)
-                    : 0;
-            const file = await extractUploadedFile(record.name, data.bytes, {
-                pageImageLimit,
-            });
-            return json(200, { ok: true, ...file });
-        } catch (error) {
-            if (error instanceof FileReadError) {
-                return json(error.status, {
-                    error: {
-                        message: error.message,
-                        ...(error.code ? { code: error.code } : {}),
-                    },
-                });
-            }
-            console.error("[ai-relay] attachment read failed", error);
-            return json(500, {
-                error: { message: "文件读取失败，再试一次" },
-            });
-        } finally {
-            fileParseInFlight -= 1;
-        }
-    }
-
-    /** The attachment record, read with the caller's token (view rule scopes). */
-    async function fetchStoredRecord(
-        attachmentId: string,
-        token: string,
-    ): Promise<
-        | { ok: true; name: string; file: string }
-        | { ok: false; response: Response }
-    > {
-        let res: Response;
-        try {
-            res = await fetchImpl(
-                `${deps.pbBaseUrl}/api/collections/chat_attachments/records/${attachmentId}`,
-                {
-                    headers: { Authorization: token },
-                    signal: AbortSignal.timeout(5_000),
-                },
-            );
-        } catch {
-            return { ok: false, response: serviceUnavailable() };
-        }
-        if (res.status === 404 || res.status === 403) {
-            return {
-                ok: false,
-                response: json(404, {
-                    error: { message: "找不到这个附件，可能已经被删了" },
-                }),
-            };
-        }
-        if (!res.ok) return { ok: false, response: serviceUnavailable() };
-        try {
-            const payload = (await res.json()) as {
-                name?: unknown;
-                file?: unknown;
-            };
-            if (
-                typeof payload.name !== "string" ||
-                typeof payload.file !== "string"
-            ) {
-                return {
-                    ok: false,
-                    response: json(404, {
-                        error: { message: "找不到这个附件，可能已经被删了" },
-                    }),
-                };
-            }
-            return { ok: true, name: payload.name, file: payload.file };
-        } catch {
-            return { ok: false, response: serviceUnavailable() };
-        }
-    }
-
-    /** The stored bytes, via a short-lived PocketBase file token. */
-    async function fetchStoredFile(
-        attachmentId: string,
-        filename: string,
-        authToken: string,
-    ): Promise<
-        { ok: true; bytes: Uint8Array } | { ok: false; response: Response }
-    > {
-        let fileToken = "";
-        try {
-            const res = await fetchImpl(`${deps.pbBaseUrl}/api/files/token`, {
-                method: "POST",
-                headers: { Authorization: authToken },
-                signal: AbortSignal.timeout(5_000),
-            });
-            if (res.ok) {
-                const payload = (await res.json()) as { token?: unknown };
-                if (typeof payload.token === "string") {
-                    fileToken = payload.token;
-                }
-            }
-        } catch {
-            // Fall back to the auth token itself, which PocketBase also
-            // accepts for protected files.
-        }
-
-        const url = `${deps.pbBaseUrl}/api/files/chat_attachments/${attachmentId}/${encodeURIComponent(filename)}?token=${encodeURIComponent(fileToken || authToken)}`;
-        let res: Response;
-        try {
-            res = await fetchImpl(url, {
-                signal: AbortSignal.timeout(30_000),
-            });
-        } catch {
-            return { ok: false, response: serviceUnavailable() };
-        }
-        if (res.status === 404 || res.status === 403) {
-            return {
-                ok: false,
-                response: json(404, {
-                    error: { message: "找不到这个附件，可能已经被删了" },
-                }),
-            };
-        }
-        if (!res.ok) return { ok: false, response: serviceUnavailable() };
-        try {
-            return {
-                ok: true,
-                bytes: new Uint8Array(await res.arrayBuffer()),
-            };
-        } catch {
-            return { ok: false, response: serviceUnavailable() };
-        }
     }
 
     async function sandbox(req: Request): Promise<Response> {
@@ -1004,10 +695,6 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
 
         if (url.pathname === AI_SANDBOX_PATH && req.method === "POST") {
             return sandbox(req);
-        }
-
-        if (url.pathname === AI_FILES_PATH && req.method === "POST") {
-            return readFileAttachment(req);
         }
 
         if (TOOL_PATHS.has(url.pathname) && req.method === "POST") {

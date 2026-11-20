@@ -122,16 +122,6 @@ export type ReadUrlToolResult = {
     truncated?: boolean;
 };
 
-/** `read_attachment` mode=pages; the images themselves ride in resultImages. */
-export type AttachmentPagesResult = {
-    ok: boolean;
-    error?: string;
-    attachmentId?: string;
-    name?: string;
-    pages?: number[];
-    numPages?: number;
-};
-
 /** The browser's timezone offset (`getTimezoneOffset()`), for day ranges. */
 export function timezoneOffsetMinutes(): number {
     return new Date().getTimezoneOffset();

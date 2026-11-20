@@ -1,87 +1,124 @@
 import { describe, expect, test } from "bun:test";
 
-import { PDF_NO_TEXT_LAYER_CODE } from "@/lib/chat-files";
+import { MAX_FILE_CHARS, MAX_PAGE_IMAGES } from "@/lib/chat-files";
 
 import {
     attachmentPartFromRecord,
-    type AttachmentReadPost,
-    parseUploadedFileResponse,
-    readAttachmentText,
-    withExtracted,
+    type AttachmentRecord,
+    findAttachmentPart,
+    readAttachmentFile,
+    withFileRead,
 } from "./attachments";
 
-describe("parseUploadedFileResponse", () => {
-    test("keeps the server result and image data URLs", () => {
-        const file = parseUploadedFileResponse(
+describe("readAttachmentFile", () => {
+    test("decodes a text file", async () => {
+        const file = new File(["# 标题\n\n正文"], "notes.md");
+        const read = await readAttachmentFile(file);
+        expect(read).toEqual({
+            text: "# 标题\n\n正文",
+            truncated: false,
+            pageImages: [],
+        });
+    });
+
+    test("caps long text", async () => {
+        const file = new File(["a".repeat(MAX_FILE_CHARS + 10)], "big.txt");
+        const read = await readAttachmentFile(file);
+        expect(read.text).toHaveLength(MAX_FILE_CHARS);
+        expect(read.truncated).toBe(true);
+    });
+
+    test("rejects binary, empty and unsupported files", async () => {
+        await expect(
+            readAttachmentFile(
+                new File([new Uint8Array([0x61, 0, 0x62])], "notes.txt"),
+            ),
+        ).rejects.toThrow("不是文本");
+        await expect(
+            readAttachmentFile(new File([], "empty.txt")),
+        ).rejects.toThrow("文件是空的");
+        await expect(
+            readAttachmentFile(new File(["  \n\t "], "blank.txt")),
+        ).rejects.toThrow("文件是空的");
+        await expect(
+            readAttachmentFile(new File(["x"], "photo.jpg")),
+        ).rejects.toThrow("不支持这种文件类型");
+    });
+
+    test("renders PDF pages through the injected renderer", async () => {
+        const calls: { limit: number; bytes: number }[] = [];
+        const read = await readAttachmentFile(
+            new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "合同.pdf"),
             {
-                name: "scan.pdf",
-                kind: "pdf",
-                content: "",
-                truncated: true,
-                numPages: 12,
-                images: ["data:image/jpeg;base64,AA", "not-an-image"],
+                pageImageLimit: MAX_PAGE_IMAGES + 5,
+                renderPdf: async (data, pageImageLimit) => {
+                    calls.push({
+                        limit: pageImageLimit,
+                        bytes: data.byteLength,
+                    });
+                    return {
+                        numPages: 12,
+                        pageImages:
+                            pageImageLimit > 0
+                                ? ["data:image/jpeg;base64,AA"]
+                                : [],
+                    };
+                },
             },
-            "fallback.pdf",
         );
-        expect(file).toEqual({
-            name: "scan.pdf",
-            kind: "pdf",
-            content: "",
-            truncated: true,
-            numPages: 12,
+        // The budget is clamped and the bytes reach the renderer unchanged.
+        expect(calls).toEqual([{ limit: MAX_PAGE_IMAGES, bytes: 4 }]);
+        expect(read).toEqual({
+            text: "",
+            truncated: false,
+            pageCount: 12,
             pageImages: ["data:image/jpeg;base64,AA"],
         });
     });
 
-    test("keeps rendered page numbers for a pages-mode read", () => {
-        const file = parseUploadedFileResponse(
+    test("a zero page budget still reports the page count", async () => {
+        const read = await readAttachmentFile(
+            new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "合同.pdf"),
             {
-                name: "合同.pdf",
-                kind: "pdf",
-                content: "",
-                truncated: false,
-                numPages: 30,
-                pages: [5, 6, "bad", 7],
-                images: [
-                    "data:image/jpeg;base64,AA",
-                    "data:image/jpeg;base64,BB",
-                ],
+                pageImageLimit: 0,
+                renderPdf: async () => ({
+                    numPages: 3,
+                    pageImages: [],
+                }),
             },
-            "",
         );
-        // Pages pair with the images; extras and junk are dropped.
-        expect(file.pages).toEqual([5, 6]);
-        expect(file.pageImages).toHaveLength(2);
-        expect(file.numPages).toBe(30);
+        expect(read).toEqual({
+            text: "",
+            truncated: false,
+            pageCount: 3,
+            pageImages: [],
+        });
     });
 
-    test("falls back to the picked name", () => {
-        const file = parseUploadedFileResponse(
-            { kind: "text", content: "hi", truncated: false },
-            "picked.md",
-        );
-        expect(file.name).toBe("picked.md");
-    });
-
-    test("rejects malformed payloads", () => {
-        expect(() => parseUploadedFileResponse(null, "x.md")).toThrow(
-            "文件读取失败",
-        );
-        expect(() =>
-            parseUploadedFileResponse({ kind: "zip" }, "x.md"),
-        ).toThrow("文件读取失败");
+    test("propagates renderer errors", async () => {
+        await expect(
+            readAttachmentFile(
+                new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "x.pdf"),
+                {
+                    pageImageLimit: 1,
+                    renderPdf: async () => {
+                        throw new Error("这个 PDF 有密码，先取消密码再试");
+                    },
+                },
+            ),
+        ).rejects.toThrow("有密码");
     });
 });
 
 describe("attachment parts", () => {
-    const record = {
+    const record: AttachmentRecord = {
         id: "att1",
         collectionId: "col1",
         file: "contract_abc123.pdf",
         name: "订货合同.pdf",
         mime: "application/pdf",
         size: 12345,
-        kind: "pdf" as const,
+        kind: "pdf",
     };
 
     test("starts as an empty shell around the stored record", () => {
@@ -100,13 +137,11 @@ describe("attachment parts", () => {
         });
     });
 
-    test("withExtracted folds the extraction in without losing the reference", () => {
-        const part = withExtracted(attachmentPartFromRecord(record), {
-            name: "订货合同.pdf",
-            kind: "pdf",
-            content: "第一条",
+    test("withFileRead folds a local read in without losing the reference", () => {
+        const part = withFileRead(attachmentPartFromRecord(record), {
+            text: "第一条",
             truncated: true,
-            numPages: 8,
+            pageCount: 8,
             pageImages: ["data:image/jpeg;base64,AA"],
         });
         expect(part.attachmentId).toBe("att1");
@@ -116,129 +151,17 @@ describe("attachment parts", () => {
         expect(part.extracted).toBe("第一条");
         expect(part.pageImages).toHaveLength(1);
     });
-});
 
-describe("readAttachmentText", () => {
-    const ATTACHMENT_ID = "raklyrsyp7i26xp";
-
-    /** An Error duck-typing ChatApiError with the relay's scan code. */
-    const scanError = () =>
-        Object.assign(
-            new Error(
-                "这个 PDF 没有文字层（可能是扫描件），读不出文字；换一个支持视觉的模型再试",
-            ),
-            { code: PDF_NO_TEXT_LAYER_CODE, status: 400 },
-        );
-
-    test("passes a plain text read straight through", async () => {
-        const bodies: Record<string, unknown>[] = [];
-        const post: AttachmentReadPost = async (_path, body) => {
-            bodies.push(body);
-            return {
-                ok: true,
-                name: "notes.pdf",
-                kind: "pdf",
-                content: "第一条",
-                truncated: false,
-                numPages: 5,
-            };
-        };
-        const outcome = await readAttachmentText(post, ATTACHMENT_ID, true);
-        expect(bodies).toEqual([{ attachmentId: ATTACHMENT_ID }]);
-        expect(outcome.result).toEqual({
-            ok: true,
-            name: "notes.pdf",
-            kind: "pdf",
-            content: "第一条",
-            truncated: false,
-            numPages: 5,
+    test("findAttachmentPart scans every message", () => {
+        const first = attachmentPartFromRecord(record);
+        const second = attachmentPartFromRecord({
+            ...record,
+            id: "att2",
+            name: "notes.md",
+            kind: "text",
         });
-        expect(outcome.resultImages).toBeUndefined();
-    });
-
-    test("a scan error on a text-only model fails with the relay's message", async () => {
-        const bodies: Record<string, unknown>[] = [];
-        const post: AttachmentReadPost = async (_path, body) => {
-            bodies.push(body);
-            throw scanError();
-        };
-        const outcome = await readAttachmentText(post, ATTACHMENT_ID, false);
-        expect(bodies).toEqual([{ attachmentId: ATTACHMENT_ID }]);
-        expect(outcome.result).toEqual({
-            ok: false,
-            attachmentId: ATTACHMENT_ID,
-            error: expect.stringContaining("没有文字层"),
-        });
-        expect(outcome.resultImages).toBeUndefined();
-    });
-
-    test("a vision model retries the scan with page images", async () => {
-        const bodies: Record<string, unknown>[] = [];
-        const post: AttachmentReadPost = async (_path, body) => {
-            bodies.push(body);
-            if (bodies.length === 1) throw scanError();
-            return {
-                ok: true,
-                name: "scan.pdf",
-                kind: "pdf",
-                content: "",
-                truncated: false,
-                numPages: 3,
-                images: [
-                    "data:image/jpeg;base64,AA",
-                    "data:image/jpeg;base64,BB",
-                    "not-an-image",
-                ],
-            };
-        };
-        const outcome = await readAttachmentText(post, ATTACHMENT_ID, true);
-        expect(bodies).toEqual([
-            { attachmentId: ATTACHMENT_ID },
-            { attachmentId: ATTACHMENT_ID, pageImageLimit: 10 },
-        ]);
-        expect(outcome.result).toEqual({
-            ok: true,
-            attachmentId: ATTACHMENT_ID,
-            name: "scan.pdf",
-            numPages: 3,
-            noTextLayer: true,
-            pagesRendered: 2,
-        });
-        expect(outcome.resultImages).toEqual([
-            "data:image/jpeg;base64,AA",
-            "data:image/jpeg;base64,BB",
-        ]);
-    });
-
-    test("a failing retry reports the retry's error", async () => {
-        const bodies: Record<string, unknown>[] = [];
-        const post: AttachmentReadPost = async (_path, body) => {
-            bodies.push(body);
-            if (bodies.length === 1) throw scanError();
-            throw new Error("扫描件暂时读不了，先把 PDF 转成文字或图片再发");
-        };
-        const outcome = await readAttachmentText(post, ATTACHMENT_ID, true);
-        expect(bodies).toHaveLength(2);
-        expect(outcome.result).toEqual({
-            ok: false,
-            attachmentId: ATTACHMENT_ID,
-            error: "扫描件暂时读不了，先把 PDF 转成文字或图片再发",
-        });
-        expect(outcome.resultImages).toBeUndefined();
-    });
-
-    test("other errors never trigger the retry", async () => {
-        let calls = 0;
-        const post: AttachmentReadPost = async () => {
-            calls += 1;
-            throw new Error("找不到这个附件，可能已经被删了");
-        };
-        const outcome = await readAttachmentText(post, ATTACHMENT_ID, true);
-        expect(calls).toBe(1);
-        expect(outcome.result).toEqual({
-            ok: false,
-            attachmentId: ATTACHMENT_ID,
-            error: "找不到这个附件，可能已经被删了",
-        });
+        const messages = [{ parts: [first] }, { parts: [second] }];
+        expect(findAttachmentPart(messages, "att2")).toBe(second);
+        expect(findAttachmentPart(messages, "missing")).toBeNull();
     });
 });

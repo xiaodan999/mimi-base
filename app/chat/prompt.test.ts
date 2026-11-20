@@ -280,7 +280,7 @@ describe("buildApiMessages with attachments", () => {
         pageImages: ["data:image/jpeg;base64,AA"],
     };
 
-    test("the newest attachment turn expands text plus page images", () => {
+    test("the newest PDF turn sends page images and a page note, not old extracted text", () => {
         const result = buildApiMessages(
             [
                 message({
@@ -302,12 +302,42 @@ describe("buildApiMessages with attachments", () => {
         // The model can only re-read via read_attachment; the id must be
         // present in the full note too, not just collapsed stubs.
         expect(text).toContain("attachmentId: att1");
-        expect(text).toContain("第一条 甲方……");
+        // PDFs are images only now: a persisted old text extraction is ignored.
+        expect(text).not.toContain("第一条 甲方……");
+        expect(text).toContain("前 1 页已转为图片附在本消息后");
+        expect(text).toContain("其余页用 read_attachment");
         expect(user.content[1]).toMatchObject({
             type: "image_url",
             image_url: { url: "data:image/jpeg;base64,AA" },
         });
         expect(user.content).toHaveLength(2);
+    });
+
+    test("a text attachment still expands its decoded text", () => {
+        const result = buildApiMessages(
+            [
+                message({
+                    parts: [
+                        {
+                            ...attachmentPart,
+                            kind: "text" as const,
+                            name: "notes.md",
+                            mime: "text/markdown",
+                            pageCount: undefined,
+                            extracted: "# 标题\n\n正文",
+                            pageImages: [],
+                        },
+                    ],
+                }),
+            ],
+            "",
+        );
+        const text = (result[1] as { content: string }).content;
+        expect(text).toContain("文本文件");
+        expect(text).toContain("# 标题");
+        expect(text).toContain("正文");
+        // Plain text has no page images, so the message stays a string.
+        expect(typeof text).toBe("string");
     });
 
     test("older attachment turns collapse to a read_attachment stub", () => {
@@ -396,7 +426,7 @@ describe("buildApiMessages with attachments", () => {
                             toolCallId: "call_1",
                             toolName: "read_attachment",
                             argsText: '{"attachmentId":"att1","mode":"text"}',
-                            result: { ok: true, content: longText },
+                            result: { ok: true, text: longText },
                         },
                         { type: "text", text: "读完" },
                     ],

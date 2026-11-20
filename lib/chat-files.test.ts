@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
     FILE_ACCEPT,
     isAllowedFileSize,
+    isBinaryData,
     isPdfFileName,
     isRecordId,
     isSupportedFileName,
@@ -27,6 +28,11 @@ describe("chat file allowlist", () => {
     test("detects PDFs only by the final extension", () => {
         expect(isPdfFileName("a.b.pdf")).toBe(true);
         expect(isPdfFileName("pdf.txt")).toBe(false);
+    });
+
+    test("detects binary text candidates by a NUL byte", () => {
+        expect(isBinaryData(new Uint8Array([0x61, 0x62, 0x63]))).toBe(false);
+        expect(isBinaryData(new Uint8Array([0x61, 0, 0x62]))).toBe(true);
     });
 });
 

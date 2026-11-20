@@ -1,29 +1,22 @@
 /**
- * Chat attachment rules shared by the browser picker and the relay that reads
- * the file (`server/ai-files.ts`). Keep the allowlist here so the picker
- * and the server cannot drift apart.
+ * Chat attachment rules shared by the browser picker and the on-device reader
+ * (`app/chat/attachments.ts`). Keep the allowlist here so the picker, the
+ * reader and the `read_attachment` tool cannot drift apart.
  */
 
 export const MAX_ATTACHMENTS = 3;
 export const MAX_FILE_BYTES = 30 * 1024 * 1024;
 export const MAX_FILE_CHARS = 50_000;
-export const MAX_PDF_PAGES = 20;
 /**
- * Page images rendered per `/ai/files` request: the composer's inline budget
- * for a PDF (its own budget, separate from the 4-photo composer limit) and
- * the most one `read_attachment` call renders. A page costs roughly 1-2.5k
- * vision tokens; ten covers typical contracts and receipts inline, and the
- * tool can be called repeatedly for the rest.
+ * Page images rendered per composer message: the inline budget for PDFs (its
+ * own budget, separate from the 4-photo composer limit) and the most one
+ * `read_attachment` call renders. A page costs roughly 1-2.5k vision tokens;
+ * ten covers typical contracts and receipts inline, and the tool can be
+ * called repeatedly for the rest.
  */
 export const MAX_PAGE_IMAGES = 10;
 /** Highest page number the page-image renderer will address in one PDF. */
 export const MAX_PDF_RENDER_PAGE = 200;
-/**
- * `FileReadError.code` for a PDF with no text layer (a scan) read in text
- * mode: the `read_attachment` tool recognizes it and retries with page
- * images when the model is vision-capable (see `readAttachmentText`).
- */
-export const PDF_NO_TEXT_LAYER_CODE = "pdf_no_text_layer";
 
 export const FILE_EXTENSIONS = [
     ".txt",
@@ -68,8 +61,7 @@ export function isSupportedFileName(name: string): boolean {
 /**
  * PocketBase record id shape. `read_attachment` args must carry one — a file
  * name there means the model guessed instead of copying the 附件标注, and the
- * relay would 400 the read. Checked on the client (fail fast, corrective
- * error), in the relay (defense in depth) and by callers validating parts.
+ * read would fail. Checked before the client renders or fetches anything.
  */
 export function isRecordId(value: string): boolean {
     return /^[a-z0-9]+$/.test(value);
@@ -88,9 +80,14 @@ export function sanitizeFileName(raw: string): string {
     return cleaned.slice(0, 120) || "附件";
 }
 
-/** True when the upload size is within the relay's limit. */
+/** True when the upload size is within the attachment limit. */
 export function isAllowedFileSize(bytes: number): boolean {
     return Number.isFinite(bytes) && bytes > 0 && bytes <= MAX_FILE_BYTES;
+}
+
+/** NUL bytes are a cheap, reliable binary signal for the text extensions. */
+export function isBinaryData(data: Uint8Array): boolean {
+    return data.subarray(0, 4096).includes(0);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { isRecordId } from "@/lib/chat-files";
+import { isRecordId, MAX_PAGE_IMAGES } from "@/lib/chat-files";
 import type { SandboxResponse } from "@/lib/sandbox-protocol";
 
 import {
@@ -7,7 +7,6 @@ import {
     sandboxArtifactPart,
     textArtifactInfo,
 } from "./artifacts";
-import { readAttachmentText } from "./attachments";
 import { CHART_LEGENDS, CHART_PALETTES, normalizeChartSpec } from "./chart";
 import { runSandbox } from "./sandbox";
 import type { ChatToolDefinition } from "./stream";
@@ -20,7 +19,6 @@ import {
     type ToolHooks,
 } from "./tool-inputs";
 import {
-    type AttachmentPagesResult,
     type CommentsToolResult,
     type ExpensesToolResult,
     type MemoryToolResult,
@@ -308,7 +306,7 @@ export const SANDBOX_TOOLS: readonly ChatToolDefinition[] = [
         function: {
             name: "read_attachment",
             description:
-                "重新读取用户发过的附件（原文存在服务器上）。mode=text 返回提取的完整文字；扫描件没有文字层，会自动改为返回开头几页的图片。mode=pages 把指定页渲染成图片（表格、盖章、版式都在图里，一次最多 10 页）。当附件内容在消息里被省略、被截断，或用户问的细节不在已发送的内容里时使用。",
+                "重新读取用户发过的附件（内容已存在本机）。mode=text 返回文本附件的原文（PDF 没有文字原文）。mode=pages 把 PDF 的指定页在本机渲染成图片（表格、盖章、版式都在图里，一次最多 10 页）。当附件内容在消息里被省略、被截断，或用户问的细节不在已发送的内容里时使用。",
             parameters: {
                 type: "object",
                 properties: {
@@ -690,32 +688,28 @@ async function runChatTool(
         }
         try {
             if (mode === "pages") {
-                const data = await postTool<
-                    AttachmentPagesResult & { images?: unknown }
-                >("/files", {
-                    attachmentId,
-                    pages,
-                });
-                if (!data.ok) {
+                const readPages = hooks.readAttachmentPages;
+                if (!readPages) {
                     return {
                         result: {
                             ok: false,
                             attachmentId,
-                            error: data.error ?? "附件页读不了",
+                            error: "附件页面读取不可用",
                         },
                         files,
                         isError: true,
                     };
                 }
-                // The relay answers with data URLs in `images`; the model's
+                // The hook renders locally and returns data URLs; the model's
                 // result stays page numbers only, images ride separately.
-                const resultImages = (
-                    Array.isArray(data.images) ? data.images : []
-                ).filter(
-                    (image): image is string =>
-                        typeof image === "string" &&
-                        image.startsWith("data:image/jpeg;base64,"),
-                );
+                const data = await readPages(attachmentId, pages);
+                const resultImages = data.images
+                    .filter(
+                        (image): image is string =>
+                            typeof image === "string" &&
+                            image.startsWith("data:image/jpeg;base64,"),
+                    )
+                    .slice(0, MAX_PAGE_IMAGES);
                 return {
                     result: {
                         ok: true,
@@ -729,18 +723,28 @@ async function runChatTool(
                     ...(resultImages.length > 0 ? { resultImages } : {}),
                 };
             }
-            // Text read, with the scan fallback: on a vision model a PDF
-            // without a text layer comes back as rendered pages instead of
-            // an error (the helper never throws, it reports via result.ok).
-            const outcome = await readAttachmentText(
-                postTool,
-                attachmentId,
-                hooks.visionEnabled === true,
-            );
+            const readText = hooks.readAttachmentText;
+            if (!readText) {
+                return {
+                    result: {
+                        ok: false,
+                        attachmentId,
+                        error: "附件原文读取不可用",
+                    },
+                    files,
+                    isError: true,
+                };
+            }
+            const data = await readText(attachmentId);
             return {
-                ...outcome,
+                result: {
+                    ok: true,
+                    attachmentId,
+                    name: data.name,
+                    text: data.text,
+                },
                 files,
-                isError: outcome.result.ok !== true,
+                isError: false,
             };
         } catch (error) {
             return {

@@ -16,12 +16,11 @@ RUN bun run build
 
 # --- runtime -----------------------------------------------------------
 FROM oven/bun:1.4.4
-# ffmpeg backs /api/video/compress; curl is the healthcheck; fontconfig serves
-# @napi-rs/canvas when ai-files renders scanned PDF pages.
+# ffmpeg backs /api/video/compress; curl is the healthcheck. PDF rendering
+# happens in the browser, so the runtime no longer needs fontconfig/canvas.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      ffmpeg ca-certificates curl fontconfig \
- && fc-cache -f \
+      ffmpeg ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

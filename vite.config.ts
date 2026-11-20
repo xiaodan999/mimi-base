@@ -1,5 +1,12 @@
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+    cpSync,
+    createReadStream,
+    existsSync,
+    readFileSync,
+    statSync,
+    writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -86,6 +93,78 @@ function swVersionPlugin(): Plugin {
             console.log(
                 `[sw-version] ${version} (sha ${appSha.slice(0, 12)}) -> build/sw.js, build/version.json`,
             );
+        },
+    };
+}
+
+/**
+ * pdf.js fetches its CMaps and standard fonts at runtime. Serve them straight
+ * from `node_modules` in dev and copy them into `build/pdfjs/` after bundling,
+ * so Vercel, Docker, preview and CI all ship the same paths without generated
+ * files in the repo. Without the CMaps some Chinese PDFs render blank.
+ */
+function pdfjsAssetsPlugin(): Plugin {
+    const packageRoot = path.dirname(
+        require.resolve("pdfjs-dist/package.json"),
+    );
+    const dirs = new Set(["cmaps", "standard_fonts"]);
+
+    /** Map a `/pdfjs/<dir>/<file>` URL to a safe path under the package. */
+    const resolveAsset = (url: string): string | null => {
+        const pathname = url.split("?")[0] ?? "";
+        if (!pathname.startsWith("/pdfjs/")) return null;
+        let relative: string;
+        try {
+            relative = decodeURIComponent(pathname.slice("/pdfjs/".length));
+        } catch {
+            return null;
+        }
+        const [dir, ...rest] = relative.split("/");
+        if (!dir || !dirs.has(dir)) return null;
+        const name = rest.join("/");
+        if (name === "" || name.includes("..") || path.isAbsolute(name)) {
+            return null;
+        }
+        const base = path.join(packageRoot, dir);
+        const target = path.join(base, name);
+        return target.startsWith(base + path.sep) ? target : null;
+    };
+
+    return {
+        name: "mimi-pdfjs-assets",
+        configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+                const pathname = (req.url ?? "").split("?")[0] ?? "";
+                if (!pathname.startsWith("/pdfjs/")) {
+                    next();
+                    return;
+                }
+                const target = resolveAsset(req.url ?? "");
+                if (
+                    !target ||
+                    !existsSync(target) ||
+                    !statSync(target).isFile()
+                ) {
+                    // Bad or missing asset: never fall through to the SPA
+                    // fallback, which would hand pdf.js an HTML document.
+                    res.statusCode = 404;
+                    res.end("not found");
+                    return;
+                }
+                // CMaps/fonts are read as ArrayBuffers by pdf.js; the exact
+                // media type does not matter, but a binary type is honest.
+                res.setHeader("Content-Type", "application/octet-stream");
+                createReadStream(target).pipe(res);
+            });
+        },
+        closeBundle() {
+            const outDir = path.join(process.cwd(), "build", "pdfjs");
+            for (const dir of dirs) {
+                cpSync(path.join(packageRoot, dir), path.join(outDir, dir), {
+                    recursive: true,
+                });
+            }
+            console.log("[pdfjs-assets] build/pdfjs/{cmaps,standard_fonts}");
         },
     };
 }
@@ -213,6 +292,7 @@ export default defineConfig(({ mode }) => {
             viteReact(),
             preconnectPocketBase,
             swVersionPlugin(),
+            pdfjsAssetsPlugin(),
         ],
         define: {
             APP_VERSION: JSON.stringify(pkg.version),

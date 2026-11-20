@@ -79,10 +79,10 @@ export type ChatArtifactPart =
 
 /**
  * A file the user attached to a message, stored in `chat_attachments`
- * (owner-scoped, protected file). The original bytes live on the server so
- * `read_attachment` can re-read them for follow-up questions; the extracted
- * text and inline page images ride inside this part (and only the newest
- * attachment turn re-sends them upstream — see `prompt.ts`).
+ * (owner-scoped, protected file). The browser decodes text and rasterizes
+ * PDF pages when the file is picked; the result rides inside this part (and
+ * only the newest attachment turn re-sends it upstream — see `prompt.ts`).
+ * The stored bytes remain so `read_attachment` can render other pages later.
  */
 export type ChatAttachmentPart = {
     type: "attachment";
@@ -96,7 +96,7 @@ export type ChatAttachmentPart = {
     /** PDF page count, when known. */
     pageCount?: number;
     truncated: boolean;
-    /** Server-extracted text; empty for a scanned PDF. */
+    /** Text decoded in the browser; empty for PDFs. */
     extracted: string;
     /** Inline page images (JPEG data URLs) for vision models. */
     pageImages: string[];

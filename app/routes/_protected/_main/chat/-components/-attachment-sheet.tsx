@@ -58,7 +58,7 @@ export function AttachmentSheet({
             key: "files",
             icon: <FileText className="size-4" />,
             label: "文件",
-            hint: "文本、代码或 PDF；原文存在服务器，可反复细读",
+            hint: "文本、代码或 PDF；PDF 在本机转成图片，可反复看",
             enabled: true,
             action: onPickFiles,
         },

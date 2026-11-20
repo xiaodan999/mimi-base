@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { fetchChatModels } from "@/app/chat/api";
 import { base64ToBytes, uploadFileName } from "@/app/chat/artifacts";
 import { type AttachmentRecord } from "@/app/chat/attachments";
+import { renderPdfPages } from "@/app/chat/pdf";
 import {
     type ChatArtifactRecord,
     type ChatAttachmentRecord,
@@ -29,7 +30,7 @@ import type {
 } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
 import { isPdfFileName } from "@/lib/chat-files";
-import pb from "@/lib/pb";
+import pb, { ensureFileToken, getFileUrl } from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import {
     MAX_ARTIFACT_BYTES,
@@ -335,9 +336,9 @@ export function useChatActions() {
 
     /**
      * Store a user-picked file (PDF, text, code) in `chat_attachments` before
-     * the message exists — the relay reads this copy for extraction, and the
-     * `read_attachment` tool re-reads it for follow-up questions. The
-     * conversation link makes conversation deletion clean up unsent picks.
+     * the message exists — `read_attachment` reads this protected copy again
+     * for pages that were not sent inline. The conversation link makes
+     * conversation deletion clean up unsent picks.
      */
     const createAttachment = useCallback(
         async (input: {
@@ -383,6 +384,36 @@ export function useChatActions() {
                 // Already gone (conversation deleted, second tab, ...) is fine.
             });
     }, []);
+
+    /**
+     * Render pages of a stored PDF for the `read_attachment` tool. The record
+     * id comes from the model; the collection's view rule scopes it to the
+     * caller before the protected bytes are fetched and rendered on-device.
+     */
+    const readAttachmentPages = useCallback(
+        async (attachmentId: string, pages: string) => {
+            const record = await pb
+                .collection("chat_attachments")
+                .getOne<ChatAttachmentRecord>(attachmentId, {
+                    fields: "id,collectionId,name,file,kind",
+                });
+            if (record.kind !== "pdf") {
+                throw new Error("只有 PDF 支持按页查看");
+            }
+            if (!record.file) throw new Error("附件文件不见了");
+            await ensureFileToken();
+            const url = getFileUrl(
+                { id: record.id, collectionId: record.collectionId },
+                record.file,
+            );
+            if (!url) throw new Error("附件读取失败，再试一次");
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("附件读取失败，再试一次");
+            const data = new Uint8Array(await res.arrayBuffer());
+            return renderPdfPages(data, pages, record.name);
+        },
+        [],
+    );
 
     /**
      * The write behind the chat's `log_expense` tool. Only called after the
@@ -593,6 +624,7 @@ export function useChatActions() {
         createArtifact,
         createAttachment,
         deleteAttachment,
+        readAttachmentPages,
         createExpense,
         updateMessage,
         deleteMessagesAfter,

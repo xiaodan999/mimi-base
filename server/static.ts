@@ -86,8 +86,14 @@ export function createStaticHandler(root: string) {
             "Cache-Control": cacheControl(pathname),
             "X-Content-Type-Options": "nosniff",
         });
+        // The pdf.js worker is a module worker; a browser rejects it unless
+        // it is served as JavaScript. Be explicit instead of relying on the
+        // runtime's MIME table.
+        const contentType = filePath.endsWith(".mjs")
+            ? "text/javascript; charset=utf-8"
+            : file.type;
+        headers.set("Content-Type", contentType);
         if (req.method === "HEAD") {
-            headers.set("Content-Type", file.type);
             return new Response(null, { headers });
         }
         return new Response(file, { headers });

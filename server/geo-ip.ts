@@ -3,8 +3,8 @@
  *
  * `GET /api/ai/geo/ip` (wired in ai-relay.ts) resolves the caller's public IP to
  * a city with the `ip2region` package, whose bundled xdb data (v4 + v6) ships
- * via node_modules like the pdf.js CMaps — nothing is downloaded or
- * committed. City-level only: the feature never produces coordinates, and
+ * via node_modules — nothing is downloaded or committed. City-level only: the
+ * feature never produces coordinates, and
  * the client asks the user to confirm the estimate before it reaches the
  * model.
  */

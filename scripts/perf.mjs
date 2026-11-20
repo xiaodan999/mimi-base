@@ -115,6 +115,8 @@ const { pbPort, apiPort } = await waitForStack();
 const types = {
     html: "text/html; charset=utf-8",
     js: "text/javascript; charset=utf-8",
+    // pdf.js loads its worker as a module; octet-stream is rejected.
+    mjs: "text/javascript; charset=utf-8",
     css: "text/css; charset=utf-8",
     json: "application/json; charset=utf-8",
     svg: "image/svg+xml",
@@ -171,9 +173,8 @@ const server = Bun.serve({
                     ? "public, max-age=31536000, immutable"
                     : "no-cache",
             };
-            const compressible = /^(html|js|css|json|svg|webmanifest)$/.test(
-                ext,
-            );
+            const compressible =
+                /^(html|js|mjs|css|json|svg|webmanifest)$/.test(ext);
             if (
                 compressible &&
                 (req.headers.get("accept-encoding") ?? "").includes("gzip")

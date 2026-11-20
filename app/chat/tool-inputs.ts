@@ -52,6 +52,29 @@ export type ToolHooks = {
      * the whole request rejected on a text-only model.
      */
     visionEnabled?: boolean;
+    /**
+     * `read_attachment` mode=text: the text persisted on the message part.
+     * Text files are decoded when picked, so no bytes are read again.
+     */
+    readAttachmentText?: (attachmentId: string) => Promise<{
+        name: string;
+        kind: "pdf" | "text";
+        text: string;
+    }>;
+    /**
+     * `read_attachment` mode=pages: render pages from the protected
+     * `chat_attachments` copy. Injected because it needs PocketBase (file
+     * token) and the on-device pdf.js renderer.
+     */
+    readAttachmentPages?: (
+        attachmentId: string,
+        pages: string,
+    ) => Promise<{
+        name: string;
+        numPages: number;
+        pages: number[];
+        images: string[];
+    }>;
 };
 
 export type SendFileRequest = {

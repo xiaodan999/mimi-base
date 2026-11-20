@@ -1,30 +1,36 @@
 /**
  * Chat attachments live in `chat_attachments` (the original bytes are stored
- * server-side, protected and owner-scoped). The browser never runs pdf.js:
- * it creates the record (`useChatActions().createAttachment`), then asks the
- * relay to read the stored copy. The relay returns the extracted text plus,
- * for vision models, the first pages as JPEG data URLs. A `read_attachment`
- * tool call goes through the same endpoint for more pages or the full text,
- * which is what keeps follow-up questions from being capped by the inline
- * excerpt.
+ * server-side, protected and owner-scoped). The browser reads the picked
+ * `File` itself: PDFs are rasterized with the lazy pdf.js chunk (`./pdf`) and
+ * text files are decoded locally. The resulting text/pages ride inside the
+ * message part; the stored bytes remain so `read_attachment` can render
+ * pages that were not sent inline.
  */
 
-import { MAX_PAGE_IMAGES, PDF_NO_TEXT_LAYER_CODE } from "@/lib/chat-files";
+import {
+    isAllowedFileSize,
+    isBinaryData,
+    isPdfFileName,
+    isSupportedFileName,
+    MAX_FILE_BYTES,
+    MAX_FILE_CHARS,
+    MAX_PAGE_IMAGES,
+} from "@/lib/chat-files";
 
-import type { ChatAttachmentPart } from "./types";
+import { readPdfAttachment } from "./pdf";
+import type { ChatAttachmentPart, ChatPart } from "./types";
 
 export { FILE_ACCEPT, MAX_ATTACHMENTS } from "@/lib/chat-files";
 
-export type ExtractedFile = {
-    name: string;
-    kind: "text" | "pdf";
-    content: string;
+/** What reading one picked file produces for the message part. */
+export type FileReadResult = {
+    /** Decoded text; empty for PDFs. */
+    text: string;
     truncated: boolean;
-    numPages?: number;
-    /** Server-rendered page images (JPEG data URLs). */
-    pageImages?: string[];
-    /** 1-based page numbers of `pageImages` (pages-mode reads only). */
-    pages?: number[];
+    /** PDF page count, when the file was a PDF. */
+    pageCount?: number;
+    /** Inline page images (JPEG data URLs). */
+    pageImages: string[];
 };
 
 /** The `chat_attachments` row the client needs to build a part and file URL. */
@@ -38,102 +44,68 @@ export type AttachmentRecord = {
     kind: "pdf" | "text";
 };
 
-/** A composer chip: the stored record plus its (possibly pending) extraction. */
+/** A composer chip: the stored record plus its (possibly pending) read. */
 export type PendingAttachment = {
     part: ChatAttachmentPart;
     reading: boolean;
 };
 
-/** Ask the relay to read a stored attachment (text, or pages on a vision model). */
-export async function extractAttachment(
-    attachmentId: string,
-    options: { pageImageLimit?: number; pages?: string } = {},
-): Promise<ExtractedFile> {
-    // Dynamic import keeps `lib/pb` (and its env check) out of unit tests.
-    const { aiUrl, chatHeaders, readChatError } = await import("./api");
-    const pageImageLimit = Math.max(
-        0,
-        Math.min(MAX_PAGE_IMAGES, Math.floor(options.pageImageLimit ?? 0)),
-    );
-    let res: Response;
-    try {
-        res = await fetch(aiUrl("/files"), {
-            method: "POST",
-            headers: { ...chatHeaders(), "Content-Type": "application/json" },
-            body: JSON.stringify({
-                attachmentId,
-                ...(pageImageLimit > 0 ? { pageImageLimit } : {}),
-                ...(options.pages ? { pages: options.pages } : {}),
-            }),
-        });
-    } catch {
-        throw new Error("附件读取失败，检查网络后再试");
-    }
-    if (!res.ok) throw await readChatError(res);
+type PdfReader = (
+    data: Uint8Array,
+    pageImageLimit: number,
+) => Promise<{ numPages: number; pageImages: string[] }>;
 
-    let payload: unknown;
-    try {
-        payload = await res.json();
-    } catch {
-        throw new Error("文件读取失败，再试一次");
+/**
+ * Read a picked file locally. `renderPdf` is injectable so unit tests can
+ * exercise the text path and the page budget without pdf.js or a DOM.
+ */
+export async function readAttachmentFile(
+    file: File,
+    options: { pageImageLimit?: number; renderPdf?: PdfReader } = {},
+): Promise<FileReadResult> {
+    if (!isSupportedFileName(file.name)) {
+        throw new Error("不支持这种文件类型");
     }
-    return parseUploadedFileResponse(payload, "");
-}
+    if (!isAllowedFileSize(file.size)) {
+        if (file.size === 0) throw new Error("文件是空的");
+        throw new Error(
+            `文件太大了（最大 ${Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB）`,
+        );
+    }
 
-/** Validate the relay's JSON before it becomes message content. */
-export function parseUploadedFileResponse(
-    payload: unknown,
-    fallbackName: string,
-): ExtractedFile {
-    if (typeof payload !== "object" || payload === null) {
-        throw new Error("文件读取失败，再试一次");
+    if (isPdfFileName(file.name)) {
+        const requested = Number.isFinite(options.pageImageLimit)
+            ? Math.floor(options.pageImageLimit ?? 0)
+            : 0;
+        const pageImageLimit = Math.max(
+            0,
+            Math.min(MAX_PAGE_IMAGES, requested),
+        );
+        const read = options.renderPdf ?? readPdfAttachment;
+        const data = new Uint8Array(await file.arrayBuffer());
+        const { numPages, pageImages } = await read(data, pageImageLimit);
+        return {
+            text: "",
+            truncated: false,
+            pageCount: numPages,
+            pageImages,
+        };
     }
-    const value = payload as Record<string, unknown>;
-    if (
-        (value.kind !== "text" && value.kind !== "pdf") ||
-        typeof value.content !== "string"
-    ) {
-        throw new Error("文件读取失败，再试一次");
-    }
-    const images = Array.isArray(value.images)
-        ? value.images
-              .filter(
-                  (image): image is string =>
-                      typeof image === "string" &&
-                      image.startsWith("data:image/jpeg;base64,"),
-              )
-              .slice(0, MAX_PAGE_IMAGES)
-        : [];
-    const numPages =
-        typeof value.numPages === "number" &&
-        Number.isFinite(value.numPages) &&
-        value.numPages > 0
-            ? Math.round(value.numPages)
-            : undefined;
-    // Pages pair with the rendered images (pages[i] is the page of images[i]).
-    const pages = Array.isArray(value.pages)
-        ? value.pages
-              .filter(
-                  (page): page is number =>
-                      typeof page === "number" && Number.isInteger(page),
-              )
-              .slice(0, images.length)
-        : undefined;
+
+    // Only inspect the head for the binary signal; decoding the whole file as
+    // text would produce replacement characters for a binary file.
+    const head = new Uint8Array(await file.slice(0, 4096).arrayBuffer());
+    if (isBinaryData(head)) throw new Error("这个文件看起来不是文本");
+    const text = await file.text();
+    if (text.trim() === "") throw new Error("这个文件是空的");
     return {
-        name:
-            typeof value.name === "string" && value.name !== ""
-                ? value.name
-                : fallbackName,
-        kind: value.kind,
-        content: value.content,
-        truncated: value.truncated === true,
-        ...(numPages !== undefined ? { numPages } : {}),
-        ...(images.length > 0 ? { pageImages: images } : {}),
-        ...(pages !== undefined && pages.length > 0 ? { pages } : {}),
+        text: text.slice(0, MAX_FILE_CHARS),
+        truncated: text.length > MAX_FILE_CHARS,
+        pageImages: [],
     };
 }
 
-/** The message part referencing the stored record, pre-extraction. */
+/** The message part referencing the stored record, pre-read. */
 export function attachmentPartFromRecord(
     record: AttachmentRecord,
 ): ChatAttachmentPart {
@@ -152,122 +124,37 @@ export function attachmentPartFromRecord(
     };
 }
 
-/** Fold an extraction result into a part (mutates a copy, for the composer). */
-export function withExtracted(
+/** Fold a local read into a part (mutates a copy, for the composer). */
+export function withFileRead(
     part: ChatAttachmentPart,
-    file: ExtractedFile,
+    file: FileReadResult,
 ): ChatAttachmentPart {
     return {
         ...part,
-        name: part.name || file.name,
         truncated: file.truncated,
-        ...(file.numPages !== undefined ? { pageCount: file.numPages } : {}),
-        extracted: file.content,
-        pageImages: file.pageImages ?? [],
+        ...(file.pageCount !== undefined ? { pageCount: file.pageCount } : {}),
+        extracted: file.text,
+        pageImages: file.pageImages,
     };
-}
-
-/** The `postTool` call the tool loop uses; injected to keep this pure. */
-export type AttachmentReadPost = (
-    path: string,
-    body: Record<string, unknown>,
-) => Promise<unknown>;
-
-/** What `read_attachment` mode=text reports back to the model. */
-export type AttachmentTextOutcome = {
-    /** The relay's text result (`content` included) or the scan-fallback note. */
-    result:
-        | (Record<string, unknown> & { ok: true })
-        | { ok: false; attachmentId: string; error: string };
-    /** Scan fallback: rendered pages, sent as image parts outside the JSON. */
-    resultImages?: string[];
-};
-
-function messageOf(error: unknown): string {
-    return error instanceof Error ? error.message : "附件读取失败";
-}
-
-function errorOutcome(
-    attachmentId: string,
-    error: unknown,
-): AttachmentTextOutcome {
-    return { result: { ok: false, attachmentId, error: messageOf(error) } };
 }
 
 /**
- * `read_attachment` mode=text: the stored attachment's extracted text.
- *
- * A scanned PDF has no text layer, so the relay refuses text-only reads
- * (`PDF_NO_TEXT_LAYER_CODE`). On a vision-capable model that refusal is not
- * an answer — retry once with the page-image budget and send the rendered
- * pages back through `resultImages` (same channel as mode=pages). On a
- * text-only model the error stands; it already tells the user to switch.
+ * The newest known part for one attachment. `read_attachment mode=text` serves
+ * text attachments from the persisted part instead of re-reading the file.
  */
-export async function readAttachmentText(
-    post: AttachmentReadPost,
+export function findAttachmentPart(
+    messages: readonly { parts: readonly ChatPart[] }[],
     attachmentId: string,
-    visionEnabled: boolean,
-): Promise<AttachmentTextOutcome> {
-    let data: unknown;
-    try {
-        data = await post("/files", { attachmentId });
-    } catch (error) {
-        // Duck-typed: ChatApiError carries the relay's `error.code`, but
-        // importing ./api here would drag lib/pb into unit tests.
-        const code = (error as { code?: unknown } | null)?.code;
-        if (!(visionEnabled && code === PDF_NO_TEXT_LAYER_CODE)) {
-            return errorOutcome(attachmentId, error);
-        }
-        try {
-            data = await post("/files", {
-                attachmentId,
-                pageImageLimit: MAX_PAGE_IMAGES,
-            });
-        } catch (retryError) {
-            return errorOutcome(attachmentId, retryError);
+): ChatAttachmentPart | null {
+    for (const message of messages) {
+        for (const part of message.parts) {
+            if (
+                part.type === "attachment" &&
+                part.attachmentId === attachmentId
+            ) {
+                return part;
+            }
         }
     }
-    if (typeof data !== "object" || data === null) {
-        return errorOutcome(attachmentId, new Error("附件读取失败，再试一次"));
-    }
-    const file = data as Record<string, unknown>;
-    const numPages =
-        typeof file.numPages === "number" &&
-        Number.isFinite(file.numPages) &&
-        file.numPages > 0
-            ? Math.round(file.numPages)
-            : undefined;
-    if (file.ok !== true) {
-        return errorOutcome(
-            attachmentId,
-            new Error(
-                typeof file.error === "string" ? file.error : "附件读不了",
-            ),
-        );
-    }
-    const images = (Array.isArray(file.images) ? file.images : []).filter(
-        (image): image is string =>
-            typeof image === "string" &&
-            image.startsWith("data:image/jpeg;base64,"),
-    );
-    if (images.length === 0) {
-        // Plain text read: pass the relay's result through unchanged — the
-        // extracted content rides back to the model exactly as before.
-        return { result: file as AttachmentTextOutcome["result"] };
-    }
-    // A scan: no text came out, the pages did — surface them like mode=pages.
-    return {
-        result: {
-            ok: true,
-            attachmentId,
-            name:
-                typeof file.name === "string" && file.name !== ""
-                    ? file.name
-                    : "附件",
-            ...(numPages !== undefined ? { numPages } : {}),
-            noTextLayer: true,
-            pagesRendered: images.length,
-        },
-        resultImages: images.slice(0, MAX_PAGE_IMAGES),
-    };
+    return null;
 }

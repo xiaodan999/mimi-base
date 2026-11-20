@@ -42,11 +42,11 @@ import { formatBytes } from "@/app/chat/artifacts";
 import {
     attachmentPartFromRecord,
     type AttachmentRecord,
-    extractAttachment,
     FILE_ACCEPT,
     MAX_ATTACHMENTS,
     type PendingAttachment,
-    withExtracted,
+    readAttachmentFile,
+    withFileRead,
 } from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
 import type {
@@ -70,7 +70,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { MAX_PAGE_IMAGES } from "@/lib/chat-files";
+import { isPdfFileName, MAX_PAGE_IMAGES } from "@/lib/chat-files";
 import { getFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
@@ -620,8 +620,8 @@ export function ChatThread({
 
     /**
      * Pick documents: each file is stored in `chat_attachments` first, then
-     * the relay reads the stored copy (text extraction + page images for
-     * vision models). Failed reads drop the chip and the record.
+     * read on this device (text decoded locally, PDF pages rasterized with
+     * pdf.js). Failed reads drop the chip and the record.
      */
     const handleAddDocs = useCallback(
         async (files: FileList | null) => {
@@ -639,6 +639,9 @@ export function ChatThread({
                 for (const file of Array.from(files).slice(0, room)) {
                     let record: AttachmentRecord | null = null;
                     try {
+                        if (isPdfFileName(file.name) && !visionEnabled) {
+                            throw new Error("当前模型不支持图片，不能读取 PDF");
+                        }
                         record = await createAttachment({
                             conversationId,
                             file,
@@ -654,18 +657,15 @@ export function ChatThread({
                         const pageImageLimit = visionEnabled
                             ? Math.max(0, imageRoom)
                             : 0;
-                        const extracted = await extractAttachment(recordId, {
+                        const read = await readAttachmentFile(file, {
                             pageImageLimit,
                         });
-                        imageRoom -= extracted.pageImages?.length ?? 0;
+                        imageRoom -= read.pageImages.length;
                         setDocs((previous) =>
                             previous.map((doc) =>
                                 doc.part.attachmentId === recordId
                                     ? {
-                                          part: withExtracted(
-                                              doc.part,
-                                              extracted,
-                                          ),
+                                          part: withFileRead(doc.part, read),
                                           reading: false,
                                       }
                                     : doc,

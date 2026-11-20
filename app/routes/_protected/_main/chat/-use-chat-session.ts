@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
+import { findAttachmentPart } from "@/app/chat/attachments";
 import { appendUniqueMessage } from "@/app/chat/history";
 import {
     detectInterruptedRun,
@@ -378,6 +379,28 @@ export function useChatSession({
                 const toolHooks: ToolHooks = {
                     conversationId,
                     visionEnabled: modelInfo.vision,
+                    readAttachmentText: async (attachmentId) => {
+                        const part = findAttachmentPart(history, attachmentId);
+                        if (!part) {
+                            throw new Error(
+                                "找不到这个附件，可能已被删除或不在当前对话里",
+                            );
+                        }
+                        if (part.kind === "pdf") {
+                            throw new Error(
+                                "PDF 没有文字原文，请用 mode=pages 查看页面",
+                            );
+                        }
+                        if (part.extracted.trim() === "") {
+                            throw new Error("这个附件没有可读的文本");
+                        }
+                        return {
+                            name: part.name,
+                            kind: part.kind,
+                            text: part.extracted,
+                        };
+                    },
+                    readAttachmentPages: actions.readAttachmentPages,
                     createExpense: actions.createExpense,
                     saveArtifact: async ({ artifact }) =>
                         actions.createArtifact({
