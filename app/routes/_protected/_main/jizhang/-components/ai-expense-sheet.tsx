@@ -91,13 +91,11 @@ export default function AiExpenseSheet({
     open,
     onClose,
     sharedReceipt = null,
-    sharedHint = "",
 }: {
     open: boolean;
     onClose: () => void;
     /** 系统分享面板交过来的截图；打开面板后自动识别一次。 */
     sharedReceipt?: File | null;
-    sharedHint?: string;
 }) {
     const { settings } = useAi();
     const { runTask, attend, find, getResult } = useAiTasks();
@@ -311,22 +309,22 @@ export default function AiExpenseSheet({
             return;
         handledShareRef.current = sharedReceipt;
 
-        const hint = sharedHint.trim();
         // This is a fresh expense: drop whatever draft the restore effect had
-        // just put back (the old task stays in the task center).
+        // just put back (the old task stays in the task center). Only the
+        // image is sent; the share sheet's text/title is not used.
         activeKeyRef.current = null;
         rowsKeyRef.current = null;
         writeLastParseKey(null);
         setStage("input");
         setRows([]);
         setError("");
-        setText(hint);
+        setText("");
         setReceipt({
             file: sharedReceipt,
             url: URL.createObjectURL(sharedReceipt),
         });
-        void parseRef.current?.({ file: sharedReceipt, text: hint });
-    }, [open, sharedHint, sharedReceipt]);
+        void parseRef.current?.({ file: sharedReceipt, text: "" });
+    }, [open, sharedReceipt]);
 
     const validRows = rows.filter((row) => {
         const price = Number(row.price);

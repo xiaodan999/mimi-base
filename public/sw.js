@@ -241,8 +241,9 @@ async function receiveShare(request) {
             headers: { "Content-Type": image.type || "image/jpeg" },
         }),
     );
-    params.set("share", id);
-    return redirect303(`/jizhang?${params}`);
+    // Image shares are image-only: the ledger does not consume the share
+    // sheet's title/text (the vision model reads the screenshot itself).
+    return redirect303(`/jizhang?share=${encodeURIComponent(id)}`);
 }
 
 function redirect303(path) {

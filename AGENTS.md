@@ -633,10 +633,10 @@ app's own scale, and v4 renames are migrated (`outline-hidden`, `shadow-xs`,
 - PWA share target: `public/manifest.json` declares POST
   `multipart/form-data` with one `image/*` field (`media`). `sw.js` handles
   `POST /share` before its GET branch, stores the first image in the
-  `mimi-share` cache (1h TTL) and 303s to `/jizhang?share=<id>`; the forwarded
-  `text`/`title` become the AI receipt hint. Text shares go to `/share`.
-  `-shared-receipt.ts` mirrors the cache name, `/jizhang` consumes the one-shot
-  param and auto-parses it. A stray `POST /share` on the server
+  `mimi-share` cache (1h TTL) and 303s to `/jizhang?share=<id>`; image shares
+  are image-only (the share sheet's title/text is ignored). Text shares go to
+  `/share`. `-shared-receipt.ts` mirrors the cache name, `/jizhang` consumes
+  the one-shot param and auto-parses it. A stray `POST /share` on the server
   303s to `/share?stale=1` so the page can ask for a reopen (iOS Safari has no
   `share_target`; use the gallery picker). Installed PWAs may need a relaunch
   (sometimes a reinstall) before the new share target appears.

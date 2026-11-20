@@ -49,28 +49,12 @@ import {
 
 type JiZhangSearch = {
     share?: string;
-    hint?: string;
-    /** Share-target caption (the worker forwards text/title for an image). */
-    text?: string;
-    title?: string;
 };
 
 export const Route = createFileRoute("/_protected/_main/jizhang/")({
     validateSearch: (search: Record<string, unknown>): JiZhangSearch => ({
         // Web Share Target: public/sw.js answers POST /share with a 303 here.
         share: typeof search.share === "string" ? search.share : undefined,
-        hint:
-            typeof search.hint === "string"
-                ? search.hint.slice(0, 200)
-                : undefined,
-        text:
-            typeof search.text === "string"
-                ? search.text.slice(0, 200)
-                : undefined,
-        title:
-            typeof search.title === "string"
-                ? search.title.slice(0, 200)
-                : undefined,
     }),
     // Warm the opening range before the page commits. With
     // `defaultPreload: "intent"` a tap starts this loader, so the page mounts
@@ -97,7 +81,6 @@ function Page() {
     );
     const [aiEntryOpen, setAiEntryOpen] = useState(false);
     const [sharedReceipt, setSharedReceipt] = useState<File | null>(null);
-    const [sharedHint, setSharedHint] = useState("");
     const handledShareRef = useRef<string | null>(null);
     const [reviewOpen, setReviewOpen] = useState(false);
     const [fixOpen, setFixOpen] = useState(false);
@@ -123,12 +106,6 @@ function Page() {
         const id = search.share;
         if (!id || handledShareRef.current === id) return;
         handledShareRef.current = id;
-        // The system share sheet may include a caption with the screenshot;
-        // sw.js forwards it as `text` (and sometimes `title`).
-        const hint = (search.hint ?? search.text ?? search.title ?? "").slice(
-            0,
-            200,
-        );
         void navigate({
             to: "/jizhang",
             search: {},
@@ -139,11 +116,10 @@ function Page() {
                 toast.error("分享的图片过期了，再分享一次吧");
                 return;
             }
-            setSharedHint(hint);
             setSharedReceipt(file);
             setAiEntryOpen(true);
         });
-    }, [navigate, search.hint, search.share, search.text, search.title]);
+    }, [navigate, search.share]);
 
     return (
         <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-8">
@@ -254,7 +230,6 @@ function Page() {
                 open={aiEntryOpen}
                 onClose={() => setAiEntryOpen(false)}
                 sharedReceipt={sharedReceipt}
-                sharedHint={sharedHint}
             />
             <AiExpenseReview
                 open={reviewOpen}
