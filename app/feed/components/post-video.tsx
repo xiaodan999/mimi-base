@@ -273,7 +273,10 @@ export default function PostVideo({
                 preload="metadata"
                 playsInline
                 aria-label="动态视频"
-                className="size-full bg-black object-contain"
+                className={cn(
+                    "size-full bg-black object-contain",
+                    !isTweet && "cursor-pointer",
+                )}
                 onClick={() => {
                     if (isTweet) return;
                     if (started) void togglePlay();

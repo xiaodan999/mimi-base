@@ -319,6 +319,15 @@
         outline-offset: 2px;
     }
 
+    /* Tailwind v4 gives buttons the browser's default arrow cursor. Every
+       enabled button — including the image thumbnails wrapped in one — should
+       read as clickable on a mouse; disabled ones keep the arrow. Utilities
+       such as `cursor-grab` still win over this base rule. */
+    button:not(:disabled):not([aria-disabled="true"]),
+    [role="button"]:not(:disabled):not([aria-disabled="true"]) {
+        cursor: pointer;
+    }
+
     /* Set from useVisualViewport so the shell follows the keyboard. */
     #app {
         height: var(--app-vvh, 100dvh);
