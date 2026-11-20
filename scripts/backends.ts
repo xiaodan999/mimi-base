@@ -248,6 +248,7 @@ async function main() {
             ...process.env,
             PB_URL: `http://127.0.0.1:${pbPort}`,
             PORT: String(apiPort),
+            HOST: process.env.HOST ?? "127.0.0.1",
             MIMI_DEV: "1",
             STATIC_DIR: buildDir,
         },

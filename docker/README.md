@@ -49,7 +49,7 @@ git pull --ff-only
 
 cp docker/.env.app.example .env.app
 chmod 600 .env.app
-# 填 PB_URL=http://mimi-pb:8090、OPENCODE_*、GITHUB_*、SUPERUSER_*
+# 填 PB_URL=http://mimi-pb:8090、AI_*、GITHUB_*、SUPERUSER_*
 ```
 
 `pb_data` 直接使用现有的 `pocketbase/pb_data`，不需要建卷或复制。
@@ -191,7 +191,7 @@ docker compose ps
 ```
 
 - `mimi-app` 起不来：看 `PB_URL` 是否能解析（`docker compose exec mimi-app
-wget -qO- http://mimi-pb:8090/api/health`）。
+curl -fsS http://mimi-pb:8090/api/health`）。
 - 静态页面 404：确认 `build/` 在镜像里（`docker run --rm --entrypoint ls
 <image> /app/build`），以及 Caddy 兜底指向 `mimi-app:9001`。
 - AI 503：`.env.app` 里 `AI_API_KEY` 为空；改完 `docker compose up -d`

@@ -22,12 +22,8 @@ import { applyLikeToggle, revertOptimisticLike } from "./like";
 import { patchPostInPages, type PostsData, type PostsPage } from "./pages";
 import { groupPostMonths, type PostMediaFields } from "./utils";
 
-// The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
-// components importing from `./-data` don't need to change.
-export type { PostData, PostImage, PostLayout } from "@/lib/pb-types";
-export type { PostsPage } from "./pages";
-export type { PostFilter } from "./filter";
-export { postFilterKey } from "./filter";
+// Re-exported for components that import the post view-model from here.
+export type { PostData, PostLayout } from "@/lib/pb-types";
 
 function buildFilter({ month, q, post }: PostFilter) {
     const clauses: string[] = [];

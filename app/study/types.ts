@@ -39,7 +39,7 @@ export type Card = {
     t: string;
     /** 核心 / 高频 / 易错 / 必背 / 衍生 */
     tag: string;
-    /** 动画演示 id，见 demos.ts */
+    /** 动画演示 id，见 components/widgets/registry.tsx */
     demo?: string | null;
     demoArg?: string | string[];
     points?: string[];

@@ -10,9 +10,8 @@ import {
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-// The view-model shapes now live in lib/pb-types.ts; keep re-exporting them so
-// components importing from `./-comments` don't need to change.
-export type { CommentData, CommentThread } from "@/lib/pb-types";
+// Re-exported for components that import the comment view-model from here.
+export type { CommentData } from "@/lib/pb-types";
 
 export function useComments(postId: string, enabled = true) {
     return useQuery({

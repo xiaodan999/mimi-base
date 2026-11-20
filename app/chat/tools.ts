@@ -34,8 +34,6 @@ import { requestUserInput } from "./user-input";
 // The pausable-tool logic lives in ./tool-inputs (pure, unit-testable);
 // re-exported here so the tool-loop API stays in one place.
 export {
-    askUserRequestFromArgs,
-    expenseRequestFromArgs,
     isInteractiveTool,
     pendingRequestFromToolCall,
     resolveInteractiveToolResult,
@@ -43,7 +41,7 @@ export {
 export type { ToolHooks } from "./tool-inputs";
 
 /**
- * Tools the chat model may call. Code runs in the server-side Docker sandbox
+ * Tools the chat model may call. Code runs in the server-side QuickJS sandbox
  * (public HTTP(S) only); data tools hit `/api/ai/tools/*`, where the server
  * enforces auth, scoping and limits — the browser just forwards arguments.
  */

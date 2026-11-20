@@ -40,9 +40,5 @@ pocketbase/CHANGELOG.md
 pocketbase/LICENSE.md
 pb_data_snapshots/
 
-# Frontend published by the deploy-spa workflow (PB's --publicDir)
-build.next/
-build.old/
-
 # TanStack Router generated cache
 .tanstack/

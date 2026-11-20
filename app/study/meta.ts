@@ -47,13 +47,6 @@ export const NURSING_QC_META: SubjectMeta = {
 
 export const SUBJECT_META: SubjectMeta[] = [NURSING_QC_META];
 
-export function getSubjectMeta(
-    id: string | undefined,
-): SubjectMeta | undefined {
-    if (!id) return undefined;
-    return SUBJECT_META.find((subject) => subject.id === id);
-}
-
 export const KIND_LABEL: Record<SubjectKind, string> = {
     quiz: "题库 · 知识卡",
     doc: "文档阅读",

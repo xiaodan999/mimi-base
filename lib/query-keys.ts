@@ -42,7 +42,6 @@ export const qk = {
         ["study-progress", subjectId, userId] as const,
     /** Prefix for every subject's progress row. */
     studyProgressAll: ["study-progress"] as const,
-    studySummaries: (userId: string) => ["study-summaries", userId] as const,
     /** Prefix used by the study overview and the realtime sync. */
     studySummariesAll: ["study-summaries"] as const,
     homeStats: {

@@ -2,7 +2,7 @@
    AI 面板所需的学习基地设计 token（精简副本）
    --------------------------------------------------------------------------
    AiProvider 挂在 app shell 上，每一个页面都会加载它。以前这里 import 整份
-   study.css（3515 行 / ~60KB），只为拿到下面这十几个 st-* / ai-* 类。
+   study.css（约 60KB），只为拿到下面这十几个 st-* / ai-* 类。
    本文件是 study.css 对应规则的精简副本，供 AiContext.tsx 全局引入；
    完整的 study.css 只在 /study 路由（study/index.tsx、$subjectId.tsx）引入。
 

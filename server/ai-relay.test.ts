@@ -89,9 +89,9 @@ function upstreamCall(calls: Call[]): Call {
 }
 
 describe("routing", () => {
-    test("non-/ai requests are left to the deploy dispatcher", async () => {
+    test("non-/ai requests are left to main.ts", async () => {
         const { relay } = harness();
-        expect(await relay(request("/spa/publish"))).toBeNull();
+        expect(await relay(request("/api/feedback/report"))).toBeNull();
         expect(await relay(request("/aix"))).toBeNull();
     });
 

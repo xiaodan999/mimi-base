@@ -189,7 +189,7 @@ jobs:
               run: |
                   set -euo pipefail
                   # Watchtower pulls the whole image before it restarts the
-                  # container; the first ghcr.io pull from the host can be a
+                  # container; the first TCR pull from the host can be a
                   # full ~300MB, so allow up to 15 minutes, not 5.
                   for i in $(seq 1 90); do
                     sha=$(curl -fsS "$PB_BASE_URL/version.json?t=${{ github.sha }}" | jq -r '.sha // empty' 2>/dev/null || true)

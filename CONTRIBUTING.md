@@ -6,6 +6,7 @@
 
 ```bash
 bun install
+bun run install:server
 cp .env.example .env
 
 # 终端 1：PocketBase + API

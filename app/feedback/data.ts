@@ -29,12 +29,7 @@ import type {
     FeedbackReportRecord,
 } from "./reports";
 
-export type {
-    FeedbackKind,
-    FeedbackReportPage,
-    FeedbackReportRecord,
-    FeedbackStatus,
-} from "./reports";
+export type { FeedbackReportRecord } from "./reports";
 
 export type FeedbackIssue = { url: string; number: number | null };
 

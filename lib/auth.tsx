@@ -9,10 +9,9 @@ import { type DevAccount, findDevAccount } from "./dev-accounts";
 import pb, { clearFileToken, ensureFileToken } from "./pb";
 import { toUser, type User, type UserRecord } from "./pb-types";
 
-// `User` / `Circle` are centralized in lib/pb-types.ts; re-export them so the
-// rest of the app keeps importing them from `@/lib/auth`.
-export type { User, Circle } from "./pb-types";
-export type { AuthSnapshot, AuthStatus, AuthStore } from "./auth-store";
+// `User` is centralized in lib/pb-types.ts; re-export it so consumers keep
+// importing it from `@/lib/auth`.
+export type { User } from "./pb-types";
 
 /**
  * A 401/403/404 means the credential or the account is gone. Anything else

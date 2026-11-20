@@ -174,10 +174,6 @@ export const POINTS: Record<QuizType, number> = {
     short: 8,
 };
 
-export function findPreset(key: string): ExamPreset {
-    return EXAM_PRESETS.find((p) => p.key === key) ?? EXAM_PRESETS[0];
-}
-
 export function buildExam(
     subject: StudySubject,
     preset: ExamPreset,

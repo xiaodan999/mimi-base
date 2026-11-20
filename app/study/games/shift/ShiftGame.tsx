@@ -28,8 +28,6 @@ import { shiftScore } from "./scoring";
 import "../games.css";
 import "./shift.css";
 
-export * from "./meta";
-
 type Phase = "intro" | "playing" | "result";
 
 type RuntimeStatus = "upcoming" | "active" | "resolved" | "missed";

@@ -308,7 +308,7 @@ function About() {
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         秘密基地是一个只给亲近的人用的小空间：发照片、写动态、记账、学习，偶尔让
                         AI 帮点小忙。数据保存在自己的服务器上，AI 的 Key
-                        只存在当前浏览器里。
+                        只保存在服务器上，不会下发到浏览器。
                     </p>
                 </section>
             </div>

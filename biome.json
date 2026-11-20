@@ -5,8 +5,6 @@
             "**",
             "!app/routeTree.gen.ts",
             "!build",
-            "!build.next",
-            "!build.old",
             "!tmp",
             "!pb_data_snapshots",
             "!public/sw.js",

@@ -17,10 +17,6 @@ export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
  */
 export const MAX_POST_MEDIA = 9;
 
-/** `accept` for the system file picker: MIME types plus extensions. */
-export const VIDEO_ACCEPT =
-    "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov";
-
 /**
  * `accept` for the one composer picker: photos and videos in a single dialog.
  * The extensions cover browsers that report no MIME type for a picked file.

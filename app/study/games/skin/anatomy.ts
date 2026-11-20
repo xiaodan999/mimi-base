@@ -119,6 +119,3 @@ export type WoundProfile = {
     /** 探针读数里的深度文案 */
     depthLabel: string;
 };
-
-/** 病例共用的剖面尺寸说明，给 DOM 图例用 */
-export const LAYER_COUNT = SKIN_LAYERS.length;

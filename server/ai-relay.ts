@@ -87,15 +87,15 @@ export type SandboxService = {
 };
 
 export type AiRelayDeps = {
-    /** Loopback PocketBase base URL, e.g. http://127.0.0.1:8090 */
+    /** PocketBase base URL (loopback in dev, mimi-pb in compose). */
     pbBaseUrl: string;
     /** Server-held OpenCode Go key. Empty disables chat (health stays up). */
     apiKey: string;
     /** Model forced on every legacy request (`/api/ai/opencode/v1/...`). */
     model: string;
     /**
-     * Models the general chat may pick from. Omit to derive the list from
-     * `model` plus the built-in catalog.
+     * Models the general chat may pick from. Omit to use the built-in
+     * catalog; `model` only selects the default when it is in the list.
      */
     chatModels?: ChatModelInfo[];
     /** Chat model used when a request leaves `model` empty. */

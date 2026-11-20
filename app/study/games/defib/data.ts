@@ -263,7 +263,3 @@ export const SHOCK_ORDER_LABEL = "充电 → 所有人离开 → 放电";
 export function getLead(id: LeadId): LeadDef {
     return LEAD_DEFS.find((lead) => lead.id === id) ?? LEAD_DEFS[0];
 }
-
-export function getLeadZone(id: LeadId): BodyZone | undefined {
-    return LEAD_ZONES.find((zone) => zone.lead === id);
-}

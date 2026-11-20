@@ -156,7 +156,7 @@ export type TranscriptMessage = {
 };
 
 export type FeedbackDeps = {
-    /** Loopback PocketBase base URL, e.g. http://127.0.0.1:8090 */
+    /** PocketBase base URL (loopback in dev, mimi-pb in compose). */
     pbBaseUrl: string;
     /** Server-held GitHub token. Empty accepts the report without syncing. */
     githubToken: string;

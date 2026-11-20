@@ -4,8 +4,6 @@ node_modules
 server/node_modules
 pocketbase/node_modules
 build
-build.next
-build.old
 pb_data_snapshots
 pocketbase/pb_data
 pocketbase/pocketbase
@@ -15,6 +13,4 @@ tmp
 *.log
 .env
 .env.*
-.env.prod
-.env.prod.*
 .env.app

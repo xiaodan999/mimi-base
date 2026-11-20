@@ -6,9 +6,9 @@
 // node.exe, which already has inbound firewall rules, so it needs no admin
 // rights and no `netsh portproxy`.
 //
-// Only the Vite port is forwarded. PocketBase stays on loopback and Vite
-// proxies `/api` to it, so the phone needs one port and the client can use
-// same-origin URLs.
+// Only the Vite port is forwarded. PocketBase and the Bun API stay on
+// loopback; Vite proxies `/db` to PocketBase and `/api` to the API, so the
+// phone needs one port and the client can use same-origin URLs.
 //
 // Usage: node lan-proxy.mjs <wsl-ip> <port> [port...]
 import net from "node:net";

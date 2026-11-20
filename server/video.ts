@@ -43,7 +43,7 @@ export type VideoCompressResult =
     { ok: true } | { ok: false; missing: boolean; error: string };
 
 export type VideoCompressDeps = {
-    /** Loopback PocketBase base URL, e.g. http://127.0.0.1:8090 */
+    /** PocketBase base URL (loopback in dev, mimi-pb in compose). */
     pbBaseUrl: string;
     /** Path/name of the ffmpeg binary; defaults to `ffmpeg` on PATH. */
     ffmpegPath?: string;

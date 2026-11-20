@@ -18,16 +18,7 @@
  */
 
 import { isRecordId } from "../lib/chat-files";
-import {
-    assertPublicHost,
-    fetchPublic,
-    isPrivateIp,
-    UrlPolicyError,
-} from "./safe-fetch";
-
-// Kept exported for the existing tests and any caller that imported the
-// guard from this module before it moved to safe-fetch.ts.
-export { assertPublicHost, isPrivateIp };
+import { fetchPublic, UrlPolicyError } from "./safe-fetch";
 
 export const AI_TOOLS_EXPENSES_PATH = "/api/ai/tools/expenses";
 export const AI_TOOLS_POSTS_PATH = "/api/ai/tools/posts";
@@ -65,7 +56,7 @@ export type AiToolsCall = {
 export type AiToolsResult = { status: number; body: unknown };
 
 export type AiToolsDeps = {
-    /** Loopback PocketBase base URL, e.g. http://127.0.0.1:8090 */
+    /** PocketBase base URL (loopback in dev, mimi-pb in compose). */
     pbBaseUrl: string;
     /** Injectable for tests. */
     fetch?: typeof fetch;

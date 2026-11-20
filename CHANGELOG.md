@@ -30,6 +30,8 @@
 - 桌面端改用左侧导航栏：底部标签在 `lg` 以上收起，动态/聊天/记账/学习/年度报告收进居中内容列；聊天标题与返回键留出间距，评论、查找、新对话等底部面板在大屏居中显示（#104）。
 - 聊天附件改在设备上读取：PDF 用懒加载的 pdf.js 渲染成页面图片，文本文件在本机解码；移除服务端的 pdf.js / `@napi-rs/canvas` 与 `/api/ai/files`，根依赖里的 pdf.js 也不再下载原生 canvas，`bun test` 不再加载这两个包。
 - 清理「服务端解析 PDF」的过时说明：README 的 `install:server` 依赖、docker/README 的 `mimi-app` 职责和 `ChatApiError` 的空错误码；docs-facts 测试补上断言。
+- 清理安装与部署文档的过时事实：`install:server` 的依赖与影响、Vercel 的 `same-origin`/`127.0.0.1` 说明、IP 定位、管理后台地址、`AI_*` 变量和 GHCR 注释。
+- 删除无引用的 hook、工具函数和重复游戏元数据，修正 Docker/QuickJS、PDF 附件与 AI Key 的旧注释；开发环境的 Bun API 改回只监听 loopback。
 - 分享截图到记账保持纯图片识别：`sw.js` 的图片重定向只带 `share` id，`/jizhang` 不再接受或使用 `hint`/`text`/`title`，`AiExpenseSheet` 只解析截图本身。
 - `resolveAppSha` 增加 `VERCEL_GIT_COMMIT_SHA`，Vercel 部署的 `version.json` 与 sw.js `VERSION` 也会随提交变化；原有 `GITHUB_SHA` / `GIT_SHA` / `VITE_APP_SHA` / git 回退顺序不变。
 - Service Worker 导航只缓存一份 `/`，激活时清掉新 shell 不再引用的旧 `/assets/` 分块和按路由缓存的 HTML，离线缓存不再随每次部署增长；离线安装读不到新 shell 时保留旧缓存。

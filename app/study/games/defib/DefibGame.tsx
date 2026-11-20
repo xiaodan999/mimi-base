@@ -32,17 +32,6 @@ import {
     type RhythmResult,
 } from "./scoring";
 
-export {
-    GAME_CARDS,
-    GAME_DESC,
-    GAME_ICON,
-    GAME_ID,
-    GAME_MINUTES,
-    GAME_MODULES,
-    GAME_SUBTITLE,
-    GAME_TITLE,
-} from "./meta";
-
 type Phase = "intro" | "leads" | "pads" | "cpr" | "shock" | "result";
 
 type Feedback = {

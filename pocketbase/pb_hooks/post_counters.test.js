@@ -5,8 +5,7 @@
 // 用 bun:sqlite 建最小库，直接执行 post_counters.pb.js 与重算迁移里用的 SQL，
 // 验证：原子 +1、重算幂等、级联删除后重算能一次算全。
 //
-// 注意：bun run test = `bun test app lib`，只包含 app/ 与 lib/，不会跑到
-// pocketbase/。本文件需手动执行：
+// 注意：bun run test 会跑到整个仓库，本文件也会被执行；需要单独调试时：
 //     bun test pocketbase/pb_hooks/post_counters.test.js
 // 真正「并发下不丢 +1」与「级联删除是否触发 record 钩子」必须跑起来的
 // PocketBase + 真实集合才能验证，纯 SQL 测试只能证明语句本身正确。

@@ -29,14 +29,6 @@ import "../games.css";
 import "./skin.css";
 
 export const GAME_ID = "skin";
-export const GAME_TITLE = "皮肤之下";
-export const GAME_SUBTITLE = "3D 压疮分层与分期";
-export const GAME_ICON = "🔬";
-export const GAME_MINUTES = 5;
-export const GAME_DESC =
-    "转动一块 3D 皮肤剖面，看清表皮、真皮、脂肪、肌肉和骨面，完成 6 个压疮病例的分期与处理。";
-export const GAME_MODULES = ["m2"];
-export const GAME_CARDS = ["c11", "c13"];
 
 type Phase = "intro" | "playing" | "result";
 

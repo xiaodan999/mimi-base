@@ -18,6 +18,3 @@ export async function loadSubject(
     }
     return undefined;
 }
-
-// 兼容旧引用：KIND_LABEL 现在放在零依赖的 meta.ts。
-export { KIND_LABEL } from "./meta";

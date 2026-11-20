@@ -8,9 +8,9 @@ import {
 } from "@/components/ui/sheet";
 
 /**
- * Attachment sources for the composer paperclip. Album and posts need a
- * vision-capable model (they become image parts); documents work everywhere
- * because they are sent as text.
+ * Attachment sources for the composer paperclip. Album, posts and PDFs need a
+ * vision-capable model (they become image parts); text/code documents work
+ * everywhere because they are sent as text.
  */
 export function AttachmentSheet({
     open,

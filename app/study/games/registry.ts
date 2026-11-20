@@ -122,10 +122,6 @@ export function getGame(id: string | undefined): GameMeta | undefined {
     return GAMES.find((game) => game.id === id);
 }
 
-export function readyGames(): GameMeta[] {
-    return GAMES.filter((game) => game.status === "ready");
-}
-
 /** 卡片详情里的「去实战」：优先开放中的专属游戏，最后才推荐 boss */
 export function gameForCard(cardId: string): GameMeta | undefined {
     const matches = GAMES.filter((game) => game.cards.includes(cardId));

@@ -7,8 +7,8 @@ import {
     createAiToolsService,
     dayRangeUtc,
     htmlToText,
-    isPrivateIp,
 } from "./ai-tools";
+import { isPrivateIp } from "./safe-fetch";
 
 const PB_BASE = "http://127.0.0.1:8090";
 

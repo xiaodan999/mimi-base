@@ -27,7 +27,16 @@ const CURRENT_FILES = [
 ];
 
 /** Names from the retired deploy workflow and env layout. */
-const REMOVED = ["x-spa-sha", "deploy-db", "deploy-spa", ".env.prod"];
+const REMOVED = [
+    "x-spa-sha",
+    "deploy-db",
+    "deploy-spa",
+    ".env.prod",
+    "build.next",
+    "build.old",
+    "OPENCODE_",
+    "ghcr.io",
+];
 
 /** Phrases that described the retired server-side PDF parser. */
 const REMOVED_SERVER_PDF = [

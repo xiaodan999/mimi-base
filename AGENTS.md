@@ -20,8 +20,8 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
       动态 feed under its greeting card. `chat/` has an index (conversation list)
       and `$conversationId.tsx` (thread); `/dinner` is reached from the home
       bowl and has no bottom-nav tab.
-    - Files starting with `-` (`-data.tsx`, `-comments.ts`, `-components/`) are
-      colocated helpers, not routes.
+    - Files starting with `-` (`-data.tsx`, `-use-chat-session.ts`,
+      `-components/`) are colocated helpers, not routes.
 - `components/ui/` — forked shadcn primitives (see below). Biome lints it;
   `bun fmt` skips it. `components/` holds app components (`NavButtons`,
   `TouXiang`, `LoadingPage`).
@@ -30,7 +30,7 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
   media, comments, post/composer/viewer components), `dinner/` (wheel geometry,
   shared options), `notifications/`, `feedback/` (report data, realtime,
   attachments, issue state, filters, prompt, error buffer), `ai/` (provider,
-  client, task store, prompts), `study/`, `report/`, `about/`.
+  client, task store, prompts), `study/`, `about/`.
 - `lib/` — `pb.ts` singleton + URL/date helpers, `auth-store.ts`,
   `auth.tsx`, `redirect.ts`, `env.ts`, `realtime.ts`, `postMedia.ts`,
   `query-keys.ts`, `toast-promise.ts`, image picker/compressor.
@@ -52,8 +52,8 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
 ```bash
 bun install
 bun run install:server   # server/ deps (ip2region, QuickJS)
-cp .env.example .env      # VITE_POCKETBASE_URL=http://127.0.0.1:8090
-bun run dev:backend       # PocketBase :8090 + API :9001 (admin at /db/_/)
+cp .env.example .env      # VITE_POCKETBASE_URL=same-origin
+bun run dev:backend       # PocketBase :8090 + API :9001 (admin at /_/)
 bun run dev:frontend      # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, LAN-exposed (prints the phone URL)
 bun run build             # vite build + bun check
@@ -297,8 +297,10 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   that way. **This is deliberate, not a leak.** The product has exactly two
   accounts for one couple, sign-up is locked, and the shared feed/ledger _is_
   the feature. Don't owner-scope posts/comments or add a friends system. Scope
-  today: `study_progress`, `ji_zhang_category`, `tou_xiang_circle` and all
-  `chat_*` are owner-scoped; `feedback_reports` is owner-only for bug rows plus
+  today: `study_progress` and all `chat_*` are owner-scoped;
+  `ji_zhang_category` / `tou_xiang_circle` are owner-scoped for writes while
+  reads stay auth-only (categories are filtered by `user_id` in the app, rings
+  are shared); `feedback_reports` is owner-only for bug rows plus
   update/delete, while its read rule shares `kind = "feature"` rows with both
   accounts; `ji_zhang_biao` is shared for reads but owner-scoped for
   update/delete. If a third account is ever added, migrate the per-collection
@@ -517,7 +519,7 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   body text, so `JSON.parse(await sandbox.fetch(url))` is the pattern. Python is not
   supported. Don't expose new host globals without re-evaluating prompt
   injection against the AI key and `pb_data`. `ask_user` is client-side and
-  pauses the loop (text/choice/confirm/location/expense). Location is a
+  pauses the loop (text/choice/confirm/location). Location is a
   **city-only IP estimate**: `GET /api/ai/geo/ip` is called only after the user
   taps 自动识别城市, the estimate is confirmed before reaching the model, and
   coordinates are never resolved or injected silently. `log_expense` also
@@ -537,7 +539,8 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   filters (ledger/posts/comments shared on purpose; `chat_memories` owner-only
   with PB rules as backstop), and `read_url` resolves DNS once, pins the
   validated address for the connection (no rebinding), and refuses
-  private/reserved hosts and redirects. The system prompt says tool output is
+  private/reserved hosts. Redirects are followed at most 3 times, re-validating
+  each hop. The system prompt says tool output is
   data, not instructions — keep that line in `app/chat/prompt.ts`. Memories
   (top 30) are injected into every run and managed in 「AI 的记忆」.
 - Built-in personas (`app/chat/personas.ts`, UI: 应用场景) are 日常对话 /

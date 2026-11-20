@@ -288,7 +288,7 @@ export function useChatActions() {
 
     /**
      * Upload a binary artifact the sandbox just produced. The bytes only exist
-     * in the run response (the container is gone afterwards), so this must
+     * in the run response (the run's runtime is gone afterwards), so this must
      * happen immediately. Text artifacts never come here — they stay in
      * `sandbox_files`.
      */

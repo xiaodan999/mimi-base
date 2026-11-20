@@ -13,7 +13,7 @@ export const MAX_TOTAL_CHARS = 400_000;
 export const MAX_CODE_CHARS = 60_000;
 export const MAX_LOG_LINES = 100;
 export const MAX_OUTPUT_CHARS = 20_000;
-/** Hard limit enforced by the executor and the Docker kill timer. */
+/** Hard limit enforced by server/sandbox.ts via `worker.terminate()`. */
 export const SANDBOX_TIMEOUT_MS = 60_000;
 
 /**

@@ -396,7 +396,3 @@ export const SKIN_CASES: SkinCase[] = [
         wound: completeSkin("dermis", "deep", "0 cm（皮肤完整）"),
     },
 ];
-
-export function skinCaseById(id: string): SkinCase | undefined {
-    return SKIN_CASES.find((item) => item.id === id);
-}

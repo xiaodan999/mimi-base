@@ -30,8 +30,8 @@
     ```
 
     `install:server` 只装服务端自己的依赖（`server/package.json`：ip2region、
-    QuickJS 沙箱），和前端构建分开；不跑也能启动，只是聊天里的
-    文件附件和沙箱工具会不可用。
+    QuickJS 沙箱），和前端构建分开；不装的话 Bun API 起不来，聊天里的数据
+    工具和沙箱会用不了（附件仍在浏览器里读取）。
 
     建议再运行一次 `bun run setup:hooks`，这样每次提交前会自动
     整理格式并检查类型和测试。
@@ -50,7 +50,8 @@
 
     第一次启动可能会下载数据库程序，需要等一会儿。看到类似
     `VITE ... ready` 的字样就说明成功了。终端最后会打印一个手机访问地址，
-    同一 Wi-Fi 下打开即可（数据库仍然只监听本机，页面通过 `/api` 代理访问）。
+    同一 Wi-Fi 下打开即可（数据库仍然只监听本机，页面通过 `/db` 和 `/api`
+    代理访问）。
 
 5. 用浏览器打开：
 
@@ -274,8 +275,10 @@ VITE_POCKETBASE_URL=https://pb.example.com
 ```
 
 `lib/env.ts` 会自动把 PocketBase 挂到 `/db` 下（`https://pb.example.com/db`
-也接受）。不能用 `same-origin` 或 `127.0.0.1`，否则 `lib/env.ts` 在页面加载
-时会直接抛错（跨域本身没问题，PocketBase 的 API 已允许 CORS）。
+也接受）。不能填 `same-origin` 或 `127.0.0.1`：它们本身是合法值，但会让
+Vercel 页面连到自己的域名或手机自己的 localhost，找不到 PocketBase；只有
+缺失或格式错误时才会在页面加载时抛错（跨域本身没问题，PocketBase 的 API
+已允许 CORS）。
 
 **AI 由站点统一提供**：服务器在 `.env.app` 里配置 `AI_API_KEY`（开发时放
 `.env`），浏览器只带登录令牌访问 `/api/ai` 中转，不需要也不能填自己的 Key。
@@ -289,7 +292,8 @@ AI 的 `sandbox_*` 工具在服务器的 QuickJS 沙箱里运行 JavaScript（�
 没有 Node/npm），不读写宿主机文件、不直接联网；`sandbox.fetch` /
 `sandbox.download` 由 API 侧按 `read_url` 的规则代取公网内容，访问不到本站
 内网、PocketBase 或本站文件/密钥。缺少城市、位置或偏好时，AI 会用
-`ask_user` 直接向你提问；定位会弹出浏览器的授权提示。
+`ask_user` 直接向你提问；定位按网络 IP 估计城市，并在面板里让你确认，
+不请求浏览器定位权限，也没有坐标。
 
 **两个 origin 的后果（已知并接受）**：Vercel 页面和自托管 PocketBase 页面
 是两个不同的域名，浏览器把它们的 Service Worker 缓存、`localStorage`

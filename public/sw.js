@@ -182,7 +182,7 @@ async function pruneShellCache(cache) {
 // never handed new code without a chance to reload.
 self.addEventListener("message", (event) => {
     const data = event.data;
-    if (data === "SKIP_WAITING" || data?.type === "SKIP_WAITING") {
+    if (data?.type === "SKIP_WAITING") {
         self.skipWaiting();
     }
 });
