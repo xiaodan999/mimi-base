@@ -60,7 +60,14 @@ const DrawerOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <DrawerPrimitive.Overlay
         ref={ref}
-        className={cn("fixed inset-0 z-50 bg-black/80", className)}
+        className={cn(
+            // Vaul keeps a closing overlay mounted — and scroll-locked — for
+            // its 500ms fade. Let pointers (and a middle-click autoscroll)
+            // reach the page immediately, and cap the fade so the wheel lock
+            // is barely noticeable.
+            "fixed inset-0 z-50 bg-black/80 data-[state=closed]:pointer-events-none! data-[state=closed]:[animation-duration:200ms]!",
+            className,
+        )}
         {...props}
     />
 ));
@@ -75,7 +82,7 @@ const DrawerContent = React.forwardRef<
         <DrawerPrimitive.Content
             ref={ref}
             className={cn(
-                "kb-bottom fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-[10px] border bg-background",
+                "kb-bottom fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-[10px] border bg-background data-[state=closed]:pointer-events-none!",
                 className,
             )}
             {...props}
