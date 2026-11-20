@@ -502,6 +502,28 @@ export function InstagramCarousel({
 }: MediaListProps) {
     const stripRef = useRef<HTMLDivElement>(null);
     const [index, setIndex] = useState(0);
+    const [canPrev, setCanPrev] = useState(false);
+    const [canNext, setCanNext] = useState(false);
+
+    /** Keep the hover arrows honest as the strip scrolls or resizes. */
+    const updateArrows = useCallback(() => {
+        const strip = stripRef.current;
+        if (!strip) return;
+        setCanPrev(strip.scrollLeft > 1);
+        setCanNext(
+            strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1,
+        );
+    }, []);
+
+    useEffect(() => {
+        if (media.length < 2) return;
+        const strip = stripRef.current;
+        if (!strip) return;
+        updateArrows();
+        const observer = new ResizeObserver(updateArrows);
+        observer.observe(strip);
+        return () => observer.disconnect();
+    }, [media.length, updateArrows]);
 
     if (media.length === 0) return null;
 
@@ -509,12 +531,22 @@ export function InstagramCarousel({
         const strip = stripRef.current;
         if (!strip) return;
         setIndex(Math.round(strip.scrollLeft / strip.clientWidth));
+        updateArrows();
+    };
+
+    const scrollStrip = (direction: 1 | -1) => {
+        const strip = stripRef.current;
+        if (!strip) return;
+        const slide = strip.firstElementChild as HTMLElement | null;
+        // Slides are full-width and gapless, so one slide is one step.
+        const amount = slide?.offsetWidth ?? strip.clientWidth;
+        strip.scrollBy({ left: amount * direction, behavior: "smooth" });
     };
 
     const indexed = indexMediaByKind(media);
 
     return (
-        <div className="relative bg-muted">
+        <div className="group relative bg-muted">
             <div
                 ref={stripRef}
                 onScroll={handleScroll}
@@ -558,6 +590,37 @@ export function InstagramCarousel({
 
             {media.length > 1 && (
                 <>
+                    {/* Same affordance as the tweet strip: only on
+                        hover-capable devices, and the arrow that cannot go
+                        further stays hidden. Keyboard focus reveals it too. */}
+                    <button
+                        type="button"
+                        disabled={!canPrev}
+                        onClick={() => scrollStrip(-1)}
+                        aria-label="上一张图片"
+                        className={cn(
+                            "absolute top-1/2 left-3 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-200 focus-visible:opacity-100",
+                            canPrev
+                                ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+                                : "pointer-events-none",
+                        )}
+                    >
+                        <ChevronLeft className="size-5" aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        disabled={!canNext}
+                        onClick={() => scrollStrip(1)}
+                        aria-label="下一张图片"
+                        className={cn(
+                            "absolute top-1/2 right-3 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full bg-black/75 text-white opacity-0 transition-opacity duration-200 focus-visible:opacity-100",
+                            canNext
+                                ? "pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100"
+                                : "pointer-events-none",
+                        )}
+                    >
+                        <ChevronRight className="size-5" aria-hidden="true" />
+                    </button>
                     <span
                         data-testid="carousel-counter"
                         className="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white tabular-nums"

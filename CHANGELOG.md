@@ -10,6 +10,7 @@
 
 ### 修复
 
+- 大图（Instagram 风格）动态在电脑上无法翻看第二张起的图片：`InstagramCarousel` 补上与推文媒体条一致的悬停左右箭头，首尾自动隐藏，触屏设备不显示。
 - 反馈「重新同步」提示成功却仍显示「待同步」，再点还会重复创建 GitHub Issue：`feedback_reports` 的状态写回此前用调用者的 PocketBase token，`ownership.pb.js` 会把 `status` / `issue_*` 从旧行还原（PATCH 仍返回 200），现在改用 superuser token，并补了回归用例。
 - 欢迎页 logo 不再显示与页面底色不同的绿色方块：清理「重复 logo」时误把页面指回了带方形背景的 PWA 图标，现改用透明版本 `public/images/logo-transparent.png`（#103）。
 - 登录成功后的跳转改为 replace，登录页不再留在历史里；登录页读取 `status`，另一个标签页登录后当前页也会自动进入目标页面。`lib/redirect.ts` 在解析后拒绝 `//` 开头的路径（`/..//evil.com`、`/.//evil.com`、`/%2e%2e//evil.com`、`/\evil.example`）。
