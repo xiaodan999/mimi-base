@@ -223,17 +223,32 @@ function pbHandler(options: {
     reportStatus?: number;
     conversationStatus?: number;
     messages?: unknown[];
-    onPatch?: (body: unknown) => void;
+    adminStatus?: number;
+    onAdminAuth?: () => void;
+    onPatch?: (body: unknown, auth: string) => void;
     onGithub?: (url: URL, init: RequestInit) => Response;
     githubStatus?: number;
 }) {
     return (url: URL, init?: RequestInit): Response => {
         if (
+            url.pathname === "/api/collections/_superusers/auth-with-password"
+        ) {
+            options.onAdminAuth?.();
+            const status = options.adminStatus ?? 200;
+            return status === 200
+                ? json({ token: "admin-token" })
+                : json({}, status);
+        }
+        if (
             url.pathname ===
             `/api/collections/feedback_reports/records/${REPORT_ID}`
         ) {
             if (init?.method === "PATCH") {
-                options.onPatch?.(JSON.parse(String(init.body)));
+                const headers = (init.headers ?? {}) as Record<string, string>;
+                options.onPatch?.(
+                    JSON.parse(String(init.body)),
+                    headers.Authorization ?? "",
+                );
                 return json({ id: REPORT_ID });
             }
             if (options.reportStatus && options.reportStatus !== 200) {
@@ -807,6 +822,96 @@ describe("feedback service", () => {
                 call.url.pathname.includes("/chat_messages/records"),
             ),
         ).toBe(false);
+    });
+
+    test("writes the issue result with the admin token so re-sync reuses it", async () => {
+        // Model the failure this guards: ownership.pb.js restores server-owned
+        // fields on caller-token PATCHes, so the API must use the superuser
+        // token or the row stays 待同步 and the next click opens a duplicate.
+        let current = report({ kind: "feature", title: "想要每日一句" });
+        const issues: string[] = [];
+        const patches: Array<{ body: Record<string, unknown>; auth: string }> =
+            [];
+        let adminAuths = 0;
+        const { service } = setup(
+            (url, init) => {
+                if (
+                    url.pathname ===
+                    "/api/collections/_superusers/auth-with-password"
+                ) {
+                    adminAuths += 1;
+                    return json({ token: "admin-token" });
+                }
+                if (
+                    url.pathname ===
+                    `/api/collections/feedback_reports/records/${REPORT_ID}`
+                ) {
+                    if (init?.method === "PATCH") {
+                        const headers = (init.headers ?? {}) as Record<
+                            string,
+                            string
+                        >;
+                        const body = JSON.parse(String(init.body)) as Record<
+                            string,
+                            unknown
+                        >;
+                        patches.push({
+                            body,
+                            auth: headers.Authorization ?? "",
+                        });
+                        // Non-superuser writes are accepted but the hook puts
+                        // the old server-owned values back.
+                        if (headers.Authorization !== "admin-token") {
+                            return json(current);
+                        }
+                        current = {
+                            ...current,
+                            status: body.status as FeedbackReport["status"],
+                            issue_url: String(body.issue_url ?? ""),
+                            issue_number: Number(body.issue_number ?? 0),
+                            error: String(body.error ?? ""),
+                        };
+                        return json(current);
+                    }
+                    return json(current);
+                }
+                if (
+                    url.pathname === "/repos/owner/repo/issues" &&
+                    init?.method === "POST"
+                ) {
+                    issues.push(String(JSON.parse(String(init.body)).title));
+                    const number = issues.length + 6;
+                    return json(
+                        {
+                            html_url: `https://github.test/owner/repo/issues/${number}`,
+                            number,
+                        },
+                        201,
+                    );
+                }
+                return json({}, 404);
+            },
+            { pbAdminEmail: "admin@test", pbAdminPassword: "pw" },
+        );
+
+        const first = await service(submit());
+        expect(first?.status).toBe(200);
+        expect(adminAuths).toBe(1);
+        expect(patches.map((patch) => patch.auth)).toEqual(["admin-token"]);
+        expect(current.status).toBe("issue_created");
+        expect(current.issue_url).toBe(
+            "https://github.test/owner/repo/issues/7",
+        );
+
+        // The row now carries the issue, so the retry answers with it instead
+        // of opening another issue.
+        const retry = await service(submit());
+        expect(retry?.status).toBe(200);
+        const body = (await retry!.json()) as {
+            issue: { number: number };
+        };
+        expect(body.issue.number).toBe(7);
+        expect(issues).toHaveLength(1);
     });
 
     test("attaches a truncated transcript fetched through the caller token", async () => {

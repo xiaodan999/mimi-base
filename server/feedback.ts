@@ -21,7 +21,10 @@
  *   3. builds a sanitized Markdown issue body (attachments inline/links, plus
  *      a truncated AI chat transcript when a bug report attached one) and
  *      creates the issue with the server-held `GITHUB_TOKEN`,
- *   4. writes `status` / `issue_url` / `issue_number` back onto the report.
+ *   4. writes `status` / `issue_url` / `issue_number` back onto the report
+ *      with the superuser token: `ownership.pb.js` strips those fields from
+ *      caller updates, so a caller-token PATCH would answer 200 and save
+ *      nothing (the bug that let 重新同步 open duplicate issues).
  *
  * `POST /api/feedback/issue-state` keeps the report's `issue_state` in sync
  * with GitHub. The feedback lists send at most 50 report ids; the service
@@ -766,12 +769,15 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
     }
 
     /**
-     * Write `issue_state` with the admin token when possible, re-minting it
-     * once after a 401. Without admin credentials (or after a failure) the
-     * caller's token is used: PB's owner-only update rule still lets the
-     * caller persist their own reports, which is the pre-existing behavior.
+     * Write server-owned report fields (`status` / `issue_*` / `error` /
+     * `issue_state`) with the admin token when possible, re-minting it once
+     * after a 401. `ownership.pb.js` restores those fields from the old row on
+     * every non-superuser update, so a caller-token PATCH succeeds while
+     * saving nothing: without admin credentials the fields are silently
+     * dropped. The caller token stays as a last resort so a deployment
+     * without admin credentials still answers instead of failing the sync.
      */
-    async function patchIssueState(
+    async function patchReport(
         path: string,
         body: Record<string, unknown>,
         callerToken: string,
@@ -1111,7 +1117,7 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
                     }
                     const state = await readIssueState(number);
                     if (!state) return null;
-                    await patchIssueState(
+                    await patchReport(
                         `/api/collections/feedback_reports/records/${report.id}`,
                         {
                             issue_state: state,
@@ -1419,7 +1425,7 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
         );
         const path = `/api/collections/feedback_reports/records/${report.id}`;
         if (!created.ok) {
-            await pbPatch(
+            await patchReport(
                 path,
                 { status: "failed", error: created.error },
                 auth.token,
@@ -1437,7 +1443,7 @@ export function createFeedbackService(deps: FeedbackDeps): FeedbackService {
             );
         }
 
-        const updated = await pbPatch(
+        const updated = await patchReport(
             path,
             {
                 status: "issue_created",

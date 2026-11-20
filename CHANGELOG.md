@@ -6,6 +6,7 @@
 
 ### 修复
 
+- 反馈「重新同步」提示成功却仍显示「待同步」，再点还会重复创建 GitHub Issue：`feedback_reports` 的状态写回此前用调用者的 PocketBase token，`ownership.pb.js` 会把 `status` / `issue_*` 从旧行还原（PATCH 仍返回 200），现在改用 superuser token，并补了回归用例。
 - 登录成功后的跳转改为 replace，登录页不再留在历史里；登录页读取 `status`，另一个标签页登录后当前页也会自动进入目标页面。`lib/redirect.ts` 在解析后拒绝 `//` 开头的路径（`/..//evil.com`、`/.//evil.com`、`/%2e%2e//evil.com`、`/\evil.example`）。
 - 登录请求超时但凭证已经落地时按成功处理，不再在会话已建立的情况下报「登录超时」；文件令牌请求记住发起时的用户 id，`clearFileToken()` 同时作废在途请求，切换账号后不会沿用上一个账号的令牌。
 - 首页点赞/评论不再失效整个 `qk.posts.all`（会重取所有已加载分页）。`app/feed/realtime.ts` 就地更新 `PostData.metrics`/`liked`，每个受影响的帖子只做一次 400ms 防抖的计数 `getOne`；点赞失败只回滚该帖，不再恢复整片缓存快照。
