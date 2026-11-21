@@ -60,7 +60,7 @@ export type NotificationData = {
     thumb?: NotificationThumb;
 };
 
-type NotificationPage = {
+export type NotificationPage = {
     items: NotificationData[];
     nextPage: number | null;
 };

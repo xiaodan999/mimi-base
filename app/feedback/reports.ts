@@ -2,6 +2,7 @@ import type { InfiniteData } from "@tanstack/react-query";
 
 import { type ApiErrorInfo, parseApiError } from "@/lib/contracts/api";
 import type { FeedbackKind, FeedbackStatus } from "@/lib/contracts/feedback";
+import { flattenInfinitePages } from "@/lib/infinite-list";
 import type { UserRecord } from "@/lib/pb-types";
 import type { RealtimeAction } from "@/lib/realtime";
 
@@ -79,21 +80,17 @@ export type FeedbackReportPages = InfiniteData<FeedbackReportPage, number>;
 /** The list a record belongs to; `bug` is owner-scoped, `feature` is shared. */
 export type FeedbackEventScope = { kind: FeedbackKind; viewerId: string };
 
+/** Rows a list paints out of one page, for `useInfiniteList`. */
+export const selectReportPageItems = (page: FeedbackReportPage) => page.items;
+
+/** Stable dedupe key: offset paging can repeat a row after an insert. */
+export const reportUniqueKey = (report: FeedbackReportRecord) => report.id;
+
 /** Flatten pages, dropping rows offset paging can repeat after an insert. */
 export function flattenReportPages(
     data: { pages: readonly FeedbackReportPage[] } | undefined,
 ): FeedbackReportRecord[] {
-    if (!data) return [];
-    const seen = new Set<string>();
-    const out: FeedbackReportRecord[] = [];
-    for (const page of data.pages) {
-        for (const item of page.items) {
-            if (seen.has(item.id)) continue;
-            seen.add(item.id);
-            out.push(item);
-        }
-    }
-    return out;
+    return flattenInfinitePages(data, selectReportPageItems, reportUniqueKey);
 }
 
 /** `totalItems` from the first page: the counter, not the loaded window. */

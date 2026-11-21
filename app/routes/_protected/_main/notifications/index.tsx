@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { formatRelativeTime } from "@/app/feed/utils";
 import {
     type NotificationData,
+    type NotificationPage,
     useMarkAllNotificationsRead,
     useMarkNotificationRead,
     useNotifications,
@@ -22,12 +23,15 @@ import { ErrorState } from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
 import TouXiang from "@/components/TouXiang";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useInfiniteList } from "@/hooks/use-infinite-list";
 import { getFileUrl, getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_protected/_main/notifications/")({
     component: Page,
 });
+
+const selectNotificationPage = (page: NotificationPage) => page.items;
 
 function Page() {
     const navigate = useNavigate();
@@ -37,27 +41,28 @@ function Page() {
     const markAll = useMarkAllNotificationsRead();
     const { ref, inView } = useInView();
 
-    const items = notifications.data?.pages.flatMap((page) => page.items) ?? [];
+    const { items, hasNextPage, isFetchingNextPage, loadMore } =
+        useInfiniteList(notifications, selectNotificationPage);
     const unreadCount = unread.data ?? 0;
 
     useEffect(() => {
         if (
             !inView ||
-            !notifications.hasNextPage ||
-            notifications.isFetchingNextPage ||
+            !hasNextPage ||
+            isFetchingNextPage ||
             // Don't hammer the same failing page while the sentinel stays in
             // view; the retry button below starts a new attempt.
             notifications.isFetchNextPageError
         ) {
             return;
         }
-        void notifications.fetchNextPage();
+        loadMore();
     }, [
         inView,
-        notifications.hasNextPage,
+        hasNextPage,
         notifications.isFetchNextPageError,
-        notifications.isFetchingNextPage,
-        notifications.fetchNextPage,
+        isFetchingNextPage,
+        loadMore,
     ]);
 
     const open = (item: NotificationData) => {
@@ -168,9 +173,9 @@ function Page() {
                         ))}
                     </div>
                     <div className="flex min-h-12 items-center justify-center py-2">
-                        {notifications.hasNextPage ? (
+                        {hasNextPage ? (
                             <div ref={ref} className="flex h-8 items-center">
-                                {notifications.isFetchingNextPage ? (
+                                {isFetchingNextPage ? (
                                     <LoadingSpinner />
                                 ) : notifications.isFetchNextPageError ? (
                                     <button

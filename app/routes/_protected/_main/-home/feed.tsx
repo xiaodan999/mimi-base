@@ -21,6 +21,7 @@ import Post from "@/app/feed/components/post";
 import PostComposer from "@/app/feed/components/post-composer";
 import VideoViewer from "@/app/feed/components/video-viewer";
 import { type PostData, usePostsInfinite } from "@/app/feed/data";
+import type { PostsPage } from "@/app/feed/pages";
 import {
     formatDayDivider,
     formatMonthLabel,
@@ -31,6 +32,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { FeedLoading } from "@/components/FeedLoading";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useInfiniteList } from "@/hooks/use-infinite-list";
 import usePullToRefresh, {
     PULL_INDICATOR_HEIGHT,
     PULL_THRESHOLD,
@@ -40,6 +42,8 @@ import { qk } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 import MemoryCard from "./memory-card";
+
+const selectPostPage = (page: PostsPage) => page.posts;
 
 /** The composer is either starting a post or editing one from the feed. */
 type ComposerState = { mode: "new" } | { mode: "edit"; post: PostData } | null;
@@ -57,18 +61,23 @@ export default function HomeFeed() {
     const queryClient = useQueryClient();
     const filter = useMemo(() => ({ month, q, post }), [month, q, post]);
 
+    const postsQuery = usePostsInfinite(8, filter);
     const {
         data,
         isPending,
         isError,
         error,
         fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
         isFetchNextPageError,
         refetch,
         refresh,
-    } = usePostsInfinite(8, filter);
+    } = postsQuery;
+    const {
+        items: posts,
+        hasNextPage,
+        isFetchingNextPage,
+        loadMore,
+    } = useInfiniteList(postsQuery, selectPostPage);
     const [composer, setComposer] = useState<ComposerState>(null);
     const [findOpen, setFindOpen] = useState(false);
     const [commentPostId, setCommentPostId] = useState<string | null>(null);
@@ -121,19 +130,15 @@ export default function HomeFeed() {
         ) {
             return;
         }
-        fetchNextPage();
+        loadMore();
     }, [
-        fetchNextPage,
+        loadMore,
         hasNextPage,
         inView,
         isFetchNextPageError,
         isFetchingNextPage,
     ]);
 
-    const posts = useMemo(
-        () => data?.pages.flatMap((page) => page.posts) ?? [],
-        [data],
-    );
     const total = data?.pages[0]?.total ?? 0;
     const filtering = Boolean(month || q || post);
     const filterLabel = post

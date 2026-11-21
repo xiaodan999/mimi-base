@@ -3,7 +3,11 @@ import { Lightbulb, Package, Sparkles } from "lucide-react";
 import { useFeatureSuggestions } from "@/app/feedback/data";
 import { selectFeatureSuggestions } from "@/app/feedback/filters";
 import { featurePolishMessages } from "@/app/feedback/prompt";
-import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
+import {
+    reportTotal,
+    reportUniqueKey,
+    selectReportPageItems,
+} from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
 import { useFeedbackDraft } from "@/app/feedback/use-feedback-draft";
 import {
@@ -14,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useInfiniteList } from "@/hooks/use-infinite-list";
 import { useCurrentUser } from "@/lib/auth";
 
 import { AttachmentPicker } from "./attachment-picker";
@@ -58,9 +63,10 @@ export function FeaturePanel() {
             featurePolishMessages({ title, description, route }),
     });
 
-    const shared = selectFeatureSuggestions(
-        flattenReportPages(suggestions.data),
-    );
+    const reportList = useInfiniteList(suggestions, selectReportPageItems, {
+        uniqueBy: reportUniqueKey,
+    });
+    const shared = selectFeatureSuggestions(reportList.items);
     const sharedTotal = reportTotal(suggestions.data);
 
     return (
@@ -205,9 +211,9 @@ export function FeaturePanel() {
                     viewerId={user.id}
                     onRetry={retry.run}
                     retryingId={retry.retryingId}
-                    hasNextPage={suggestions.hasNextPage}
-                    fetchingNextPage={suggestions.isFetchingNextPage}
-                    onLoadMore={() => void suggestions.fetchNextPage()}
+                    hasNextPage={reportList.hasNextPage}
+                    fetchingNextPage={reportList.isFetchingNextPage}
+                    onLoadMore={reportList.loadMore}
                     loadError={
                         suggestions.isError
                             ? (suggestions.error?.message ?? "加载失败")

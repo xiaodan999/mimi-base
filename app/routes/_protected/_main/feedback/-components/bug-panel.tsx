@@ -17,7 +17,11 @@ import {
 } from "@/app/feedback/error-buffer";
 import { selectOwnBugReports } from "@/app/feedback/filters";
 import { feedbackPolishMessages } from "@/app/feedback/prompt";
-import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
+import {
+    reportTotal,
+    reportUniqueKey,
+    selectReportPageItems,
+} from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
 import { useFeedbackDraft } from "@/app/feedback/use-feedback-draft";
 import {
@@ -28,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useInfiniteList } from "@/hooks/use-infinite-list";
 import { useCurrentUser } from "@/lib/auth";
 
 import { AttachmentPicker } from "./attachment-picker";
@@ -109,10 +114,10 @@ export function BugPanel({
         },
     });
 
-    const bugReports = selectOwnBugReports(
-        flattenReportPages(reports.data),
-        user.id,
-    );
+    const reportList = useInfiniteList(reports, selectReportPageItems, {
+        uniqueBy: reportUniqueKey,
+    });
+    const bugReports = selectOwnBugReports(reportList.items, user.id);
     const bugTotal = reportTotal(reports.data);
 
     return (
@@ -291,9 +296,9 @@ export function BugPanel({
                     viewerId={user.id}
                     onRetry={retry.run}
                     retryingId={retry.retryingId}
-                    hasNextPage={reports.hasNextPage}
-                    fetchingNextPage={reports.isFetchingNextPage}
-                    onLoadMore={() => void reports.fetchNextPage()}
+                    hasNextPage={reportList.hasNextPage}
+                    fetchingNextPage={reportList.isFetchingNextPage}
+                    onLoadMore={reportList.loadMore}
                     loadError={
                         reports.isError
                             ? (reports.error?.message ?? "加载失败")
