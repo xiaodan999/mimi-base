@@ -6,35 +6,23 @@ import {
     Sparkles,
     X,
 } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
-import { toast } from "sonner";
+import { useSyncExternalStore } from "react";
 
-import { useAi } from "@/app/ai/AiContext";
-import { AiError, aiErrorText, chatJSON } from "@/app/ai/client";
 import { useChatConversations } from "@/app/chat/data";
-import {
-    type FeedbackIssue,
-    useFeedbackReports,
-    useSubmitFeedback,
-} from "@/app/feedback/data";
+import { useFeedbackReports } from "@/app/feedback/data";
 import {
     clearFeedbackErrors,
     getFeedbackErrors,
-    readLastRoute,
     subscribeFeedbackErrors,
 } from "@/app/feedback/error-buffer";
 import { selectOwnBugReports } from "@/app/feedback/filters";
-import {
-    FEEDBACK_POLISH_SCHEMA,
-    feedbackPolishMessages,
-    sanitizePolishedFeedback,
-} from "@/app/feedback/prompt";
+import { feedbackPolishMessages } from "@/app/feedback/prompt";
 import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
+import { useFeedbackDraft } from "@/app/feedback/use-feedback-draft";
 import {
     MAX_FEEDBACK_DESCRIPTION,
     MAX_FEEDBACK_TITLE,
-    validateFeedback,
 } from "@/app/feedback/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,21 +53,6 @@ export function BugPanel({
     onDetachConversation: () => void;
 }) {
     const user = useCurrentUser();
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [recentRoute] = useState(() => readLastRoute());
-    const [route, setRoute] = useState(recentRoute);
-    const [pagePickerOpen, setPagePickerOpen] = useState(false);
-    const [attachments, setAttachments] = useState<File[]>([]);
-    const [polishing, setPolishing] = useState(false);
-    // The submitted result keeps the issue link visible until 再提一条.
-    const [result, setResult] = useState<{
-        issue: FeedbackIssue | null;
-        syncError?: string;
-        reason?: string;
-    } | null>(null);
-
-    const { settings } = useAi();
     const errors = useSyncExternalStore(
         subscribeFeedbackErrors,
         getFeedbackErrors,
@@ -95,107 +68,52 @@ export function BugPanel({
             ? null
             : (conversations.data?.find((item) => item.id === conversationId) ??
               null);
-    const submit = useSubmitFeedback();
     const retry = useFeedbackRetry();
 
-    const busy = submit.isPending || polishing;
+    const {
+        title,
+        setTitle,
+        description,
+        setDescription,
+        route,
+        setRoute,
+        recentRoute,
+        attachments,
+        setAttachments,
+        pagePickerOpen,
+        setPagePickerOpen,
+        polishing,
+        busy,
+        pending,
+        result,
+        setResult,
+        polish,
+        submitDraft,
+    } = useFeedbackDraft({
+        kind: "bug",
+        polishMessages: ({ title, description, route }) =>
+            feedbackPolishMessages({
+                title,
+                description,
+                route,
+                errors: errors.map(
+                    (entry) => `[${entry.kind}] ${entry.message}`,
+                ),
+            }),
+        submissionExtras: () => ({ conversationId: attached?.id }),
+        onSubmitted: () => {
+            clearFeedbackErrors();
+            // The attachment lives in the URL; clear it so 再提一条 starts
+            // clean, matching the old reset behavior.
+            if (conversationId !== undefined) onDetachConversation();
+        },
+    });
+
     const bugReports = selectOwnBugReports(
         flattenReportPages(reports.data),
         user.id,
     );
     const bugTotal = reportTotal(reports.data);
-
-    const polish = async () => {
-        if (!description.trim()) {
-            toast.error("先写几句描述，AI 才好帮你整理");
-            return;
-        }
-        setPolishing(true);
-        try {
-            const value = await chatJSON<{
-                title?: unknown;
-                description?: unknown;
-            }>(
-                settings,
-                feedbackPolishMessages({
-                    title,
-                    description,
-                    route,
-                    errors: errors.map(
-                        (entry) => `[${entry.kind}] ${entry.message}`,
-                    ),
-                }),
-                undefined,
-                {
-                    schema: FEEDBACK_POLISH_SCHEMA,
-                    maxTokens: 900,
-                    temperature: 0.2,
-                },
-            );
-            const polished = sanitizePolishedFeedback({
-                title: value.title,
-                description: value.description,
-            });
-            if (!polished) throw new AiError("AI 整理结果不完整，再试一次");
-            setTitle(polished.title);
-            setDescription(polished.description);
-            toast.success("已整理，可以再改改");
-        } catch (error) {
-            if (error instanceof AiError && error.status === 503) {
-                toast.error("AI 暂时不可用，可以直接提交");
-            } else {
-                toast.error(aiErrorText(error));
-            }
-        } finally {
-            setPolishing(false);
-        }
-    };
-
-    const handleSubmit = async () => {
-        if (busy) return;
-        const checked = validateFeedback({
-            kind: "bug",
-            title,
-            description,
-            attachments,
-        });
-        if (!checked.ok) {
-            toast.error(checked.error);
-            return;
-        }
-
-        try {
-            const submitted = await submit.mutateAsync({
-                kind: "bug",
-                title: checked.title,
-                description: checked.description,
-                route,
-                attachments,
-                conversationId: attached?.id,
-            });
-            clearFeedbackErrors();
-            setTitle("");
-            setDescription("");
-            setAttachments([]);
-            // The attachment lives in the URL; clear it so 再提一条 starts
-            // clean, matching the old reset behavior.
-            if (conversationId !== undefined) onDetachConversation();
-            setResult({
-                issue: submitted.issue,
-                syncError: submitted.syncError,
-                reason: submitted.reason,
-            });
-            if (submitted.issue) {
-                toast.success("反馈已提交，GitHub Issue 已创建");
-            } else {
-                toast.success("反馈已保存，可稍后重新同步");
-            }
-        } catch (error) {
-            toast.error(
-                error instanceof Error ? error.message : "提交失败，请稍后再试",
-            );
-        }
-    };
 
     return (
         <div>
@@ -340,10 +258,10 @@ export function BugPanel({
                         disabled={busy}
                         type="button"
                         onClick={() => {
-                            void handleSubmit();
+                            void submitDraft();
                         }}
                     >
-                        {submit.isPending ? (
+                        {pending ? (
                             <>
                                 <LoadingSpinner className="mr-2 size-4" />
                                 提交中...

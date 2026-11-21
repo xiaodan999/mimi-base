@@ -1,27 +1,14 @@
 import { Lightbulb, Package, Sparkles } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
-import { useAi } from "@/app/ai/AiContext";
-import { AiError, aiErrorText, chatJSON } from "@/app/ai/client";
-import {
-    type FeedbackIssue,
-    useFeatureSuggestions,
-    useSubmitFeedback,
-} from "@/app/feedback/data";
-import { readLastRoute } from "@/app/feedback/error-buffer";
+import { useFeatureSuggestions } from "@/app/feedback/data";
 import { selectFeatureSuggestions } from "@/app/feedback/filters";
-import {
-    featurePolishMessages,
-    FEEDBACK_POLISH_SCHEMA,
-    sanitizePolishedFeedback,
-} from "@/app/feedback/prompt";
+import { featurePolishMessages } from "@/app/feedback/prompt";
 import { flattenReportPages, reportTotal } from "@/app/feedback/reports";
 import { useFeedbackRetry } from "@/app/feedback/retry";
+import { useFeedbackDraft } from "@/app/feedback/use-feedback-draft";
 import {
     MAX_FEEDBACK_DESCRIPTION,
     MAX_FEEDBACK_TITLE,
-    validateFeedback,
 } from "@/app/feedback/validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,111 +30,38 @@ import { blurOnEnter } from "./title-field";
  */
 export function FeaturePanel() {
     const user = useCurrentUser();
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [recentRoute] = useState(() => readLastRoute());
-    const [route, setRoute] = useState(recentRoute);
-    const [attachments, setAttachments] = useState<File[]>([]);
-    const [polishing, setPolishing] = useState(false);
-    const [pagePickerOpen, setPagePickerOpen] = useState(false);
-    const [result, setResult] = useState<{
-        issue: FeedbackIssue | null;
-        syncError?: string;
-        reason?: string;
-    } | null>(null);
-
-    const { settings } = useAi();
     const suggestions = useFeatureSuggestions();
-    const submit = useSubmitFeedback();
     const retry = useFeedbackRetry();
 
-    const busy = submit.isPending || polishing;
+    const {
+        title,
+        setTitle,
+        description,
+        setDescription,
+        route,
+        setRoute,
+        recentRoute,
+        attachments,
+        setAttachments,
+        pagePickerOpen,
+        setPagePickerOpen,
+        polishing,
+        busy,
+        pending,
+        result,
+        setResult,
+        polish,
+        submitDraft,
+    } = useFeedbackDraft({
+        kind: "feature",
+        polishMessages: ({ title, description, route }) =>
+            featurePolishMessages({ title, description, route }),
+    });
+
     const shared = selectFeatureSuggestions(
         flattenReportPages(suggestions.data),
     );
     const sharedTotal = reportTotal(suggestions.data);
-
-    const polish = async () => {
-        if (!description.trim()) {
-            toast.error("先写几句想法，AI 才好帮你整理");
-            return;
-        }
-        setPolishing(true);
-        try {
-            const value = await chatJSON<{
-                title?: unknown;
-                description?: unknown;
-            }>(
-                settings,
-                featurePolishMessages({ title, description, route }),
-                undefined,
-                {
-                    schema: FEEDBACK_POLISH_SCHEMA,
-                    maxTokens: 900,
-                    temperature: 0.2,
-                },
-            );
-            const polished = sanitizePolishedFeedback({
-                title: value.title,
-                description: value.description,
-            });
-            if (!polished) throw new AiError("AI 整理结果不完整，再试一次");
-            setTitle(polished.title);
-            setDescription(polished.description);
-            toast.success("已整理，可以再改改");
-        } catch (error) {
-            // The typed text stays in the form either way; a 503 is expected
-            // in dev without an upstream key.
-            if (error instanceof AiError && error.status === 503) {
-                toast.error("AI 暂时不可用，可以直接提交");
-            } else {
-                toast.error(aiErrorText(error));
-            }
-        } finally {
-            setPolishing(false);
-        }
-    };
-
-    const handleSubmit = async () => {
-        if (busy) return;
-        const checked = validateFeedback({
-            kind: "feature",
-            title,
-            description,
-            attachments,
-        });
-        if (!checked.ok) {
-            toast.error(checked.error);
-            return;
-        }
-
-        try {
-            const submitted = await submit.mutateAsync({
-                kind: "feature",
-                title: checked.title,
-                description: checked.description,
-                route,
-                attachments,
-            });
-            setTitle("");
-            setDescription("");
-            setAttachments([]);
-            setResult({
-                issue: submitted.issue,
-                syncError: submitted.syncError,
-                reason: submitted.reason,
-            });
-            if (submitted.issue) {
-                toast.success("建议已提交，GitHub Issue 已创建");
-            } else {
-                toast.success("建议已保存，可稍后重新同步");
-            }
-        } catch (error) {
-            toast.error(
-                error instanceof Error ? error.message : "提交失败，请稍后再试",
-            );
-        }
-    };
 
     return (
         <div>
@@ -257,10 +171,10 @@ export function FeaturePanel() {
                         disabled={busy}
                         type="button"
                         onClick={() => {
-                            void handleSubmit();
+                            void submitDraft();
                         }}
                     >
-                        {submit.isPending ? (
+                        {pending ? (
                             <>
                                 <LoadingSpinner className="mr-2 size-4" />
                                 提交中...
