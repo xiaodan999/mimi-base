@@ -18,6 +18,7 @@
         "setup:hooks": "git config core.hooksPath .githooks",
         "test": "bun test --timeout=20000 --path-ignore-patterns=\"tmp/**\"",
         "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=tmp/coverage --timeout=20000 --path-ignore-patterns=\"tmp/**\" && bun scripts/check-coverage.ts",
+        "test:pb": "bun scripts/pb-hooks-test.ts",
         "typecheck": "bun check && cd server && bun check"
     },
     "dependencies": {
