@@ -17,6 +17,7 @@ import { answerText, isAnswerCorrect, TYPE_NAME } from "../engine";
 import { gameForModule } from "../games/registry";
 import { recordQuizAnswer } from "../progress-reducers";
 import type { Answer, QuizItem } from "../types";
+import { useQuizSession } from "../use-quiz-session";
 import { useStudy } from "./StudyContext";
 
 type Props = {
@@ -36,21 +37,11 @@ export default function QuizRunner({
     const { subject, update } = useStudy();
     // 做题是整屏浮层：侧滑返回应该退出练习，而不是退掉下面的页面。
     useBackDismiss(true, onExit);
-    const [index, setIndex] = useState(0);
-    const [answers, setAnswers] = useState<Answer[]>(() =>
-        items.map(() => undefined),
-    );
-    const [done, setDone] = useState<boolean[]>(() => items.map(() => false));
-    const [graded, setGraded] = useState<boolean[]>(() =>
-        items.map(() => false),
-    );
-    const [result, setResult] = useState<boolean[]>(() =>
-        items.map(() => false),
-    );
-    const [finished, setFinished] = useState(false);
+    const session = useQuizSession(items.length);
+    const { index, answers, done, graded, result, finished, revealed } =
+        session;
     const startedAt = useRef(Date.now());
     const scrollRef = useRef<HTMLDivElement>(null);
-    const [revealed, setRevealed] = useState<string[]>([]);
     const [analysis, setAnalysis] = useState<{
         item: QuizItem;
         answer: Answer;
@@ -73,17 +64,14 @@ export default function QuizRunner({
     };
 
     const settle = (ok: boolean) => {
-        setDone((prev) => prev.map((v, i) => (i === index ? true : v)));
-        setResult((prev) => prev.map((v, i) => (i === index ? ok : v)));
+        session.settle(index, ok);
         record(item, ok);
     };
 
     const choose = (optionIndex: number) => {
         if (done[index]) return;
         if (item.type === "single") {
-            setAnswers((prev) =>
-                prev.map((v, i) => (i === index ? optionIndex : v)),
-            );
+            session.choose(index, optionIndex);
             settle(optionIndex === item.a);
             return;
         }
@@ -91,7 +79,7 @@ export default function QuizRunner({
         const next = current.includes(optionIndex)
             ? current.filter((i) => i !== optionIndex)
             : [...current, optionIndex];
-        setAnswers((prev) => prev.map((v, i) => (i === index ? next : v)));
+        session.choose(index, next);
     };
 
     const submit = () => {
@@ -115,14 +103,11 @@ export default function QuizRunner({
             settle(isAnswerCorrect(item, value));
             return;
         }
-        setDone((prev) => prev.map((v, i) => (i === index ? true : v)));
+        session.markDone(index);
     };
 
     const selfGrade = (score: 0 | 0.5 | 1) => {
-        setGraded((prev) => prev.map((v, i) => (i === index ? true : v)));
-        setResult((prev) =>
-            prev.map((v, i) => (i === index ? score >= 0.5 : v)),
-        );
+        session.selfGrade(index, score);
         // 半对按 SM-2 的 3 分排程（勉强想起），不是满分 5 分。
         record(item, score >= 0.5, score === 0.5 ? 3 : undefined);
         if (score === 0.5 && track) {
@@ -141,13 +126,8 @@ export default function QuizRunner({
     };
 
     const next = () => {
-        if (index + 1 >= total) {
-            setFinished(true);
-            return;
-        }
-        setIndex(index + 1);
-        setRevealed([]);
-        scrollRef.current?.scrollTo({ top: 0 });
+        if (index + 1 < total) scrollRef.current?.scrollTo({ top: 0 });
+        session.next();
     };
 
     const rightCount = useMemo(() => result.filter(Boolean).length, [result]);
@@ -372,12 +352,7 @@ export default function QuizRunner({
                             className="st-btn"
                             style={{ flex: 1 }}
                             onClick={() => {
-                                setIndex(0);
-                                setAnswers(items.map(() => undefined));
-                                setDone(items.map(() => false));
-                                setGraded(items.map(() => false));
-                                setResult(items.map(() => false));
-                                setFinished(false);
+                                session.restart();
                                 startedAt.current = Date.now();
                             }}
                         >
@@ -486,11 +461,7 @@ export default function QuizRunner({
                             value={String(picked ?? "")}
                             disabled={submitted}
                             onChange={(event) =>
-                                setAnswers((prev) =>
-                                    prev.map((v, i) =>
-                                        i === index ? event.target.value : v,
-                                    ),
-                                )
+                                session.choose(index, event.target.value)
                             }
                         />
                         {!submitted && (
@@ -518,13 +489,7 @@ export default function QuizRunner({
                                 }
                                 value={String(picked ?? "")}
                                 onChange={(event) =>
-                                    setAnswers((prev) =>
-                                        prev.map((v, i) =>
-                                            i === index
-                                                ? event.target.value
-                                                : v,
-                                        ),
-                                    )
+                                    session.choose(index, event.target.value)
                                 }
                             />
                             <div className="qfoot">
@@ -554,13 +519,7 @@ export default function QuizRunner({
                                         key={key}
                                         className={`kw ${revealed.includes(key) ? "on" : ""}`}
                                         onClick={() =>
-                                            setRevealed((prev) =>
-                                                prev.includes(key)
-                                                    ? prev.filter(
-                                                          (k) => k !== key,
-                                                      )
-                                                    : [...prev, key],
-                                            )
+                                            session.toggleReveal(key)
                                         }
                                     >
                                         {key}
