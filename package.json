@@ -17,7 +17,7 @@
         "preview": "bun scripts/preview.mjs",
         "setup:hooks": "git config core.hooksPath .githooks",
         "test": "bun test --timeout=20000 --path-ignore-patterns=\"tmp/**\"",
-        "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=tmp/coverage --timeout=20000 --path-ignore-patterns=\"tmp/**\" && bun -e 'const t=await Bun.file(\"tmp/coverage/lcov.info\").text();const recs=t.split(\"end_of_record\").map(r=>({lf:+(r.match(/^LF:(\\d+)$/m)||[0,0])[1],lh:+(r.match(/^LH:(\\d+)$/m)||[0,0])[1]})).filter(r=>r.lf>0);const pct=recs.map(r=>(100*r.lh)/r.lf);const avg=pct.length?pct.reduce((a,b)=>a+b,0)/pct.length:0;console.log(\"line coverage: \"+avg.toFixed(2)+\"% across \"+recs.length+\" files (threshold 78%)\");if(avg<78){console.error(\"coverage below the 78% line threshold\");process.exit(1)}'",
+        "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=tmp/coverage --timeout=20000 --path-ignore-patterns=\"tmp/**\" && bun scripts/check-coverage.ts",
         "typecheck": "bun check && cd server && bun check"
     },
     "dependencies": {
