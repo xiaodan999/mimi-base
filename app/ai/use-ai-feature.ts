@@ -125,11 +125,9 @@ export function useAiFeature<T>(
                     return null;
                 }
                 if (isAiCanceled(error)) {
-                    setSnapshot({
-                        phase: "canceled",
-                        value: null,
-                        error: "已取消",
-                    });
+                    // 主动取消不算报错：和旧面板一样不写 error；只有恢复一个
+                    // 已取消的任务时才显示「已取消」。
+                    setSnapshot({ phase: "canceled", value: null, error: "" });
                     return null;
                 }
                 if (opts.keepCacheOnError) {

@@ -1,11 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-
 import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
-import { readAiCache } from "@/app/ai/cache";
-import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
-import { decideAiRestore } from "@/app/ai/restore";
-import { useAiTasks } from "@/app/ai/tasks";
+import { AiError, chatJSON } from "@/app/ai/client";
+import { useAiFeature } from "@/app/ai/use-ai-feature";
 import type { QuizItem, StudySubject } from "@/app/study/types";
 import { toast } from "@/lib/toast";
 
@@ -100,113 +96,37 @@ export default function AiVariantSheet({
     onStart,
 }: Props) {
     const { settings, openSettings } = useAi();
-    const { runTask, attend, find, getResult } = useAiTasks();
-    const [items, setItems] = useState<QuizItem[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const startedRef = useRef<string | null>(null);
 
     const cacheKey = source ? `variant:v1:${source.id}` : "";
 
-    const run = useCallback(
-        async (force = false) => {
-            if (!source) return;
-            if (!force) {
-                // 后台还有一个任务在跑时，别让旧缓存把它盖住。
-                const running = find(cacheKey)?.status === "running";
-                if (!running) {
-                    const cached = readAiCache<AiVariantPayload>(cacheKey);
-                    const cachedItems = cached
-                        ? toQuizItems(cached, source)
-                        : [];
-                    if (cachedItems.length) {
-                        setItems(cachedItems);
-                        setError("");
-                        setLoading(false);
-                        return;
-                    }
-                }
+    const feature = useAiFeature<AiVariantPayload>({
+        key: cacheKey,
+        title: "AI 变式题",
+        subtitle: source ? `基于：${source.stem.slice(0, 34)}` : undefined,
+        href: "/study",
+        kind: "json",
+        enabled: open && Boolean(source),
+        hasValue: (value) =>
+            source ? toQuizItems(value, source).length > 0 : false,
+        summarize: (value) =>
+            `生成了 ${source ? toQuizItems(value, source).length : 0} 道变式题`,
+        run: async ({ signal }) => {
+            if (!source) throw new AiError("没有题目");
+            const result = await chatJSON<AiVariantPayload>(
+                settings,
+                variantMessages(subject, source, moduleName),
+                signal,
+            );
+            if (!toQuizItems(result, source).length) {
+                throw new AiError("AI 出的题格式不对，换一批试试");
             }
-
-            setLoading(true);
-            setError("");
-            setItems([]);
-            try {
-                const payload = await runTask<AiVariantPayload>({
-                    key: cacheKey,
-                    group: cacheKey,
-                    cacheKey,
-                    title: "AI 变式题",
-                    subtitle: `基于：${source.stem.slice(0, 34)}`,
-                    href: "/study",
-                    kind: "json",
-                    force,
-                    summarize: (value) =>
-                        `生成了 ${toQuizItems(value, source).length} 道变式题`,
-                    run: async ({ signal }) => {
-                        const result = await chatJSON<AiVariantPayload>(
-                            settings,
-                            variantMessages(subject, source, moduleName),
-                            signal,
-                        );
-                        if (!toQuizItems(result, source).length) {
-                            throw new AiError("AI 出的题格式不对，换一批试试");
-                        }
-                        return result;
-                    },
-                });
-                setItems(toQuizItems(payload, source));
-            } catch (err) {
-                if (!isAiCanceled(err)) setError(aiErrorText(err));
-            } finally {
-                setLoading(false);
-            }
+            return result;
         },
-        [cacheKey, find, moduleName, runTask, settings, source, subject],
-    );
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
-    useEffect(() => {
-        if (!open || !source) {
-            startedRef.current = null;
-            return;
-        }
-        if (startedRef.current === cacheKey) return;
-        startedRef.current = cacheKey;
-
-        const decision = decideAiRestore<AiVariantPayload>({
-            task: find(cacheKey),
-            result: getResult<AiVariantPayload>(cacheKey),
-            cached: readAiCache<AiVariantPayload>(cacheKey),
-            hasValue: (value) => toQuizItems(value, source).length > 0,
-        });
-        if (decision.kind === "ready") {
-            setItems(toQuizItems(decision.value, source));
-            setError("");
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "error") {
-            setItems([]);
-            setError(decision.message);
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "canceled") {
-            setItems([]);
-            setError("已取消");
-            setLoading(false);
-            return;
-        }
-        // running：run() 会接上同一个任务；none：开一个新的。
-        setItems([]);
-        void run();
-    }, [open, source, cacheKey]);
-
-    useEffect(() => {
-        if (!open || !cacheKey) return;
-        return attend(cacheKey);
-    }, [open, cacheKey, attend]);
+    });
+    const loading = feature.running;
+    const error = feature.error;
+    const items =
+        source && feature.value ? toQuizItems(feature.value, source) : [];
 
     return (
         <AiSheet
@@ -232,7 +152,7 @@ export default function AiVariantSheet({
                     <div className="mt-2 flex flex-wrap gap-2">
                         <button
                             className="st-btn sm line"
-                            onClick={() => void run(true)}
+                            onClick={() => void feature.start({ force: true })}
                         >
                             换一批
                         </button>
@@ -285,7 +205,7 @@ export default function AiVariantSheet({
                     <div className="st-row mt-3" style={{ gap: 8 }}>
                         <button
                             className="st-btn sm ghost"
-                            onClick={() => void run(true)}
+                            onClick={() => void feature.start({ force: true })}
                         >
                             换一批
                         </button>

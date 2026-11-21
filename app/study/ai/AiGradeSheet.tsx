@@ -1,12 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-
 import { useAi } from "@/app/ai/AiContext";
 import AiMarkdown from "@/app/ai/AiMarkdown";
 import AiSheet from "@/app/ai/AiSheet";
-import { hashText, readAiCache } from "@/app/ai/cache";
-import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
-import { decideAiRestore } from "@/app/ai/restore";
-import { useAiTasks } from "@/app/ai/tasks";
+import { hashText } from "@/app/ai/cache";
+import { AiError, chatJSON } from "@/app/ai/client";
+import { useAiFeature } from "@/app/ai/use-ai-feature";
 import { TYPE_NAME } from "@/app/study/engine";
 import type { Answer, QuizItem, StudySubject } from "@/app/study/types";
 import { toast } from "@/lib/toast";
@@ -54,96 +51,34 @@ export default function AiGradeSheet({
     onAdopt,
 }: Props) {
     const { settings, openSettings } = useAi();
-    const { runTask, attend, find, getResult } = useAiTasks();
-    const [grade, setGrade] = useState<AiGrade | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const startedRef = useRef<string | null>(null);
 
     const cacheKey = item
         ? `grade:${item.id}:${hashText(userAnswerText(item, answer))}`
         : "";
 
-    const run = useCallback(
-        async (force = false) => {
-            if (!item) return;
-            setLoading(true);
-            setError("");
-            if (force) setGrade(null);
-            try {
-                const next = await runTask<AiGrade>({
-                    key: cacheKey,
-                    group: cacheKey,
-                    cacheKey,
-                    title: "AI 批改",
-                    subtitle: `${TYPE_NAME[item.type]} · ${
-                        moduleName ?? item.m
-                    }`,
-                    href: "/study",
-                    kind: "json",
-                    force,
-                    summarize: (value) => `得分 ${value.score}`,
-                    run: async ({ signal }) => {
-                        const raw = await chatJSON<AiGrade>(
-                            settings,
-                            gradeMessages(subject, item, answer, moduleName),
-                            signal,
-                        );
-                        return normalize(raw);
-                    },
-                });
-                setGrade(next);
-            } catch (err) {
-                if (!isAiCanceled(err)) setError(aiErrorText(err));
-            } finally {
-                setLoading(false);
-            }
+    const feature = useAiFeature<AiGrade>({
+        key: cacheKey,
+        title: "AI 批改",
+        subtitle: item
+            ? `${TYPE_NAME[item.type]} · ${moduleName ?? item.m}`
+            : undefined,
+        href: "/study",
+        kind: "json",
+        enabled: open && Boolean(item),
+        summarize: (value) => `得分 ${value.score}`,
+        run: async ({ signal }) => {
+            if (!item) throw new AiError("没有题目");
+            const raw = await chatJSON<AiGrade>(
+                settings,
+                gradeMessages(subject, item, answer, moduleName),
+                signal,
+            );
+            return normalize(raw);
         },
-        [answer, cacheKey, item, moduleName, runTask, settings, subject],
-    );
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
-    useEffect(() => {
-        if (!open || !item) {
-            startedRef.current = null;
-            return;
-        }
-        if (startedRef.current === cacheKey) return;
-        startedRef.current = cacheKey;
-
-        const decision = decideAiRestore<AiGrade>({
-            task: find(cacheKey),
-            result: getResult<AiGrade>(cacheKey),
-            cached: readAiCache<AiGrade>(cacheKey),
-        });
-        if (decision.kind === "ready") {
-            setGrade(decision.value);
-            setError("");
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "error") {
-            setGrade(null);
-            setError(decision.message);
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "canceled") {
-            setGrade(null);
-            setError("已取消");
-            setLoading(false);
-            return;
-        }
-        // running：run() 会接上同一个任务；none：开一个新的。
-        setGrade(null);
-        void run();
-    }, [open, cacheKey]);
-
-    // 批改面板开着时，完成通知是多余的
-    useEffect(() => {
-        if (!open || !cacheKey) return;
-        return attend(cacheKey);
-    }, [open, cacheKey, attend]);
+    });
+    const grade = feature.value;
+    const loading = feature.running;
+    const error = feature.error;
 
     const adopt = () => {
         if (!grade || !onAdopt) return;
@@ -187,7 +122,7 @@ export default function AiGradeSheet({
                     <div className="mt-2 flex flex-wrap gap-2">
                         <button
                             className="st-btn sm line"
-                            onClick={() => void run()}
+                            onClick={() => void feature.start()}
                         >
                             重试
                         </button>
@@ -269,7 +204,7 @@ export default function AiGradeSheet({
                     <div className="st-row mt-3 flex-wrap" style={{ gap: 8 }}>
                         <button
                             className="st-btn sm ghost"
-                            onClick={() => void run(true)}
+                            onClick={() => void feature.start({ force: true })}
                         >
                             重新批改
                         </button>
