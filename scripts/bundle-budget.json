@@ -1,5 +1,5 @@
 {
-    "_note": "Shell JS/CSS gzip budget in bytes, checked by scripts/check-bundle.ts after vite build. This is a ratchet: lower the numbers when the shell shrinks, and raise them only for a deliberate, reviewed increase. After an intentional change, run `bun run build` and copy the printed totals here; the budgets are the measured totals plus ~10-15% headroom, with floors of 160000 JS and 26000 CSS.",
-    "shellJsGzipBytes": 160000,
+    "_note": "Shell JS/CSS gzip budget in bytes, checked by scripts/check-bundle.ts after vite build. This is a ratchet: lower the numbers when the shell shrinks, and raise them only for a deliberate, reviewed increase. React 19 (r3f 9/drei 10) grew the shell to 156,989 gzip, so the JS budget is 168,000 (~7% headroom); CSS stays at 26,000. After an intentional change, run `bun run build` and copy the printed totals here.",
+    "shellJsGzipBytes": 168000,
     "shellCssGzipBytes": 26000
 }
