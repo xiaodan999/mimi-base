@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, Loader2, Settings2, Soup, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { DinnerManager } from "@/app/dinner/components/manager";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/app/dinner/components/result-panel";
 import { DinnerWheel } from "@/app/dinner/components/wheel";
 import { useDinnerOptions } from "@/app/dinner/data";
-import { type DinnerOption, spinPlan, spinTurns } from "@/app/dinner/options";
+import { useWheel } from "@/app/dinner/use-wheel";
 import { useNewPostMutation } from "@/app/feed/data";
 import { buildPostMediaFields } from "@/app/feed/utils";
 import { ErrorState } from "@/components/ErrorState";
@@ -19,9 +19,6 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
-
-/** Must match the rotor transition in globals.css (`dinner-wheel-rotor`). */
-const SPIN_MS = 4200;
 
 /** Nothing to upload; the builder still supplies the empty media fields. */
 const EMPTY_MEDIA = buildPostMediaFields([]);
@@ -41,69 +38,33 @@ function Page() {
         refetch,
     } = useDinnerOptions();
 
-    const [phase, setPhase] = useState<DinnerPhase>("idle");
-    const [rotation, setRotation] = useState(0);
-    const [picked, setPicked] = useState<DinnerOption | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
+    const {
+        phase,
+        rotation,
+        picked,
+        spin,
+        finish: finishSpin,
+        beginSave,
+        markSaved,
+        markSaveFailed,
+    } = useWheel({ options, loading: isLoading, reducedMotion });
     const [showManager, setShowManager] = useState(false);
-    const finishTimer = useRef<number | null>(null);
     const managerRef = useRef<HTMLElement | null>(null);
 
     const pickedIndex = picked
         ? options.findIndex((option) => option.id === picked.id)
         : -1;
-
-    useEffect(() => {
-        return () => {
-            if (finishTimer.current !== null) {
-                window.clearTimeout(finishTimer.current);
-            }
-        };
-    }, []);
-
-    // A deleted option must not stay on screen as the winner.
-    useEffect(() => {
-        if (!isLoading && picked && !options.some((o) => o.id === picked.id)) {
-            setPicked(null);
-            setPhase("idle");
-            setSaved(false);
-        }
-    }, [options, picked, isLoading]);
-
-    const finishSpin = () => {
-        if (finishTimer.current !== null) {
-            window.clearTimeout(finishTimer.current);
-            finishTimer.current = null;
-        }
-        setPhase((current) => (current === "spinning" ? "result" : current));
-    };
-
-    const handleSpin = () => {
-        if (phase === "spinning" || options.length === 0) return;
-        const plan = spinPlan(
-            options.length,
-            rotation,
-            Math.random,
-            spinTurns(),
-        );
-        if (plan.index < 0) return;
-        setPicked(options[plan.index]);
-        setPhase("spinning");
-        setSaved(false);
-        setRotation(plan.rotation);
-        if (finishTimer.current !== null) {
-            window.clearTimeout(finishTimer.current);
-        }
-        finishTimer.current = window.setTimeout(
-            finishSpin,
-            reducedMotion ? 40 : SPIN_MS,
-        );
-    };
+    const showingResult =
+        phase === "result" || phase === "saving" || phase === "saved";
+    const panelPhase: DinnerPhase = showingResult
+        ? "result"
+        : phase === "spinning"
+          ? "spinning"
+          : "idle";
 
     const handleSave = async () => {
-        if (!picked || saving) return;
-        setSaving(true);
+        if (!picked || phase === "saving") return;
+        beginSave();
         try {
             await toastPromise(
                 newPost.mutateAsync({
@@ -116,7 +77,6 @@ function Page() {
                     success: `今晚吃「${picked.name}」，已记到动态`,
                     error: "保存晚餐失败",
                     finally: () => {
-                        setSaving(false);
                         void queryClient.invalidateQueries({
                             queryKey: qk.homeStats.all,
                         });
@@ -126,8 +86,9 @@ function Page() {
                     },
                 },
             );
-            setSaved(true);
+            markSaved();
         } catch {
+            markSaveFailed();
             // toastPromise already surfaced the error.
         }
     };
@@ -221,9 +182,9 @@ function Page() {
                                     spinning={phase === "spinning"}
                                     reducedMotion={reducedMotion}
                                     selectedIndex={
-                                        phase === "result" ? pickedIndex : -1
+                                        showingResult ? pickedIndex : -1
                                     }
-                                    onSpin={handleSpin}
+                                    onSpin={spin}
                                     onSpinEnd={finishSpin}
                                 />
                             )}
@@ -238,15 +199,15 @@ function Page() {
                             className="h-64 lg:h-auto"
                         >
                             <DinnerResultPanel
-                                phase={phase}
+                                phase={panelPhase}
                                 picked={picked}
                                 optionCount={options.length}
                                 loading={isLoading}
                                 error={isError}
-                                saving={saving}
-                                saved={saved}
+                                saving={phase === "saving"}
+                                saved={phase === "saved"}
                                 onSave={() => void handleSave()}
-                                onRespin={handleSpin}
+                                onRespin={spin}
                                 onManage={openManager}
                             />
                         </div>
