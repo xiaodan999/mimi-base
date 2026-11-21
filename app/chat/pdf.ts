@@ -61,8 +61,6 @@ async function openPdf(
             cMapUrl: "/pdfjs/cmaps/",
             cMapPacked: true,
             standardFontDataUrl: "/pdfjs/standard_fonts/",
-            // The bytes come from a user's file; never evaluate font programs.
-            isEvalSupported: false,
         }).promise;
     } catch (error) {
         const name = (error as { name?: string } | null)?.name;
@@ -118,10 +116,11 @@ async function renderPages(
             const canvas = document.createElement("canvas");
             canvas.width = Math.ceil(viewport.width);
             canvas.height = Math.ceil(viewport.height);
-            const context = canvas.getContext("2d");
-            if (!context) throw new Error("这台设备暂时无法渲染 PDF");
+            if (!canvas.getContext("2d")) {
+                throw new Error("这台设备暂时无法渲染 PDF");
+            }
             try {
-                await page.render({ canvasContext: context, viewport }).promise;
+                await page.render({ canvas, viewport }).promise;
                 images.push(await toJpegDataUrl(canvas));
             } finally {
                 // Release the backing store before the next page; mobile
