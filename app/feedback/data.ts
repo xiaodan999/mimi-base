@@ -10,7 +10,11 @@ import { apiUrl } from "@/lib/env";
 import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 
-import { type FeedbackAttachment, parseAttachmentList } from "./attachments";
+import {
+    type FeedbackAttachment,
+    parseAttachmentList,
+    parseFeedbackUploadError,
+} from "./attachments";
 import { getFeedbackErrors } from "./error-buffer";
 import {
     type FeedbackIssueStates,
@@ -18,10 +22,11 @@ import {
     parseIssueNumber,
     parseRecordIssueState,
 } from "./issue-state";
-import type {
-    FeedbackKind,
-    FeedbackReportPage,
-    FeedbackReportRecord,
+import {
+    type FeedbackKind,
+    type FeedbackReportPage,
+    type FeedbackReportRecord,
+    parseFeedbackResponseError,
 } from "./reports";
 
 export type { FeedbackReportRecord } from "./reports";
@@ -111,17 +116,15 @@ async function uploadAttachments(files: File[]): Promise<FeedbackAttachment[]> {
     if (res.ok && body.ok !== false && attachments.length === files.length) {
         return attachments;
     }
-    if (body.reason === "github_not_configured") {
+    const failure = parseFeedbackUploadError(body);
+    if (failure?.reason === "github_not_configured") {
         throw new Error(
             "服务端还没有配置 GitHub，附件传不上去；移除附件后可以只提交文字",
         );
     }
     const message =
-        typeof body.error === "string" && body.error
-            ? body.error
-            : res.status === 401
-              ? "登录已过期，请重新登录"
-              : "附件上传失败";
+        failure?.message ||
+        (res.status === 401 ? "登录已过期，请重新登录" : "附件上传失败");
     throw new Error(`${message}，可以移除附件后只提交文字`);
 }
 
@@ -231,6 +234,7 @@ async function syncIssue(reportId: string): Promise<{
     }
 
     const issue = parseIssue(body.issue);
+    const failure = parseFeedbackResponseError(body);
     if (res.ok && issue) {
         return { issue, synced: true };
     }
@@ -238,25 +242,20 @@ async function syncIssue(reportId: string): Promise<{
         return {
             issue: null,
             synced: false,
-            reason:
-                typeof body.reason === "string" ? body.reason : "not_synced",
+            reason: failure?.reason ?? "not_synced",
         };
     }
     const message =
-        typeof body.error === "string" && body.error
-            ? body.error
-            : res.status === 401
-              ? "登录已过期，反馈已保存"
-              : res.status === 429
-                ? "提交太频繁，反馈已保存，稍后再同步"
-                : "暂时无法同步到 GitHub，反馈已保存";
+        failure?.message ||
+        (res.status === 401
+            ? "登录已过期，反馈已保存"
+            : res.status === 429
+              ? "提交太频繁，反馈已保存，稍后再同步"
+              : "暂时无法同步到 GitHub，反馈已保存");
     return {
         issue: null,
         synced: false,
-        reason:
-            typeof body.reason === "string"
-                ? body.reason
-                : `http_${res.status}`,
+        reason: failure?.reason ?? `http_${res.status}`,
         syncError: message,
     };
 }
