@@ -2,6 +2,22 @@
 
 本文件记录面向使用者的主要变更，按日期分组（最新的在最上面），格式参考 Keep a Changelog。
 
+## 2026-11-21
+
+### 新增
+
+- PocketBase 钩子新增真实二进制集成测试（`bun run test:pb`）：验证所有权字段回写、聊天越权写入、点赞/评论计数与通知、自赞不通知、建议字段裁剪和通知已读权限。
+- CI 增加 78% 行覆盖闸门和 gzip 壳体积预算，PocketBase 钩子测试独立成 job；Dependabot 覆盖 `server/` 与 Docker 基础镜像。
+
+### 变更
+
+- Bun API 改用 Elysia（`server/app.ts`）：根生命周期统一 CORS、鉴权、请求体上限、错误信封和请求 id，路由拆到 `server/routes/`；鉴权、限流、PocketBase 客户端和日志各保留一份实现。
+- 拆分 `feedback`、AI 中转和 tools：GitHub 上传/Issue、反馈行读写、Markdown 转录、模型白名单和沙箱各归独立模块；新增 `server/app.test.ts` 覆盖 401-before-parse、413、SSE、静态回退和 500 信封。
+- 前端领域拆分：聊天数据/会话/组件移入 `app/chat/`，记账移入 `app/ledger/`，首页/报告/资料数据移到各自领域；分享页、反馈、晚餐等跨领域读写改走领域接口，反馈不再重复查询聊天会话。
+- AI 提示词回到各自领域（`app/ledger`、`app/feed`、`app/home`、`app/report`、`app/study/ai`），`app/ai` 不再依赖学习模块；新增 `useAiFeature` 统一缓存/恢复/任务流程，聊天工具按领域拆分。
+- 拆分聊天线程、评论抽屉、图片查看器、记账/报告/关于页；晚餐转盘和答题流程改成纯 reducer，反馈草稿共用一套状态。
+- 依赖升级：date-fns 4 + react-day-picker 9、pdf.js 5、Sonner 2、lucide-react 0.577、PocketBase SDK 0.29。
+
 ## 2026-11-20
 
 ### 新增

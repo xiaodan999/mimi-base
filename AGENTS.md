@@ -3,9 +3,10 @@
 ## What this repo is
 
 `mimi-base` ("秘密基地") is a personal, mobile-first PWA for photos, posts and
-expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
+expense records. Frontend: React 19 + Vite + TypeScript, TanStack Router
 (file-based routes) + React Query, Tailwind + shadcn/ui. Backend: PocketBase
-(SQLite + file uploads) served by a Bun API. UI copy is Chinese; keep that style.
+(SQLite + file uploads) behind an Elysia API on Bun. UI copy is Chinese; keep
+that style.
 
 ## Layout
 
@@ -18,47 +19,62 @@ expense records. Frontend: React 18 + Vite + TypeScript, TanStack Router
     - `_protected/_main/{home,chat,jizhang,study,profile,report,dinner}/` feature
       pages; `/posts` and `/photos` only redirect to `/home`, which hosts the
       动态 feed under its greeting card. `chat/` has an index (conversation list)
-      and `$conversationId.tsx` (thread); `/dinner` is reached from the home
-      bowl and has no bottom-nav tab.
-    - Files starting with `-` (`-data.tsx`, `-use-chat-session.ts`,
-      `-components/`) are colocated helpers, not routes.
+      and `$conversationId.tsx` (thread), but its data/session/components live in
+      `app/chat/`; `/dinner` is reached from the home bowl and has no bottom-nav
+      tab.
+    - Files starting with `-` (`-components/`, `-home/`) are route-private UI
+      helpers, not routes. Query/mutation modules belong to the owning domain.
 - `components/ui/` — forked shadcn primitives (see below). Biome lints it;
   `bun fmt` skips it. `components/` holds app components (`NavButtons`,
-  `TouXiang`, `LoadingPage`).
-- Domains under `app/`: `chat/` (relay URLs, streaming/SSE, prompts, personas,
-  titles, records, gen-UI validation, tools), `feed/` (query/mutations, mixed
-  media, comments, post/composer/viewer components), `dinner/` (wheel geometry,
-  shared options), `notifications/`, `feedback/` (report data, realtime,
-  attachments, issue state, filters, prompt, error buffer), `ai/` (provider,
-  client, task store, prompts), `study/`, `about/`.
+  `TouXiang`, `LoadingPage`, `EmptyState`, `MediaGrid`).
+- Domains under `app/`: `chat/` (data/mutations, session run/resume, components,
+  tools, streaming/SSE, prompts, personas, titles, records, gen-UI validation),
+  `ledger/` (jizhang data, categories, summary, AI prompt), `home/` + `report/` +
+  `profile/` (their queries and AI prompts), `feed/` (query/mutations, mixed
+  media, comments, composer/viewer, AI captions), `dinner/` (wheel reducer,
+  options), `notifications/`, `feedback/` (report data, realtime, attachments,
+  issue state, filters, prompt, error buffer, shared draft hook), `ai/`
+  (transport, cache, task store, generic sheets, `use-ai-feature.ts`), `study/` +
+  `study/ai/` (study-only prompts and AI sheets), `about/`.
 - `lib/` — `pb.ts` singleton + URL/date helpers, `auth-store.ts`,
   `auth.tsx`, `redirect.ts`, `env.ts`, `realtime.ts`, `postMedia.ts`,
-  `query-keys.ts`, `toast-promise.ts`, image picker/compressor.
-- `hooks/` — shared hooks.
-- `server/` — the Bun API: `main.ts` (routing), `static.ts` (SPA), `config.ts`,
-  `ai-relay.ts`, `ai-tools.ts`, `feedback.ts`, `video.ts`,
-  `geo-ip.ts`, `chat-models.ts`, `safe-fetch.ts` (shared SSRF guard),
-  `sandbox.ts` + `sandbox-worker.ts` (QuickJS), `sandbox-promise.ts`, tests.
-  `server/package.json` holds the server-only deps (ip2region,
-  quickjs-emscripten). Read `docker/README.md` before touching deploys.
-- `pocketbase/` — migrations, JSVM hooks (`post_counters`, `notifications`,
-  `dev_seed`); `pb_data/` and the binary are gitignored.
+  `query-keys.ts`, `toast.ts`, `toast-promise.ts`, image picker/compressor.
+  `lib/contracts/` holds runtime-neutral types shared with `server/` (API error
+  envelope, feedback rows, chat model metadata); it must not import React/DOM.
+- `hooks/` — shared hooks (`use-infinite-list.ts`, back-dismiss, viewport).
+- `server/` — the Bun API on Elysia:
+    - `main.ts` only composes deps and calls `Bun.serve`; `app.ts` is the Elysia
+      factory with the root lifecycle hooks and route plugins.
+    - `http/` — auth, auth-gate, body caps, CORS, errors, request id, rate
+      limiters, PocketBase REST client/admin token, logger.
+    - `routes/` — health, ai, feedback, video, static.
+    - `ai/` — relay, models, tools/_, sandbox/_; `feedback/` — service, github,
+      admin, reports, markdown, types, limits.
+    - `static.ts` serves the SPA; `geo-ip.ts`, `safe-fetch.ts`, `video.ts`,
+      `request-body.ts` and the sandbox modules keep their contracts.
+      `server/package.json` holds the server-only deps (elysia, ip2region,
+      quickjs-emscripten). Read `docker/README.md` before touching deploys.
+- `pocketbase/` — migrations, JSVM hooks (`ownership`, `post_counters`,
+  `notifications`, `dev_seed`); `pb_data/` and the binary are gitignored.
 - `docker/` + `compose.yaml` — app/PocketBase images, Caddy example, `.env.app`.
 - `scripts/` — `pb-binary.ts`, `backends.ts`, `dev.ts`, `lan-proxy.mjs`,
-  `preview.mjs`, `perf.mjs`. `tmp/` is gitignored scratch; never commit it.
+  `preview.mjs`, `perf.mjs`, `check-bundle.ts`, `check-coverage.ts`,
+  `pb-hooks-test.ts`. `tmp/` is gitignored scratch; never commit it.
 
 ## Commands
 
 ```bash
 bun install
-bun run install:server   # server/ deps (ip2region, QuickJS)
+bun run install:server   # server/ deps (elysia, ip2region, QuickJS)
 cp .env.example .env      # VITE_POCKETBASE_URL=same-origin
 bun run dev:backend       # PocketBase :8090 + API :9001 (admin at /_/)
 bun run dev:frontend      # Vite on :3000 (VITE_PORT=3001 to change)
 bun run dev:all           # both, LAN-exposed (prints the phone URL)
-bun run build             # vite build + bun check
+bun run build             # vite build + shell budget + bun check
 bun run preview           # build + serve build/ with /db and /api proxies
-bun run test              # bun test (whole repo; pure logic, no server needed)
+bun run test              # bun test (pure logic, no server or browser needed)
+bun run test:coverage     # bun test + the aggregate line-coverage floor
+bun run test:pb           # real-PocketBase hook tests (pinned binary)
 bun run typecheck         # bun check for the app + server/
 bun run lint              # biome lint
 bun run format            # bun fmt
@@ -71,6 +87,14 @@ Formatting is Bun's native formatter (`bunfig.toml`), linting is Biome
 don't reintroduce Prettier, an ESLint config or a second linter. Unit tests use
 Bun's runner and cover pure logic only. Verify UI changes with `bun run build`
 and the dev server, or `bun run preview` when no dev server fits.
+
+`test:coverage` writes lcov to `tmp/coverage/` and `scripts/check-coverage.ts`
+enforces the 78% aggregate line floor (ratchet it up, never down). `build` runs
+`scripts/check-bundle.ts` against `scripts/bundle-budget.json`; the shell is
+about 135KB gzip JS + 19KB CSS and must stay under 160KB/26KB. Raise a budget
+only for a deliberate, reviewed increase. `test:pb` is not part of `bun test`:
+it boots the pinned PocketBase binary with this checkout's migrations/hooks and
+asserts ownership, counter and notification behavior.
 
 Silence a rule with `// biome-ignore lint/<group>/<rule>: <reason>` on the line
 Biome reports — for hooks, directly above the `useEffect`/`useMemo` call. Biome
@@ -129,10 +153,12 @@ Alpine/musl.
 ## Performance
 
 `bun run perf` measures the routes in Chromium at 390x844@2x with Fast 3G and a
-4x CPU slowdown. The shell is ~131KB gzipped JS + 18KB CSS on every route; keep
+4x CPU slowdown. The shell is ~135KB gzipped JS + 19KB CSS on every route; keep
 heavy features lazy (the study bank is its own chunk) and re-run `perf` before
-and after adding a heavy route. A repeat visit is much faster because the
-service worker serves the shell.
+and after adding a heavy route. `bun run build` fails if the gzipped shell
+crosses `scripts/bundle-budget.json`, so an accidental eager import is caught
+before CI or the image build. A repeat visit is much faster because the service
+worker serves the shell.
 
 ## Worktrees
 
@@ -287,6 +313,21 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   routes `/db/*` to `mimi-pb:8090` after stripping the prefix and `/api/*` to
   `mimi-app:9001`; `/feedback` stays the SPA route. `VITE_POCKETBASE_URL` may
   be a bare origin or end in `/db`; `lib/env.ts` normalizes it.
+- The API is an Elysia app (`server/app.ts`). Its root lifecycle is the security
+  contract: `onRequest` answers CORS preflight and authenticates
+  `/api/ai|feedback|video` (except `/api/ai/health`) before any body is read;
+  `onParse` enforces the per-route byte caps through `server/request-body.ts`;
+  `onError` emits the single envelope `{ error: { message, code?, requestId? } }`
+  (tool-level `{ ok: false }` at HTTP 200 is a payload, not an error). SSE,
+  video and static handlers return raw `Response` objects. A new authenticated
+  route belongs under one of those prefixes or the guard must be extended — do
+  not read a large body in a handler that skipped `onRequest`. Auth is
+  implemented once in `server/http/auth.ts` (hashed-token cache, 60s, shared
+  6-slot gate); rate limits live in `server/http/rate-limit.ts` behind an
+  injectable `CounterStore`; PocketBase access goes through `server/http/pb.ts`
+  (one client, cached single-flight superuser token). Both the cache and the
+  limiters are per-process by design (one `mimi-app` container); a second
+  replica needs a shared store, not multiplied limits.
 - Collections: `users`, `tou_xiang_circle`, `posts`, `comments`, `post_likes`,
   `comment_likes` (schema only, unused by the UI), `notifications`,
   `ji_zhang_biao`, `ji_zhang_category`, `study_progress`, `chat_conversations`,
@@ -409,7 +450,7 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   text hint.
 - `ji_zhang_biao.category` is free text: a built-in key (`food`, `takeout`,
   `transport`, `shopping`, `home`, `fun`, `health`, `other` from
-  `jizhang/-categories.ts`) or a `ji_zhang_category` row id. Resolve with
+  `app/ledger/categories.ts`) or a `ji_zhang_category` row id. Resolve with
   `useExpenseCategories().getCategory` / `getExpenseCategory`; unknown or
   deleted values render 其他, old empty rows stay empty. Renaming a custom
   category is safe (rows point at the id); deleting first clears those rows to
@@ -439,10 +480,13 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   ESLint bar: a11y and React-Compiler-era rules are off,
   `useExhaustiveDependencies` is `warn` with unnecessary deps ignored. Don't
   add a second linter or formatter.
-- Data fetching lives in colocated React Query hooks (`-data.ts(x)`). Define
-  every key in `lib/query-keys.ts` (`qk.*`); per-user keys include the user id,
-  and mutations invalidate the `qk.*.all` prefix. Use `useQueryClient()`, never
-  import `queryClient` from `app/main`.
+- Data fetching lives in the owning domain (`app/<domain>/data.ts(x)` for feed,
+  chat, ledger, home, report, profile, notifications, feedback, dinner and
+  study). Route-private `-data` modules are only for truly page-local state, not
+  for another route to import. Define every key in `lib/query-keys.ts`
+  (`qk.*`); per-user keys include the user id, and mutations invalidate the
+  `qk.*.all` prefix. Use `useQueryClient()`, never import `queryClient` from
+  `app/main`.
 - Auth: `lib/auth-store.ts` owns the snapshot (`status` + `user`);
   PocketBase holds only the credential. `lib/auth.tsx` creates the single
   instance and exposes it via `useAuth()` (`useSyncExternalStore`). The router
@@ -458,17 +502,20 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   cache and returns to `/login`. Dev builds switch seeded accounts in place.
 - `vite.config.ts` enables `autoCodeSplitting`. Keep heavy feature data behind
   route imports; don't import the study bank from the shell.
-- AI lives in `app/ai/`, mounted in `_main.tsx` via `AiProvider`. `client.ts`
-  supports text, streaming, JSON and vision (`visionMessage` +
-  `imageToDataUrl`, downsized to 1024px JPEG). Prompts are split by domain.
-  Only what a feature builds locally is sent to the provider; nothing
+- AI infrastructure lives in `app/ai/`, mounted in `_main.tsx` via
+  `AiProvider`. `client.ts` supports text, streaming, JSON and vision
+  (`visionMessage` + `imageToDataUrl`, downsized to 1024px JPEG). Feature
+  prompts live with their owner (`app/ledger/ai.ts`, `app/feed/ai.ts`,
+  `app/home/ai.ts`, `app/report/ai.ts`, `app/study/ai/`); `app/ai` must not
+  import a feature domain. Only what a feature builds locally is sent to the
+  provider; nothing
   AI-related is written back except user-confirmed expense rows/categories. A
   503 keeps the original text and the 反馈 form still submits.
   **The site owns the only key; there is no BYOK path.** The Bun API mounts
-  `ai-relay.ts` at `/api/ai/opencode/v1/chat/completions` (legacy path, forces
+  `server/ai/relay.ts` at `/api/ai/opencode/v1/chat/completions` (legacy path, forces
   the configured model) and `POST /api/ai/chat/completions` + `GET /api/ai/models`
   for chat: the model must be in the server allowlist
-  (`chat-models.ts`, narrowed by `AI_CHAT_MODELS`), unknown ids get 400,
+  (`server/ai/models.ts`, narrowed by `AI_CHAT_MODELS`), unknown ids get 400,
   text-only models lose `tools`, non-vision models reject images, and
   `reasoning_effort` is checked against `thinkingLevels`. Keys and quotas
   (`AI_API_KEY`, `AI_API_URL`, `AI_MODEL`, `AI_CHAT_MODELS`,
@@ -494,9 +541,12 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `AbortController`; never abort on unmount/close. Results land in `cacheKey`
   and the task center; `attend(group)` suppresses duplicate notifications while
   a panel is open. Closed panels restore with `decideAiRestore`
-  (`app/ai/restore.ts`). System notifications are opt-in (`AiSettings.notify`)
-  and fire only while the page is hidden. Reloading or closing the app still
-  stops in-flight work; the store is memory-only.
+  (`app/ai/restore.ts`). Standard panel features should use
+  `app/ai/use-ai-feature.ts` (cache read, restore decision, task, cache write);
+  streaming editors and multi-key flows may keep their own state. System
+  notifications are opt-in (`AiSettings.notify`) and fire only while the page is
+  hidden. Reloading or closing the app still stops in-flight work; the store is
+  memory-only.
 - General chat (`app/chat/`, `/chat`): assistant-ui primitives +
   `useExternalStoreRuntime`; messages persist in `chat_messages` as content
   parts. A run loops up to 6 model rounds while calling `sandbox_*` tools. Run
@@ -512,9 +562,10 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   `sandbox.read/write/list/remove/fetch/download`. `fetch`/`download` go through
   `server/safe-fetch.ts` (same DNS/private-range/redirect guard as `read_url`)
   and return a QuickJS Promise bridged from native fetch
-  (`server/sandbox-promise.ts`) — not an asyncified host function, which traps
-  on a second success in one run. Each run shares a host-fetch budget
-  (`server/sandbox-budget.ts`: 4 concurrent, 30 total) because native fetch
+  (`server/ai/sandbox/sandbox-promise.ts`) — not an asyncified host function,
+  which traps on a second success in one run. Each run shares a host-fetch
+  budget (`server/ai/sandbox/sandbox-budget.ts`: 4 concurrent, 30 total) because
+  native fetch
   buffers are not bounded by the QuickJS heap. `sandbox.fetch` resolves to the
   body text, so `JSON.parse(await sandbox.fetch(url))` is the pattern. Python is not
   supported. Don't expose new host globals without re-evaluating prompt
@@ -533,7 +584,7 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   buttons, forms or links. Map enum values to fixed literal theme-token classes
   so Tailwind emits them and dark mode works.
 - Chat data tools (`/api/ai/tools/{expenses,posts,comments,memory,url}` in
-  `server/ai-tools.ts`) are the only way the model reads site data; the server,
+  `server/ai/tools/*`) are the only way the model reads site data; the server,
   not the persona prompt, is the security boundary. It authenticates,
   rate-limits (30/min) and quotas (200/day), scopes rows with explicit PB
   filters (ledger/posts/comments shared on purpose; `chat_memories` owner-only
@@ -564,9 +615,9 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   optional `@napi-rs/canvas` is overridden to `empty-npm-package` in the root
   `package.json`, so installs do not fetch the native binary; the browser
   draws into the DOM canvas. Caps: 30MB, 50k chars, 10 inline pages, 4 images
-  (`lib/chat-files.ts`). Every API service
-  authenticates through the shared `server/auth-gate.ts` slot (max 6 concurrent
-  `auth-refresh` calls) to blunt random-token floods.
+  (`lib/chat-files.ts`). Every API service authenticates through the shared
+  `server/http/auth-gate.ts` slot (max 6 concurrent `auth-refresh` calls) to
+  blunt random-token floods.
 - Chat artifacts: text files stay in `chat_conversations.sandbox_files` and the
   part references the path; binary images come back once in `sandbox_run`
   (base64), upload to `chat_artifacts` (owner-scoped, protected, cascade), and
@@ -579,6 +630,12 @@ Bun cache. `install:server` does the same for `server/package.json`. Re-check
   Start with `components/PageHeader` (`backTo`, `description`, `actions`;
   `compact` only for an in-thread bar) so spacing stays consistent. `/home` is
   the exception: its greeting card owns the top of the feed.
+- Shared interaction primitives: `components/EmptyState` for empty lists,
+  `components/MediaGrid` + `MediaTile` for removable/selectable/sortable media,
+  `components/ui/tabs` and `components/ui/select` for the accessible tablist and
+  native select, and `hooks/use-infinite-list` for infinite-query flattening.
+  Use `components/ConfirmDialog` instead of `window.confirm`; do not hand-roll a
+  sixth media grid or a local empty state.
 - Style with Tailwind + `components/ui` + `cn()`. No CSS modules; nav icons are
   lucide. Use semantic tokens (`bg-card`, `text-muted-foreground`,
   `border-border`, `shadow-soft`) so both schemes work; `ThemeProvider` is in
@@ -636,6 +693,14 @@ app's own scale, and v4 renames are migrated (`outline-hidden`, `shadow-xs`,
   the router plugin doesn't need it). Keep `"types": ["bun"]` and no `baseUrl`.
   The root `tsconfig.json` excludes `pocketbase/` and `server/`, so CI/Vercel
   builds don't need server deps.
+- React 19 + `@react-three/fiber` 9 / `drei` 10: `useRef` needs an initial
+  value, and the global `JSX` namespace is gone — use `React.JSX`. The study 3D
+  scenes are the r3f compatibility surface; keep `three` at the version in
+  `package.json`.
+- `server/` is a separate manifest/lockfile. It depends on Elysia plus
+  ip2region/QuickJS; Docker installs it with `bun install --production
+--frozen-lockfile` from `server/`. The root `bun check` excludes `server/`, so
+  `bun run typecheck` runs both.
 - Run `bun run setup:hooks` once per clone; the pre-commit hook runs
   `bun fmt --staged`, typecheck, tests, lint and `format:check`.
 - `APP_VERSION`, `APP_SHA` and `DEV_BUILD` are Vite `define` globals
@@ -693,5 +758,8 @@ app's own scale, and v4 renames are migrated (`outline-hidden`, `shadow-xs`,
   rollback and cutover.
 - `compose.yaml` + `docker/` — images, entrypoint, production env file.
 - `.github/workflows/images.yml` — build matrix and rollout.
-- `server/main.ts` + `server/sandbox*.ts` — API routing, static serving, QuickJS.
+- `server/app.ts` + `server/http/*` + `server/ai/relay.ts` + `server/feedback/*`
+  — API routing, auth/byte caps/error envelope, AI relay/tools, GitHub feedback.
+- `server/static.ts`, `server/request-body.ts`, `server/safe-fetch.ts` and
+  `server/ai/sandbox/*` — SPA serving, streaming caps, SSRF guard and QuickJS.
 - `app/routes/_protected.tsx` and `lib/auth.tsx` — auth flow and redirects.
