@@ -6,18 +6,39 @@
  * unit-tested and reused by the issue-body renderer's client mirror.
  */
 
-import { MAX_FEEDBACK_ATTACHMENTS } from "./validation";
+import { parseApiError } from "@/lib/contracts/api";
+import {
+    type FeedbackAttachment,
+    MAX_FEEDBACK_ATTACHMENTS,
+} from "@/lib/contracts/feedback";
 
-export type FeedbackAttachment = {
-    /** Original browser file name, shown in the UI and the issue body. */
-    name: string;
-    /** Public GitHub release/destination URL returned by the Bun API. */
-    url: string;
-    /** Bytes; omitted when the server did not report one. */
-    size?: number;
-    /** MIME type as sent by the browser; `image/*` renders inline. */
-    type?: string;
+export type { FeedbackAttachment };
+
+/** Error body of `/api/feedback/upload` (unified envelope + `reason`). */
+export type FeedbackUploadError = {
+    message: string;
+    code?: string;
+    requestId?: string;
+    /** Legacy/extra machine reason, e.g. `github_not_configured`. */
+    reason?: string;
 };
+
+export function parseFeedbackUploadError(
+    value: unknown,
+): FeedbackUploadError | null {
+    const info = parseApiError(value);
+    const reason =
+        typeof (value as { reason?: unknown } | null)?.reason === "string"
+            ? (value as { reason: string }).reason
+            : undefined;
+    if (!info && !reason) return null;
+    return {
+        message: info?.message ?? "",
+        ...(info?.code ? { code: info.code } : {}),
+        ...(info?.requestId ? { requestId: info.requestId } : {}),
+        ...(reason ? { reason } : {}),
+    };
+}
 
 /** Parentheses/brackets would terminate a Markdown link early. */
 const HTTPS_URL_RE = /^https:\/\/[^\s<>"'`()[\]{}]+$/i;

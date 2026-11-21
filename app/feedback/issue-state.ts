@@ -5,10 +5,38 @@
  * to「已建 Issue」instead of showing garbage or breaking the list.
  */
 
-export type FeedbackIssueState = "open" | "closed";
+import { parseApiError } from "@/lib/contracts/api";
+import type {
+    FeedbackIssueState,
+    FeedbackIssueStates,
+} from "@/lib/contracts/feedback";
 
-/** Keyed by issue number so both feedback lists can share the result. */
-export type FeedbackIssueStates = Record<number, FeedbackIssueState>;
+export type { FeedbackIssueState, FeedbackIssueStates };
+
+/** `POST /api/feedback/issue-state` success payload. */
+export type FeedbackIssueStateResponse = {
+    states: FeedbackIssueStates;
+    reason?: string;
+};
+
+export function parseFeedbackIssueStateResponse(
+    value: unknown,
+): FeedbackIssueStateResponse {
+    const body =
+        value && typeof value === "object" && !Array.isArray(value)
+            ? (value as { states?: unknown; reason?: unknown })
+            : {};
+    const reason = typeof body.reason === "string" ? body.reason : undefined;
+    return {
+        states: parseFeedbackIssueStates(body.states),
+        ...(reason ? { reason } : {}),
+    };
+}
+
+/** Unified error envelope from the same endpoint. */
+export function parseFeedbackIssueStateError(value: unknown) {
+    return parseApiError(value);
+}
 
 /** The persisted select field; empty/unknown values mean "not known yet". */
 export function parseRecordIssueState(

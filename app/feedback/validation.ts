@@ -1,15 +1,20 @@
 /**
  * Client-side validation shared by the form and its tests. The Bun API
- * (`server/feedback.ts`) enforces the same caps for uploaded attachments
+ * (`server/feedback`) enforces the same caps for uploaded attachments
  * (3 files, 10MB each, any MIME type) and is the backstop; nothing but
  * metadata is written to `feedback_reports`, so the collection itself no
  * longer caps file size.
  */
 
+import {
+    MAX_FEEDBACK_ATTACHMENTS,
+    MAX_FEEDBACK_FILE_BYTES,
+} from "@/lib/contracts/feedback";
+
 export const MAX_FEEDBACK_TITLE = 120;
 export const MAX_FEEDBACK_DESCRIPTION = 5000;
-export const MAX_FEEDBACK_ATTACHMENTS = 3;
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export { MAX_FEEDBACK_ATTACHMENTS };
+export const MAX_ATTACHMENT_BYTES = MAX_FEEDBACK_FILE_BYTES;
 
 export type AttachmentLike = {
     name?: string;

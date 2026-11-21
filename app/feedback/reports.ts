@@ -1,5 +1,7 @@
 import type { InfiniteData } from "@tanstack/react-query";
 
+import { type ApiErrorInfo, parseApiError } from "@/lib/contracts/api";
+import type { FeedbackKind, FeedbackStatus } from "@/lib/contracts/feedback";
 import type { UserRecord } from "@/lib/pb-types";
 import type { RealtimeAction } from "@/lib/realtime";
 
@@ -13,8 +15,27 @@ import type { FeedbackAttachment } from "./attachments";
  * queries and re-exports these types).
  */
 
-export type FeedbackStatus = "stored" | "issue_created" | "failed";
-export type FeedbackKind = "bug" | "feature";
+export type { FeedbackKind, FeedbackStatus };
+
+/** Unified error envelope plus the sync `reason` the card already shows. */
+export type FeedbackErrorInfo = ApiErrorInfo & { reason?: string };
+
+export function parseFeedbackResponseError(
+    value: unknown,
+): FeedbackErrorInfo | null {
+    const info = parseApiError(value);
+    const reason =
+        typeof (value as { reason?: unknown } | null)?.reason === "string"
+            ? (value as { reason: string }).reason
+            : undefined;
+    if (!info && !reason) return null;
+    return {
+        message: info?.message ?? "",
+        ...(info?.code ? { code: info.code } : {}),
+        ...(info?.requestId ? { requestId: info.requestId } : {}),
+        ...(reason ? { reason } : {}),
+    };
+}
 
 export type FeedbackReportRecord = {
     id: string;

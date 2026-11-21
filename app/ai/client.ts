@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseApiError } from "@/lib/contracts/api";
+
 import { type AiSettings, getAiSessionId } from "./config";
 import { AI_MODEL } from "./constants";
 import { getAiRelayBaseUrl } from "./endpoint";
@@ -50,11 +52,21 @@ export type ChatResponse = {
 
 export class AiError extends Error {
     status?: number;
+    /** Machine-readable server code, e.g. `rate_limited`. */
+    code?: string;
+    /** Correlates the failure with a server log line. */
+    requestId?: string;
 
-    constructor(message: string, status?: number) {
+    constructor(
+        message: string,
+        status?: number,
+        details: { code?: string; requestId?: string } = {},
+    ) {
         super(message);
         this.name = "AiError";
         this.status = status;
+        this.code = details.code;
+        this.requestId = details.requestId;
     }
 }
 
@@ -93,19 +105,18 @@ function friendlyStatus(status: number): string {
 
 async function readError(res: Response): Promise<AiError> {
     let detail = "";
+    let code: string | undefined;
+    let requestId: string | undefined;
     try {
         const text = await res.text();
         try {
-            const json = JSON.parse(text) as {
-                error?: { message?: string } | string;
-                message?: string;
-            };
-            detail =
-                (typeof json.error === "string"
-                    ? json.error
-                    : json.error?.message) ??
-                json.message ??
-                "";
+            const json = JSON.parse(text) as unknown;
+            const parsed = parseApiError(json);
+            if (parsed) {
+                detail = parsed.message;
+                code = parsed.code;
+                requestId = parsed.requestId;
+            }
         } catch {
             // 非 JSON（例如代理的错误页）不要把 HTML 塞给用户。
         }
@@ -115,6 +126,7 @@ async function readError(res: Response): Promise<AiError> {
     return new AiError(
         detail ? detail.slice(0, 160) : friendlyStatus(res.status),
         res.status,
+        { code, requestId },
     );
 }
 
