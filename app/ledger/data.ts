@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { endOfDay, startOfDay, startOfMonth } from "date-fns";
 import { useCallback, useMemo } from "react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 
 import {
     BUILTIN_EXPENSE_CATEGORIES,
