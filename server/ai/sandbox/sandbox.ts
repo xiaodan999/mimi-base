@@ -19,7 +19,8 @@ import {
     sanitizeArtifacts,
     sanitizeFiles,
     validateSandboxCode,
-} from "../lib/sandbox-protocol";
+} from "../../../lib/sandbox-protocol";
+import { logger } from "../../http/logger";
 
 type WorkerResult = {
     result?: unknown;
@@ -59,7 +60,12 @@ export function createSandboxService(
                     ready = true;
                 })
                 .catch((error) => {
-                    console.error("[sandbox] QuickJS failed to load", error);
+                    logger.child("ai-sandbox").error("QuickJS failed to load", {
+                        error:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                    });
                 })
                 .finally(() => {
                     ensuring = null;

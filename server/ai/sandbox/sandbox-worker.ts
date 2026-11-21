@@ -33,8 +33,8 @@ import {
     type SandboxArtifact,
     type SandboxFiles,
     sanitizeFiles,
-} from "../lib/sandbox-protocol";
-import { fetchPublic } from "./safe-fetch";
+} from "../../../lib/sandbox-protocol";
+import { fetchPublic } from "../../safe-fetch";
 import { createHostFetchBudget } from "./sandbox-budget";
 import { hostPromise } from "./sandbox-promise";
 

@@ -2,55 +2,42 @@
  * Video compression -> smaller MP4 (Bun API).
  *
  * `POST /api/video/compress` receives the original video from the post
- * composer, authenticates the caller with their PocketBase token, and returns
- * a resized/re-encoded MP4. The browser then uploads *that* file to
- * PocketBase, so the stored copy is small from the first view; the original
- * never touches `pb_data`.
+ * composer and returns a resized/re-encoded MP4. The browser then uploads
+ * *that* file to PocketBase, so the stored copy is small from the first view;
+ * the original never touches `pb_data`.
  *
  * ffmpeg is an optional server dependency. If it is missing, the endpoint
  * answers 503 `{ reason: "ffmpeg_missing" }` and the client submits the
  * original file instead — a missing encoder never loses a post. The same
  * fallback applies when compression fails or the result is not smaller.
+ *
+ * Auth, the body cap and CORS live in `server/http/*`; this module only owns
+ * the compression pipeline. At most two compressions run at a time, and only a
+ * spawn failure disables ffmpeg (a malformed MP4 must not poison the service).
  */
+
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { AuthBusyError, authGate } from "./auth-gate";
-import { BodyTooLargeError, readFormDataBody } from "./request-body";
+import type { AuthUser } from "./http/auth";
+import { HttpError } from "./http/errors";
+import { bytesResponse, emptyResponse } from "./http/response";
 
 export const VIDEO_COMPRESS_PATH = "/api/video/compress";
 
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
-/** Multipart overhead allowance on top of the video itself. */
-const MAX_BODY_BYTES = MAX_VIDEO_BYTES + 1024 * 1024;
-const AUTH_CACHE_MS = 60_000;
-const AUTH_CACHE_MAX = 500;
 const FFMPEG_TIMEOUT_MS = 240_000;
 
 const ALLOWED_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 const ALLOWED_EXTENSIONS = new Set(["mp4", "webm", "mov"]);
 
-const CORS_HEADERS: Record<string, string> = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Expose-Headers": "X-Video-Compressed",
-    "Access-Control-Max-Age": "600",
-};
-
 export type VideoCompressResult =
     { ok: true } | { ok: false; missing: boolean; error: string };
 
 export type VideoCompressDeps = {
-    /** PocketBase base URL (loopback in dev, mimi-pb in compose). */
-    pbBaseUrl: string;
     /** Path/name of the ffmpeg binary; defaults to `ffmpeg` on PATH. */
     ffmpegPath?: string;
-    /** Injectable for tests. */
-    fetch?: typeof fetch;
-    now?: () => number;
-    authCacheMs?: number;
     /** Injectable temp root; defaults to the OS temp directory. */
     tmpDir?: string;
     /** Maximum concurrent compressions; defaults to 2. */
@@ -62,29 +49,13 @@ export type VideoCompressDeps = {
     ) => Promise<VideoCompressResult>;
 };
 
-export type VideoService = (req: Request) => Promise<Response | null>;
-
-type AuthOk = { ok: true; token: string };
-type AuthFail = { ok: false; response: Response };
-
-function json(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...CORS_HEADERS, "content-type": "application/json" },
-    });
-}
-
-function empty(status: number): Response {
-    return new Response(null, { status, headers: CORS_HEADERS });
-}
-
-function badRequest(message: string): Response {
-    return json({ ok: false, error: message }, 400);
-}
-
-function unauthorized(): Response {
-    return json({ ok: false, error: "登录已过期，请重新登录" }, 401);
-}
+export type VideoService = {
+    compress(
+        request: Request,
+        auth: AuthUser,
+        form: FormData,
+    ): Promise<Response>;
+};
 
 function isMissingError(error: unknown): boolean {
     return (
@@ -190,16 +161,7 @@ function createFfmpegRunner(
     };
 }
 
-/**
- * Build the video compression handler. Returns `null` for paths it does not
- * own, so `server/main.ts` can mount it next to the AI relay and feedback
- * service.
- */
 export function createVideoService(deps: VideoCompressDeps): VideoService {
-    const fetchImpl = deps.fetch ?? fetch;
-    const now = deps.now ?? Date.now;
-    const authCacheMs = deps.authCacheMs ?? AUTH_CACHE_MS;
-    const authCache = new Map<string, { expiresAt: number }>();
     const compress =
         deps.compress ??
         createFfmpegRunner(deps.ffmpegPath?.trim() || "ffmpeg");
@@ -207,107 +169,42 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
     let inFlight = 0;
     let ffmpegUnavailable = false;
 
-    async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
-        const header = req.headers.get("authorization")?.trim() ?? "";
-        const token = header.replace(/^bearer\s+/i, "").trim();
-        if (!token) return { ok: false, response: unauthorized() };
-
-        const cached = authCache.get(token);
-        if (cached && now() < cached.expiresAt) {
-            return { ok: true, token };
-        }
-
-        let res: Response;
-        try {
-            res = await authGate(() =>
-                fetchImpl(
-                    `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
-                    {
-                        method: "POST",
-                        headers: { Authorization: token },
-                        signal: AbortSignal.timeout(5_000),
-                    },
-                ),
-            );
-        } catch (error) {
-            return {
-                ok: false,
-                response: json(
-                    {
-                        ok: false,
-                        error:
-                            error instanceof AuthBusyError
-                                ? "登录验证服务繁忙，稍后再试"
-                                : "无法验证登录状态",
-                    },
-                    503,
-                ),
-            };
-        }
-        if (res.status === 401 || res.status === 403) {
-            authCache.delete(token);
-            return { ok: false, response: unauthorized() };
-        }
-        if (!res.ok) {
-            return {
-                ok: false,
-                response: json({ ok: false, error: "视频服务暂时不可用" }, 503),
-            };
-        }
-
-        if (authCache.size >= AUTH_CACHE_MAX) authCache.clear();
-        authCache.set(token, { expiresAt: now() + authCacheMs });
-        return { ok: true, token };
-    }
-
-    async function handle(req: Request): Promise<Response> {
-        const declared = Number(req.headers.get("content-length") ?? 0);
-        if (declared > MAX_BODY_BYTES) {
-            return json({ ok: false, error: "视频不能超过 50MB" }, 413);
-        }
-
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
+    async function compressRequest(
+        request: Request,
+        form: FormData,
+    ): Promise<Response> {
         if (ffmpegUnavailable) {
-            return json(
-                {
-                    ok: false,
-                    reason: "ffmpeg_missing",
-                    error: "服务器还没有安装 ffmpeg",
-                },
-                503,
-            );
+            throw new HttpError(503, "服务器还没有安装 ffmpeg", {
+                code: "ffmpeg_missing",
+                details: { ok: false, reason: "ffmpeg_missing" },
+            });
         }
         if (inFlight >= maxInFlight) {
-            return json(
-                { ok: false, error: "视频压缩忙不过来，稍后再试" },
-                429,
-            );
+            throw new HttpError(429, "视频压缩忙不过来，稍后再试", {
+                code: "rate_limited",
+            });
         }
 
-        // Reserve the slot before reading the multipart body: a 50 MB upload
+        // Reserve the slot before using the parsed body: a 50 MB upload
         // buffered for a compressor that will immediately reject is wasteful.
         inFlight += 1;
         let dir = "";
         try {
-            let form: FormData;
-            try {
-                form = await readFormDataBody(req, MAX_BODY_BYTES);
-            } catch (error) {
-                if (error instanceof BodyTooLargeError) {
-                    return json({ ok: false, error: "视频不能超过 50MB" }, 413);
-                }
-                return badRequest("请求内容不是合法的表单");
-            }
             const file = form.get("file");
             if (!(file instanceof File) || file.size === 0) {
-                return badRequest("没有收到视频");
+                throw new HttpError(400, "没有收到视频", {
+                    code: "invalid_body",
+                });
             }
             if (file.size > MAX_VIDEO_BYTES) {
-                return json({ ok: false, error: "视频不能超过 50MB" }, 413);
+                throw new HttpError(413, "视频不能超过 50MB", {
+                    code: "payload_too_large",
+                });
             }
             if (!isAllowedVideo(file)) {
-                return badRequest("只支持 MP4、WebM 或 MOV 视频");
+                throw new HttpError(400, "只支持 MP4、WebM 或 MOV 视频", {
+                    code: "unsupported_video",
+                });
             }
 
             dir = await mkdtemp(
@@ -323,74 +220,63 @@ export function createVideoService(deps: VideoCompressDeps): VideoService {
             const result = await compress(inputPath, outputPath);
             if (!result.ok) {
                 if (result.missing) ffmpegUnavailable = true;
-                return json(
+                throw new HttpError(
+                    result.missing ? 503 : 502,
+                    result.missing ? "服务器还没有安装 ffmpeg" : "视频压缩失败",
                     {
-                        ok: false,
-                        reason: result.missing
+                        code: result.missing
                             ? "ffmpeg_missing"
                             : "compress_failed",
-                        error: result.missing
-                            ? "服务器还没有安装 ffmpeg"
-                            : "视频压缩失败",
+                        details: {
+                            ok: false,
+                            reason: result.missing
+                                ? "ffmpeg_missing"
+                                : "compress_failed",
+                        },
                     },
-                    result.missing ? 503 : 502,
                 );
             }
 
             const output = await readFile(outputPath);
             if (output.byteLength === 0) {
-                return json(
-                    {
+                throw new HttpError(502, "视频压缩失败", {
+                    code: "compress_failed",
+                    details: {
                         ok: false,
                         reason: "compress_failed",
-                        error: "视频压缩失败",
                     },
-                    502,
-                );
+                });
             }
             if (output.byteLength >= file.size) {
                 // Keeping the original is better than replacing it with a
                 // same-size (or larger) file. 204 means "no new file".
-                return new Response(null, {
-                    status: 204,
-                    headers: {
-                        ...CORS_HEADERS,
-                        "X-Video-Compressed": "0",
-                    },
+                return emptyResponse(request, 204, {
+                    "X-Video-Compressed": "0",
                 });
             }
-            return new Response(new Uint8Array(output), {
-                status: 200,
+            return bytesResponse(request, new Uint8Array(output), {
+                contentType: "video/mp4",
                 headers: {
-                    ...CORS_HEADERS,
-                    "content-type": "video/mp4",
-                    "content-length": String(output.byteLength),
                     "cache-control": "no-store",
                     "X-Video-Compressed": "1",
                 },
             });
-        } catch {
-            return json(
-                {
-                    ok: false,
-                    reason: "compress_failed",
-                    error: "视频压缩失败",
-                },
-                502,
-            );
+        } catch (error) {
+            if (error instanceof HttpError) throw error;
+            throw new HttpError(502, "视频压缩失败", {
+                code: "compress_failed",
+                details: { ok: false, reason: "compress_failed" },
+            });
         } finally {
             inFlight -= 1;
             if (dir) await rm(dir, { recursive: true, force: true });
         }
     }
 
-    return async function handleVideo(req: Request): Promise<Response | null> {
-        const url = new URL(req.url);
-        if (url.pathname !== VIDEO_COMPRESS_PATH) return null;
-        if (req.method === "OPTIONS") return empty(204);
-        if (req.method !== "POST") {
-            return json({ ok: false, error: "method not allowed" }, 405);
-        }
-        return handle(req);
+    return {
+        compress(request, auth, form) {
+            void auth;
+            return compressRequest(request, form);
+        },
     };
 }

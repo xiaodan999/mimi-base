@@ -13,24 +13,14 @@
  * relay rejects an effort the model does not support.
  */
 
-export const CHAT_THINKING_LEVELS = ["low", "high", "max"] as const;
+import {
+    CHAT_THINKING_LEVELS,
+    type ChatModelInfo,
+    type ChatThinkingLevel,
+} from "../../lib/contracts/chat-models";
 
-export type ChatThinkingLevel = (typeof CHAT_THINKING_LEVELS)[number];
-
-export type ChatModelInfo = {
-    id: string;
-    label: string;
-    /** Accepts image parts. */
-    vision: boolean;
-    /** Can call the sandbox / other tools. */
-    tools: boolean;
-    /** Streams chain of thought (`reasoning_content` deltas). */
-    reasoning: boolean;
-    /** `reasoning_effort` values the model accepts; empty = not adjustable. */
-    thinkingLevels: readonly ChatThinkingLevel[];
-    /** Context window in tokens; 0 when unknown. */
-    contextWindow: number;
-};
+export { CHAT_THINKING_LEVELS };
+export type { ChatModelInfo, ChatThinkingLevel };
 
 /**
  * The three models the chat exposes. All of them accept images and tools.

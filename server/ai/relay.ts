@@ -1,30 +1,39 @@
 /**
- * Bun streaming relay for the site's OpenCode Go key.
+ * Streaming relay for the site's OpenCode Go key.
  *
- * Mounted on the Bun API's HTTP server (see main.ts). The browser never
- * sees an API key: it authenticates with its PocketBase token, and this module
- * forwards the OpenAI-compatible request to the configured upstream (OpenCode
- * Go by default) with the server key.
- * Unlike the old JSVM hook, the upstream body is piped back as a
- * ReadableStream, so SSE reaches the client token by token.
+ * The browser never sees an API key: the root guard authenticates the caller
+ * with its PocketBase token, and this module forwards the OpenAI-compatible
+ * request to the configured upstream (OpenCode Go by default) with the server
+ * key. The upstream body is piped back as a ReadableStream, so SSE reaches
+ * the client token by token.
  *
- * The relay is stateless apart from in-memory rate limits and a short auth
- * cache. The key is never logged or returned to the client.
+ * This module is transport-only: auth, body caps and CORS live in
+ * `server/http/*` and the routes in `server/routes/ai.ts`. The relay is
+ * stateless apart from in-memory rate limits and the tools service. The key is
+ * never logged or returned to the client.
  */
 
-import { createHash } from "node:crypto";
-
-import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
+import type {
+    SandboxRequest,
+    SandboxResponse,
+} from "../../lib/sandbox-protocol";
 import {
-    AI_TOOLS_COMMENTS_PATH,
-    AI_TOOLS_EXPENSES_PATH,
-    AI_TOOLS_MEMORY_PATH,
-    AI_TOOLS_POSTS_PATH,
-    AI_TOOLS_URL_PATH,
-    type AiToolsCall,
-    createAiToolsService,
-} from "./ai-tools";
-import { AuthBusyError, authGate } from "./auth-gate";
+    createIpCityLookup,
+    type IpCityLookup,
+    resolveClientIp,
+} from "../geo-ip";
+import type { AuthUser } from "../http/auth";
+import { applyCors } from "../http/cors";
+import { HttpError } from "../http/errors";
+import { logger } from "../http/logger";
+import {
+    createDailyQuota,
+    createMemoryCounterStore,
+    createWindowLimiter,
+    type Limiter,
+} from "../http/rate-limit";
+import { applyRequestId } from "../http/request-id";
+import { jsonResponse } from "../http/response";
 import {
     type ChatModelInfo,
     findChatModel,
@@ -33,23 +42,8 @@ import {
     normalizeThinkingLevel,
     pickDefaultChatModel,
     resolveChatModels,
-} from "./chat-models";
-import {
-    createIpCityLookup,
-    type IpCityLookup,
-    resolveClientIp,
-} from "./geo-ip";
-import { BodyTooLargeError, readJsonBody } from "./request-body";
-
-export const AI_RELAY_PREFIX = "/api/ai";
-export const AI_CHAT_PATH = "/api/ai/opencode/v1/chat/completions";
-/** General chat entry point: honours the server allowlist instead of forcing one model. */
-export const AI_CHAT_COMPLETIONS_PATH = "/api/ai/chat/completions";
-export const AI_MODELS_PATH = "/api/ai/models";
-export const AI_SANDBOX_PATH = "/api/ai/sandbox";
-export const AI_HEALTH_PATH = "/api/ai/health";
-/** Chat location feature: caller IP -> city estimate (see geo-ip.ts). */
-export const AI_GEO_IP_PATH = "/api/ai/geo/ip";
+} from "./models";
+import { type AiToolsService, createAiToolsService } from "./tools";
 
 const DEFAULT_API_URL = "https://opencode.ai/zen/go/v1";
 /**
@@ -60,7 +54,6 @@ const DEFAULT_API_URL = "https://opencode.ai/zen/go/v1";
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 /** Tool calls carry whole files in their arguments; 4k truncated them. */
 const MAX_OUTPUT_TOKENS = 8192;
-const MAX_SANDBOX_BODY_BYTES = 1024 * 1024;
 const SANDBOX_DAILY_LIMIT = 200;
 const SANDBOX_MAX_IN_FLIGHT = 4;
 const RATE_WINDOW_MS = 60_000;
@@ -68,18 +61,14 @@ const RATE_MAX = 20;
 /** Data tools (expenses/posts/memory/url) get their own, looser limits. */
 const TOOLS_RATE_MAX = 30;
 const TOOLS_DAILY_LIMIT = 200;
-const MAX_TOOLS_BODY_BYTES = 64 * 1024;
-const AUTH_CACHE_MS = 60_000;
-const AUTH_CACHE_MAX = 1000;
 const CONNECT_TIMEOUT_MS = 30_000;
 
-const CORS_HEADERS: Record<string, string> = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers":
-        "Authorization, Content-Type, x-opencode-session, x-client",
-    "Access-Control-Max-Age": "600",
-};
+const CHAT_RATE_MESSAGE = "请求太频繁了，歇一会儿再试";
+const CHAT_DAILY_MESSAGE = "今天的 AI 次数用完了，明天再试";
+const TOOLS_RATE_MESSAGE = "工具请求太频繁了，歇一会儿再试";
+const TOOLS_DAILY_MESSAGE = "今天的工具次数用完了，明天再试";
+const SANDBOX_DAILY_MESSAGE = "今天的沙箱次数用完了，明天再试";
+const SANDBOX_BUSY_MESSAGE = "沙箱正忙，稍后再试";
 
 export type SandboxService = {
     run: (request: SandboxRequest) => Promise<SandboxResponse>;
@@ -120,22 +109,70 @@ export type AiRelayDeps = {
     apiUrl?: string;
 };
 
-type AuthOk = { ok: true; uid: string; token: string };
-type AuthFail = { ok: false; response: Response };
+export type AiChatMode = "legacy" | "chat";
 
-type MinuteBucket = { start: number; count: number };
-type DayBucket = { day: string; count: number };
+export type AiRelay = {
+    health(): { ok: true; keyConfigured: boolean; model: string };
+    models(): {
+        models: ChatModelInfo[];
+        defaultModel: string | null;
+        keyConfigured: boolean;
+    };
+    chat(
+        request: Request,
+        auth: AuthUser,
+        body: unknown,
+        mode: AiChatMode,
+    ): Promise<Response>;
+    sandbox(request: Request, auth: AuthUser, body: unknown): Promise<Response>;
+    tools(
+        request: Request,
+        auth: AuthUser,
+        pathname: string,
+        body: unknown,
+    ): Promise<Response>;
+    geo(request: Request, auth: AuthUser, socketIp: string): Promise<Response>;
+};
 
-/**
- * `socketIp` is the TCP peer address from the Bun API (`server.requestIP`),
- * used when no proxy header is present.
- */
-export type AiRelay = (
-    req: Request,
-    socketIp?: string,
-) => Promise<Response | null>;
+function enforce(limiter: Limiter, uid: string, message: string): void {
+    const result = limiter.check(uid);
+    if (result.allowed) return;
+    throw new HttpError(429, message, {
+        code: "rate_limited",
+        ...(result.retryAfterSeconds
+            ? {
+                  headers: {
+                      "Retry-After": String(result.retryAfterSeconds),
+                  },
+              }
+            : {}),
+    });
+}
 
-/** Build a handler with its own auth cache and rate-limit buckets. */
+function asRecord(body: unknown): Record<string, unknown> {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+        throw new HttpError(400, "请求体格式不正确", { code: "invalid_body" });
+    }
+    return body as Record<string, unknown>;
+}
+
+function streamResponse(
+    request: Request,
+    body: ReadableStream<Uint8Array>,
+    status: number,
+    contentType: string,
+): Response {
+    const headers = new Headers({
+        "Content-Type": contentType,
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+    });
+    applyCors(new URL(request.url).pathname, headers);
+    applyRequestId(request, headers);
+    return new Response(body, { status, headers });
+}
+
+/** Build the relay with its own auth-independent rate-limit buckets. */
 export function createAiRelay(deps: AiRelayDeps): AiRelay {
     const fetchImpl = deps.fetch ?? fetch;
     const now = deps.now ?? Date.now;
@@ -149,400 +186,62 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
         chatModels,
         deps.defaultChatModel?.trim() || deps.model,
     );
-    const authCache = new Map<string, { uid: string; expiresAt: number }>();
-    const minuteBuckets = new Map<string, MinuteBucket>();
-    const dayBuckets = new Map<string, DayBucket>();
-    const toolsMinuteBuckets = new Map<string, MinuteBucket>();
-    const toolsDayBuckets = new Map<string, DayBucket>();
-    const sandboxDayBuckets = new Map<string, DayBucket>();
-    const sandboxUserInFlight = new Map<string, number>();
+    const store = createMemoryCounterStore({ now });
+    const chatMinute = createWindowLimiter(store, {
+        name: "ai-chat-minute",
+        limit: RATE_MAX,
+        windowMs: RATE_WINDOW_MS,
+        now,
+    });
+    const chatDaily = createDailyQuota(store, {
+        name: "ai-chat-day",
+        limit: deps.dailyLimit,
+        now,
+    });
+    const sandboxDaily = createDailyQuota(store, {
+        name: "ai-sandbox-day",
+        limit: SANDBOX_DAILY_LIMIT,
+        now,
+    });
+    const toolsMinute = createWindowLimiter(store, {
+        name: "ai-tools-minute",
+        limit: TOOLS_RATE_MAX,
+        windowMs: RATE_WINDOW_MS,
+        now,
+    });
+    const toolsDaily = createDailyQuota(store, {
+        name: "ai-tools-day",
+        limit: TOOLS_DAILY_LIMIT,
+        now,
+    });
     let sandboxInFlight = 0;
-    const tools = createAiToolsService({
+    const sandboxUserInFlight = new Map<string, number>();
+    const tools: AiToolsService = createAiToolsService({
         pbBaseUrl: deps.pbBaseUrl,
         fetch: deps.fetch,
         now,
     });
+    const log = logger.child("ai-relay");
 
-    async function authenticate(req: Request): Promise<AuthOk | AuthFail> {
-        const header = req.headers.get("authorization")?.trim() ?? "";
-        const token = header.replace(/^bearer\s+/i, "").trim();
-        if (!token) return { ok: false, response: unauthorized() };
-
-        const cacheKey = createHash("sha256").update(token).digest("hex");
-        const cached = authCache.get(cacheKey);
-        if (cached && now() < cached.expiresAt) {
-            return { ok: true, uid: cached.uid, token };
-        }
-
-        let res: Response;
-        try {
-            res = await authGate(() =>
-                fetchImpl(
-                    `${deps.pbBaseUrl}/api/collections/users/auth-refresh`,
-                    {
-                        method: "POST",
-                        headers: { Authorization: token },
-                        signal: AbortSignal.timeout(5_000),
-                    },
-                ),
-            );
-        } catch (error) {
-            if (error instanceof AuthBusyError) {
-                return {
-                    ok: false,
-                    response: json(503, {
-                        error: { message: "登录验证服务繁忙，稍后再试" },
-                    }),
-                };
-            }
-            return { ok: false, response: serviceUnavailable() };
-        }
-
-        if (res.status === 401 || res.status === 403) {
-            authCache.delete(cacheKey);
-            return { ok: false, response: unauthorized() };
-        }
-        if (!res.ok) return { ok: false, response: serviceUnavailable() };
-
-        let uid = "";
-        try {
-            const json = (await res.json()) as {
-                record?: { id?: unknown };
-            };
-            if (typeof json.record?.id === "string") uid = json.record.id;
-        } catch {
-            // fall through to the unauthenticated response
-        }
-        if (!uid) return { ok: false, response: unauthorized() };
-
-        if (authCache.size >= AUTH_CACHE_MAX) authCache.clear();
-        authCache.set(cacheKey, { uid, expiresAt: now() + AUTH_CACHE_MS });
-        return { ok: true, uid, token };
-    }
-
-    function checkRate(uid: string): Response | null {
-        const t = now();
-        const bucket = minuteBuckets.get(uid);
-        if (!bucket || t - bucket.start >= RATE_WINDOW_MS) {
-            minuteBuckets.set(uid, { start: t, count: 1 });
-        } else if (bucket.count >= RATE_MAX) {
-            const retryAfter = Math.max(
-                1,
-                Math.ceil((bucket.start + RATE_WINDOW_MS - t) / 1000),
-            );
-            return json(
-                429,
-                { error: { message: "请求太频繁了，歇一会儿再试" } },
-                { "Retry-After": String(retryAfter) },
-            );
-        } else {
-            bucket.count += 1;
-        }
-        return null;
-    }
-
-    function checkDaily(uid: string): Response | null {
-        if (deps.dailyLimit <= 0) return null;
-        const day = new Date(now()).toISOString().slice(0, 10);
-        const bucket = dayBuckets.get(uid);
-        if (!bucket || bucket.day !== day) {
-            dayBuckets.set(uid, { day, count: 1 });
-            return null;
-        }
-        if (bucket.count >= deps.dailyLimit) {
-            return json(429, {
-                error: {
-                    message: "今天的 AI 次数用完了，明天再试",
-                },
-            });
-        }
-        bucket.count += 1;
-        return null;
-    }
-
-    function checkSandboxQuota(uid: string): Response | null {
-        const day = new Date(now()).toISOString().slice(0, 10);
-        const bucket = sandboxDayBuckets.get(uid);
-        if (!bucket || bucket.day !== day) {
-            sandboxDayBuckets.set(uid, { day, count: 1 });
-            return null;
-        }
-        if (bucket.count >= SANDBOX_DAILY_LIMIT) {
-            return json(429, {
-                error: { message: "今天的沙箱次数用完了，明天再试" },
-            });
-        }
-        bucket.count += 1;
-        return null;
-    }
-
-    function checkToolsRate(uid: string): Response | null {
-        const t = now();
-        const bucket = toolsMinuteBuckets.get(uid);
-        if (!bucket || t - bucket.start >= RATE_WINDOW_MS) {
-            toolsMinuteBuckets.set(uid, { start: t, count: 1 });
-        } else if (bucket.count >= TOOLS_RATE_MAX) {
-            const retryAfter = Math.max(
-                1,
-                Math.ceil((bucket.start + RATE_WINDOW_MS - t) / 1000),
-            );
-            return json(
-                429,
-                { error: { message: "工具请求太频繁了，歇一会儿再试" } },
-                { "Retry-After": String(retryAfter) },
-            );
-        } else {
-            bucket.count += 1;
-        }
-        return null;
-    }
-
-    function checkToolsQuota(uid: string): Response | null {
-        const day = new Date(now()).toISOString().slice(0, 10);
-        const bucket = toolsDayBuckets.get(uid);
-        if (!bucket || bucket.day !== day) {
-            toolsDayBuckets.set(uid, { day, count: 1 });
-            return null;
-        }
-        if (bucket.count >= TOOLS_DAILY_LIMIT) {
-            return json(429, {
-                error: { message: "今天的工具次数用完了，明天再试" },
-            });
-        }
-        bucket.count += 1;
-        return null;
-    }
-
-    const TOOL_PATHS = new Set<string>([
-        AI_TOOLS_EXPENSES_PATH,
-        AI_TOOLS_POSTS_PATH,
-        AI_TOOLS_COMMENTS_PATH,
-        AI_TOOLS_MEMORY_PATH,
-        AI_TOOLS_URL_PATH,
-    ]);
-
-    async function toolsEndpoint(req: Request): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        const limited = checkToolsRate(auth.uid);
-        if (limited) return limited;
-
-        let body: Record<string, unknown>;
-        try {
-            const parsed = await readJsonBody<unknown>(
-                req,
-                MAX_TOOLS_BODY_BYTES,
-            );
-            if (
-                typeof parsed !== "object" ||
-                parsed === null ||
-                Array.isArray(parsed)
-            ) {
-                return json(400, { error: { message: "请求体格式不正确" } });
-            }
-            body = parsed as Record<string, unknown>;
-        } catch (error) {
-            if (error instanceof BodyTooLargeError) {
-                return json(413, { error: { message: "请求体过大" } });
-            }
-            return json(400, { error: { message: "请求体不是合法的 JSON" } });
-        }
-
-        const quota = checkToolsQuota(auth.uid);
-        if (quota) return quota;
-
-        const call: AiToolsCall = {
-            pathname: new URL(req.url).pathname,
-            body,
-            uid: auth.uid,
-            token: auth.token,
-        };
-        const result = await tools(call);
-        return json(result.status, result.body);
-    }
-
-    async function sandbox(req: Request): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        const limited = checkRate(auth.uid);
-        if (limited) return limited;
-
-        if (!deps.sandbox || !deps.sandbox.available()) {
-            return json(503, {
-                error: { message: "沙箱正在准备，稍后再试" },
-            });
-        }
-
-        let body: Record<string, unknown>;
-        try {
-            const parsed = await readJsonBody<unknown>(
-                req,
-                MAX_SANDBOX_BODY_BYTES,
-            );
-            if (
-                typeof parsed !== "object" ||
-                parsed === null ||
-                Array.isArray(parsed)
-            ) {
-                return json(400, { error: { message: "请求体格式不正确" } });
-            }
-            body = parsed as Record<string, unknown>;
-        } catch (error) {
-            if (error instanceof BodyTooLargeError) {
-                return json(413, { error: { message: "请求体过大" } });
-            }
-            return json(400, { error: { message: "请求体不是合法的 JSON" } });
-        }
-
-        if (
-            body.op !== "run" &&
-            body.op !== "read" &&
-            body.op !== "write" &&
-            body.op !== "list"
-        ) {
-            return json(400, { error: { message: "未知的沙箱操作" } });
-        }
-        if (body.language !== undefined && body.language !== "javascript") {
-            return json(400, { error: { message: "未知的代码语言" } });
-        }
-
-        const quota = checkSandboxQuota(auth.uid);
-        if (quota) return quota;
-
-        const userActive = sandboxUserInFlight.get(auth.uid) ?? 0;
-        if (sandboxInFlight >= SANDBOX_MAX_IN_FLIGHT || userActive >= 1) {
-            return json(429, {
-                error: { message: "沙箱正忙，稍后再试" },
-            });
-        }
-        sandboxInFlight += 1;
-        sandboxUserInFlight.set(auth.uid, userActive + 1);
-
-        try {
-            const result = await deps.sandbox.run(body as SandboxRequest);
-            // `ok: false` is a user-code error and travels in the tool result.
-            return json(200, result);
-        } catch (error) {
-            console.error("[ai-relay] sandbox failed", error);
-            return json(502, { error: { message: "沙箱执行失败，稍后再试" } });
-        } finally {
-            sandboxInFlight -= 1;
-            const remaining = (sandboxUserInFlight.get(auth.uid) ?? 1) - 1;
-            if (remaining <= 0) sandboxUserInFlight.delete(auth.uid);
-            else sandboxUserInFlight.set(auth.uid, remaining);
-        }
-    }
-
-    async function chat(
-        req: Request,
-        mode: "legacy" | "chat" = "legacy",
+    async function chatUpstream(
+        request: Request,
+        body: Record<string, unknown>,
+        key: string,
     ): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        const limited = checkRate(auth.uid);
-        if (limited) return limited;
-
-        const key = deps.apiKey.trim();
-        if (!key) {
-            return json(503, {
-                error: {
-                    message: "站点还没有配置 AI Key，请联系管理员",
-                },
-            });
-        }
-
-        let body: Record<string, unknown>;
-        try {
-            const parsed = await readJsonBody<unknown>(req, MAX_BODY_BYTES);
-            if (
-                typeof parsed !== "object" ||
-                parsed === null ||
-                Array.isArray(parsed)
-            ) {
-                return json(400, { error: { message: "请求体格式不正确" } });
-            }
-            body = parsed as Record<string, unknown>;
-        } catch (error) {
-            if (error instanceof BodyTooLargeError) {
-                return json(413, { error: { message: "请求体过大" } });
-            }
-            return json(400, { error: { message: "请求体不是合法的 JSON" } });
-        }
-
-        if (mode === "chat") {
-            const requested = normalizeModelId(body.model);
-            const info = requested
-                ? findChatModel(chatModels, requested)
-                : findChatModel(chatModels, defaultChatModel ?? "");
-            if (requested && !info) {
-                // The server owns the allowlist: an unknown id is a client bug
-                // or an attempt to spend the shared key on another model.
-                return json(400, {
-                    error: { message: `不支持的模型：${requested}` },
-                });
-            }
-            if (!info) {
-                return json(503, {
-                    error: { message: "站点还没有配置可用的聊天模型" },
-                });
-            }
-            body.model = info.id;
-            if (!info.tools) {
-                delete body.tools;
-                delete body.tool_choice;
-            }
-            if (!info.vision && hasImagePart(body.messages)) {
-                return json(400, {
-                    error: {
-                        message: "当前模型不支持图片，换一个支持视觉的模型",
-                    },
-                });
-            }
-            // Thinking level is per conversation and validated here, so a
-            // client cannot send an effort the model does not implement.
-            const rawEffort =
-                typeof body.reasoning_effort === "string"
-                    ? body.reasoning_effort.trim().toLowerCase()
-                    : "";
-            if (rawEffort !== "") {
-                const effort = normalizeThinkingLevel(rawEffort);
-                if (!effort || !info.thinkingLevels.includes(effort)) {
-                    return json(400, {
-                        error: { message: "当前模型不支持这个思考强度" },
-                    });
-                }
-                body.reasoning_effort = effort;
-            } else {
-                delete body.reasoning_effort;
-            }
-        } else {
-            // Legacy features get one fixed model; they cannot pick one.
-            body.model = deps.model;
-        }
-
-        for (const field of ["max_tokens", "max_completion_tokens"]) {
-            const value = body[field];
-            if (typeof value === "number" && value > MAX_OUTPUT_TOKENS) {
-                body[field] = MAX_OUTPUT_TOKENS;
-            }
-        }
-
         const serialized = JSON.stringify(body);
         if (new TextEncoder().encode(serialized).byteLength > MAX_BODY_BYTES) {
-            return json(413, { error: { message: "请求体过大" } });
+            throw new HttpError(413, "请求体过大", {
+                code: "payload_too_large",
+            });
         }
-
-        const quota = checkDaily(auth.uid);
-        if (quota) return quota;
 
         const isStream = body.stream === true;
         const controller = new AbortController();
         let timedOut = false;
         const onClientAbort = () => controller.abort();
-        req.signal?.addEventListener("abort", onClientAbort, { once: true });
+        request.signal?.addEventListener("abort", onClientAbort, {
+            once: true,
+        });
         const connectTimer = setTimeout(() => {
             timedOut = true;
             controller.abort();
@@ -559,7 +258,7 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
                         : `Bearer ${key}`,
                     Accept: isStream ? "text/event-stream" : "application/json",
                     "x-opencode-session":
-                        (req.headers.get("x-opencode-session") ?? "").slice(
+                        (request.headers.get("x-opencode-session") ?? "").slice(
                             0,
                             200,
                         ) || "mimi-base",
@@ -570,188 +269,248 @@ export function createAiRelay(deps: AiRelayDeps): AiRelay {
             });
         } catch {
             clearTimeout(connectTimer);
-            req.signal?.removeEventListener("abort", onClientAbort);
-            if (req.signal?.aborted) return canceled();
+            request.signal?.removeEventListener("abort", onClientAbort);
+            if (request.signal?.aborted) {
+                return new Response(null, { status: 499 });
+            }
             if (timedOut) {
-                return json(504, {
-                    error: { message: "AI 服务响应超时了，稍后再试" },
+                throw new HttpError(504, "AI 服务响应超时了，稍后再试", {
+                    code: "upstream_timeout",
                 });
             }
-            return json(502, {
-                error: { message: "AI 服务暂时不可用，稍后再试" },
+            throw new HttpError(502, "AI 服务暂时不可用，稍后再试", {
+                code: "upstream_unavailable",
             });
         }
         clearTimeout(connectTimer);
 
         if (!upstream.ok) {
-            req.signal?.removeEventListener("abort", onClientAbort);
+            request.signal?.removeEventListener("abort", onClientAbort);
             // Never echo the upstream body: it may contain provider-side
             // details or fragments of the Authorization header.
-            console.error("[ai-relay] upstream error", upstream.status);
+            log.error("upstream error", { status: upstream.status });
             if (upstream.status === 429) {
-                return json(429, {
-                    error: {
-                        message: "AI 服务忙或额度用完了，稍后再试",
-                    },
+                throw new HttpError(429, "AI 服务忙或额度用完了，稍后再试", {
+                    code: "upstream_rate_limited",
                 });
             }
             if (upstream.status === 400) {
                 // Preserve 400 so chatJSON can retry without response_format.
-                return json(400, {
-                    error: {
-                        message: "AI 请求格式不被支持，稍后再试",
-                    },
+                throw new HttpError(400, "AI 请求格式不被支持，稍后再试", {
+                    code: "upstream_bad_request",
                 });
             }
-            return json(502, {
-                error: {
-                    message:
-                        upstream.status === 401 || upstream.status === 403
-                            ? "AI 服务鉴权失败，请联系管理员"
-                            : "AI 服务暂时不可用，稍后再试",
-                },
-            });
+            throw new HttpError(
+                502,
+                upstream.status === 401 || upstream.status === 403
+                    ? "AI 服务鉴权失败，请联系管理员"
+                    : "AI 服务暂时不可用，稍后再试",
+                { code: "upstream_unavailable" },
+            );
         }
 
         if (!upstream.body) {
-            req.signal?.removeEventListener("abort", onClientAbort);
-            return json(502, {
-                error: { message: "AI 服务没有返回内容，稍后再试" },
+            request.signal?.removeEventListener("abort", onClientAbort);
+            throw new HttpError(502, "AI 服务没有返回内容，稍后再试", {
+                code: "upstream_empty",
             });
         }
 
         // The abort listener added before fetch stays active so a client
         // disconnect mid-stream also cancels the upstream request.
-
-        const headers = new Headers(CORS_HEADERS);
-        headers.set(
-            "Content-Type",
+        const contentType =
             upstream.headers.get("content-type") ??
-                (isStream ? "text/event-stream" : "application/json"),
+            (isStream ? "text/event-stream" : "application/json");
+        return streamResponse(
+            request,
+            upstream.body,
+            upstream.status,
+            contentType,
         );
-        headers.set("Cache-Control", "no-cache, no-transform");
-        headers.set("X-Accel-Buffering", "no");
-        return new Response(upstream.body, {
-            status: upstream.status,
-            headers,
-        });
     }
 
-    /**
-     * City estimate for the chat location feature. The user taps the button
-     * in the panel and confirms the result, so this is not a silent lookup;
-     * the answer is city-level and carries no coordinates. Cheap offline
-     * lookup, so requests share the data tools' minute budget but not the
-     * daily quota.
-     */
-    async function geoIp(req: Request, socketIp: string): Promise<Response> {
-        const auth = await authenticate(req);
-        if (!auth.ok) return auth.response;
-
-        const limited = checkToolsRate(auth.uid);
-        if (limited) return limited;
-
-        const lookup =
-            deps.geoLookup ??
-            (geoLookup ??= createIpCityLookup({ fetch: fetchImpl }));
-        const info = await lookup(resolveClientIp(req, socketIp));
-        return json(200, {
-            city: info?.city ?? "",
-            region: info?.region ?? "",
-            country: info?.country ?? "",
-        });
-    }
-
-    async function handle(
-        req: Request,
-        socketIp = "",
-    ): Promise<Response | null> {
-        const url = new URL(req.url);
-        if (
-            url.pathname !== AI_RELAY_PREFIX &&
-            !url.pathname.startsWith(`${AI_RELAY_PREFIX}/`)
-        ) {
-            return null;
-        }
-
-        if (req.method === "OPTIONS") {
-            return new Response(null, { status: 204, headers: CORS_HEADERS });
-        }
-
-        if (url.pathname === AI_HEALTH_PATH && req.method === "GET") {
-            return json(200, {
+    return {
+        health() {
+            return {
                 ok: true,
                 keyConfigured: Boolean(deps.apiKey.trim()),
                 model: deps.model,
-            });
-        }
+            };
+        },
 
-        if (url.pathname === AI_GEO_IP_PATH && req.method === "GET") {
-            return geoIp(req, socketIp);
-        }
-
-        if (url.pathname === AI_MODELS_PATH && req.method === "GET") {
-            const auth = await authenticate(req);
-            if (!auth.ok) return auth.response;
-            return json(200, {
+        models() {
+            return {
                 models: chatModels,
                 defaultModel: defaultChatModel,
                 keyConfigured: Boolean(deps.apiKey.trim()),
-            });
-        }
-
-        if (url.pathname === AI_SANDBOX_PATH && req.method === "POST") {
-            return sandbox(req);
-        }
-
-        if (TOOL_PATHS.has(url.pathname) && req.method === "POST") {
-            return toolsEndpoint(req);
-        }
-
-        if (
-            url.pathname === AI_CHAT_COMPLETIONS_PATH &&
-            req.method === "POST"
-        ) {
-            return chat(req, "chat");
-        }
-
-        if (url.pathname === AI_CHAT_PATH && req.method === "POST") {
-            return chat(req);
-        }
-
-        return json(404, { error: { message: "not found" } });
-    }
-
-    return handle;
-}
-
-function json(
-    status: number,
-    body: unknown,
-    extra?: Record<string, string>,
-): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            ...CORS_HEADERS,
-            ...extra,
+            };
         },
-    });
-}
 
-function unauthorized(): Response {
-    return json(401, {
-        error: { message: "登录已过期，请重新登录" },
-    });
-}
+        async chat(request, auth, rawBody, mode) {
+            enforce(chatMinute, auth.uid, CHAT_RATE_MESSAGE);
 
-function serviceUnavailable(): Response {
-    return json(503, {
-        error: { message: "AI 服务正在启动，稍后再试" },
-    });
-}
+            const key = deps.apiKey.trim();
+            if (!key) {
+                throw new HttpError(
+                    503,
+                    "站点还没有配置 AI Key，请联系管理员",
+                    { code: "ai_key_missing" },
+                );
+            }
 
-function canceled(): Response {
-    return new Response(null, { status: 499 });
+            const body = asRecord(rawBody);
+
+            if (mode === "chat") {
+                const requested = normalizeModelId(body.model);
+                const info = requested
+                    ? findChatModel(chatModels, requested)
+                    : findChatModel(chatModels, defaultChatModel ?? "");
+                if (requested && !info) {
+                    // The server owns the allowlist: an unknown id is a
+                    // client bug or an attempt to spend the shared key on
+                    // another model.
+                    throw new HttpError(400, `不支持的模型：${requested}`, {
+                        code: "unknown_model",
+                    });
+                }
+                if (!info) {
+                    throw new HttpError(503, "站点还没有配置可用的聊天模型", {
+                        code: "no_chat_model",
+                    });
+                }
+                body.model = info.id;
+                if (!info.tools) {
+                    delete body.tools;
+                    delete body.tool_choice;
+                }
+                if (!info.vision && hasImagePart(body.messages)) {
+                    throw new HttpError(
+                        400,
+                        "当前模型不支持图片，换一个支持视觉的模型",
+                        { code: "vision_unsupported" },
+                    );
+                }
+                // Thinking level is per conversation and validated here, so a
+                // client cannot send an effort the model does not implement.
+                const rawEffort =
+                    typeof body.reasoning_effort === "string"
+                        ? body.reasoning_effort.trim().toLowerCase()
+                        : "";
+                if (rawEffort !== "") {
+                    const effort = normalizeThinkingLevel(rawEffort);
+                    if (!effort || !info.thinkingLevels.includes(effort)) {
+                        throw new HttpError(400, "当前模型不支持这个思考强度", {
+                            code: "thinking_unsupported",
+                        });
+                    }
+                    body.reasoning_effort = effort;
+                } else {
+                    delete body.reasoning_effort;
+                }
+            } else {
+                // Legacy features get one fixed model; they cannot pick one.
+                body.model = deps.model;
+            }
+
+            for (const field of ["max_tokens", "max_completion_tokens"]) {
+                const value = body[field];
+                if (typeof value === "number" && value > MAX_OUTPUT_TOKENS) {
+                    body[field] = MAX_OUTPUT_TOKENS;
+                }
+            }
+
+            enforce(chatDaily, auth.uid, CHAT_DAILY_MESSAGE);
+            return chatUpstream(request, body, key);
+        },
+
+        async sandbox(request, auth, rawBody) {
+            enforce(chatMinute, auth.uid, CHAT_RATE_MESSAGE);
+
+            if (!deps.sandbox || !deps.sandbox.available()) {
+                throw new HttpError(503, "沙箱正在准备，稍后再试", {
+                    code: "sandbox_unavailable",
+                });
+            }
+
+            const body = asRecord(rawBody);
+            if (
+                body.op !== "run" &&
+                body.op !== "read" &&
+                body.op !== "write" &&
+                body.op !== "list"
+            ) {
+                throw new HttpError(400, "未知的沙箱操作", {
+                    code: "unknown_sandbox_op",
+                });
+            }
+            if (body.language !== undefined && body.language !== "javascript") {
+                throw new HttpError(400, "未知的代码语言", {
+                    code: "unknown_sandbox_language",
+                });
+            }
+
+            enforce(sandboxDaily, auth.uid, SANDBOX_DAILY_MESSAGE);
+
+            const userActive = sandboxUserInFlight.get(auth.uid) ?? 0;
+            if (sandboxInFlight >= SANDBOX_MAX_IN_FLIGHT || userActive >= 1) {
+                throw new HttpError(429, SANDBOX_BUSY_MESSAGE, {
+                    code: "sandbox_busy",
+                });
+            }
+            sandboxInFlight += 1;
+            sandboxUserInFlight.set(auth.uid, userActive + 1);
+
+            try {
+                const result = await deps.sandbox.run(
+                    body as unknown as SandboxRequest,
+                );
+                // `ok: false` is a user-code error and travels in the tool
+                // result.
+                return jsonResponse(request, result);
+            } catch (error) {
+                log.error("sandbox failed", {
+                    error:
+                        error instanceof Error
+                            ? (error.stack ?? error.message)
+                            : String(error),
+                });
+                throw new HttpError(502, "沙箱执行失败，稍后再试", {
+                    code: "sandbox_failed",
+                });
+            } finally {
+                sandboxInFlight -= 1;
+                const remaining = (sandboxUserInFlight.get(auth.uid) ?? 1) - 1;
+                if (remaining <= 0) sandboxUserInFlight.delete(auth.uid);
+                else sandboxUserInFlight.set(auth.uid, remaining);
+            }
+        },
+
+        async tools(request, auth, pathname, rawBody) {
+            enforce(toolsMinute, auth.uid, TOOLS_RATE_MESSAGE);
+            const body = asRecord(rawBody);
+            enforce(toolsDaily, auth.uid, TOOLS_DAILY_MESSAGE);
+            const result = await tools({
+                pathname,
+                body,
+                uid: auth.uid,
+                token: auth.token,
+            });
+            return jsonResponse(request, result.body, {
+                status: result.status,
+            });
+        },
+
+        async geo(request, auth, socketIp) {
+            enforce(toolsMinute, auth.uid, TOOLS_RATE_MESSAGE);
+            const lookup =
+                deps.geoLookup ??
+                (geoLookup ??= createIpCityLookup({ fetch: fetchImpl }));
+            const info = await lookup(resolveClientIp(request, socketIp));
+            return jsonResponse(request, {
+                city: info?.city ?? "",
+                region: info?.region ?? "",
+                country: info?.country ?? "",
+            });
+        },
+    };
 }

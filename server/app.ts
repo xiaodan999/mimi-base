@@ -1,123 +1,113 @@
 /**
- * Elysia application factory (spike).
+ * Elysia application factory.
  *
- * This is the STEP 0 proof: a root `onRequest` guard that can answer before
- * any body is read, a root `onParse` that owns the byte cap and JSON/FormData
- * parsing, JSON + SSE routes, and an `all("/*")` static fallback.
+ * The root lifecycle owns the cross-cutting contract:
+ *   - `onRequest`: request id, CORS preflight, and bearer auth for the API
+ *     prefixes *before* any body is read.
+ *   - `onParse`: the cap table and JSON/FormData parsing (`server/http/body`).
+ *   - `derive`: exposes the authenticated caller as `ctx.auth`.
+ *   - `onError`: one error envelope for every 4xx/5xx.
+ *
+ * Feature modules only see an authenticated request plus its parsed body.
  */
 
 import { Elysia } from "elysia";
 
+import { type AiRelayDeps, createAiRelay } from "./ai/relay";
+import { createFeedbackService } from "./feedback/service";
+import type { FeedbackDeps } from "./feedback/types";
 import {
-    BodyTooLargeError,
-    readFormDataBody,
-    readJsonBody,
-} from "./request-body";
+    authFailureResponse,
+    createAuthenticator,
+    getRequestAuth,
+    requiresAuth,
+} from "./http/auth";
+import { parseRequestBody } from "./http/body";
+import { preflightResponse } from "./http/cors";
+import { mapError } from "./http/errors";
+import { type Logger, logger } from "./http/logger";
+import { withRequestId } from "./http/request-id";
+import { aiRoutes } from "./routes/ai";
+import { feedbackRoutes } from "./routes/feedback";
+import { healthRoutes } from "./routes/health";
+import { staticFallback } from "./routes/static";
+import { videoRoutes } from "./routes/video";
+import { createVideoService, type VideoCompressDeps } from "./video";
 
-const API_CAP_BYTES = 64 * 1024;
-const AUTHORIZED = "good-token";
+export type AppDeps = {
+    /** PocketBase origin (no `/db` suffix); shared by auth and the services. */
+    pbBaseUrl?: string;
+    ai?: AiRelayDeps;
+    feedback?: FeedbackDeps;
+    video?: VideoCompressDeps;
+    /** Built SPA directory; omitted in unit tests. */
+    staticDir?: string;
+    /** Shared auth/upstream fetch override (tests). */
+    fetch?: typeof fetch;
+    now?: () => number;
+    authCacheMs?: number;
+    logger?: Logger;
+};
 
-export type SpikeCounters = { parseCalls: number };
+function resolvePbBaseUrl(deps: AppDeps): string {
+    return (
+        deps.pbBaseUrl ?? deps.ai?.pbBaseUrl ?? deps.feedback?.pbBaseUrl ?? ""
+    );
+}
 
-export function createApp(counters: SpikeCounters = { parseCalls: 0 }) {
+export function createApp(deps: AppDeps = {}) {
+    const log = deps.logger ?? logger;
+    const pbBaseUrl = resolvePbBaseUrl(deps);
+    const fetchImpl =
+        deps.fetch ?? deps.ai?.fetch ?? deps.feedback?.fetch ?? fetch;
+    const now = deps.now ?? deps.ai?.now ?? deps.feedback?.now ?? Date.now;
+    const authenticate = createAuthenticator({
+        pbBaseUrl,
+        fetch: fetchImpl,
+        now,
+        ...(deps.authCacheMs ? { cacheMs: deps.authCacheMs } : {}),
+    });
+
+    const ai = deps.ai ? createAiRelay(deps.ai) : null;
+    const feedback = deps.feedback
+        ? createFeedbackService(deps.feedback)
+        : null;
+    const video = deps.video ? createVideoService(deps.video) : null;
+
     return new Elysia()
-        .onRequest(({ request, set }) => {
+        .onRequest(async ({ request }) => {
             const url = new URL(request.url);
-            if (
-                request.method === "OPTIONS" &&
-                url.pathname.startsWith("/api/")
-            ) {
-                set.headers["access-control-allow-origin"] = "*";
-                return new Response(null, { status: 204 });
-            }
-            if (
-                url.pathname.startsWith("/api/") &&
-                url.pathname !== "/api/health"
-            ) {
-                const token = (request.headers.get("authorization") ?? "")
-                    .replace(/^bearer\s+/i, "")
-                    .trim();
-                if (token !== AUTHORIZED) {
-                    return Response.json(
-                        { error: { message: "unauthorized" } },
-                        { status: 401 },
-                    );
-                }
-            }
-            return undefined;
-        })
-        .onParse(async ({ request }) => {
-            counters.parseCalls += 1;
-            const method = request.method.toUpperCase();
-            if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+            if (request.method === "OPTIONS") {
+                const preflight = preflightResponse(url.pathname);
+                if (preflight) return withRequestId(request, preflight);
                 return undefined;
             }
-            const url = new URL(request.url);
-            if (!url.pathname.startsWith("/api/")) return undefined;
-            const type = request.headers.get("content-type") ?? "";
-            if (type.includes("multipart/form-data")) {
-                return readFormDataBody(request, API_CAP_BYTES);
-            }
-            return readJsonBody(request, API_CAP_BYTES);
+            if (!requiresAuth(url.pathname)) return undefined;
+            const result = await authenticate(request);
+            if (result.ok) return undefined;
+            return authFailureResponse(request, result);
         })
-        .onError(({ code, error, set }) => {
-            // Elysia wraps anything thrown from onParse in a ParseError and
-            // keeps the real error on `cause`.
-            const cause =
-                error instanceof Error
-                    ? (error as Error & { cause?: unknown }).cause
-                    : undefined;
-            const real =
-                error instanceof Error && code === "PARSE" && cause
-                    ? cause
-                    : error;
-            if (real instanceof BodyTooLargeError) {
-                set.status = 413;
-                return { error: { message: "请求体过大" } };
-            }
-            if (
-                code === "PARSE" ||
-                real instanceof SyntaxError ||
-                error instanceof SyntaxError
-            ) {
-                set.status = 400;
-                return { error: { message: "请求体不是合法的 JSON" } };
-            }
-            return undefined;
-        })
-        .get("/api/health", () => ({ ok: true }))
-        .get("/api/json", () => ({ hello: "world" }))
-        .get("/api/sse", () => {
-            const encoder = new TextEncoder();
-            const stream = new ReadableStream<Uint8Array>({
-                async start(controller) {
-                    controller.enqueue(encoder.encode("a"));
-                    await Bun.sleep(10);
-                    controller.enqueue(encoder.encode("b"));
-                    controller.close();
-                },
-            });
-            return new Response(stream, {
-                headers: { "content-type": "text/event-stream" },
-            });
-        })
-        .post("/api/echo", ({ body }) => {
-            if (body instanceof FormData) {
-                const file = body.get("file");
-                return {
-                    kind: "form",
-                    name: file instanceof File ? file.name : "",
-                    size: file instanceof File ? file.size : 0,
-                    fields: [...body.keys()],
-                };
-            }
-            return { kind: "json", body: body ?? null };
-        })
-        .all(
-            "/*",
-            ({ request }) =>
-                new Response(
-                    `static:${request.method}:${new URL(request.url).pathname}`,
-                ),
-        );
+        .onParse(({ request }) => parseRequestBody(request))
+        .derive(({ request }) => ({
+            auth: getRequestAuth(request) ?? null,
+        }))
+        .onError(({ request, error, code }) =>
+            mapError({ request, error, code, logger: log }),
+        )
+        .use(
+            healthRoutes({
+                pbUrl: pbBaseUrl,
+                ...(ai ? { ai } : {}),
+            }),
+        )
+        .use(ai ? aiRoutes(ai) : new Elysia({ name: "ai-disabled" }))
+        .use(
+            feedback
+                ? feedbackRoutes(feedback)
+                : new Elysia({ name: "feedback-disabled" }),
+        )
+        .use(
+            video ? videoRoutes(video) : new Elysia({ name: "video-disabled" }),
+        )
+        .use(staticFallback({ staticDir: deps.staticDir }));
 }
