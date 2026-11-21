@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Camera, Soup, Sparkles } from "lucide-react";
 import { lazy, Suspense } from "react";
 
+import { useHomeStats } from "@/app/home/data";
 import NotificationBell from "@/app/notifications/components/notification-bell";
 import { streakDays } from "@/app/study/engine";
 import { useStudySummaries } from "@/app/study/progress";
@@ -13,7 +14,6 @@ import { formatMoney } from "@/lib/money";
 import { getUserAvatarUrl, getUserRing } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
-import { useHomeStats } from "./-home-data";
 import DailyLine from "./-home/daily-line";
 
 // The feed owns the post, composer, comment and viewer chunks; keeping it in

@@ -8,11 +8,10 @@ import { AiError, chatText } from "@/app/ai/client";
 import { memoryMessages } from "@/app/ai/home";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import { type MemoryPost, useOnThisDay } from "@/app/home/data";
 import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";
 import { getFileUrl } from "@/lib/pb";
-
-import { type MemoryPost, useOnThisDay } from "../-home-data";
 
 export default function MemoryCard() {
     const user = useCurrentUser();

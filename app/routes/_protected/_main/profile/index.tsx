@@ -24,6 +24,7 @@ import { useAi } from "@/app/ai/AiContext";
 import { clearAiDeviceState } from "@/app/ai/reset";
 import { abortAllChatRuns } from "@/app/chat/run-store";
 import { useUnreadNotificationCount } from "@/app/notifications/data";
+import { useSetAvatar, useUpdateNickname } from "@/app/profile/data";
 import PageHeader from "@/components/PageHeader";
 import TouXiang from "@/components/TouXiang";
 import { CIRCLE_PRESETS, NO_RING } from "@/components/TouXiang/presets";
@@ -51,7 +52,6 @@ import { cn } from "@/lib/utils";
 
 import AvatarCropper from "./-components/avatar-cropper";
 import RingPicker from "./-components/ring-picker";
-import { useSetAvatar, useUpdateNickname } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/profile/")({
     component: Page,

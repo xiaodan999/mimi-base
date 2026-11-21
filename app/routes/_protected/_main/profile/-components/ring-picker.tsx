@@ -2,6 +2,13 @@ import { Ban, Plus, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import {
+    type MyRing,
+    useDeleteRing,
+    useMyRings,
+    useSetRing,
+    useUploadRing,
+} from "@/app/profile/data";
 import TouXiang, { CircleRing } from "@/components/TouXiang";
 import {
     CIRCLE_PRESETS,
@@ -25,13 +32,6 @@ import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import {
-    type MyRing,
-    useDeleteRing,
-    useMyRings,
-    useSetRing,
-    useUploadRing,
-} from "../-data";
 import {
     isSameSelection,
     ringPayload,

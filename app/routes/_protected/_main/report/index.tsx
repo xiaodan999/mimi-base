@@ -8,6 +8,11 @@ import { AiError, aiErrorText, chatText, isAiCanceled } from "@/app/ai/client";
 import { reportLetterMessages } from "@/app/ai/report";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import {
+    buildStudyReport,
+    type TopPost,
+    useYearReport,
+} from "@/app/report/data";
 import { useStudySummaries } from "@/app/study/progress";
 import { ErrorState } from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
@@ -16,8 +21,6 @@ import { useCurrentUser } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { getFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
-
-import { buildStudyReport, type TopPost, useYearReport } from "./-data";
 
 export const Route = createFileRoute("/_protected/_main/report/")({
     component: Page,

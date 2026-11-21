@@ -1,4 +1,5 @@
-import type { HomeStats } from "../-home-data";
+import type { HomeStats } from "@/app/home/data";
+
 import { buildDailyLine } from "./daily-line-text";
 
 const FALLBACK = "今天也来记录一点什么吧。";
