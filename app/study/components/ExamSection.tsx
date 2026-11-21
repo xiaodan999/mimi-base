@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import AiGradeSheet from "@/app/study/ai/AiGradeSheet";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 import {
     answerText,
@@ -28,6 +29,7 @@ export default function ExamSection() {
     const [left, setLeft] = useState(0);
     const [startedAt, setStartedAt] = useState(0);
     const [result, setResult] = useState<ExamResult | null>(null);
+    const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
     const [gradeTarget, setGradeTarget] = useState<{
         item: QuizItem;
         answer: Answer;
@@ -452,12 +454,8 @@ export default function ExamSection() {
                 <button
                     className="st-btn sm line"
                     onClick={() => {
-                        if (
-                            answered < items.length &&
-                            !window.confirm(
-                                `还有 ${items.length - answered} 题未作答，确定交卷吗？`,
-                            )
-                        ) {
+                        if (answered < items.length) {
+                            setConfirmSubmitOpen(true);
                             return;
                         }
                         submit();
@@ -594,6 +592,18 @@ export default function ExamSection() {
                     );
                 })}
             </div>
+
+            <ConfirmDialog
+                open={confirmSubmitOpen}
+                onOpenChange={setConfirmSubmitOpen}
+                title={`还有 ${items.length - answered} 题未作答，确定交卷吗？`}
+                description="交卷后不能再修改答案，未作答的题会按答错计分。"
+                confirmLabel="交卷"
+                onConfirm={() => {
+                    setConfirmSubmitOpen(false);
+                    submit();
+                }}
+            />
         </div>
     );
 }

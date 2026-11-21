@@ -6,6 +6,7 @@ import { hashText } from "@/app/ai/cache";
 import AiVariantSheet from "@/app/study/ai/AiVariantSheet";
 import { diagnoseWrongMessages, WRONG_CHIPS } from "@/app/study/ai/prompts";
 import { wrongOverviewMessages } from "@/app/study/ai/study";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
@@ -25,6 +26,7 @@ export default function WrongSection() {
     const [variantSource, setVariantSource] = useState<QuizItem | null>(null);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [drillOpen, setDrillOpen] = useState(false);
+    const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
     const items = Object.keys(progress.wrong)
         .map((id) => subject.bank.find((item) => item.id === id))
@@ -247,11 +249,7 @@ export default function WrongSection() {
 
             <button
                 className="st-btn ghost mt-4 block"
-                onClick={() => {
-                    if (window.confirm("确定清空错题本吗？")) {
-                        update((current) => ({ ...current, wrong: {} }));
-                    }
-                }}
+                onClick={() => setConfirmClearOpen(true)}
             >
                 清空错题本
             </button>
@@ -294,6 +292,19 @@ export default function WrongSection() {
                 open={drillOpen}
                 onClose={() => setDrillOpen(false)}
                 onStart={(next) => setSession({ items: next, track: false })}
+            />
+
+            <ConfirmDialog
+                open={confirmClearOpen}
+                onOpenChange={setConfirmClearOpen}
+                title="确定清空错题本吗？"
+                description="清空后错题记录无法恢复。"
+                confirmLabel="清空"
+                destructive
+                onConfirm={() => {
+                    update((current) => ({ ...current, wrong: {} }));
+                    setConfirmClearOpen(false);
+                }}
             />
         </div>
     );
