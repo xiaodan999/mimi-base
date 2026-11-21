@@ -31,8 +31,16 @@ const LoadingButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
                 <Slot ref={ref} {...props}>
                     <>
                         {React.Children.map(
-                            children as React.ReactElement,
-                            (child: React.ReactElement) => {
+                            children as React.ReactElement<{
+                                className?: string;
+                                children?: React.ReactNode;
+                            }>,
+                            (
+                                child: React.ReactElement<{
+                                    className?: string;
+                                    children?: React.ReactNode;
+                                }>,
+                            ) => {
                                 return React.cloneElement(child, {
                                     className: cn(
                                         buttonVariants({ variant, size }),

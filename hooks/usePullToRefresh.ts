@@ -14,7 +14,7 @@ const DEAD_ZONE = 6;
 
 export type PullToRefresh = {
     /** Attach to the page root; the hook finds its scroll container. */
-    ref: React.RefObject<HTMLDivElement>;
+    ref: React.RefObject<HTMLDivElement | null>;
     /** How far the content is currently offset, in px. */
     distance: number;
     /** True while the refresh promise is in flight. */

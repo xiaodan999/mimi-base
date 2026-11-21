@@ -17,7 +17,7 @@ type Props = {
     images: CommentImageDraft[];
     preparing: boolean;
     pending: boolean;
-    inputRef: RefObject<HTMLTextAreaElement>;
+    inputRef: RefObject<HTMLTextAreaElement | null>;
     onTextChange: (value: string) => void;
     onCancelReply: () => void;
     onRemoveImage: (index: number) => void;

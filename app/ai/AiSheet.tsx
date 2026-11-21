@@ -13,7 +13,7 @@ type Props = {
     children: ReactNode;
     footer?: ReactNode;
     zIndex?: number;
-    bodyRef?: RefObject<HTMLDivElement>;
+    bodyRef?: RefObject<HTMLDivElement | null>;
 };
 
 /**

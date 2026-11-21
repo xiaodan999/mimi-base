@@ -7,8 +7,8 @@ type Props = {
     current: number;
     zoom: ZoomTransform;
     drag: Point;
-    trackRef: RefObject<HTMLDivElement>;
-    imageRef: RefObject<HTMLImageElement>;
+    trackRef: RefObject<HTMLDivElement | null>;
+    imageRef: RefObject<HTMLImageElement | null>;
     measure: () => void;
     trackTransform: (target: number, offset: Point) => string;
     imageTransform: (value: ZoomTransform) => string;
