@@ -17,7 +17,7 @@ const closablePanels = [
     "app/routes/_protected/_main/-home/memory-card.tsx",
     "app/routes/_protected/_main/jizhang/-components/ai-category-fix.tsx",
     "app/routes/_protected/_main/jizhang/-components/ai-expense-sheet.tsx",
-    "app/routes/_protected/_main/report/index.tsx",
+    "app/routes/_protected/_main/report/-components/report-letter.tsx",
     "app/study/components/AiDrillSheet.tsx",
 ];
 
