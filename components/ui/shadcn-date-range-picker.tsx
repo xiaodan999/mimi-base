@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -72,7 +72,7 @@ export default function CalendarDateRangePicker({
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
                     <Calendar
-                        initialFocus
+                        autoFocus
                         locale={zhCN}
                         mode="range"
                         defaultMonth={date?.from}

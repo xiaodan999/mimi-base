@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { useMemo } from "react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 
 import AiPanel from "@/app/ai/AiPanel";
 import { hashText } from "@/app/ai/cache";

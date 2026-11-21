@@ -3,7 +3,7 @@ import { format, isSameDay, parse, subDays } from "date-fns";
 import { zhCN } from "date-fns/locale/zh-CN";
 import { Settings2, Sparkles, Tags, Trash2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
 import type { ExpenseCategory } from "@/app/ledger/categories";
