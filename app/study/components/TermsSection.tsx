@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 
+import { toast } from "@/lib/toast";
+
 import { shuffle, touchDay } from "../engine";
-import { toast } from "../toast";
 import { useStudy } from "./StudyContext";
 
 export default function TermsSection() {

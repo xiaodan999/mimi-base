@@ -408,7 +408,7 @@ export function useStudySummaries() {
     const userId = user?.id ?? "";
 
     return useQuery({
-        queryKey: [...STUDY_SUMMARIES_KEY, userId] as const,
+        queryKey: qk.studySummaries(userId),
         enabled: Boolean(userId),
         staleTime: 60 * 1000,
         queryFn: async (): Promise<Record<string, Progress>> => {

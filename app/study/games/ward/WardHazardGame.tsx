@@ -4,9 +4,10 @@ import "../games.css";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { toast } from "@/lib/toast";
+
 import { useStudy } from "../../components/StudyContext";
 import { fmtTime, shuffle } from "../../engine";
-import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
 import { type GameOutcome, recordGame } from "../meta";
 import { wardScore } from "../scoring";

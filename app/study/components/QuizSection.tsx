@@ -2,10 +2,10 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import AiVariantSheet from "@/app/ai/AiVariantSheet";
+import { toast } from "@/lib/toast";
 
 import { shuffle, TYPE_ICON, TYPE_NAME } from "../engine";
 import { dueCount, dueQueue } from "../scheduling";
-import { toast } from "../toast";
 import type { QuizItem, QuizType } from "../types";
 import QuizRunner from "./QuizRunner";
 import { useStudy } from "./StudyContext";

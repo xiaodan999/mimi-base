@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { toast } from "@/app/study/toast";
+import { toast } from "@/lib/toast";
 
 import { useAi } from "./AiContext";
 import AiMarkdown from "./AiMarkdown";

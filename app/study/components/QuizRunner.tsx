@@ -10,12 +10,12 @@ import {
     userAnswerText,
     WRONG_CHIPS,
 } from "@/app/ai/prompts";
+import { toast } from "@/lib/toast";
 import { useBackDismiss } from "@/lib/useBackDismiss";
 
 import { answerText, isAnswerCorrect, TYPE_NAME } from "../engine";
 import { gameForModule } from "../games/registry";
 import { recordQuizAnswer } from "../progress-reducers";
-import { toast } from "../toast";
 import type { Answer, QuizItem } from "../types";
 import { useStudy } from "./StudyContext";
 

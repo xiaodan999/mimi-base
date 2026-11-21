@@ -1,9 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useRef, useState } from "react";
 
+import { toast } from "@/lib/toast";
+
 import { useStudy } from "../../components/StudyContext";
 import { shuffle } from "../../engine";
-import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
 import { type GameOutcome, recordGame } from "../meta";
 import CprTrainer from "./CprTrainer";

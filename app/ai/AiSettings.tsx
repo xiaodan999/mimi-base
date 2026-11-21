@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { toast } from "@/app/study/toast";
+import { toast } from "@/lib/toast";
 
 import AiSheet from "./AiSheet";
 import { clearAiCache } from "./cache";

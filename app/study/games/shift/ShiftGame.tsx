@@ -1,9 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import { toast } from "@/lib/toast";
+
 import { useStudy } from "../../components/StudyContext";
 import { fmtTime, shuffle } from "../../engine";
-import { toast } from "../../toast";
 import ResultPanel from "../components/ResultPanel";
 import { type GameOutcome, recordGame } from "../meta";
 import WardScene from "../ward/WardScene";

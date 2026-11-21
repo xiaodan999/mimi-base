@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import AiPanel from "@/app/ai/AiPanel";
 import { CARD_CHIPS, explainCardMessages } from "@/app/ai/prompts";
+import { toast } from "@/lib/toast";
 
 import { bumpDaily, shuffle } from "../engine";
 import { gameForCard } from "../games/registry";
-import { toast } from "../toast";
 import type { Card, QuizItem } from "../types";
 import CardDemo from "./CardDemo";
 import QuizRunner from "./QuizRunner";

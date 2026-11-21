@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { TYPE_NAME } from "@/app/study/engine";
-import { toast } from "@/app/study/toast";
 import type { Answer, QuizItem, StudySubject } from "@/app/study/types";
+import { toast } from "@/lib/toast";
 
 import { useAi } from "./AiContext";
 import AiMarkdown from "./AiMarkdown";

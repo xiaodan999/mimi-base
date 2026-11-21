@@ -44,6 +44,8 @@ export const qk = {
     studyProgressAll: ["study-progress"] as const,
     /** Prefix used by the study overview and the realtime sync. */
     studySummariesAll: ["study-summaries"] as const,
+    /** One user's overview rows, all subjects at once. */
+    studySummaries: (userId: string) => ["study-summaries", userId] as const,
     homeStats: {
         all: ["home-stats"] as const,
         get: (userId: string, day: string) =>

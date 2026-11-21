@@ -1,6 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
+import { toast } from "@/lib/toast";
+
 import { useStudy } from "../components/StudyContext";
 import {
     cardStats,
@@ -10,7 +12,6 @@ import {
     questionStats,
     streakDays,
 } from "../engine";
-import { toast } from "../toast";
 import type { Progress } from "../types";
 import { BADGES, evaluateBadges, rankFor, totalPlays } from "./meta";
 import {
