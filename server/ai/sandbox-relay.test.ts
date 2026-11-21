@@ -1,24 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import type { SandboxRequest, SandboxResponse } from "../lib/sandbox-protocol";
-import { AI_SANDBOX_PATH, type AiRelayDeps, createAiRelay } from "./ai-relay";
+import type {
+    SandboxRequest,
+    SandboxResponse,
+} from "../../lib/sandbox-protocol";
+import { createApp } from "../app";
+import { AI_SANDBOX_PATH } from "../routes/ai";
+import { apiRequest, authHeader, json } from "../test-helpers";
+import type { AiRelayDeps } from "./relay";
 
 const PB_BASE = "http://127.0.0.1:8090";
-
-function json(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { "content-type": "application/json" },
-    });
-}
-
-function authHeader(init?: RequestInit): string {
-    const headers = init?.headers;
-    if (!headers) return "";
-    if (headers instanceof Headers) return headers.get("authorization") ?? "";
-    const record = headers as Record<string, string>;
-    return record.Authorization ?? record.authorization ?? "";
-}
 
 const authFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (String(input).endsWith("/auth-refresh")) {
@@ -29,13 +20,10 @@ const authFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     return json({ ok: true });
 }) as typeof fetch;
 
-function request(body: unknown, token = "good-token"): Request {
-    return new Request(`http://relay.test${AI_SANDBOX_PATH}`, {
-        method: "POST",
-        headers: {
-            ...(token ? { Authorization: token } : {}),
-            "Content-Type": "application/json",
-        },
+function request(body: unknown, token: string | null = "good-token"): Request {
+    return apiRequest(AI_SANDBOX_PATH, {
+        token,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
 }
@@ -52,24 +40,24 @@ function harness(
         fetch: authFetch,
         sandbox: { run, available },
     };
-    return createAiRelay(deps);
+    return createApp({ pbBaseUrl: PB_BASE, ai: deps });
 }
 
 describe("sandbox relay", () => {
     test("requires a PocketBase token", async () => {
-        const relay = harness(async () => ({
+        const app = harness(async () => ({
             ok: true,
             logs: [],
             files: {},
             artifacts: [],
             durationMs: 1,
         }));
-        const res = await relay(request({ op: "list" }, ""));
-        expect(res?.status).toBe(401);
+        const res = await app.handle(request({ op: "list" }, null));
+        expect(res.status).toBe(401);
     });
 
     test("reports 503 while the sandbox is not ready", async () => {
-        const relay = harness(
+        const app = harness(
             async () => ({
                 ok: true,
                 logs: [],
@@ -79,13 +67,13 @@ describe("sandbox relay", () => {
             }),
             () => false,
         );
-        const res = await relay(request({ op: "list" }));
-        expect(res?.status).toBe(503);
+        const res = await app.handle(request({ op: "list" }));
+        expect(res.status).toBe(503);
     });
 
     test("forwards the operation and returns the runner response", async () => {
         let captured: SandboxRequest | undefined;
-        const relay = harness(async (value) => {
+        const app = harness(async (value) => {
             captured = value;
             return {
                 ok: true,
@@ -96,7 +84,7 @@ describe("sandbox relay", () => {
                 durationMs: 12,
             };
         });
-        const res = await relay(
+        const res = await app.handle(
             request({
                 op: "run",
                 language: "javascript",
@@ -104,13 +92,13 @@ describe("sandbox relay", () => {
                 files: { "a.txt": "x" },
             }),
         );
-        expect(res?.status).toBe(200);
+        expect(res.status).toBe(200);
         expect(captured).toMatchObject({
             op: "run",
             language: "javascript",
             code: 'return "hi"',
         });
-        expect(await res?.json()).toEqual({
+        expect(await res.json()).toEqual({
             ok: true,
             result: "hi",
             logs: ["logged"],
@@ -122,7 +110,7 @@ describe("sandbox relay", () => {
 
     test("rejects an unknown operation", async () => {
         let called = false;
-        const relay = harness(async () => {
+        const app = harness(async () => {
             called = true;
             return {
                 ok: true,
@@ -132,14 +120,14 @@ describe("sandbox relay", () => {
                 durationMs: 1,
             };
         });
-        const res = await relay(request({ op: "exec" }));
-        expect(res?.status).toBe(400);
+        const res = await app.handle(request({ op: "exec" }));
+        expect(res.status).toBe(400);
         expect(called).toBe(false);
     });
 
     test("rejects python and unknown languages", async () => {
         let called = false;
-        const relay = harness(async () => {
+        const app = harness(async () => {
             called = true;
             return {
                 ok: true,
@@ -150,10 +138,10 @@ describe("sandbox relay", () => {
             };
         });
         for (const language of ["python", "ruby"]) {
-            const res = await relay(
+            const res = await app.handle(
                 request({ op: "run", language, code: "return 1" }),
             );
-            expect(res?.status).toBe(400);
+            expect(res.status).toBe(400);
         }
         expect(called).toBe(false);
     });
@@ -162,16 +150,18 @@ describe("sandbox relay", () => {
         const gate: {
             release: ((response: SandboxResponse) => void) | null;
         } = { release: null };
-        const relay = harness(
+        const app = harness(
             () =>
                 new Promise<SandboxResponse>((resolve) => {
                     gate.release = resolve;
                 }),
         );
-        const first = relay(request({ op: "run", code: "print(1)" }));
+        const first = app.handle(request({ op: "run", code: "print(1)" }));
         await new Promise((resolve) => setTimeout(resolve, 20));
-        const second = await relay(request({ op: "run", code: "print(2)" }));
-        expect(second?.status).toBe(429);
+        const second = await app.handle(
+            request({ op: "run", code: "print(2)" }),
+        );
+        expect(second.status).toBe(429);
         gate.release?.({
             ok: true,
             logs: [],
@@ -179,6 +169,6 @@ describe("sandbox relay", () => {
             artifacts: [],
             durationMs: 1,
         });
-        expect((await first)?.status).toBe(200);
+        expect((await first).status).toBe(200);
     });
 });

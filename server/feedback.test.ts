@@ -1,22 +1,23 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+    FEEDBACK_ISSUE_STATE_PATH,
+    FEEDBACK_REPORT_PATH,
+    FEEDBACK_UPLOAD_PATH,
+} from "../lib/contracts/feedback";
+import { createApp } from "./app";
+import {
     asAttachmentArray,
     buildIssueBody,
     buildIssueTitle,
     buildTranscript,
     cleanText,
-    createFeedbackService,
-    FEEDBACK_ISSUE_STATE_PATH,
-    FEEDBACK_REPORT_PATH,
-    FEEDBACK_UPLOAD_PATH,
-    type FeedbackDeps,
-    type FeedbackReport,
     formatBytes,
     formatConsoleErrors,
     messageText,
     sanitizeAssetName,
-} from "./feedback";
+} from "./feedback/markdown";
+import type { FeedbackDeps, FeedbackReport } from "./feedback/types";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UID = "user1234567890";
@@ -90,15 +91,20 @@ function setup(
         return handler(url, init);
     }) as typeof fetch;
 
-    const service = createFeedbackService({
+    const app = createApp({
         pbBaseUrl: PB_BASE,
-        githubToken: "github-token",
-        githubRepo: "owner/repo",
-        githubApiUrl: "https://github.test",
-        githubUploadsUrl: "https://uploads.github.test",
         fetch: fetchMock,
-        ...overrides,
+        feedback: {
+            pbBaseUrl: PB_BASE,
+            githubToken: "github-token",
+            githubRepo: "owner/repo",
+            githubApiUrl: "https://github.test",
+            githubUploadsUrl: "https://uploads.github.test",
+            fetch: fetchMock,
+            ...overrides,
+        },
     });
+    const service = (request: Request) => app.handle(request);
     return { service, calls };
 }
 
@@ -107,7 +113,7 @@ function submit(token: string | null = "pb-token", id = REPORT_ID) {
         "content-type": "application/json",
     };
     if (token) headers.Authorization = token;
-    return new Request(`http://api${FEEDBACK_REPORT_PATH}`, {
+    return new Request(`http://api.test${FEEDBACK_REPORT_PATH}`, {
         method: "POST",
         headers,
         body: JSON.stringify({ reportId: id }),
@@ -122,7 +128,7 @@ function issueStateRequest(
         "content-type": "application/json",
     };
     if (token) headers.Authorization = token;
-    return new Request(`http://api${FEEDBACK_ISSUE_STATE_PATH}`, {
+    return new Request(`http://api.test${FEEDBACK_ISSUE_STATE_PATH}`, {
         method: "POST",
         headers,
         body: JSON.stringify({ reportIds }),
@@ -315,7 +321,7 @@ function uploadRequest(
     }
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = token;
-    return new Request(`http://api${FEEDBACK_UPLOAD_PATH}`, {
+    return new Request(`http://api.test${FEEDBACK_UPLOAD_PATH}`, {
         method: "POST",
         headers,
         body: form,
@@ -630,15 +636,12 @@ describe("messageText", () => {
 });
 
 describe("feedback service", () => {
-    test("returns null for unrelated paths", async () => {
+    test("answers unknown non-API paths with the static 404", async () => {
         const { service } = setup(pbHandler({}));
-        expect(
-            await service(
-                new Request("http://api/api/ai/models", {
-                    method: "GET",
-                }),
-            ),
-        ).toBeNull();
+        const res = await service(
+            new Request("http://api.test/feedback", { method: "GET" }),
+        );
+        expect(res.status).toBe(404);
     });
 
     test("rejects missing or invalid tokens without touching PB data", async () => {
@@ -1023,11 +1026,11 @@ describe("feedback service", () => {
         const body = (await res!.json()) as {
             ok: boolean;
             issue: null;
-            error: string;
+            error: { message: string };
         };
         expect(body.ok).toBe(false);
         expect(body.issue).toBeNull();
-        expect(body.error).toContain("HTTP 500");
+        expect(body.error.message).toContain("HTTP 500");
         expect(patched.status).toBe("failed");
         expect(patched.error).toContain("HTTP 500");
     });
@@ -1146,7 +1149,7 @@ describe("feedback service", () => {
         const badId = await service(submit("pb-token", "short"));
         expect(badId?.status).toBe(400);
         const badJson = await service(
-            new Request(`http://api${FEEDBACK_REPORT_PATH}`, {
+            new Request(`http://api.test${FEEDBACK_REPORT_PATH}`, {
                 method: "POST",
                 headers: { Authorization: "pb-token" },
                 body: "{",
@@ -1154,8 +1157,9 @@ describe("feedback service", () => {
         );
         expect(badJson?.status).toBe(400);
         const notFound = await service(
-            new Request("http://api/api/feedback/nope", {
+            new Request("http://api.test/api/feedback/nope", {
                 method: "POST",
+                headers: { Authorization: "pb-token" },
             }),
         );
         expect(notFound?.status).toBe(404);
@@ -1394,7 +1398,7 @@ describe("feedback issue state service", () => {
     test("rejects a malformed body", async () => {
         const { service } = setup((url) => json({}, 404));
         const res = await service(
-            new Request(`http://api${FEEDBACK_ISSUE_STATE_PATH}`, {
+            new Request(`http://api.test${FEEDBACK_ISSUE_STATE_PATH}`, {
                 method: "POST",
                 headers: {
                     Authorization: "pb-token",
@@ -1410,7 +1414,7 @@ describe("feedback issue state service", () => {
         const { service } = setup((url) => json({}, 404));
         for (const path of [FEEDBACK_ISSUE_STATE_PATH, FEEDBACK_REPORT_PATH]) {
             const res = await service(
-                new Request(`http://api${path}`, {
+                new Request(`http://api.test${path}`, {
                     method: "POST",
                     headers: {
                         Authorization: "pb-token",
@@ -1433,9 +1437,8 @@ describe("feedback issue state service", () => {
         }
         const limited = await service(issueStateRequest([issueReportId(1)]));
         expect(limited?.status).toBe(429);
-        expect(await limited!.json()).toEqual({
-            ok: false,
-            error: "刷新太频繁，稍后再试",
+        expect(await limited!.json()).toMatchObject({
+            error: { message: "刷新太频繁，稍后再试" },
         });
     });
 });
@@ -1457,11 +1460,11 @@ describe("feedback upload service", () => {
         const body = (await res!.json()) as {
             ok: boolean;
             reason: string;
-            error: string;
+            error: { message: string };
         };
         expect(body.ok).toBe(false);
         expect(body.reason).toBe("github_not_configured");
-        expect(body.error).toContain("GITHUB_TOKEN");
+        expect(body.error.message).toContain("GITHUB_TOKEN");
         // Only auth-refresh happened; no GitHub call.
         expect(
             calls.some((call) => call.url.pathname.startsWith("/repos/")),
@@ -1625,18 +1628,19 @@ describe("feedback upload service", () => {
         const body = (await res!.json()) as {
             ok: boolean;
             reason: string;
-            error: string;
+            error: { message: string };
         };
         expect(body.ok).toBe(false);
         expect(body.reason).toBe("github_failed");
-        expect(body.error).toContain("HTTP 500");
+        expect(body.error.message).toContain("HTTP 500");
     });
 
     test("only accepts POST on the upload path", async () => {
         const { service } = setup(githubUploads({}));
         const res = await service(
-            new Request(`http://api${FEEDBACK_UPLOAD_PATH}`, {
+            new Request(`http://api.test${FEEDBACK_UPLOAD_PATH}`, {
                 method: "GET",
+                headers: { Authorization: "pb-token" },
             }),
         );
         expect(res?.status).toBe(405);

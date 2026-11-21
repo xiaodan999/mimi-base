@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { tmpdir } from "node:os";
 
+import { createApp } from "./app";
 import {
-    createVideoService,
     VIDEO_COMPRESS_PATH,
     type VideoCompressDeps,
     type VideoCompressResult,
@@ -34,13 +34,16 @@ function setup(
         return json({}, 404);
     }) as typeof fetch;
 
-    const service = createVideoService({
+    const app = createApp({
         pbBaseUrl: PB_BASE,
         fetch: fetchMock,
-        tmpDir: tmpdir(),
-        compress,
-        ...overrides,
+        video: {
+            tmpDir: tmpdir(),
+            compress,
+            ...overrides,
+        },
     });
+    const service = (request: Request) => app.handle(request);
     return { service, calls };
 }
 
@@ -63,7 +66,7 @@ function compressRequest(
     if (options.token !== null) {
         headers.Authorization = options.token ?? "pb-token";
     }
-    return new Request(`http://api${VIDEO_COMPRESS_PATH}`, {
+    return new Request(`http://api.test${VIDEO_COMPRESS_PATH}`, {
         method: "POST",
         headers,
         body: form,
@@ -71,15 +74,12 @@ function compressRequest(
 }
 
 describe("video compression service", () => {
-    test("returns null for unrelated paths", async () => {
+    test("leaves unrelated paths to the rest of the app", async () => {
         const { service } = setup(async () => ({ ok: true }));
-        expect(
-            await service(
-                new Request("http://api/api/feedback/report", {
-                    method: "POST",
-                }),
-            ),
-        ).toBeNull();
+        const res = await service(
+            new Request("http://api.test/feedback", { method: "GET" }),
+        );
+        expect(res.status).toBe(404);
     });
 
     test("requires a PocketBase token", async () => {
@@ -129,10 +129,10 @@ describe("video compression service", () => {
 
         const first = await service(compressRequest("one"));
         expect(first?.status).toBe(503);
-        expect(await first!.json()).toEqual({
+        expect(await first!.json()).toMatchObject({
             ok: false,
             reason: "ffmpeg_missing",
-            error: "服务器还没有安装 ffmpeg",
+            error: { message: "服务器还没有安装 ffmpeg" },
         });
 
         const second = await service(compressRequest("two"));
@@ -148,10 +148,10 @@ describe("video compression service", () => {
         }));
         const res = await service(compressRequest("broken"));
         expect(res?.status).toBe(502);
-        expect(await res!.json()).toEqual({
+        expect(await res!.json()).toMatchObject({
             ok: false,
             reason: "compress_failed",
-            error: "视频压缩失败",
+            error: { message: "视频压缩失败" },
         });
     });
 
@@ -191,9 +191,8 @@ describe("video compression service", () => {
         await startedPromise;
         const second = await service(compressRequest("second"));
         expect(second?.status).toBe(429);
-        expect(await second!.json()).toEqual({
-            ok: false,
-            error: "视频压缩忙不过来，稍后再试",
+        expect(await second!.json()).toMatchObject({
+            error: { message: "视频压缩忙不过来，稍后再试" },
         });
 
         release();
@@ -208,7 +207,7 @@ describe("video compression service", () => {
         expect(text?.status).toBe(400);
 
         const oversized = await service(
-            new Request(`http://api${VIDEO_COMPRESS_PATH}`, {
+            new Request(`http://api.test${VIDEO_COMPRESS_PATH}`, {
                 method: "POST",
                 headers: {
                     Authorization: "pb-token",

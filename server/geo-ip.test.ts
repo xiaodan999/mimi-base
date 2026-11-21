@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { AI_GEO_IP_PATH, type AiRelayDeps, createAiRelay } from "./ai-relay";
+import type { AiRelayDeps } from "./ai/relay";
+import { createApp } from "./app";
 import { createIpCityLookup, isPrivateIp, resolveClientIp } from "./geo-ip";
+import { AI_GEO_IP_PATH } from "./routes/ai";
+import { json } from "./test-helpers";
 
 const PB_BASE = "http://127.0.0.1:8090";
 
@@ -126,39 +129,41 @@ describe("geo endpoint", () => {
             const url = String(input);
             if (url === `${PB_BASE}/api/collections/users/auth-refresh`) {
                 return authHeader(init) === "good-token"
-                    ? new Response(JSON.stringify({ record: { id: "user-1" } }))
-                    : new Response("invalid", { status: 401 });
+                    ? json({ record: { id: "user-1" } })
+                    : json({ message: "invalid" }, 401);
             }
-            return new Response("{}");
+            return json({});
         }) as typeof fetch;
-        const relay = createAiRelay({
+        return createApp({
             pbBaseUrl: PB_BASE,
-            apiKey: "server-key",
-            model: "deepseek-v4.1-flash",
-            dailyLimit: 0,
-            fetch: fetchImpl,
-            ...overrides,
+            ai: {
+                pbBaseUrl: PB_BASE,
+                apiKey: "server-key",
+                model: "deepseek-v4.1-flash",
+                dailyLimit: 0,
+                fetch: fetchImpl,
+                ...overrides,
+            },
         });
-        return relay;
     }
 
     test("requires auth", async () => {
-        const relay = harness({ geoLookup: async () => null });
-        const res = await relay(
+        const app = harness({ geoLookup: async () => null });
+        const res = await app.handle(
             new Request(`http://relay.test${PATH}`, { method: "GET" }),
         );
-        expect(res?.status).toBe(401);
+        expect(res.status).toBe(401);
     });
 
     test("answers with the resolved city for the rightmost XFF entry", async () => {
         const seen: string[] = [];
-        const relay = harness({
+        const app = harness({
             geoLookup: async (ip) => {
                 seen.push(ip);
                 return { country: "中国", region: "浙江省", city: "杭州市" };
             },
         });
-        const res = await relay(
+        const res = await app.handle(
             new Request(`http://relay.test${PATH}`, {
                 method: "GET",
                 headers: {
@@ -166,10 +171,9 @@ describe("geo endpoint", () => {
                     "X-Forwarded-For": "203.0.113.7, 198.51.100.9",
                 },
             }),
-            "127.0.0.1",
         );
-        expect(res?.status).toBe(200);
-        expect(await res?.json()).toEqual({
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
             city: "杭州市",
             region: "浙江省",
             country: "中国",
@@ -178,16 +182,15 @@ describe("geo endpoint", () => {
     });
 
     test("unknown IPs answer with empty fields, not an error", async () => {
-        const relay = harness({ geoLookup: async () => null });
-        const res = await relay(
+        const app = harness({ geoLookup: async () => null });
+        const res = await app.handle(
             new Request(`http://relay.test${PATH}`, {
                 method: "GET",
                 headers: { Authorization: "good-token" },
             }),
-            "127.0.0.1",
         );
-        expect(res?.status).toBe(200);
-        expect(await res?.json()).toEqual({
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
             city: "",
             region: "",
             country: "",
@@ -195,16 +198,16 @@ describe("geo endpoint", () => {
     });
 
     test("shares the data tools' minute budget", async () => {
-        const relay = harness({ geoLookup: async () => null });
+        const app = harness({ geoLookup: async () => null });
         const req = () =>
             new Request(`http://relay.test${PATH}`, {
                 method: "GET",
                 headers: { Authorization: "good-token" },
             });
-        let last: Response | null = await relay(req());
-        for (let i = 0; i < 30 && last?.status === 200; i += 1) {
-            last = await relay(req());
+        let last: Response = await app.handle(req());
+        for (let i = 0; i < 30 && last.status === 200; i += 1) {
+            last = await app.handle(req());
         }
-        expect(last?.status).toBe(429);
+        expect(last.status).toBe(429);
     });
 });

@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
+import { createApp } from "../app";
 import {
     AI_CHAT_COMPLETIONS_PATH,
     AI_CHAT_PATH,
     AI_MODELS_PATH,
-    type AiRelayDeps,
-    createAiRelay,
-} from "./ai-relay";
-import type { ChatModelInfo } from "./chat-models";
+} from "../routes/ai";
+import { apiRequest, authHeader, json } from "../test-helpers";
+import type { ChatModelInfo } from "./models";
+import type { AiRelayDeps } from "./relay";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UPSTREAM = "https://opencode.ai/zen/go/v1/chat/completions";
@@ -35,21 +36,6 @@ const MODELS: ChatModelInfo[] = [
 
 type Call = { url: string; init?: RequestInit };
 
-function json(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { "content-type": "application/json" },
-    });
-}
-
-function authHeader(init?: RequestInit): string {
-    const headers = init?.headers;
-    if (!headers) return "";
-    if (headers instanceof Headers) return headers.get("authorization") ?? "";
-    const record = headers as Record<string, string>;
-    return record.Authorization ?? record.authorization ?? "";
-}
-
 function harness(overrides: Partial<AiRelayDeps> = {}) {
     const calls: Call[] = [];
     const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -63,17 +49,20 @@ function harness(overrides: Partial<AiRelayDeps> = {}) {
         return json({ choices: [{ message: { content: "ok" } }] });
     }) as typeof fetch;
 
-    const relay = createAiRelay({
+    const app = createApp({
         pbBaseUrl: PB_BASE,
-        apiKey: "server-key",
-        model: "legacy-model",
-        chatModels: MODELS,
-        defaultChatModel: "text-model",
-        dailyLimit: 0,
-        fetch: fetchImpl,
-        ...overrides,
+        ai: {
+            pbBaseUrl: PB_BASE,
+            apiKey: "server-key",
+            model: "legacy-model",
+            chatModels: MODELS,
+            defaultChatModel: "text-model",
+            dailyLimit: 0,
+            fetch: fetchImpl,
+            ...overrides,
+        },
     });
-    return { relay, calls };
+    return { app, calls };
 }
 
 function request(path: string, init: RequestInit = {}): Request {
@@ -83,14 +72,11 @@ function request(path: string, init: RequestInit = {}): Request {
 function chatRequest(
     path: string,
     body: unknown,
-    token = "good-token",
+    token: string | null = "good-token",
 ): Request {
-    return request(path, {
-        method: "POST",
-        headers: {
-            Authorization: token,
-            "Content-Type": "application/json",
-        },
+    return apiRequest(path, {
+        token,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
 }
@@ -103,16 +89,16 @@ function upstreamBody(calls: Call[]): Record<string, unknown> {
 
 describe("chat model allowlist", () => {
     test("GET /api/ai/models requires auth and returns the allowlist", async () => {
-        const { relay } = harness();
-        expect((await relay(request(AI_MODELS_PATH)))?.status).toBe(401);
+        const { app } = harness();
+        expect((await app.handle(request(AI_MODELS_PATH))).status).toBe(401);
 
-        const res = await relay(
+        const res = await app.handle(
             request(AI_MODELS_PATH, {
                 headers: { Authorization: "good-token" },
             }),
         );
-        expect(res?.status).toBe(200);
-        expect(await res?.json()).toEqual({
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
             models: MODELS,
             defaultModel: "text-model",
             keyConfigured: true,
@@ -120,21 +106,21 @@ describe("chat model allowlist", () => {
     });
 
     test("chat honours an allowlisted model", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
+        const { app, calls } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "vision-model",
                 messages: [{ role: "user", content: "hi" }],
                 stream: true,
             }),
         );
-        expect(res?.status).toBe(200);
+        expect(res.status).toBe(200);
         expect(upstreamBody(calls).model).toBe("vision-model");
     });
 
     test("chat falls back to the default when model is omitted", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 messages: [{ role: "user", content: "hi" }],
             }),
@@ -143,23 +129,23 @@ describe("chat model allowlist", () => {
     });
 
     test("chat rejects an unknown model id without calling upstream", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
+        const { app, calls } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "gpt-unlisted",
                 messages: [{ role: "user", content: "hi" }],
             }),
         );
-        expect(res?.status).toBe(400);
-        expect(await res?.json()).toMatchObject({
+        expect(res.status).toBe(400);
+        expect(await res.json()).toMatchObject({
             error: { message: expect.stringContaining("不支持的模型") },
         });
         expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
     });
 
     test("text-only models get tools stripped", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "text-model",
                 messages: [{ role: "user", content: "hi" }],
@@ -173,8 +159,8 @@ describe("chat model allowlist", () => {
     });
 
     test("tool-enabled models keep tools", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "vision-model",
                 messages: [{ role: "user", content: "hi" }],
@@ -185,8 +171,8 @@ describe("chat model allowlist", () => {
     });
 
     test("vision capability is enforced server-side", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
+        const { app, calls } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "text-model",
                 messages: [
@@ -203,16 +189,16 @@ describe("chat model allowlist", () => {
                 ],
             }),
         );
-        expect(res?.status).toBe(400);
-        expect(await res?.json()).toMatchObject({
+        expect(res.status).toBe(400);
+        expect(await res.json()).toMatchObject({
             error: { message: expect.stringContaining("不支持图片") },
         });
         expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
     });
 
     test("vision model accepts image parts", async () => {
-        const { relay } = harness();
-        const res = await relay(
+        const { app } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "vision-model",
                 messages: [
@@ -228,34 +214,34 @@ describe("chat model allowlist", () => {
                 ],
             }),
         );
-        expect(res?.status).toBe(200);
+        expect(res.status).toBe(200);
     });
 
     test("passes a supported thinking level through", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
+        const { app, calls } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "vision-model",
                 messages: [{ role: "user", content: "hi" }],
                 reasoning_effort: "high",
             }),
         );
-        expect(res?.status).toBe(200);
+        expect(res.status).toBe(200);
         expect(upstreamBody(calls).reasoning_effort).toBe("high");
     });
 
     test("rejects a thinking level the model does not support", async () => {
-        const { relay, calls } = harness();
+        const { app, calls } = harness();
         for (const effort of ["max", "ultra"]) {
-            const res = await relay(
+            const res = await app.handle(
                 chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                     model: "vision-model",
                     messages: [{ role: "user", content: "hi" }],
                     reasoning_effort: effort,
                 }),
             );
-            expect(res?.status).toBe(400);
-            expect(await res?.json()).toMatchObject({
+            expect(res.status).toBe(400);
+            expect(await res.json()).toMatchObject({
                 error: { message: expect.stringContaining("思考强度") },
             });
         }
@@ -263,20 +249,20 @@ describe("chat model allowlist", () => {
     });
 
     test("rejects any thinking level for a model without effort control", async () => {
-        const { relay } = harness();
-        const res = await relay(
+        const { app } = harness();
+        const res = await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "text-model",
                 messages: [{ role: "user", content: "hi" }],
                 reasoning_effort: "low",
             }),
         );
-        expect(res?.status).toBe(400);
+        expect(res.status).toBe(400);
     });
 
     test("omits reasoning_effort when the conversation uses the default", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest(AI_CHAT_COMPLETIONS_PATH, {
                 model: "vision-model",
                 messages: [{ role: "user", content: "hi" }],
@@ -287,8 +273,8 @@ describe("chat model allowlist", () => {
     });
 
     test("legacy endpoint still forces one model and ignores the allowlist", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest(AI_CHAT_PATH, {
                 model: "vision-model",
                 messages: [{ role: "user", content: "hi" }],

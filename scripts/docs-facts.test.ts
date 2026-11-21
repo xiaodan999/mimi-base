@@ -19,9 +19,9 @@ const CURRENT_FILES = [
     ".github/workflows/ci.yml",
     ".github/workflows/images.yml",
     "vite.config.ts",
-    "server/ai-relay.ts",
+    "server/ai/relay.ts",
     "server/config.ts",
-    "server/feedback.ts",
+    "server/feedback/service.ts",
     "server/video.ts",
     "pocketbase/pb_hooks/dev_seed.pb.js",
 ];

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import { createAiRelay } from "./ai-relay";
+import { createApp } from "../../app";
+import { isPrivateIp } from "../../safe-fetch";
 import {
     AI_TOOLS_MEMORY_PATH,
     type AiToolsDeps,
     createAiToolsService,
     dayRangeUtc,
     htmlToText,
-} from "./ai-tools";
-import { isPrivateIp } from "./safe-fetch";
+} from "./index";
 
 const PB_BASE = "http://127.0.0.1:8090";
 
@@ -730,72 +730,78 @@ describe("ai tools service", () => {
 
 describe("tools relay wiring", () => {
     function relayHarness() {
-        return createAiRelay({
+        return createApp({
             pbBaseUrl: PB_BASE,
-            apiKey: "server-key",
-            model: "deepseek-v4.1-flash",
-            dailyLimit: 0,
-            fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
-                const url = new URL(String(input));
-                if (url.pathname.endsWith("/auth-refresh")) {
-                    const header =
-                        init?.headers instanceof Headers
-                            ? (init.headers.get("authorization") ?? "")
-                            : String(
-                                  (init?.headers as Record<string, string>)
-                                      ?.Authorization ?? "",
-                              );
-                    return header === "good-token"
-                        ? json({ record: { id: "user-1" } })
-                        : json({}, 401);
-                }
-                return json({});
-            }) as typeof fetch,
+            ai: {
+                pbBaseUrl: PB_BASE,
+                apiKey: "server-key",
+                model: "deepseek-v4.1-flash",
+                dailyLimit: 0,
+                fetch: (async (
+                    input: RequestInfo | URL,
+                    init?: RequestInit,
+                ) => {
+                    const url = new URL(String(input));
+                    if (url.pathname.endsWith("/auth-refresh")) {
+                        const header =
+                            init?.headers instanceof Headers
+                                ? (init.headers.get("authorization") ?? "")
+                                : String(
+                                      (init?.headers as Record<string, string>)
+                                          ?.Authorization ?? "",
+                                  );
+                        return header === "good-token"
+                            ? json({ record: { id: "user-1" } })
+                            : json({}, 401);
+                    }
+                    return json({});
+                }) as typeof fetch,
+            },
         });
     }
 
     test("requires a PocketBase token", async () => {
-        const relay = relayHarness();
-        const res = await relay(
+        const app = relayHarness();
+        const res = await app.handle(
             new Request("http://relay.test/api/ai/tools/memory", {
                 method: "POST",
                 body: JSON.stringify({ action: "list" }),
             }),
         );
-        expect(res?.status).toBe(401);
+        expect(res.status).toBe(401);
     });
 
     test("rejects non-object bodies", async () => {
-        const relay = relayHarness();
-        const res = await relay(
+        const app = relayHarness();
+        const res = await app.handle(
             new Request("http://relay.test/api/ai/tools/memory", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify([1, 2]),
             }),
         );
-        expect(res?.status).toBe(400);
+        expect(res.status).toBe(400);
     });
 
     test("comments path is in the tools allowlist and needs auth", async () => {
-        const relay = relayHarness();
-        const anonymous = await relay(
+        const app = relayHarness();
+        const anonymous = await app.handle(
             new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 body: JSON.stringify({ limit: 1 }),
             }),
         );
-        expect(anonymous?.status).toBe(401);
+        expect(anonymous.status).toBe(401);
 
-        const authed = await relay(
+        const authed = await app.handle(
             new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify({ limit: 1 }),
             }),
         );
-        expect(authed?.status).toBe(200);
-        expect(await authed?.json()).toMatchObject({
+        expect(authed.status).toBe(200);
+        expect(await authed.json()).toMatchObject({
             ok: true,
             count: 0,
             items: [],
@@ -803,24 +809,24 @@ describe("tools relay wiring", () => {
     });
 
     test("comments share the 30/min data-tool rate limit", async () => {
-        const relay = relayHarness();
+        const app = relayHarness();
         for (let i = 0; i < 30; i += 1) {
-            const res = await relay(
+            const res = await app.handle(
                 new Request("http://relay.test/api/ai/tools/comments", {
                     method: "POST",
                     headers: { Authorization: "good-token" },
                     body: JSON.stringify({ limit: 1 }),
                 }),
             );
-            expect(res?.status).toBe(200);
+            expect(res.status).toBe(200);
         }
-        const limited = await relay(
+        const limited = await app.handle(
             new Request("http://relay.test/api/ai/tools/comments", {
                 method: "POST",
                 headers: { Authorization: "good-token" },
                 body: JSON.stringify({ limit: 1 }),
             }),
         );
-        expect(limited?.status).toBe(429);
+        expect(limited.status).toBe(429);
     });
 });

@@ -7,7 +7,7 @@ import {
     normalizeThinkingLevel,
     pickDefaultChatModel,
     resolveChatModels,
-} from "./chat-models";
+} from "./models";
 
 describe("resolveChatModels", () => {
     test("exposes exactly the three chat models by default", () => {

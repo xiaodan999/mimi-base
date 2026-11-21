@@ -1,33 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-    AI_CHAT_PATH,
-    AI_HEALTH_PATH,
-    type AiRelayDeps,
-    createAiRelay,
-} from "./ai-relay";
+import { createApp } from "../app";
+import { AI_CHAT_PATH, AI_HEALTH_PATH } from "../routes/ai";
+import { apiRequest, authHeader, json } from "../test-helpers";
+import type { AiRelayDeps } from "./relay";
 
 const PB_BASE = "http://127.0.0.1:8090";
 const UPSTREAM = "https://opencode.ai/zen/go/v1/chat/completions";
 
 type Call = { url: string; init?: RequestInit };
-
-function json(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { "content-type": "application/json" },
-    });
-}
-
-function authHeader(init?: RequestInit): string {
-    const headers = init?.headers;
-    if (!headers) return "";
-    if (headers instanceof Headers) {
-        return headers.get("authorization") ?? "";
-    }
-    const record = headers as Record<string, string>;
-    return record.Authorization ?? record.authorization ?? "";
-}
 
 function harness(overrides: Partial<AiRelayDeps> = {}) {
     const calls: Call[] = [];
@@ -44,15 +25,18 @@ function harness(overrides: Partial<AiRelayDeps> = {}) {
         return json({ choices: [{ message: { content: "ok" } }] });
     }) as typeof fetch;
 
-    const relay = createAiRelay({
+    const app = createApp({
         pbBaseUrl: PB_BASE,
-        apiKey: "server-key",
-        model: "deepseek-v4.1-flash",
-        dailyLimit: 0,
-        fetch: fetchImpl,
-        ...overrides,
+        ai: {
+            pbBaseUrl: PB_BASE,
+            apiKey: "server-key",
+            model: "deepseek-v4.1-flash",
+            dailyLimit: 0,
+            fetch: fetchImpl,
+            ...overrides,
+        },
     });
-    return { relay, calls, authCalls: () => authCalls };
+    return { app, calls, authCalls: () => authCalls };
 }
 
 function request(path: string, init: RequestInit = {}): Request {
@@ -61,15 +45,14 @@ function request(path: string, init: RequestInit = {}): Request {
 
 function chatRequest(
     options: {
-        token?: string;
+        token?: string | null;
         headers?: Record<string, string>;
         body?: unknown;
     } = {},
 ): Request {
-    return request(AI_CHAT_PATH, {
-        method: "POST",
+    return apiRequest(AI_CHAT_PATH, {
+        token: options.token === undefined ? "good-token" : options.token,
         headers: {
-            Authorization: options.token ?? "good-token",
             "Content-Type": "application/json",
             ...options.headers,
         },
@@ -89,88 +72,105 @@ function upstreamCall(calls: Call[]): Call {
 }
 
 describe("routing", () => {
-    test("non-/ai requests are left to main.ts", async () => {
-        const { relay } = harness();
-        expect(await relay(request("/api/feedback/report"))).toBeNull();
-        expect(await relay(request("/aix"))).toBeNull();
+    test("unknown non-API paths fall through to static", async () => {
+        const { app } = harness();
+        const res = await app.handle(
+            new Request("http://relay.test/feedback", { method: "GET" }),
+        );
+        expect(res.status).toBe(404);
+        expect(await res.json()).toMatchObject({
+            error: { code: "not_found" },
+        });
     });
 
     test("OPTIONS returns CORS preflight", async () => {
-        const { relay } = harness();
-        const res = await relay(request(AI_CHAT_PATH, { method: "OPTIONS" }));
-        expect(res?.status).toBe(204);
-        expect(res?.headers.get("access-control-allow-origin")).toBe("*");
-        expect(res?.headers.get("access-control-allow-methods")).toContain(
+        const { app } = harness();
+        const res = await app.handle(
+            request(AI_CHAT_PATH, { method: "OPTIONS" }),
+        );
+        expect(res.status).toBe(204);
+        expect(res.headers.get("access-control-allow-origin")).toBe("*");
+        expect(res.headers.get("access-control-allow-methods")).toContain(
             "POST",
         );
     });
 
     test("health reports key/model without auth", async () => {
-        const { relay } = harness();
-        const res = await relay(request(AI_HEALTH_PATH));
-        expect(res?.status).toBe(200);
-        expect(await res?.json()).toEqual({
+        const { app } = harness();
+        const res = await app.handle(
+            new Request(`http://relay.test${AI_HEALTH_PATH}`),
+        );
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({
             ok: true,
             keyConfigured: true,
             model: "deepseek-v4.1-flash",
         });
     });
 
-    test("unknown /ai paths are 404", async () => {
-        const { relay } = harness();
-        const res = await relay(request("/api/ai/nope"));
-        expect(res?.status).toBe(404);
+    test("unknown /ai paths are 404 once authenticated", async () => {
+        const { app } = harness();
+        const res = await app.handle(
+            request("/api/ai/nope", {
+                headers: { Authorization: "good-token" },
+            }),
+        );
+        expect(res.status).toBe(404);
     });
 
-    test("the retired attachment route is a 404 and calls nothing", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
-            request("/api/ai/files", { method: "POST", body: "x" }),
+    test("the retired attachment route is a 404 and calls nothing upstream", async () => {
+        const { app, calls } = harness();
+        const res = await app.handle(
+            apiRequest("/api/ai/files", {
+                method: "POST",
+                token: "good-token",
+                body: "x",
+            }),
         );
-        expect(res?.status).toBe(404);
-        expect(calls).toHaveLength(0);
+        expect(res.status).toBe(404);
+        expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
     });
 });
 
 describe("auth", () => {
     test("missing token is 401 and never reaches upstream", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(chatRequest({ token: "" }));
-        expect(res?.status).toBe(401);
+        const { app, calls } = harness();
+        const res = await app.handle(chatRequest({ token: null }));
+        expect(res.status).toBe(401);
         expect(calls).toHaveLength(0);
     });
 
     test("invalid token is 401", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(chatRequest({ token: "bad-token" }));
-        expect(res?.status).toBe(401);
+        const { app, calls } = harness();
+        const res = await app.handle(chatRequest({ token: "bad-token" }));
+        expect(res.status).toBe(401);
         expect(calls).toHaveLength(1); // auth-refresh only
     });
 
     test("valid tokens are cached briefly", async () => {
-        const { relay, authCalls } = harness();
-        expect((await relay(chatRequest()))?.status).toBe(200);
-        expect((await relay(chatRequest()))?.status).toBe(200);
+        const { app, authCalls } = harness();
+        expect((await app.handle(chatRequest())).status).toBe(200);
+        expect((await app.handle(chatRequest())).status).toBe(200);
         expect(authCalls()).toBe(1);
     });
 });
 
 describe("request forwarding", () => {
     test("uses the server key and ignores a client-supplied key", async () => {
-        const { relay, calls } = harness();
-        const res = await relay(
+        const { app, calls } = harness();
+        const res = await app.handle(
             chatRequest({ headers: { "x-opencode-key": "sk-user" } }),
         );
-        expect(res?.status).toBe(200);
+        expect(res.status).toBe(200);
         const upstream = upstreamCall(calls);
         expect(authHeader(upstream.init)).toBe("Bearer server-key");
     });
 
     test("uses a custom API base when configured", async () => {
-        const { relay, calls } = harness({
+        const { app, calls } = harness({
             apiUrl: "http://127.0.0.1:4000/v1/",
         });
-        expect((await relay(chatRequest()))?.status).toBe(200);
+        expect((await app.handle(chatRequest())).status).toBe(200);
         expect(
             calls.some(
                 (call) =>
@@ -181,14 +181,14 @@ describe("request forwarding", () => {
     });
 
     test("blank API base keeps the OpenCode default", async () => {
-        const { relay, calls } = harness({ apiUrl: "  " });
-        await relay(chatRequest());
+        const { app, calls } = harness({ apiUrl: "  " });
+        await app.handle(chatRequest());
         expect(calls.some((call) => call.url === UPSTREAM)).toBe(true);
     });
 
     test("forces the server model and clamps max_tokens", async () => {
-        const { relay, calls } = harness();
-        await relay(
+        const { app, calls } = harness();
+        await app.handle(
             chatRequest({
                 body: {
                     model: "gpt-4o",
@@ -205,19 +205,19 @@ describe("request forwarding", () => {
     });
 
     test("missing server key is 503", async () => {
-        const { relay, calls } = harness({ apiKey: "" });
-        const res = await relay(chatRequest());
-        expect(res?.status).toBe(503);
+        const { app, calls } = harness({ apiKey: "" });
+        const res = await app.handle(chatRequest());
+        expect(res.status).toBe(503);
         expect(calls.some((call) => call.url === UPSTREAM)).toBe(false);
     });
 
     test("oversized bodies are 413", async () => {
-        const { relay } = harness();
+        const { app } = harness();
         const big = JSON.stringify({
             messages: [],
             padding: "x".repeat(16 * 1024 * 1024 + 1),
         });
-        const res = await relay(
+        const res = await app.handle(
             request(AI_CHAT_PATH, {
                 method: "POST",
                 headers: {
@@ -227,7 +227,10 @@ describe("request forwarding", () => {
                 body: big,
             }),
         );
-        expect(res?.status).toBe(413);
+        expect(res.status).toBe(413);
+        expect(await res.json()).toMatchObject({
+            error: { code: "payload_too_large" },
+        });
     });
 
     test("upstream errors are sanitized", async () => {
@@ -237,40 +240,44 @@ describe("request forwarding", () => {
             }
             return json({ error: { message: "secret upstream detail" } }, 500);
         }) as typeof fetch;
-        const relay = createAiRelay({
+        const app = createApp({
             pbBaseUrl: PB_BASE,
-            apiKey: "server-key",
-            model: "deepseek-v4.1-flash",
-            dailyLimit: 0,
             fetch: fetchImpl,
+            ai: {
+                pbBaseUrl: PB_BASE,
+                apiKey: "server-key",
+                model: "deepseek-v4.1-flash",
+                dailyLimit: 0,
+                fetch: fetchImpl,
+            },
         });
-        const res = await relay(chatRequest());
-        expect(res?.status).toBe(502);
-        const text = await res!.text();
+        const res = await app.handle(chatRequest());
+        expect(res.status).toBe(502);
+        const text = await res.text();
         expect(text).not.toContain("secret upstream detail");
     });
 });
 
 describe("limits", () => {
     test("daily limit returns 429", async () => {
-        const { relay } = harness({ dailyLimit: 1 });
-        expect((await relay(chatRequest()))?.status).toBe(200);
-        const res = await relay(chatRequest());
-        expect(res?.status).toBe(429);
-        expect(await res?.json()).toMatchObject({
+        const { app } = harness({ dailyLimit: 1 });
+        expect((await app.handle(chatRequest())).status).toBe(200);
+        const res = await app.handle(chatRequest());
+        expect(res.status).toBe(429);
+        expect(await res.json()).toMatchObject({
             error: { message: expect.stringContaining("次数用完") },
         });
     });
 
     test("minute limit resets after the window", async () => {
         let time = 1_000_000;
-        const { relay } = harness({ now: () => time });
+        const { app } = harness({ now: () => time });
         for (let i = 0; i < 20; i++) {
-            expect((await relay(chatRequest()))?.status).toBe(200);
+            expect((await app.handle(chatRequest())).status).toBe(200);
         }
-        expect((await relay(chatRequest()))?.status).toBe(429);
+        expect((await app.handle(chatRequest())).status).toBe(429);
         time += 60_001;
-        expect((await relay(chatRequest()))?.status).toBe(200);
+        expect((await app.handle(chatRequest())).status).toBe(200);
     });
 });
 
@@ -304,20 +311,24 @@ describe("streaming", () => {
             );
         }) as typeof fetch;
 
-        const relay = createAiRelay({
+        const app = createApp({
             pbBaseUrl: PB_BASE,
-            apiKey: "server-key",
-            model: "deepseek-v4.1-flash",
-            dailyLimit: 0,
             fetch: fetchImpl,
+            ai: {
+                pbBaseUrl: PB_BASE,
+                apiKey: "server-key",
+                model: "deepseek-v4.1-flash",
+                dailyLimit: 0,
+                fetch: fetchImpl,
+            },
         });
 
-        const res = await relay(chatRequest());
-        expect(res?.status).toBe(200);
-        expect(res?.headers.get("content-type")).toBe("text/event-stream");
-        expect(res?.headers.get("x-accel-buffering")).toBe("no");
+        const res = await app.handle(chatRequest());
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toBe("text/event-stream");
+        expect(res.headers.get("x-accel-buffering")).toBe("no");
 
-        const reader = res!.body!.getReader();
+        const reader = res.body!.getReader();
         const first = await reader.read();
         expect(new TextDecoder().decode(first.value)).toBe("data: one\n\n");
         expect(secondSent).toBe(false);
