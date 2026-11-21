@@ -5,11 +5,6 @@ import {
     useQueryClient,
 } from "@tanstack/react-query";
 
-import {
-    type ChatConversationRecord,
-    toChatConversation,
-} from "@/app/chat/records";
-import type { ChatConversation } from "@/app/chat/types";
 import { useCurrentUser } from "@/lib/auth";
 import { apiUrl } from "@/lib/env";
 import pb from "@/lib/pb";
@@ -432,25 +427,6 @@ export function useFeedbackIssueStates(reports: FeedbackReportRecord[]) {
         },
         staleTime: 60_000,
         retry: false,
-    });
-}
-
-/** Same cache entry as the chat list, so both pages share one fetch. */
-export function useFeedbackConversations() {
-    const user = useCurrentUser();
-    return useQuery({
-        queryKey: qk.chat.conversations(user.id),
-        queryFn: async (): Promise<ChatConversation[]> =>
-            (
-                await pb
-                    .collection("chat_conversations")
-                    .getFullList<ChatConversationRecord>({
-                        filter: pb.filter("owner = {:owner}", {
-                            owner: user.id,
-                        }),
-                        sort: "-updated",
-                    })
-            ).map(toChatConversation),
     });
 }
 

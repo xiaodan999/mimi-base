@@ -11,11 +11,11 @@ import {
 import { DinnerWheel } from "@/app/dinner/components/wheel";
 import { useDinnerOptions } from "@/app/dinner/data";
 import { type DinnerOption, spinPlan, spinTurns } from "@/app/dinner/options";
+import { useNewPostMutation } from "@/app/feed/data";
+import { buildPostMediaFields } from "@/app/feed/utils";
 import { ErrorState } from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useCurrentUser } from "@/lib/auth";
-import pb from "@/lib/pb";
 import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
@@ -23,13 +23,16 @@ import { cn } from "@/lib/utils";
 /** Must match the rotor transition in globals.css (`dinner-wheel-rotor`). */
 const SPIN_MS = 4200;
 
+/** Nothing to upload; the builder still supplies the empty media fields. */
+const EMPTY_MEDIA = buildPostMediaFields([]);
+
 export const Route = createFileRoute("/_protected/_main/dinner/")({
     component: Page,
 });
 
 function Page() {
-    const user = useCurrentUser();
     const queryClient = useQueryClient();
+    const newPost = useNewPostMutation();
     const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
     const {
         data: options = [],
@@ -103,9 +106,10 @@ function Page() {
         setSaving(true);
         try {
             await toastPromise(
-                pb.collection("posts").create({
+                newPost.mutateAsync({
                     text: `[晚餐抽奖机]: ${picked.name}`,
-                    author_id: user.id,
+                    layout: "twitter",
+                    media: EMPTY_MEDIA,
                 }),
                 {
                     loading: `正在记录晚餐「${picked.name}」…`,

@@ -8,7 +8,7 @@ import {
 import { useCallback } from "react";
 
 import { useCurrentUser } from "@/lib/auth";
-import pb, { pbDate } from "@/lib/pb";
+import pb, { ensureFileToken, pbDate } from "@/lib/pb";
 import {
     type PostLayout,
     type PostLikeRecord,
@@ -157,6 +157,42 @@ export function usePostsInfinite(pageSize = 10, filter: PostFilter = {}) {
     }, [queryClient, queryKey, refetch]);
 
     return { ...query, refresh };
+}
+
+/** One recent post, as the chat's 从动态选择图片 sheet paints it. */
+export type RecentImagePost = {
+    id: string;
+    collectionId?: string;
+    collectionName?: string;
+    text?: string;
+    images?: string[];
+    thumbs?: string[];
+    created: string;
+};
+
+/**
+ * Recent posts that actually carry photos. The chat picker reuses the feed's
+ * file-token plumbing instead of querying `posts` itself.
+ */
+export function useRecentImagePosts(enabled: boolean) {
+    const user = useCurrentUser();
+
+    return useQuery({
+        queryKey: qk.posts.list(user.id, "with-images"),
+        enabled,
+        staleTime: 60_000,
+        queryFn: async ({ signal }): Promise<RecentImagePost[]> => {
+            await ensureFileToken();
+            const rows = await pb
+                .collection("posts")
+                .getList<RecentImagePost>(1, 40, {
+                    sort: "-created",
+                    fields: "id,collectionId,text,images,thumbs,created",
+                    signal,
+                });
+            return rows.items.filter((row) => (row.images?.length ?? 0) > 0);
+        },
+    });
 }
 
 /**

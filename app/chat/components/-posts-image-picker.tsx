@@ -1,42 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { imageToDataUrl } from "@/app/ai/image";
+import { type RecentImagePost, useRecentImagePosts } from "@/app/feed/data";
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { useCurrentUser } from "@/lib/auth";
-import pb, { ensureFileToken, getFileUrl } from "@/lib/pb";
+import { getFileUrl } from "@/lib/pb";
 import { pairThumbs } from "@/lib/photoFiles";
-import { qk } from "@/lib/query-keys";
-
-type PostImagesRecord = {
-    id: string;
-    collectionId?: string;
-    collectionName?: string;
-    text?: string;
-    images?: string[];
-    thumbs?: string[];
-    created: string;
-};
-
-/** Fetch recent posts and keep only the ones with images. */
-export async function fetchRecentPostsWithImages(
-    signal?: AbortSignal,
-): Promise<PostImagesRecord[]> {
-    await ensureFileToken();
-    const rows = await pb.collection("posts").getList<PostImagesRecord>(1, 40, {
-        sort: "-created",
-        fields: "id,collectionId,text,images,thumbs,created",
-        requestKey: signal ? undefined : null,
-    });
-    return rows.items.filter((row) => (row.images?.length ?? 0) > 0);
-}
 
 /**
  * Pick an image you already posted: the grid shows recent posts' images;
@@ -52,17 +27,11 @@ export function PostsImagePicker({
     onOpenChange: (open: boolean) => void;
     onPicked: (dataUrl: string) => void;
 }) {
-    const user = useCurrentUser();
     const [loadingId, setLoadingId] = useState<string | null>(null);
-    const postsQuery = useQuery({
-        queryKey: qk.posts.list(user.id, "with-images"),
-        queryFn: ({ signal }) => fetchRecentPostsWithImages(signal),
-        enabled: open,
-        staleTime: 60_000,
-    });
+    const postsQuery = useRecentImagePosts(open);
     const posts = useMemo(() => postsQuery.data ?? [], [postsQuery.data]);
 
-    const pick = async (post: PostImagesRecord, filename: string) => {
+    const pick = async (post: RecentImagePost, filename: string) => {
         const key = `${post.id}:${filename}`;
         setLoadingId(key);
         try {

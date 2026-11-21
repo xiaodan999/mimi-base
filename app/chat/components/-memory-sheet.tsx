@@ -1,6 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Brain, Trash2 } from "lucide-react";
 
+import { useDeleteChatMemory } from "@/app/chat/data";
 import type { ChatMemory } from "@/app/chat/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,9 +10,6 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
-import { useCurrentUser } from "@/lib/auth";
-import pb from "@/lib/pb";
-import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
 /**
@@ -31,21 +28,14 @@ export function MemorySheet({
     memories: readonly ChatMemory[];
     loading: boolean;
 }) {
-    const user = useCurrentUser();
-    const queryClient = useQueryClient();
+    const deleteMemory = useDeleteChatMemory();
 
     const remove = (memory: ChatMemory) => {
-        void toastPromise(pb.collection("chat_memories").delete(memory.id), {
+        void toastPromise(deleteMemory.mutateAsync(memory.id), {
             loading: "删除中…",
             success: "已忘记这条",
             error: "删除失败",
-        })
-            .then(() =>
-                queryClient.invalidateQueries({
-                    queryKey: qk.chat.memories(user.id),
-                }),
-            )
-            .catch(() => {});
+        }).catch(() => {});
     };
 
     return (

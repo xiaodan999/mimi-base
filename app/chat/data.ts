@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import { fetchChatModels } from "@/app/chat/api";
@@ -150,6 +150,21 @@ export function chatMemoriesQueryOptions(
 export function useChatMemories() {
     const user = useCurrentUser();
     return useQuery(chatMemoriesQueryOptions(user.id));
+}
+
+/** Forget one saved fact from the 「AI 的记忆」 sheet. */
+export function useDeleteChatMemory() {
+    const user = useCurrentUser();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (memoryId: string) =>
+            pb.collection("chat_memories").delete(memoryId),
+        onSuccess: () =>
+            queryClient.invalidateQueries({
+                queryKey: qk.chat.memories(user.id),
+            }),
+    });
 }
 
 /* ------------------------------- mutations ------------------------------ */

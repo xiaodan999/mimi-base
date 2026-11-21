@@ -11,9 +11,9 @@ import { toast } from "sonner";
 
 import { useAi } from "@/app/ai/AiContext";
 import { AiError, aiErrorText, chatJSON } from "@/app/ai/client";
+import { useChatConversations } from "@/app/chat/data";
 import {
     type FeedbackIssue,
-    useFeedbackConversations,
     useFeedbackReports,
     useSubmitFeedback,
 } from "@/app/feedback/data";
@@ -86,7 +86,7 @@ export function BugPanel({
         getFeedbackErrors,
     );
     const reports = useFeedbackReports();
-    const conversations = useFeedbackConversations();
+    const conversations = useChatConversations();
     // The id comes from the URL, but only a conversation this account can
     // actually read is shown and submitted; an invalid/stale id is dropped
     // silently (the report simply goes out without an attachment).
