@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import AiCoachCard from "@/app/ai/AiCoachCard";
 import AiPanel from "@/app/ai/AiPanel";
-import { weekKey, WEEKLY_CHIPS, weeklyMessages } from "@/app/ai/prompts";
-import { sprintPlanMessages } from "@/app/ai/study";
+import AiCoachCard from "@/app/study/ai/AiCoachCard";
+import { weekKey, WEEKLY_CHIPS, weeklyMessages } from "@/app/study/ai/prompts";
+import { sprintPlanMessages } from "@/app/study/ai/study";
 import { useCurrentUser } from "@/lib/auth";
 
 import {

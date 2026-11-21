@@ -17,9 +17,9 @@ import {
     throwIfAborted,
 } from "@/app/ai/client";
 import { imagesToDataUrls } from "@/app/ai/image";
-import { captionMessages } from "@/app/ai/posts";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import { captionMessages } from "@/app/feed/ai";
 import type { PostLayout } from "@/lib/pb-types";
 
 import {

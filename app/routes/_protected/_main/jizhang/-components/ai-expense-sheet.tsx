@@ -19,10 +19,10 @@ import {
     isAiCanceled,
     throwIfAborted,
 } from "@/app/ai/client";
-import { expenseReceiptMessages, expenseTextMessages } from "@/app/ai/expense";
 import { imageToDataUrl } from "@/app/ai/image";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import { expenseReceiptMessages, expenseTextMessages } from "@/app/ledger/ai";
 import {
     type ExpenseCategory,
     normalizeCategoryValue,

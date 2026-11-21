@@ -2,10 +2,10 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import AiPanel from "@/app/ai/AiPanel";
-import AiVariantSheet from "@/app/ai/AiVariantSheet";
 import { hashText } from "@/app/ai/cache";
-import { diagnoseWrongMessages, WRONG_CHIPS } from "@/app/ai/prompts";
-import { wrongOverviewMessages } from "@/app/ai/study";
+import AiVariantSheet from "@/app/study/ai/AiVariantSheet";
+import { diagnoseWrongMessages, WRONG_CHIPS } from "@/app/study/ai/prompts";
+import { wrongOverviewMessages } from "@/app/study/ai/study";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
 import { gameForModule } from "../games/registry";

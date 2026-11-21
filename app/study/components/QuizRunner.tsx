@@ -2,14 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import AiGradeSheet from "@/app/ai/AiGradeSheet";
 import AiPanel from "@/app/ai/AiPanel";
 import { hashText } from "@/app/ai/cache";
+import AiGradeSheet from "@/app/study/ai/AiGradeSheet";
 import {
     diagnoseWrongMessages,
     userAnswerText,
     WRONG_CHIPS,
-} from "@/app/ai/prompts";
+} from "@/app/study/ai/prompts";
 import { toast } from "@/lib/toast";
 import { useBackDismiss } from "@/lib/useBackDismiss";
 

@@ -11,9 +11,9 @@ const ROOT = join(import.meta.dir, "..", "..");
 
 const closablePanels = [
     "app/ai/AiPanel.tsx",
-    "app/ai/AiCoachCard.tsx",
-    "app/ai/AiVariantSheet.tsx",
-    "app/ai/AiGradeSheet.tsx",
+    "app/study/ai/AiCoachCard.tsx",
+    "app/study/ai/AiVariantSheet.tsx",
+    "app/study/ai/AiGradeSheet.tsx",
     "app/routes/_protected/_main/-home/memory-card.tsx",
     "app/routes/_protected/_main/jizhang/-components/ai-category-fix.tsx",
     "app/routes/_protected/_main/jizhang/-components/ai-expense-sheet.tsx",

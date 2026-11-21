@@ -5,8 +5,8 @@ import { useAi } from "@/app/ai/AiContext";
 import AiSheet from "@/app/ai/AiSheet";
 import { hashText, readAiCache } from "@/app/ai/cache";
 import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
-import { categoryGuessMessages } from "@/app/ai/expense";
 import { useAiTasks } from "@/app/ai/tasks";
+import { categoryGuessMessages } from "@/app/ledger/ai";
 import { normalizeCategoryValue } from "@/app/ledger/categories";
 import {
     type JiZhangItemData,

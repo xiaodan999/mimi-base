@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import AiVariantSheet from "@/app/ai/AiVariantSheet";
+import AiVariantSheet from "@/app/study/ai/AiVariantSheet";
 import { toast } from "@/lib/toast";
 
 import { shuffle, TYPE_ICON, TYPE_NAME } from "../engine";

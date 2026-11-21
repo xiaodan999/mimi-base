@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import AiPanel from "@/app/ai/AiPanel";
-import { CARD_CHIPS, explainCardMessages } from "@/app/ai/prompts";
+import { CARD_CHIPS, explainCardMessages } from "@/app/study/ai/prompts";
 import { toast } from "@/lib/toast";
 
 import { bumpDaily, shuffle } from "../engine";

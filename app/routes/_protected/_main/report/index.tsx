@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAi } from "@/app/ai/AiContext";
 import { hashText, readAiCache } from "@/app/ai/cache";
 import { AiError, aiErrorText, chatText, isAiCanceled } from "@/app/ai/client";
-import { reportLetterMessages } from "@/app/ai/report";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import { reportLetterMessages } from "@/app/report/ai";
 import {
     buildStudyReport,
     type TopPost,

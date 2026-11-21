@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useAi } from "@/app/ai/AiContext";
+import AiMarkdown from "@/app/ai/AiMarkdown";
+import AiSheet from "@/app/ai/AiSheet";
+import { hashText, readAiCache } from "@/app/ai/cache";
+import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
+import { decideAiRestore } from "@/app/ai/restore";
+import { useAiTasks } from "@/app/ai/tasks";
 import { TYPE_NAME } from "@/app/study/engine";
 import type { Answer, QuizItem, StudySubject } from "@/app/study/types";
 import { toast } from "@/lib/toast";
 
-import { useAi } from "./AiContext";
-import AiMarkdown from "./AiMarkdown";
-import AiSheet from "./AiSheet";
-import { hashText, readAiCache } from "./cache";
-import { aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { type AiGrade, gradeMessages, userAnswerText } from "./prompts";
-import { decideAiRestore } from "./restore";
-import { useAiTasks } from "./tasks";
 
 type Props = {
     open: boolean;

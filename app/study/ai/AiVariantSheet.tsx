@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useAi } from "@/app/ai/AiContext";
+import AiSheet from "@/app/ai/AiSheet";
+import { readAiCache } from "@/app/ai/cache";
+import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
+import { decideAiRestore } from "@/app/ai/restore";
+import { useAiTasks } from "@/app/ai/tasks";
 import type { QuizItem, StudySubject } from "@/app/study/types";
 import { toast } from "@/lib/toast";
 
-import { useAi } from "./AiContext";
-import AiSheet from "./AiSheet";
-import { readAiCache } from "./cache";
-import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { type AiVariantPayload, variantMessages } from "./prompts";
-import { decideAiRestore } from "./restore";
-import { useAiTasks } from "./tasks";
 
 type Props = {
     open: boolean;

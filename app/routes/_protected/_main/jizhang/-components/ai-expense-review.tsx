@@ -4,7 +4,7 @@ import type { DateRange } from "react-day-picker";
 
 import AiPanel from "@/app/ai/AiPanel";
 import { hashText } from "@/app/ai/cache";
-import { expenseReviewMessages } from "@/app/ai/expense";
+import { expenseReviewMessages } from "@/app/ledger/ai";
 import { getExpenseCategory } from "@/app/ledger/categories";
 import { useExpenseCategories } from "@/app/ledger/data";
 import { type ExpenseDay, summarizeDays } from "@/app/ledger/summary";

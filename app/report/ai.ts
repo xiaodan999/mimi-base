@@ -1,5 +1,5 @@
-import type { AiMessage } from "./client";
-import { fenceUntrusted, systemPrompt } from "./prompt-base";
+import type { AiMessage } from "@/app/ai/client";
+import { fenceUntrusted, systemPrompt } from "@/app/ai/prompt-base";
 
 const SYSTEM = systemPrompt(
     "帮用户写年度总结的老朋友",

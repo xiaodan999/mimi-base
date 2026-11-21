@@ -1,18 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useAi } from "@/app/ai/AiContext";
+import { readAiCache } from "@/app/ai/cache";
+import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
+import { decideAiRestore } from "@/app/ai/restore";
+import type { AiTask } from "@/app/ai/task-store";
+import { useAiTasks } from "@/app/ai/tasks";
 import { dayKey } from "@/app/study/engine";
 import { gameForModule } from "@/app/study/games/registry";
 import type { Progress, StudySubject } from "@/app/study/types";
 import { useCurrentUser } from "@/lib/auth";
 
-import { useAi } from "./AiContext";
-import { readAiCache } from "./cache";
-import { AiError, aiErrorText, chatJSON, isAiCanceled } from "./client";
 import { type AiPlan, planMessages } from "./prompts";
-import { decideAiRestore } from "./restore";
-import type { AiTask } from "./task-store";
-import { useAiTasks } from "./tasks";
 
 type Props = {
     subject: StudySubject;

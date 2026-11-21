@@ -1,5 +1,5 @@
-import { type AiMessage, visionMessage } from "./client";
-import { fenceUntrusted, systemPrompt } from "./prompt-base";
+import { type AiMessage, visionMessage } from "@/app/ai/client";
+import { fenceUntrusted, systemPrompt } from "@/app/ai/prompt-base";
 
 const SYSTEM = systemPrompt(
     "记账助手",

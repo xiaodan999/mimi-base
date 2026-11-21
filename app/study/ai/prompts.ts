@@ -1,3 +1,5 @@
+import type { AiMessage } from "@/app/ai/client";
+import { fenceUntrusted, systemPrompt } from "@/app/ai/prompt-base";
 import {
     answerText,
     cardStats,
@@ -13,9 +15,6 @@ import type {
     QuizItem,
     StudySubject,
 } from "@/app/study/types";
-
-import type { AiMessage } from "./client";
-import { fenceUntrusted, systemPrompt } from "./prompt-base";
 
 const SYSTEM = systemPrompt("学习搭子，擅长护理质控考试", "");
 

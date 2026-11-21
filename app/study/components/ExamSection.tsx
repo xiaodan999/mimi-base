@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import AiGradeSheet from "@/app/ai/AiGradeSheet";
+import AiGradeSheet from "@/app/study/ai/AiGradeSheet";
 
 import {
     answerText,

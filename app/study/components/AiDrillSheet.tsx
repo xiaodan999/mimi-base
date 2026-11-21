@@ -5,8 +5,8 @@ import AiSheet from "@/app/ai/AiSheet";
 import { readAiCache } from "@/app/ai/cache";
 import { AiError, aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { decideAiRestore } from "@/app/ai/restore";
-import { type DrillCandidate, drillPickMessages } from "@/app/ai/study";
 import { useAiTasks } from "@/app/ai/tasks";
+import { type DrillCandidate, drillPickMessages } from "@/app/study/ai/study";
 import { useCurrentUser } from "@/lib/auth";
 
 import { dayKey, shuffle } from "../engine";
