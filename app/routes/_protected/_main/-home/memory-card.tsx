@@ -1,12 +1,11 @@
 import { format } from "date-fns";
 import { History } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
-import { hashText, readAiCache } from "@/app/ai/cache";
+import { hashText } from "@/app/ai/cache";
 import { AiError, chatText } from "@/app/ai/client";
-import { decideAiRestore } from "@/app/ai/restore";
-import { useAiTasks } from "@/app/ai/tasks";
+import { useAiFeature } from "@/app/ai/use-ai-feature";
 import { memoryMessages } from "@/app/home/ai";
 import { type MemoryPost, useOnThisDay } from "@/app/home/data";
 import { useCurrentUser } from "@/lib/auth";
@@ -16,9 +15,7 @@ import { getFileUrl } from "@/lib/pb";
 export default function MemoryCard() {
     const user = useCurrentUser();
     const { settings } = useAi();
-    const { runTask, find, getResult, attend } = useAiTasks();
     const { data } = useOnThisDay();
-    const [line, setLine] = useState("");
 
     const key = useMemo(() => {
         if (!data?.length) return "";
@@ -31,59 +28,40 @@ export default function MemoryCard() {
     }, [data, user.id]);
     const group = `memory:${user.id}`;
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
-    useEffect(() => {
-        if (!key || !data?.length) {
-            setLine("");
-            return;
-        }
-        const decision = decideAiRestore<string>({
-            task: find(key),
-            result: getResult<string>(key),
-            cached: readAiCache<string>(key),
-            hasValue: (value) => value.trim().length > 0,
-        });
-        if (decision.kind === "ready") {
-            setLine(decision.value);
-            return;
-        }
-        // 失败 / 取消：回忆卡没有旁白也能用
-        if (decision.kind === "error" || decision.kind === "canceled") return;
+    const messages = useMemo(
+        () =>
+            data?.length
+                ? memoryMessages({
+                      dateLabel: format(new Date(), "M月d日"),
+                      texts: data
+                          .filter((post) => post.text.trim())
+                          .map((post) => ({
+                              yearsAgo: post.yearsAgo,
+                              text: post.text,
+                          })),
+                  })
+                : null,
+        [data],
+    );
 
-        // running / none：runTask 后台跑，不再自己 abort
-        const messages = memoryMessages({
-            dateLabel: format(new Date(), "M月d日"),
-            texts: data
-                .filter((post) => post.text.trim())
-                .map((post) => ({
-                    yearsAgo: post.yearsAgo,
-                    text: post.text,
-                })),
-        });
-        void runTask<string>({
-            key,
-            group,
-            cacheKey: key,
-            title: "去年今天",
-            href: "/home",
-            kind: "text",
-            resume: { messages },
-            run: async ({ signal }) => {
-                const text = await chatText(settings, messages, signal);
-                const value = text.trim();
-                if (!value) throw new AiError("AI 没写出内容");
-                return value;
-            },
-        })
-            .then((value) => setLine(value))
-            .catch(() => {
-                // 回忆卡没有旁白也能用
-            });
-    }, [key, settings, data]);
-
-    useEffect(() => {
-        return attend(group);
-    }, [group, attend]);
+    const feature = useAiFeature<string>({
+        key,
+        group,
+        title: "去年今天",
+        href: "/home",
+        kind: "text",
+        enabled: Boolean(key && data?.length),
+        hasValue: (value) => value.trim().length > 0,
+        resume: messages ? { messages } : undefined,
+        run: async ({ signal }) => {
+            if (!messages) throw new AiError("没有可回忆的内容");
+            const text = await chatText(settings, messages, signal);
+            const value = text.trim();
+            if (!value) throw new AiError("AI 没写出内容");
+            return value;
+        },
+    });
+    const line = feature.value ?? "";
 
     if (!data?.length) return null;
 

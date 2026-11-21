@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
 import { useAi } from "@/app/ai/AiContext";
-import { hashText, readAiCache } from "@/app/ai/cache";
-import { AiError, aiErrorText, chatText, isAiCanceled } from "@/app/ai/client";
-import { decideAiRestore } from "@/app/ai/restore";
-import { useAiTasks } from "@/app/ai/tasks";
+import { hashText } from "@/app/ai/cache";
+import { AiError, chatText } from "@/app/ai/client";
+import { useAiFeature } from "@/app/ai/use-ai-feature";
 import { reportLetterMessages } from "@/app/report/ai";
 import {
     buildStudyReport,
@@ -310,11 +309,6 @@ function ReportLetter({
 }) {
     const user = useCurrentUser();
     const { settings } = useAi();
-    const { runTask, attend, find, getResult } = useAiTasks();
-    const [letter, setLetter] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const ticketRef = useRef(0);
 
     const top = report.expenses.categories[0];
     const input = useMemo(
@@ -344,94 +338,32 @@ function ReportLetter({
         report.expenses.count === 0 &&
         study.questions === 0;
 
-    const restoreInput = (task: ReturnType<typeof find>) => ({
-        task,
-        result: getResult<string>(key),
-        cached: readAiCache<string>(key),
-        hasValue: (value: string) => value.trim().length > 0,
-    });
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
-    const run = useCallback(
-        async (force: boolean) => {
-            const ticket = ++ticketRef.current;
-            setLoading(true);
-            setError("");
-            if (force) setLetter("");
-            try {
-                const messages = reportLetterMessages(input);
-                const value = await runTask<string>({
-                    key,
-                    group: key,
-                    cacheKey: key,
-                    title: "年度小结",
-                    subtitle: `${year} 年的这一页`,
-                    href: "/report",
-                    kind: "text",
-                    force,
-                    summarize: () => "写好了",
-                    resume: { messages },
-                    run: async ({ signal }) => {
-                        const text = await chatText(settings, messages, signal);
-                        const trimmed = text.trim();
-                        if (!trimmed) {
-                            throw new AiError("AI 没写出内容，再试一次");
-                        }
-                        return trimmed;
-                    },
-                });
-                if (ticketRef.current === ticket) setLetter(value);
-            } catch (err) {
-                if (ticketRef.current !== ticket || isAiCanceled(err)) return;
-                // 重新写失败时别把之前写好的那封藏起来：缓存里的好结果优先于
-                // 这次 error（restore.test.ts:84-93 保护的正是这种情形）。
-                const decision = decideAiRestore<string>(
-                    restoreInput(find(key)),
-                );
-                if (decision.kind === "ready") {
-                    setLetter(decision.value);
-                    setError("");
-                } else {
-                    setError(aiErrorText(err));
-                }
-            } finally {
-                if (ticketRef.current === ticket) setLoading(false);
-            }
-        },
-        [find, getResult, input, key, runTask, settings, year],
-    );
+    const messages = useMemo(() => reportLetterMessages(input), [input]);
 
     // 打开 / 换 key 时统一决策：永远先看缓存（移除旧的 nonce===0 gate），
-    // 之后即使某次重新写失败，好缓存也不会被藏起来。
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 故意只在列出的依赖上重建
-    useEffect(() => {
-        if (empty) return;
-        const decision = decideAiRestore<string>(restoreInput(find(key)));
-        if (decision.kind === "ready") {
-            setLetter(decision.value);
-            setError("");
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "error") {
-            setError(decision.message);
-            setLoading(false);
-            return;
-        }
-        if (decision.kind === "canceled") {
-            setError("已取消");
-            setLoading(false);
-            return;
-        }
-        // running / none：run() 会接上同一个任务或开一个新的
-        void run(false);
-    }, [key, empty]);
-
-    // 在报告页上看着呢，完成时就不用再弹通知了
-    useEffect(() => {
-        if (empty) return;
-        return attend(key);
-    }, [empty, key, attend]);
+    // 之后即使某次重新写失败，好缓存也不会被藏起来（keepCacheOnError）。
+    const feature = useAiFeature<string>({
+        key,
+        title: "年度小结",
+        subtitle: `${year} 年的这一页`,
+        href: "/report",
+        kind: "text",
+        enabled: !empty,
+        hasValue: (value) => value.trim().length > 0,
+        keepCacheOnError: true,
+        resume: { messages },
+        run: async ({ signal }) => {
+            const text = await chatText(settings, messages, signal);
+            const trimmed = text.trim();
+            if (!trimmed) {
+                throw new AiError("AI 没写出内容，再试一次");
+            }
+            return trimmed;
+        },
+    });
+    const letter = feature.value ?? "";
+    const loading = feature.running;
+    const error = feature.error;
 
     return (
         <section className="mt-3 rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 shadow-soft">
@@ -449,7 +381,7 @@ function ReportLetter({
                     <button
                         type="button"
                         className="text-[11px] font-semibold text-primary"
-                        onClick={() => void run(true)}
+                        onClick={() => void feature.start({ force: true })}
                     >
                         重新写
                     </button>

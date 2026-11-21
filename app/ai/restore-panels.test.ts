@@ -21,11 +21,11 @@ const closablePanels = [
     "app/study/components/AiDrillSheet.tsx",
 ];
 
-describe("可关闭的 AI 面板统一用 decideAiRestore", () => {
+describe("可关闭的 AI 面板统一走恢复决策", () => {
     for (const file of closablePanels) {
         test(`${file} 不手写恢复逻辑`, () => {
             const source = readFileSync(join(ROOT, file), "utf8");
-            expect(source).toContain("decideAiRestore");
+            expect(source).toMatch(/decideAiRestore|useAiFeature/);
             // 「task.status === 'done' 后再 getResult/readAiCache」是被消灭的
             // 手写模式；running 的实时进度分支不算恢复决策，所以只禁 done。
             expect(source).not.toMatch(/status === ["']done["']/);
