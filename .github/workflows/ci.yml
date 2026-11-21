@@ -48,8 +48,8 @@ jobs:
             - name: Format check
               run: bun run format:check
 
-            - name: Unit tests
-              run: bun run test
+            - name: Unit tests with coverage
+              run: bun run test:coverage
 
             - name: Build
               run: bun run build
