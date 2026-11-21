@@ -16,6 +16,7 @@
 - 前端领域拆分：聊天数据/会话/组件移入 `app/chat/`，记账移入 `app/ledger/`，首页/报告/资料数据移到各自领域；分享页、反馈、晚餐等跨领域读写改走领域接口，反馈不再重复查询聊天会话。
 - AI 提示词回到各自领域（`app/ledger`、`app/feed`、`app/home`、`app/report`、`app/study/ai`），`app/ai` 不再依赖学习模块；新增 `useAiFeature` 统一缓存/恢复/任务流程，聊天工具按领域拆分。
 - 拆分聊天线程、评论抽屉、图片查看器、记账/报告/关于页；晚餐转盘和答题流程改成纯 reducer，反馈草稿共用一套状态。
+- 共享 UI 原语：空状态、媒体网格、可访问标签页、下拉选择和无限列表助手；三处浏览器自带确认框换成应用内确认弹窗。
 - 依赖升级：date-fns 4 + react-day-picker 9、pdf.js 5、Sonner 2、lucide-react 0.577、PocketBase SDK 0.29。
 - 升级到 React 19 + @react-three/fiber 9 + drei 10；学习页 3D 场景、聊天/PDF/分享和全部路由在 Chromium 冒烟通过，壳体积 157KB gzip（预算 168KB）。
 
