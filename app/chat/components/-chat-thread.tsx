@@ -49,6 +49,8 @@ import {
     withFileRead,
 } from "@/app/chat/attachments";
 import { latestPromptTokens } from "@/app/chat/context";
+import { useChatActions } from "@/app/chat/data";
+import type { LiveReply } from "@/app/chat/session/use-chat-session";
 import type {
     ChatAttachmentPart,
     ChatMessage,
@@ -74,8 +76,6 @@ import { isPdfFileName, MAX_PAGE_IMAGES } from "@/lib/chat-files";
 import { getFileUrl } from "@/lib/pb";
 import { cn } from "@/lib/utils";
 
-import { useChatActions } from "../-data";
-import type { LiveReply } from "../-use-chat-session";
 import { ArtifactPreviewProvider } from "./-artifact-viewer";
 import { AttachmentSheet } from "./-attachment-sheet";
 import { ChatComposer } from "./-chat-composer";

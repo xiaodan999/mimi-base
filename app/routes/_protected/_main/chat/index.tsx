@@ -2,19 +2,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { stopChatRun, useRunningConversationIds } from "@/app/chat/run-store";
-import type { ChatPersona } from "@/app/chat/types";
-
-import { ConversationList } from "./-components/-conversation-list";
-import { MemorySheet } from "./-components/-memory-sheet";
-import { NewChatSheet } from "./-components/-new-chat-sheet";
+import { ConversationList } from "@/app/chat/components/-conversation-list";
+import { MemorySheet } from "@/app/chat/components/-memory-sheet";
+import { NewChatSheet } from "@/app/chat/components/-new-chat-sheet";
 import {
     useChatActions,
     useChatConversations,
     useChatMemories,
     useChatModels,
     useChatPersonas,
-} from "./-data";
+} from "@/app/chat/data";
+import { stopChatRun, useRunningConversationIds } from "@/app/chat/run-store";
+import type { ChatPersona } from "@/app/chat/types";
 
 export const Route = createFileRoute("/_protected/_main/chat/")({
     component: ChatListPage,

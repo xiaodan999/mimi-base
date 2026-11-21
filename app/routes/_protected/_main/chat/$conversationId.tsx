@@ -8,6 +8,16 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ChatHeader } from "@/app/chat/components/-chat-header";
+import { ChatThread } from "@/app/chat/components/-chat-thread";
+import { ResumeBanner } from "@/app/chat/components/-resume-banner";
+import {
+    useChatActions,
+    useChatConversation,
+    useChatMessages,
+    useChatModels,
+    useChatPersonas,
+} from "@/app/chat/data";
 import { conversationToMarkdown, markdownFilename } from "@/app/chat/export";
 import {
     DEFAULT_PERSONA_NAME,
@@ -16,22 +26,11 @@ import {
 } from "@/app/chat/personas";
 import { previewText } from "@/app/chat/records";
 import { stopChatRun } from "@/app/chat/run-store";
+import { useChatSession } from "@/app/chat/session/use-chat-session";
 import type { ChatConversation, ChatMessage } from "@/app/chat/types";
 import LoadingPage from "@/components/LoadingPage";
 import { Button } from "@/components/ui/button";
 import { toastPromise } from "@/lib/toast-promise";
-
-import { ChatHeader } from "./-components/-chat-header";
-import { ChatThread } from "./-components/-chat-thread";
-import { ResumeBanner } from "./-components/-resume-banner";
-import {
-    useChatActions,
-    useChatConversation,
-    useChatMessages,
-    useChatModels,
-    useChatPersonas,
-} from "./-data";
-import { useChatSession } from "./-use-chat-session";
 
 export const Route = createFileRoute("/_protected/_main/chat/$conversationId")({
     component: ChatConversationPage,

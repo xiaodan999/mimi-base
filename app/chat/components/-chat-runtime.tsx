@@ -7,9 +7,8 @@ import {
 } from "@assistant-ui/react";
 import { useMemo } from "react";
 
+import type { LiveReply } from "@/app/chat/session/use-chat-session";
 import type { ChatMessage, ChatModel, ChatPart } from "@/app/chat/types";
-
-import type { LiveReply } from "../-use-chat-session";
 
 /** One speechSynthesis instance is enough for the whole app. */
 const speechAdapter = new WebSpeechSynthesisAdapter();

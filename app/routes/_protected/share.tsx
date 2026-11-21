@@ -1,10 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import { useChatActions, useChatModels } from "@/app/chat/data";
 import { DEFAULT_PERSONA_ID, resolvePersona } from "@/app/chat/personas";
 import LoadingPage from "@/components/LoadingPage";
-
-import { useChatActions, useChatModels } from "./_main/chat/-data";
 
 type ShareSearch = {
     title?: string;

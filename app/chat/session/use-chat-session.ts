@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
 import { findAttachmentPart } from "@/app/chat/attachments";
+import { appendMessageParts } from "@/app/chat/components/-chat-runtime";
+import { chatMemoriesQueryOptions, useChatActions } from "@/app/chat/data";
 import { appendUniqueMessage } from "@/app/chat/history";
 import {
     detectInterruptedRun,
@@ -58,9 +60,6 @@ import {
 } from "@/app/chat/user-input";
 import { useCurrentUser } from "@/lib/auth";
 import { qk } from "@/lib/query-keys";
-
-import { appendMessageParts } from "./-components/-chat-runtime";
-import { chatMemoriesQueryOptions, useChatActions } from "./-data";
 
 export type { LiveReply } from "@/app/chat/run-store";
 
