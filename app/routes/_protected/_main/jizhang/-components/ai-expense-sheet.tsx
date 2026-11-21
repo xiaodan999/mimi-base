@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
@@ -537,7 +538,7 @@ export default function AiExpenseSheet({
                                                 <Trash2 className="size-3.5" />
                                             </button>
                                         </div>
-                                        <select
+                                        <Select
                                             value={row.category}
                                             aria-label={`${row.name} 的分类`}
                                             onChange={(event) =>
@@ -546,7 +547,7 @@ export default function AiExpenseSheet({
                                                         event.target.value,
                                                 })
                                             }
-                                            className="mt-2 h-8 w-full rounded-lg border border-border/70 bg-background px-2 text-xs"
+                                            className="mt-2 h-8 w-full text-xs"
                                         >
                                             {categoryOptions.map((option) => (
                                                 <option
@@ -556,7 +557,7 @@ export default function AiExpenseSheet({
                                                     {option.label}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
                                     </li>
                                 );
                             })}

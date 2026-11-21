@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/lib/auth";
 import { toastPromise } from "@/lib/toast-promise";
@@ -331,7 +332,7 @@ export default function AiCategoryFix({
                                         <span className="min-w-0 flex-1 truncate text-sm">
                                             {row.itemName}
                                         </span>
-                                        <select
+                                        <Select
                                             value={value}
                                             aria-label={`${row.itemName} 的分类`}
                                             onChange={(event) =>
@@ -341,7 +342,7 @@ export default function AiCategoryFix({
                                                         event.target.value,
                                                 }))
                                             }
-                                            className="h-8 shrink-0 rounded-lg border border-border/70 bg-background px-2 text-xs"
+                                            className="h-8 shrink-0 text-xs"
                                         >
                                             <option value="">未分类</option>
                                             {categoryOptions.map((option) => (
@@ -352,7 +353,7 @@ export default function AiCategoryFix({
                                                     {option.label}
                                                 </option>
                                             ))}
-                                        </select>
+                                        </Select>
                                     </li>
                                 );
                             })}
