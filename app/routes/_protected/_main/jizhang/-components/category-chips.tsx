@@ -1,11 +1,10 @@
 import { Check, Plus, X } from "lucide-react";
 import * as React from "react";
 
+import type { ExpenseCategory } from "@/app/ledger/categories";
+import { useCreateExpenseCategory } from "@/app/ledger/data";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
-
-import type { ExpenseCategory } from "../-categories";
-import { useCreateExpenseCategory } from "../-data";
 
 type Props = {
     categories: ExpenseCategory[];

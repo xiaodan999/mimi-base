@@ -23,6 +23,11 @@ import { expenseReceiptMessages, expenseTextMessages } from "@/app/ai/expense";
 import { imageToDataUrl } from "@/app/ai/image";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import {
+    type ExpenseCategory,
+    normalizeCategoryValue,
+} from "@/app/ledger/categories";
+import { useAddJiZhang, useExpenseCategories } from "@/app/ledger/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingButton } from "@/components/ui/loading-button";
@@ -30,9 +35,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
 import showFilePicker from "@/lib/showFilePicker";
 import { toastPromise } from "@/lib/toast-promise";
-
-import { type ExpenseCategory, normalizeCategoryValue } from "../-categories";
-import { useAddJiZhang, useExpenseCategories } from "../-data";
 
 type DraftRow = {
     key: number;

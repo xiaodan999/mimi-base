@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, Tags } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -9,28 +9,22 @@ import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { categoryGuessMessages } from "@/app/ai/expense";
 import { decideAiRestore } from "@/app/ai/restore";
 import { useAiTasks } from "@/app/ai/tasks";
+import { normalizeCategoryValue } from "@/app/ledger/categories";
+import {
+    type ExpenseCategoryFixRow,
+    invalidateExpenseCaches,
+    updateExpenseRecordCategory,
+    useExpenseCategories,
+    useUncategorizedExpenses,
+} from "@/app/ledger/data";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Switch } from "@/components/ui/switch";
 import { useCurrentUser } from "@/lib/auth";
-import pb from "@/lib/pb";
-import { qk } from "@/lib/query-keys";
 import { toastPromise } from "@/lib/toast-promise";
 
-import {
-    type ExpenseCategory,
-    needsExpenseCategory,
-    normalizeCategoryValue,
-} from "../-categories";
-import { useExpenseCategories } from "../-data";
-
-type FixRow = {
-    id: string;
-    itemName: string;
-    /** Current value: "", "other", a built-in key, a custom id, or a stale id. */
-    category: string;
-};
+type FixRow = ExpenseCategoryFixRow;
 
 type GuessResponse = {
     items?: { name?: unknown; category?: unknown }[];
@@ -46,54 +40,6 @@ const APPLY_BATCH_SIZE = 5;
 function pbErrorText(error: unknown): string {
     if (error instanceof Error && error.message) return error.message;
     return "请稍后重试";
-}
-
-function useFixRows(
-    enabled: boolean,
-    includeOther: boolean,
-    categories: ExpenseCategory[],
-) {
-    const user = useCurrentUser();
-    return useQuery({
-        queryKey: qk.jiZhang.uncategorized(user.id, includeOther),
-        enabled,
-        queryFn: async (): Promise<FixRow[]> => {
-            const records = await pb.collection("ji_zhang_biao").getFullList<{
-                id: string;
-                item_name: string;
-                category?: string;
-            }>({
-                // updateRule is owner-scoped, so only list my own rows —
-                // other users' legacy rows would always fail to update.
-                filter: includeOther
-                    ? pb.filter("user_id = {:userId}", { userId: user.id })
-                    : pb.filter("category = {:empty} && user_id = {:userId}", {
-                          empty: "",
-                          userId: user.id,
-                      }),
-                fields: "id,item_name,category",
-                sort: "created",
-            });
-            return (
-                records
-                    .map((record) => ({
-                        id: record.id,
-                        itemName: record.item_name,
-                        category: record.category ?? "",
-                    }))
-                    // A row can hold a value that no longer resolves (a deleted
-                    // custom category, an old AI reply). The expense list shows
-                    // those as 其他 too, so include them here.
-                    .filter((row) =>
-                        needsExpenseCategory(
-                            row.category,
-                            includeOther,
-                            categories,
-                        ),
-                    )
-            );
-        },
-    });
 }
 
 export default function AiCategoryFix({
@@ -113,11 +59,8 @@ export default function AiCategoryFix({
         [categories],
     );
     const [includeOther, setIncludeOther] = useState(false);
-    const { data, isPending, isError, error, refetch } = useFixRows(
-        open,
-        includeOther,
-        categories,
-    );
+    const { data, isPending, isError, error, refetch } =
+        useUncategorizedExpenses(open, includeOther, categories);
     const [guesses, setGuesses] = useState<Record<string, string>>({});
     const [guessing, setGuessing] = useState(false);
     const [applying, setApplying] = useState(false);
@@ -254,9 +197,7 @@ export default function AiCategoryFix({
             const slice = updates.slice(start, start + APPLY_BATCH_SIZE);
             const results = await Promise.allSettled(
                 slice.map((item) =>
-                    pb.collection("ji_zhang_biao").update(item.id, {
-                        category: item.category,
-                    }),
+                    updateExpenseRecordCategory(item.id, item.category),
                 ),
             );
             results.forEach((result, index) => {
@@ -293,9 +234,7 @@ export default function AiCategoryFix({
                         : `补好了 ${done} 笔，${failures.length} 笔失败`,
                 error: (err) => `补分类失败：${pbErrorText(err)}`,
             });
-            await queryClient.invalidateQueries({
-                queryKey: qk.jiZhang.all,
-            });
+            invalidateExpenseCaches(queryClient);
             if (summary.failures.length === 0) {
                 onClose();
             } else {

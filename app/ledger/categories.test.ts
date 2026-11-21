@@ -8,7 +8,7 @@ import {
     mergeExpenseCategories,
     needsExpenseCategory,
     normalizeCategoryValue,
-} from "./-categories";
+} from "@/app/ledger/categories";
 
 const pet = categoryFromRecord({ id: "recPet", name: "宠物", icon: "paw" });
 

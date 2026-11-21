@@ -4,6 +4,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useAddJiZhang, useExpenseCategories } from "@/app/ledger/data";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -37,7 +38,6 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { toastPromise } from "@/lib/toast-promise";
 import { cn } from "@/lib/utils";
 
-import { useAddJiZhang, useExpenseCategories } from "../-data";
 import CategoryChips from "./category-chips";
 
 export default function AddJiZhangForm() {

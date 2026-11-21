@@ -4,7 +4,7 @@ import {
     categoryFromRecord,
     type ExpenseCategoryRecord,
     getExpenseCategory,
-} from "@/app/routes/_protected/_main/jizhang/-categories";
+} from "@/app/ledger/categories";
 import { cardStatsFromMeta, streakDays } from "@/app/study/engine";
 import { SUBJECT_META } from "@/app/study/meta";
 import { useCurrentUser } from "@/lib/auth";

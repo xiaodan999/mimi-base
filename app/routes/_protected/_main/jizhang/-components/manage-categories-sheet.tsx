@@ -2,22 +2,21 @@ import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import AiSheet from "@/app/ai/AiSheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { toastPromise } from "@/lib/toast-promise";
-import { cn } from "@/lib/utils";
-
 import {
     BUILTIN_EXPENSE_CATEGORIES,
     type ExpenseCategory,
-} from "../-categories";
+} from "@/app/ledger/categories";
 import {
     useCreateExpenseCategory,
     useDeleteExpenseCategory,
     useExpenseCategories,
     useUpdateExpenseCategory,
-} from "../-data";
+} from "@/app/ledger/data";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { toastPromise } from "@/lib/toast-promise";
+import { cn } from "@/lib/utils";
 
 const REASON = "删除后，用到它的账目会变成未分类。";
 

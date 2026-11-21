@@ -10,6 +10,15 @@ import { endOfDay, startOfDay, startOfMonth } from "date-fns";
 import { useCallback, useMemo } from "react";
 import { DateRange } from "react-day-picker";
 
+import {
+    BUILTIN_EXPENSE_CATEGORIES,
+    categoryFromRecord,
+    type ExpenseCategory,
+    type ExpenseCategoryRecord,
+    guessCategoryIcon,
+    needsExpenseCategory,
+    resolveExpenseCategory,
+} from "@/app/ledger/categories";
 import { useCurrentUser } from "@/lib/auth";
 import { getDateString } from "@/lib/date";
 import groupBy from "@/lib/groupBy";
@@ -21,18 +30,30 @@ import {
 } from "@/lib/pb-types";
 import { qk } from "@/lib/query-keys";
 
-import {
-    BUILTIN_EXPENSE_CATEGORIES,
-    categoryFromRecord,
-    type ExpenseCategory,
-    type ExpenseCategoryRecord,
-    guessCategoryIcon,
-    resolveExpenseCategory,
-} from "./-categories";
-
 // The view-model shape now lives in lib/pb-types.ts; keep re-exporting it so
-// `-summary` and its tests importing from `./-data` don't need to change.
+// `summary` and its tests importing from `@/app/ledger/data` don't change.
 export type { JiZhangItemData } from "@/lib/pb-types";
+
+/** Raw ledger write shared by the page mutation and the chat tool. */
+export async function createExpenseRecord(
+    input: { item: string; price: number; category?: string },
+    userId: string,
+): Promise<{ id: string }> {
+    // PocketBase has no column default for user_id, send it.
+    const record = await pb.collection("ji_zhang_biao").create({
+        item_name: input.item,
+        price: input.price,
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        user_id: userId,
+    });
+    return { id: record.id };
+}
+
+/** A new or removed expense also changes the home stats card. */
+export function invalidateExpenseCaches(queryClient: QueryClient) {
+    queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
+    queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
+}
 
 export function useJiZhang(range: DateRange | undefined) {
     const user = useCurrentUser();
@@ -97,18 +118,18 @@ export function useAddJiZhang() {
         mutationFn: async (
             newItem: Pick<JiZhangItemData, "itemName" | "price" | "category">,
         ) => {
-            // PocketBase has no column default for user_id, send it.
-            const record = await pb.collection("ji_zhang_biao").create({
-                item_name: newItem.itemName,
-                price: newItem.price,
-                category: newItem.category,
-                user_id: user.id,
-            });
+            const record = await createExpenseRecord(
+                {
+                    item: newItem.itemName,
+                    price: newItem.price,
+                    category: newItem.category,
+                },
+                user.id,
+            );
             return record.id;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
-            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
+            invalidateExpenseCaches(queryClient);
         },
     });
 }
@@ -125,8 +146,7 @@ export function useDeleteJiZhang() {
             if (!deleted) throw new Error("Failed to delete");
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
-            queryClient.invalidateQueries({ queryKey: qk.homeStats.all });
+            invalidateExpenseCaches(queryClient);
         },
     });
 }
@@ -137,12 +157,77 @@ export function useUpdateJiZhang() {
     return useMutation({
         mutationKey: qk.mutations.updateJiZhang(),
         mutationFn: async (patch: { id: string; category: string }) => {
-            await pb
-                .collection("ji_zhang_biao")
-                .update(patch.id, { category: patch.category });
+            await updateExpenseRecordCategory(patch.id, patch.category);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: qk.jiZhang.all });
+        },
+    });
+}
+
+/** One category PATCH; batching and error text stay with the caller. */
+export async function updateExpenseRecordCategory(
+    recordId: string,
+    category: string,
+) {
+    await pb.collection("ji_zhang_biao").update(recordId, { category });
+}
+
+export type ExpenseCategoryFixRow = {
+    id: string;
+    itemName: string;
+    /** Current value: "", "other", a built-in key, a custom id, or a stale id. */
+    category: string;
+};
+
+/**
+ * Rows the 补全分类 sheet can fix: never categorized, or with `includeOther`
+ * every row that renders as 其他 (including stale category ids).
+ */
+export function useUncategorizedExpenses(
+    enabled: boolean,
+    includeOther: boolean,
+    categories: ExpenseCategory[],
+) {
+    const user = useCurrentUser();
+    return useQuery({
+        queryKey: qk.jiZhang.uncategorized(user.id, includeOther),
+        enabled,
+        queryFn: async (): Promise<ExpenseCategoryFixRow[]> => {
+            const records = await pb.collection("ji_zhang_biao").getFullList<{
+                id: string;
+                item_name: string;
+                category?: string;
+            }>({
+                // updateRule is owner-scoped, so only list my own rows —
+                // other users' legacy rows would always fail to update.
+                filter: includeOther
+                    ? pb.filter("user_id = {:userId}", { userId: user.id })
+                    : pb.filter("category = {:empty} && user_id = {:userId}", {
+                          empty: "",
+                          userId: user.id,
+                      }),
+                fields: "id,item_name,category",
+                sort: "created",
+            });
+            return (
+                records
+                    .map((record) => ({
+                        id: record.id,
+                        itemName: record.item_name,
+                        category: record.category ?? "",
+                    }))
+                    // A row can hold a value that no longer resolves (a deleted
+                    // custom category, an old AI reply). The expense list shows
+                    // those as 其他 too, so include them here.
+                    .filter((row) =>
+                        needsExpenseCategory(
+                            row.category,
+                            includeOther,
+                            categories,
+                        ),
+                    )
+            );
         },
     });
 }

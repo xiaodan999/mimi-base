@@ -7,18 +7,18 @@ import { hashText, readAiCache } from "@/app/ai/cache";
 import { aiErrorText, chatJSON, isAiCanceled } from "@/app/ai/client";
 import { categoryGuessMessages } from "@/app/ai/expense";
 import { useAiTasks } from "@/app/ai/tasks";
+import { normalizeCategoryValue } from "@/app/ledger/categories";
+import {
+    type JiZhangItemData,
+    useExpenseCategories,
+    useUpdateJiZhang,
+} from "@/app/ledger/data";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { formatMoney } from "@/lib/money";
 import { toastPromise } from "@/lib/toast-promise";
 
-import { normalizeCategoryValue } from "../-categories";
-import {
-    type JiZhangItemData,
-    useExpenseCategories,
-    useUpdateJiZhang,
-} from "../-data";
 import CategoryChips from "./category-chips";
 
 type GuessResponse = {

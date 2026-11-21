@@ -28,6 +28,10 @@ import type {
     ChatUsage,
     SandboxFiles,
 } from "@/app/chat/types";
+import {
+    createExpenseRecord,
+    invalidateExpenseCaches,
+} from "@/app/ledger/data";
 import { useCurrentUser } from "@/lib/auth";
 import { isPdfFileName } from "@/lib/chat-files";
 import pb, { ensureFileToken, getFileUrl } from "@/lib/pb";
@@ -426,16 +430,18 @@ export function useChatActions() {
             price: number;
             category: string;
         }): Promise<{ id: string }> => {
-            const record = await pb.collection("ji_zhang_biao").create({
-                user_id: user.id,
-                item_name: input.item,
-                price: input.price,
-                ...(input.category !== "" ? { category: input.category } : {}),
-            });
-            await queryClient.invalidateQueries({
-                queryKey: qk.jiZhang.all,
-            });
-            return { id: record.id };
+            const record = await createExpenseRecord(
+                {
+                    item: input.item,
+                    price: input.price,
+                    ...(input.category !== ""
+                        ? { category: input.category }
+                        : {}),
+                },
+                user.id,
+            );
+            invalidateExpenseCaches(queryClient);
+            return record;
         },
         [queryClient, user.id],
     );

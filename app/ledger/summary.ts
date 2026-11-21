@@ -5,9 +5,8 @@ import {
     subDays,
 } from "date-fns";
 
+import type { JiZhangItemData } from "@/app/ledger/data";
 import { getDateString } from "@/lib/date";
-
-import type { JiZhangItemData } from "./-data";
 
 export type ExpenseDay = {
     date: string;

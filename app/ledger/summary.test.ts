@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { JiZhangItemData } from "./-data";
+import type { JiZhangItemData } from "@/app/ledger/data";
 import {
     buildTrend,
     type ExpenseDay,
     sumExpenses,
     summarizeDays,
-} from "./-summary";
+} from "@/app/ledger/summary";
 
 function expense(price: number, itemName = "测试"): JiZhangItemData {
     return {
