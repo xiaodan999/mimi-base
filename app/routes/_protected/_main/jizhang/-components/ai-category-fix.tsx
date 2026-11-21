@@ -17,6 +17,7 @@ import {
     useExpenseCategories,
     useUncategorizedExpenses,
 } from "@/app/ledger/data";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -293,17 +294,16 @@ export default function AiCategoryFix({
                         </button>
                     </div>
                 ) : rows.length === 0 ? (
-                    <div className="flex flex-col items-center rounded-2xl border border-dashed border-border/70 px-4 py-10 text-center">
-                        <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
-                            <Check className="size-5" />
-                        </span>
-                        <p className="mt-3 text-sm font-semibold">都分好类了</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            {includeOther
+                    <EmptyState
+                        className="px-4 py-10"
+                        description={
+                            includeOther
                                 ? "没有需要补的历史账目。"
-                                : "没有需要补的历史账目。想重分「其他」的话，打开上面的开关。"}
-                        </p>
-                    </div>
+                                : "没有需要补的历史账目。想重分「其他」的话，打开上面的开关。"
+                        }
+                        icon={<Check className="size-5" />}
+                        title="都分好类了"
+                    />
                 ) : (
                     <>
                         <p className="text-[12.5px] text-muted-foreground">

@@ -64,6 +64,7 @@ export default function CommentComposer({
                     {images.map((image, index) => (
                         <MediaTile
                             key={image.url}
+                            compact
                             className="size-14 shrink-0 rounded-lg"
                             media={{ type: "image", src: image.url }}
                             onRemove={() => onRemoveImage(index)}

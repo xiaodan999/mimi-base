@@ -43,6 +43,8 @@ type MediaTileProps = {
     overlay?: ReactNode;
     /** Drag affordances for the sort sheet; the handlers stay with the caller. */
     sortable?: boolean;
+    /** Smaller corner controls for thumbnails below ~4rem. */
+    compact?: boolean;
 };
 
 /**
@@ -64,6 +66,7 @@ export function MediaTile({
     removeLabel = "移除",
     overlay,
     sortable = false,
+    compact = false,
 }: MediaTileProps) {
     return (
         <div
@@ -139,10 +142,16 @@ export function MediaTile({
                     type="button"
                     aria-label={removeLabel}
                     disabled={disabled}
-                    className="absolute top-1.5 right-1.5 z-[3] grid size-7 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                    className={cn(
+                        "absolute top-1.5 right-1.5 z-[3] grid place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/80 disabled:opacity-50",
+                        compact ? "size-6" : "size-7",
+                    )}
                     onClick={onRemove}
                 >
-                    <X className="size-3.5" aria-hidden="true" />
+                    <X
+                        className={compact ? "size-3" : "size-3.5"}
+                        aria-hidden="true"
+                    />
                 </button>
             )}
         </div>
