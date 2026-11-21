@@ -1,4 +1,3 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
     useCallback,
     useEffect,
@@ -13,7 +12,6 @@ import {
     DialogDescription,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 import {
     clamp,
@@ -31,6 +29,8 @@ import {
     zoomAtPoint,
     type ZoomTransform,
 } from "./viewer-gestures";
+import ViewerSlides from "./viewer-slides";
+import ViewerToolbar from "./viewer-toolbar";
 
 export type ViewerImage = {
     name: string;
@@ -765,86 +765,27 @@ export default function ImageViewer({
                     onContextMenu={(event) => event.preventDefault()}
                     onDragStart={(event) => event.preventDefault()}
                 >
-                    <div
-                        ref={trackRef}
-                        className="absolute inset-0 flex will-change-transform"
-                        style={{
-                            transform: trackTransform(current, drag),
-                        }}
-                    >
-                        {images.map((image, imageIndex) => (
-                            <div
-                                key={image.name}
-                                className="relative flex h-full w-full shrink-0 items-center justify-center"
-                            >
-                                <img
-                                    ref={
-                                        imageIndex === current
-                                            ? imageRef
-                                            : undefined
-                                    }
-                                    src={image.url}
-                                    alt=""
-                                    draggable={false}
-                                    decoding="async"
-                                    onLoad={measure}
-                                    className="max-h-full max-w-full object-contain select-none [-webkit-touch-callout:none]"
-                                    style={
-                                        imageIndex === current
-                                            ? {
-                                                  transform:
-                                                      imageTransform(zoom),
-                                              }
-                                            : undefined
-                                    }
-                                />
-                            </div>
-                        ))}
-                    </div>
+                    <ViewerSlides
+                        images={images}
+                        current={current}
+                        zoom={zoom}
+                        drag={drag}
+                        trackRef={trackRef}
+                        imageRef={imageRef}
+                        measure={measure}
+                        trackTransform={trackTransform}
+                        imageTransform={imageTransform}
+                    />
                 </div>
 
-                <div
-                    className={cn(
-                        "pointer-events-none absolute inset-0 z-10 transition-opacity duration-200",
-                        chromeVisible ? "opacity-100" : "invisible opacity-0",
-                    )}
-                >
-                    <button
-                        type="button"
-                        onClick={() => onOpenChange(false)}
-                        aria-label="关闭"
-                        className="pointer-events-auto absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 rounded-full bg-white/15 p-2 active:bg-white/30"
-                    >
-                        <X className="size-5" />
-                    </button>
-
-                    {images.length > 1 && (
-                        <span className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 text-sm text-white/80">
-                            {current + 1}/{images.length}
-                        </span>
-                    )}
-
-                    {images.length > 1 && current > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => goTo(current - 1)}
-                            aria-label="上一张"
-                            className="pointer-events-auto absolute top-1/2 left-2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
-                        >
-                            <ChevronLeft className="size-5" />
-                        </button>
-                    )}
-                    {images.length > 1 && current < images.length - 1 && (
-                        <button
-                            type="button"
-                            onClick={() => goTo(current + 1)}
-                            aria-label="下一张"
-                            className="pointer-events-auto absolute top-1/2 right-2 hidden -translate-y-1/2 rounded-full bg-white/15 p-2 active:bg-white/30 sm:block"
-                        >
-                            <ChevronRight className="size-5" />
-                        </button>
-                    )}
-                </div>
+                <ViewerToolbar
+                    visible={chromeVisible}
+                    current={current}
+                    total={images.length}
+                    onClose={() => onOpenChange(false)}
+                    onPrev={() => goTo(current - 1)}
+                    onNext={() => goTo(current + 1)}
+                />
             </DialogContent>
         </Dialog>
     );
