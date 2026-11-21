@@ -2,6 +2,7 @@ import { Brain, Trash2 } from "lucide-react";
 
 import { useDeleteChatMemory } from "@/app/chat/data";
 import type { ChatMemory } from "@/app/chat/types";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
     Sheet,
@@ -61,11 +62,17 @@ export function MemorySheet({
                         </p>
                     )}
                     {!loading && memories.length === 0 && (
-                        <p className="py-8 text-center text-sm leading-relaxed text-muted-foreground">
-                            还没有记住任何事。
-                            <br />
-                            在聊天里说「记住：我对花生过敏」试试。
-                        </p>
+                        <EmptyState
+                            bare
+                            className="py-8"
+                            description={
+                                <>
+                                    还没有记住任何事。
+                                    <br />
+                                    在聊天里说「记住：我对花生过敏」试试。
+                                </>
+                            }
+                        />
                     )}
                     <ul className="space-y-1.5">
                         {memories.map((memory) => (

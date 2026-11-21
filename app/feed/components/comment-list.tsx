@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -205,9 +206,12 @@ export default function CommentList({
 
     if (threads.length === 0) {
         return (
-            <p className="py-10 text-center text-sm text-muted-foreground">
-                还没有评论，来说点什么吧
-            </p>
+            <EmptyState
+                bare
+                className="py-10"
+                description="还没有评论，来说点什么吧"
+                descriptionClassName="text-sm"
+            />
         );
     }
 

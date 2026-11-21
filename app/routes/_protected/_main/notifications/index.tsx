@@ -17,6 +17,7 @@ import {
     notificationExcerpt,
     notificationSearch,
 } from "@/app/notifications/format";
+import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import PageHeader from "@/components/PageHeader";
 import TouXiang from "@/components/TouXiang";
@@ -122,19 +123,20 @@ function Page() {
                     />
                 </div>
             ) : items.length === 0 ? (
-                <div className="mt-6 rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center">
-                    <Bell className="mx-auto size-8 text-muted-foreground" />
-                    <p className="mt-3 text-sm font-medium">还没有互动消息</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        有人赞了你的动态或评论、评论或回复你时，会出现在这里。
-                    </p>
-                    <Link
-                        to="/home"
-                        className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
-                    >
-                        去动态看看
-                    </Link>
-                </div>
+                <EmptyState
+                    action={
+                        <Link
+                            to="/home"
+                            className="inline-flex rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+                        >
+                            去动态看看
+                        </Link>
+                    }
+                    className="mt-6 p-8"
+                    description="有人赞了你的动态或评论、评论或回复你时，会出现在这里。"
+                    icon={<Bell className="size-6" aria-hidden="true" />}
+                    title="还没有互动消息"
+                />
             ) : (
                 <>
                     {notifications.isError && (

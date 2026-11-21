@@ -26,6 +26,7 @@ import {
     formatMonthLabel,
     isSameDay,
 } from "@/app/feed/utils";
+import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { FeedLoading } from "@/components/FeedLoading";
 import { Button } from "@/components/ui/button";
@@ -293,39 +294,48 @@ export default function HomeFeed() {
                                     : "到底了..."}
                             </p>
                         ) : filtering ? (
-                            <div className="mt-6 w-full rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">
-                                <SearchX className="mx-auto size-8 text-muted-foreground" />
-                                <p className="mt-3 text-sm font-medium">
-                                    {post
+                            <EmptyState
+                                action={
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void clearFilter()}
+                                    >
+                                        回到最新
+                                    </Button>
+                                }
+                                className="mt-6 w-full p-8"
+                                description={
+                                    post
+                                        ? "回到最新看看别的动态"
+                                        : "换个关键词或月份试试"
+                                }
+                                icon={
+                                    <SearchX
+                                        className="size-6"
+                                        aria-hidden="true"
+                                    />
+                                }
+                                title={
+                                    post
                                         ? "这条动态可能已经被删除了"
                                         : month
                                           ? "这个月还没有动态"
-                                          : "没有找到相关动态"}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {post
-                                        ? "回到最新看看别的动态"
-                                        : "换个关键词或月份试试"}
-                                </p>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-4"
-                                    onClick={() => void clearFilter()}
-                                >
-                                    回到最新
-                                </Button>
-                            </div>
+                                          : "没有找到相关动态"
+                                }
+                            />
                         ) : (
-                            <div className="mt-6 w-full rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center">
-                                <MessageCircle className="mx-auto size-8 text-muted-foreground" />
-                                <p className="mt-3 text-sm font-medium">
-                                    还没有动态
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    点右下角的按钮，记录第一条吧
-                                </p>
-                            </div>
+                            <EmptyState
+                                className="mt-6 w-full p-8"
+                                description="点右下角的按钮，记录第一条吧"
+                                icon={
+                                    <MessageCircle
+                                        className="size-6"
+                                        aria-hidden="true"
+                                    />
+                                }
+                                title="还没有动态"
+                            />
                         )}
                     </div>
                 </>

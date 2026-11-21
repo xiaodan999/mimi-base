@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import {
     Drawer,
@@ -142,9 +143,12 @@ export default function FindSheet({
                                     })}
                                 </div>
                             ) : (
-                                <p className="py-10 text-center text-sm text-muted-foreground">
-                                    还没有动态
-                                </p>
+                                <EmptyState
+                                    bare
+                                    className="py-10"
+                                    description="还没有动态"
+                                    descriptionClassName="text-sm"
+                                />
                             )}
                         </div>
                     </div>

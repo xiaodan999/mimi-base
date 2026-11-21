@@ -4,6 +4,7 @@ import { lazy, type ReactNode, Suspense } from "react";
 
 import { useStudy } from "@/app/study/components/StudyContext";
 import { getGame, isGameUnlocked } from "@/app/study/games/registry";
+import { EmptyState } from "@/components/EmptyState";
 
 // 每个板块、每个实战都是独立 chunk；games.css 也由这些 lazy chunk 自带，
 // 不再被 section 路由静态拖进来（打开知识卡 / 刷题时不会下载 1743 行游戏样式）。
@@ -130,13 +131,24 @@ function Section() {
             break;
         default:
             content = (
-                <div className="st-empty">
-                    <div className="ei">🚧</div>
-                    <div className="text-[15px] font-extrabold">
-                        这个板块还在施工
-                    </div>
-                    <div className="st-tiny mt-2">回到首页看看别的吧</div>
-                </div>
+                <EmptyState
+                    bare
+                    className="px-6 py-12"
+                    description="回到首页看看别的吧"
+                    icon={
+                        <span
+                            aria-hidden="true"
+                            className="text-2xl leading-none"
+                        >
+                            🚧
+                        </span>
+                    }
+                    title={
+                        <span className="text-[15px] font-extrabold">
+                            这个板块还在施工
+                        </span>
+                    }
+                />
             );
     }
 

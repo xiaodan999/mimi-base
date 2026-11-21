@@ -7,6 +7,7 @@ import { AiError, chatText } from "@/app/ai/client";
 import { useAiFeature } from "@/app/ai/use-ai-feature";
 import { reportLetterMessages } from "@/app/report/ai";
 import type { YearReport } from "@/app/report/data";
+import { EmptyState } from "@/components/EmptyState";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useCurrentUser } from "@/lib/auth";
 
@@ -106,9 +107,12 @@ export default function ReportLetter({
             </div>
 
             {empty ? (
-                <p className="mt-3 text-xs leading-6 text-muted-foreground">
-                    这一年还没有记录。先去发一条动态、记一笔账，明年再回来看看。
-                </p>
+                <EmptyState
+                    bare
+                    className="mt-3 items-start text-left"
+                    description="这一年还没有记录。先去发一条动态、记一笔账，明年再回来看看。"
+                    descriptionClassName="leading-6"
+                />
             ) : loading ? (
                 <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                     <LoadingSpinner size={14} />

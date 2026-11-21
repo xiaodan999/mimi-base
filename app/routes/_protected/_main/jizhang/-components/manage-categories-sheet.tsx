@@ -12,6 +12,7 @@ import {
     useExpenseCategories,
     useUpdateExpenseCategory,
 } from "@/app/ledger/data";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -154,10 +155,11 @@ export default function ManageCategoriesSheet({
                             加载分类中...
                         </div>
                     ) : customCategories.length === 0 ? (
-                        <p className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-center text-xs leading-6 text-muted-foreground">
-                            还没有自定义分类。记账时点「＋
-                            新建」就能加一个，或者用下面的按钮。
-                        </p>
+                        <EmptyState
+                            className="px-4 py-5"
+                            description="还没有自定义分类。记账时点「＋ 新建」就能加一个，或者用下面的按钮。"
+                            descriptionClassName="leading-6"
+                        />
                     ) : (
                         <ul className="space-y-1.5">
                             {customCategories.map((category) => {

@@ -2,6 +2,7 @@ import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toastPromise } from "@/lib/toast-promise";
@@ -171,9 +172,10 @@ export function DinnerManager({ options }: DinnerManagerProps) {
             )}
 
             {options.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                    还没有选项，在上面加一个想吃的吧。
-                </div>
+                <EmptyState
+                    className="py-6"
+                    description="还没有选项，在上面加一个想吃的吧。"
+                />
             ) : (
                 <ul className="grid gap-2 sm:grid-cols-2">
                     {options.map((option) => {

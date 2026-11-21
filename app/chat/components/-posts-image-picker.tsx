@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { imageToDataUrl } from "@/app/ai/image";
 import { type RecentImagePost, useRecentImagePosts } from "@/app/feed/data";
+import { EmptyState } from "@/components/EmptyState";
 import {
     Sheet,
     SheetContent,
@@ -65,9 +66,12 @@ export function PostsImagePicker({
                         </div>
                     )}
                     {postsQuery.isSuccess && posts.length === 0 && (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
-                            最近的动态里还没有图片。
-                        </p>
+                        <EmptyState
+                            bare
+                            className="py-8"
+                            description="最近的动态里还没有图片。"
+                            descriptionClassName="text-sm"
+                        />
                     )}
                     <div className="grid grid-cols-3 gap-1.5">
                         {posts.flatMap((post) =>

@@ -24,6 +24,7 @@ import {
     parseIssueNumber,
     parseRecordIssueState,
 } from "@/app/feedback/issue-state";
+import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import TouXiang from "@/components/TouXiang";
 import { Badge } from "@/components/ui/badge";
@@ -126,13 +127,11 @@ export function ReportList({
     }
     if (reports.length === 0) {
         return (
-            <div className="mt-3 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
-                <Inbox
-                    className="size-6 text-muted-foreground"
-                    aria-hidden="true"
-                />
-                <p className="text-sm text-muted-foreground">{emptyText}</p>
-            </div>
+            <EmptyState
+                className="mt-3 px-4 py-8"
+                description={<span className="text-sm">{emptyText}</span>}
+                icon={<Inbox className="size-6" aria-hidden="true" />}
+            />
         );
     }
 

@@ -6,6 +6,7 @@ import { hashText } from "@/app/ai/cache";
 import AiVariantSheet from "@/app/study/ai/AiVariantSheet";
 import { diagnoseWrongMessages, WRONG_CHIPS } from "@/app/study/ai/prompts";
 import { wrongOverviewMessages } from "@/app/study/ai/study";
+import { EmptyState } from "@/components/EmptyState";
 
 import { answerText, daysLeft, shuffle, streakDays } from "../engine";
 import { gameForModule } from "../games/registry";
@@ -106,20 +107,30 @@ export default function WrongSection() {
 
     if (!items.length) {
         return (
-            <div className="st-empty">
-                <div className="ei">🎯</div>
-                <div className="text-[15px] font-extrabold">错题本是空的</div>
-                <div className="st-tiny mt-2">
-                    做错的题会自动收进来，答对后自动移出
-                </div>
-                <Link
-                    to="/study/$subjectId/$section"
-                    params={{ subjectId: subject.id, section: "quiz" }}
-                    className="st-btn mt-4"
-                >
-                    去刷题
-                </Link>
-            </div>
+            <EmptyState
+                bare
+                action={
+                    <Link
+                        to="/study/$subjectId/$section"
+                        params={{ subjectId: subject.id, section: "quiz" }}
+                        className="st-btn"
+                    >
+                        去刷题
+                    </Link>
+                }
+                className="px-5 py-11"
+                description="做错的题会自动收进来，答对后自动移出"
+                icon={
+                    <span aria-hidden="true" className="text-2xl leading-none">
+                        🎯
+                    </span>
+                }
+                title={
+                    <span className="text-[15px] font-extrabold">
+                        错题本是空的
+                    </span>
+                }
+            />
         );
     }
 

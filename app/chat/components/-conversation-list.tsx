@@ -25,6 +25,7 @@ import {
 import { findPersona } from "@/app/chat/personas";
 import type { ChatConversation, ChatPersona } from "@/app/chat/types";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EmptyState } from "@/components/EmptyState";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -298,25 +299,24 @@ export function ConversationList({
                 )}
 
                 {!loading && conversations.length === 0 && (
-                    <div className="flex flex-col items-center px-6 py-16 text-center">
-                        <div className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-                            <MessageCircle className="size-6" />
-                        </div>
-                        <h2 className="mt-4 text-base font-semibold">
-                            还没有对话
-                        </h2>
-                        <p className="mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                            点「新对话」选一个应用场景，就可以开始了。
-                        </p>
-                    </div>
+                    <EmptyState
+                        bare
+                        className="px-6 py-16"
+                        description="点「新对话」选一个应用场景，就可以开始了。"
+                        descriptionClassName="max-w-xs text-sm"
+                        icon={<MessageCircle className="size-6" />}
+                        title="还没有对话"
+                    />
                 )}
 
                 {!loading &&
                     conversations.length > 0 &&
                     visible.length === 0 && (
-                        <p className="px-6 py-12 text-center text-sm text-muted-foreground">
-                            没有匹配「{query}」的对话。
-                        </p>
+                        <EmptyState
+                            bare
+                            className="px-6 py-12"
+                            description={`没有匹配「${query}」的对话。`}
+                        />
                     )}
 
                 {visible.map((conversation) => {
