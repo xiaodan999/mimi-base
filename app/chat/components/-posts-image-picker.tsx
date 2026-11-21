@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { imageToDataUrl } from "@/app/ai/image";
 import { type RecentImagePost, useRecentImagePosts } from "@/app/feed/data";
 import { EmptyState } from "@/components/EmptyState";
+import { MediaGrid, MediaTile } from "@/components/MediaGrid";
 import {
     Sheet,
     SheetContent,
@@ -73,7 +74,7 @@ export function PostsImagePicker({
                             descriptionClassName="text-sm"
                         />
                     )}
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <MediaGrid className="gap-1.5">
                         {posts.flatMap((post) =>
                             pairThumbs(
                                 post.images ?? [],
@@ -87,32 +88,30 @@ export function PostsImagePicker({
                                     "300x300",
                                 );
                                 return (
-                                    <button
+                                    <MediaTile
                                         key={key}
-                                        type="button"
-                                        aria-label="选择这张图片"
+                                        className="rounded-lg"
                                         disabled={loadingId !== null}
-                                        onClick={() =>
+                                        media={{
+                                            type: "image",
+                                            src: thumbUrl,
+                                        }}
+                                        onOpen={() =>
                                             void pick(post, image.name)
                                         }
-                                        className="relative aspect-square overflow-hidden rounded-lg border border-border/60 bg-muted"
-                                    >
-                                        <img
-                                            src={thumbUrl}
-                                            alt="动态图片"
-                                            loading="lazy"
-                                            className="size-full object-cover"
-                                        />
-                                        {loading && (
-                                            <span className="absolute inset-0 grid place-items-center bg-background/60">
-                                                <Loader2 className="size-5 animate-spin text-primary" />
-                                            </span>
-                                        )}
-                                    </button>
+                                        openLabel="选择这张图片"
+                                        overlay={
+                                            loading ? (
+                                                <span className="absolute inset-0 grid place-items-center bg-background/60">
+                                                    <Loader2 className="size-5 animate-spin text-primary" />
+                                                </span>
+                                            ) : undefined
+                                        }
+                                    />
                                 );
                             }),
                         )}
-                    </div>
+                    </MediaGrid>
                 </div>
             </SheetContent>
         </Sheet>

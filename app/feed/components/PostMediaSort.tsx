@@ -1,5 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Check, Play, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import {
     type KeyboardEvent,
     type PointerEvent,
@@ -8,6 +8,7 @@ import {
     useState,
 } from "react";
 
+import { MediaTile } from "@/components/MediaGrid";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import type { PostLayout } from "@/lib/pb-types";
 import { videoFirstFrameUrl } from "@/lib/postMedia";
@@ -343,46 +344,30 @@ export default function PostMediaSort({
                                                 : undefined
                                         }
                                         className={cn(
-                                            "relative aspect-square touch-none overflow-hidden rounded-2xl bg-muted text-left transition-[scale,box-shadow] duration-150",
+                                            "relative aspect-square touch-none overflow-hidden rounded-2xl text-left transition-[scale,box-shadow] duration-150",
                                             dragging
                                                 ? "z-20 cursor-grabbing shadow-lift ring-2 ring-primary"
                                                 : "cursor-grab active:scale-[0.98]",
                                         )}
                                     >
-                                        {item.type === "image" ? (
-                                            <img
-                                                src={item.url}
-                                                alt=""
-                                                draggable={false}
-                                                className="pointer-events-none size-full object-cover"
-                                            />
-                                        ) : (
-                                            <>
-                                                <video
-                                                    src={videoFirstFrameUrl(
-                                                        item.url,
-                                                    )}
-                                                    muted
-                                                    playsInline
-                                                    preload="metadata"
-                                                    className="pointer-events-none size-full bg-black object-cover"
-                                                />
-                                                <span
-                                                    aria-hidden="true"
-                                                    className="pointer-events-none absolute inset-0 grid place-items-center"
-                                                >
-                                                    <span className="grid size-8 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/30">
-                                                        <Play className="ml-0.5 size-3.5 fill-current" />
-                                                    </span>
-                                                </span>
-                                            </>
-                                        )}
-                                        <span
-                                            aria-hidden="true"
-                                            className="pointer-events-none absolute top-1.5 left-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-black/65 px-1.5 text-[11px] font-semibold text-white"
-                                        >
-                                            {index + 1}
-                                        </span>
+                                        <MediaTile
+                                            sortable
+                                            className="pointer-events-none size-full rounded-2xl border-0"
+                                            media={
+                                                item.type === "image"
+                                                    ? {
+                                                          type: "image",
+                                                          src: item.url,
+                                                      }
+                                                    : {
+                                                          type: "video",
+                                                          src: videoFirstFrameUrl(
+                                                              item.url,
+                                                          ),
+                                                      }
+                                            }
+                                            badge={index + 1}
+                                        />
                                     </button>
                                 );
                             })}

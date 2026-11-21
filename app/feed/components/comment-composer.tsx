@@ -1,6 +1,7 @@
-import { ImagePlus, SendHorizontal, X } from "lucide-react";
+import { ImagePlus, SendHorizontal } from "lucide-react";
 import type { RefObject } from "react";
 
+import { MediaTile } from "@/components/MediaGrid";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -61,21 +62,13 @@ export default function CommentComposer({
             {images.length > 0 && (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                     {images.map((image, index) => (
-                        <span key={image.url} className="relative block">
-                            <img
-                                alt=""
-                                className="size-14 rounded-lg border border-border/60 object-cover"
-                                src={image.url}
-                            />
-                            <button
-                                type="button"
-                                className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-soft transition-colors hover:text-destructive"
-                                aria-label={`移除图片 ${index + 1}`}
-                                onClick={() => onRemoveImage(index)}
-                            >
-                                <X className="size-3" aria-hidden="true" />
-                            </button>
-                        </span>
+                        <MediaTile
+                            key={image.url}
+                            className="size-14 shrink-0 rounded-lg"
+                            media={{ type: "image", src: image.url }}
+                            onRemove={() => onRemoveImage(index)}
+                            removeLabel={`移除图片 ${index + 1}`}
+                        />
                     ))}
                     <span className="text-xs text-muted-foreground">
                         {images.length}/{MAX_COMMENT_IMAGES}

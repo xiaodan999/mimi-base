@@ -1,5 +1,6 @@
-import { ArrowUpDown, ImagePlus, Play, Plus, X } from "lucide-react";
+import { ArrowUpDown, ImagePlus, Plus } from "lucide-react";
 
+import { MediaAddTile, MediaGrid, MediaTile } from "@/components/MediaGrid";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { PostLayout } from "@/lib/pb-types";
 import { MAX_POST_MEDIA, videoFirstFrameUrl } from "@/lib/postMedia";
@@ -89,7 +90,7 @@ export default function PostComposerMedia({
                     <Plus className="size-4 shrink-0 text-primary" />
                 </button>
             ) : (
-                <div className="mt-2.5 grid grid-cols-3 gap-2">
+                <MediaGrid className="mt-2.5">
                     {indexed.map(({ item, index: kindIndex }, slot) => {
                         const cover =
                             layout === "instagram" && slot === 0
@@ -100,72 +101,35 @@ export default function PostComposerMedia({
                                 key={item.url}
                                 data-media-slot={slot}
                                 data-media-kind={item.type}
-                                className="relative aspect-square overflow-hidden rounded-2xl bg-muted"
                             >
-                                {item.type === "image" ? (
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            onPreviewImage(kindIndex)
-                                        }
-                                        aria-label={`预览第 ${slot + 1} 个媒体`}
-                                        className="size-full"
-                                    >
-                                        <img
-                                            src={item.url}
-                                            alt=""
-                                            className="size-full object-cover"
-                                        />
-                                    </button>
-                                ) : (
-                                    <>
-                                        <video
-                                            src={videoFirstFrameUrl(item.url)}
-                                            muted
-                                            playsInline
-                                            preload="metadata"
-                                            aria-label="视频预览"
-                                            className="size-full bg-black object-cover"
-                                        />
-                                        <span
-                                            aria-hidden="true"
-                                            className="pointer-events-none absolute inset-0 grid place-items-center"
-                                        >
-                                            <span className="grid size-9 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/30 backdrop-blur-sm">
-                                                <Play className="ml-0.5 size-4 fill-current" />
-                                            </span>
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                onPreviewVideo(item.url)
-                                            }
-                                            aria-label={`预览第 ${slot + 1} 个媒体`}
-                                            className="absolute inset-0 z-[1]"
-                                        />
-                                        {item.kind === "file" && (
-                                            <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/65 px-1 text-[10px] leading-4 text-white tabular-nums">
-                                                {item.sizeLabel}
-                                            </span>
-                                        )}
-                                    </>
-                                )}
-
-                                <span
-                                    aria-hidden="true"
-                                    className="pointer-events-none absolute top-1.5 left-1.5 z-[2] grid h-6 min-w-6 place-items-center rounded-full bg-black/65 px-1.5 text-[10px] font-semibold text-white"
-                                >
-                                    {cover}
-                                </span>
-
-                                <button
-                                    type="button"
-                                    onClick={() => onRemove(slot)}
-                                    aria-label={`移除第 ${slot + 1} 个媒体`}
-                                    className="absolute top-1.5 right-1.5 z-[2] grid size-7 place-items-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/80"
-                                >
-                                    <X className="size-3.5" />
-                                </button>
+                                <MediaTile
+                                    className="rounded-2xl"
+                                    media={
+                                        item.type === "image"
+                                            ? { type: "image", src: item.url }
+                                            : {
+                                                  type: "video",
+                                                  src: videoFirstFrameUrl(
+                                                      item.url,
+                                                  ),
+                                              }
+                                    }
+                                    badge={cover}
+                                    caption={
+                                        item.type === "video" &&
+                                        item.kind === "file"
+                                            ? item.sizeLabel
+                                            : undefined
+                                    }
+                                    onOpen={() =>
+                                        item.type === "image"
+                                            ? onPreviewImage(kindIndex)
+                                            : onPreviewVideo(item.url)
+                                    }
+                                    openLabel={`预览第 ${slot + 1} 个媒体`}
+                                    onRemove={() => onRemove(slot)}
+                                    removeLabel={`移除第 ${slot + 1} 个媒体`}
+                                />
                             </div>
                         );
                     })}
@@ -185,16 +149,14 @@ export default function PostComposerMedia({
                         ))}
 
                     {media.length < MAX_POST_MEDIA && !preparing && (
-                        <button
-                            type="button"
+                        <MediaAddTile
+                            className="rounded-2xl"
+                            disabled={preparing}
+                            label="继续添加照片或视频"
                             onClick={onPick}
-                            aria-label="继续添加照片或视频"
-                            className="grid aspect-square place-items-center rounded-2xl border border-dashed border-input bg-muted/40 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
-                        >
-                            <Plus className="size-6" />
-                        </button>
+                        />
                     )}
-                </div>
+                </MediaGrid>
             )}
 
             {media.length > 1 && (

@@ -11,6 +11,7 @@ import {
     MAX_ATTACHMENT_BYTES,
     MAX_FEEDBACK_ATTACHMENTS,
 } from "@/app/feedback/validation";
+import { MediaGrid, MediaTile } from "@/components/MediaGrid";
 import prepareImage from "@/lib/prepareImage";
 import { showFilesPicker } from "@/lib/showFilePicker";
 
@@ -37,30 +38,15 @@ function ImagePreview({
     disabled?: boolean;
 }) {
     return (
-        <div className="relative aspect-square overflow-hidden rounded-xl border border-border/60 bg-muted">
-            <button
-                type="button"
-                aria-label={`查看附件 ${file.name}`}
-                className="block h-full w-full"
-                disabled={disabled}
-                onClick={onOpen}
-            >
-                <img
-                    alt={file.name}
-                    className="h-full w-full object-cover"
-                    src={url}
-                />
-            </button>
-            <button
-                type="button"
-                aria-label={`移除附件 ${file.name}`}
-                className="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-black/60 text-white transition-colors active:bg-black/80"
-                disabled={disabled}
-                onClick={onRemove}
-            >
-                <X className="size-3.5" aria-hidden="true" />
-            </button>
-        </div>
+        <MediaTile
+            className="rounded-xl"
+            disabled={disabled}
+            media={{ type: "image", src: url, alt: file.name }}
+            onOpen={onOpen}
+            openLabel={`查看附件 ${file.name}`}
+            onRemove={onRemove}
+            removeLabel={`移除附件 ${file.name}`}
+        />
     );
 }
 
@@ -211,7 +197,7 @@ export function AttachmentPicker({
             </div>
 
             {images.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <MediaGrid className="mt-2">
                     {images.map(({ file, index }, imageIndex) => (
                         <ImagePreview
                             key={`${file.name}-${index}`}
@@ -222,7 +208,7 @@ export function AttachmentPicker({
                             onRemove={() => removeAt(index)}
                         />
                     ))}
-                </div>
+                </MediaGrid>
             )}
             {others.length > 0 && (
                 <ul className="mt-2 space-y-1.5">

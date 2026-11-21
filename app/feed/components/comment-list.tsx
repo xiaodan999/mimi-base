@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { EmptyState } from "@/components/EmptyState";
+import { MediaGrid, MediaTile } from "@/components/MediaGrid";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,9 +37,9 @@ function CommentImages({
     }));
 
     return (
-        <div
+        <MediaGrid
             className={cn(
-                "mt-1.5 grid gap-1",
+                "mt-1.5 gap-1",
                 comment.images.length === 1
                     ? "max-w-[13rem] grid-cols-1"
                     : compact
@@ -47,23 +48,18 @@ function CommentImages({
             )}
         >
             {comment.images.map((name, index) => (
-                <button
+                <MediaTile
                     key={name}
-                    type="button"
-                    aria-label={`查看图片 ${index + 1}`}
-                    className="overflow-hidden rounded-lg border border-border/60 bg-muted transition-opacity active:opacity-80"
-                    onClick={() => onOpen(fullSize, index)}
-                >
-                    <img
-                        alt=""
-                        className="aspect-square w-full object-cover"
-                        draggable={false}
-                        loading="lazy"
-                        src={getFileUrl(record, name, "400x400")}
-                    />
-                </button>
+                    className="rounded-lg"
+                    media={{
+                        type: "image",
+                        src: getFileUrl(record, name, "400x400"),
+                    }}
+                    onOpen={() => onOpen(fullSize, index)}
+                    openLabel={`查看图片 ${index + 1}`}
+                />
             ))}
-        </div>
+        </MediaGrid>
     );
 }
 
