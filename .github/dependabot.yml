@@ -13,7 +13,34 @@ updates:
                   - "minor"
                   - "patch"
 
+    - package-ecosystem: "npm"
+      directory: "/server"
+      schedule:
+          interval: "weekly"
+      open-pull-requests-limit: 5
+      groups:
+          minor-and-patch:
+              patterns:
+                  - "*"
+              update-types:
+                  - "minor"
+                  - "patch"
+
     - package-ecosystem: "github-actions"
       directory: "/"
       schedule:
           interval: "weekly"
+
+    # Base images live in docker/*.Dockerfile; the root entry also covers a
+    # future compose file that pins an image.
+    - package-ecosystem: "docker"
+      directories:
+          - "/"
+          - "/docker"
+      schedule:
+          interval: "weekly"
+      open-pull-requests-limit: 5
+      groups:
+          base-images:
+              patterns:
+                  - "*"
