@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 import { useFeedbackRealtime } from "@/app/feedback/realtime";
 import PageHeader from "@/components/PageHeader";
+import { Tab, TabList, TabPanel, Tabs } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/lib/auth";
-import { cn } from "@/lib/utils";
 
 import { BugPanel } from "./-components/bug-panel";
 import { FeaturePanel } from "./-components/feature-panel";
@@ -100,60 +100,35 @@ function Page() {
                 description="问题或建议都会自动整理成 GitHub Issue。"
             />
 
-            <div
-                aria-label="反馈类型"
-                className="mt-4 grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/40 p-1"
-                role="tablist"
+            <Tabs
+                value={tab}
+                onValueChange={(next) => {
+                    if (next === "bug" || next === "feature") switchTab(next);
+                }}
             >
-                {TABS.map(({ id, label, icon: Icon }) => {
-                    const active = tab === id;
-                    return (
-                        <button
-                            key={id}
-                            aria-controls={`feedback-panel-${id}`}
-                            aria-selected={active}
-                            className={cn(
-                                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                active
-                                    ? "bg-card text-foreground shadow-soft"
-                                    : "text-muted-foreground active:bg-accent",
-                            )}
-                            id={`feedback-tab-${id}`}
-                            role="tab"
-                            type="button"
-                            onClick={() => switchTab(id)}
-                        >
-                            <Icon className="size-4" aria-hidden="true" />
+                <TabList className="mt-4 grid grid-cols-2" label="反馈类型">
+                    {TABS.map(({ id, label, icon }) => (
+                        <Tab key={id} icon={icon} value={id}>
                             {label}
-                        </button>
-                    );
-                })}
-            </div>
+                        </Tab>
+                    ))}
+                </TabList>
 
-            {/* Wrappers always exist so each tab's aria-controls resolves;
-                the content mounts on first visit and then stays mounted. */}
-            <div
-                aria-labelledby="feedback-tab-bug"
-                hidden={tab !== "bug"}
-                id="feedback-panel-bug"
-                role="tabpanel"
-            >
-                {visited.bug && (
-                    <BugPanel
-                        conversationId={search.conversation}
-                        onDetachConversation={detachConversation}
-                    />
-                )}
-            </div>
+                {/* Panels always exist so each tab's aria-controls resolves;
+                    the content mounts on first visit and then stays mounted. */}
+                <TabPanel value="bug">
+                    {visited.bug && (
+                        <BugPanel
+                            conversationId={search.conversation}
+                            onDetachConversation={detachConversation}
+                        />
+                    )}
+                </TabPanel>
 
-            <div
-                aria-labelledby="feedback-tab-feature"
-                hidden={tab !== "feature"}
-                id="feedback-panel-feature"
-                role="tabpanel"
-            >
-                {visited.feature && <FeaturePanel />}
-            </div>
+                <TabPanel value="feature">
+                    {visited.feature && <FeaturePanel />}
+                </TabPanel>
+            </Tabs>
         </div>
     );
 }
