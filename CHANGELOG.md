@@ -7,7 +7,7 @@
 ### 新增
 
 - PocketBase 钩子新增真实二进制集成测试（`bun run test:pb`）：验证所有权字段回写、聊天越权写入、点赞/评论计数与通知、自赞不通知、建议字段裁剪和通知已读权限。
-- CI 增加 78% 行覆盖闸门和 gzip 壳体积预算，PocketBase 钩子测试独立成 job；Dependabot 覆盖 `server/` 与 Docker 基础镜像。
+- CI 增加 78% 行覆盖闸门和 gzip 壳体积预算（React 19 后 JS 预算 168KB），PocketBase 钩子测试独立成 job；Dependabot 覆盖 `server/` 与 Docker 基础镜像。
 
 ### 变更
 
@@ -17,6 +17,7 @@
 - AI 提示词回到各自领域（`app/ledger`、`app/feed`、`app/home`、`app/report`、`app/study/ai`），`app/ai` 不再依赖学习模块；新增 `useAiFeature` 统一缓存/恢复/任务流程，聊天工具按领域拆分。
 - 拆分聊天线程、评论抽屉、图片查看器、记账/报告/关于页；晚餐转盘和答题流程改成纯 reducer，反馈草稿共用一套状态。
 - 依赖升级：date-fns 4 + react-day-picker 9、pdf.js 5、Sonner 2、lucide-react 0.577、PocketBase SDK 0.29。
+- 升级到 React 19 + @react-three/fiber 9 + drei 10；学习页 3D 场景、聊天/PDF/分享和全部路由在 Chromium 冒烟通过，壳体积 157KB gzip（预算 168KB）。
 
 ## 2026-11-20
 
