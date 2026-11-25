@@ -68,7 +68,7 @@ export default function MemoryCard() {
     const photos = data.filter((post) => post.image).slice(0, 3);
 
     return (
-        <section className="mt-4 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+        <section className="mt-3 mb-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
             <div className="flex items-center gap-2">
                 <span className="grid size-8 shrink-0 place-items-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <History className="size-4" aria-hidden="true" />

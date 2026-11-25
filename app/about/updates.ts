@@ -43,6 +43,15 @@ export type Update = {
 
 export const UPDATES: Update[] = [
     {
+        date: "2026-11-25",
+        title: "动态间距修正",
+        summary: "「去年今天」和下面的动态不再贴在一起。",
+        links: [{ label: "回首页看看", to: "/home" }],
+        fixed: [
+            "首页的「去年今天」卡片和它下面的动态之间补回了间距，不再挤在一起。",
+        ],
+    },
+    {
         date: "2026-11-21",
         title: "界面细节更统一",
         summary: "空状态、图片网格和确认弹窗换成了同一套样式。",
