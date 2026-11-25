@@ -57,9 +57,9 @@ that style.
 - `pocketbase/` — migrations, JSVM hooks (`ownership`, `post_counters`,
   `notifications`, `dev_seed`); `pb_data/` and the binary are gitignored.
 - `docker/` + `compose.yaml` — app/PocketBase images, Caddy example, `.env.app`.
-- `scripts/` — `pb-binary.ts`, `backends.ts`, `dev.ts`, `lan-proxy.mjs`,
-  `preview.mjs`, `perf.mjs`, `check-bundle.ts`, `check-coverage.ts`,
-  `pb-hooks-test.ts`. `tmp/` is gitignored scratch; never commit it.
+- `scripts/` — `pb-binary.ts`, `backends.ts`, `dev.ts`, `preview.mjs`,
+  `perf.mjs`, `check-bundle.ts`, `check-coverage.ts`, `pb-hooks-test.ts`.
+  `tmp/` is gitignored scratch; never commit it.
 
 ## Commands
 
@@ -182,8 +182,8 @@ bun run dev:all
 - The PocketBase binary is copied from a registered worktree, a sibling
   checkout or `~/.cache/mimi-base/` (version checked); GitHub is contacted only
   when none has the pinned release. Never commit it.
-- Ports auto-skip when busy (also on the Windows side under WSL). Pin them in
-  `.env` (`VITE_PORT`, `PB_PORT`) for stable URLs; shell env wins.
+- Ports auto-skip when busy. Pin them in `.env` (`VITE_PORT`, `PB_PORT`) for
+  stable URLs; shell env wins.
 - `MIMI_DEV_LOWMEM=1` starts Vite with `RAYON_NUM_THREADS=1` (peak ~1.96GB →
   ~1.55GB, ~10% slower first load). Opt in when RAM is short.
 - `dev:all` prints the LAN URL. PocketBase and the API stay on loopback; Vite

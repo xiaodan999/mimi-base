@@ -9,7 +9,7 @@
 
 你需要：
 
-- 一台电脑（Windows 的话用 WSL 里的 Ubuntu 终端，macOS / Linux 也可以）
+- 一台电脑（macOS、Linux 或 Windows）
 - 一个终端窗口（就是可以输入命令的黑框窗口）
 - 已经安装好 [Bun](https://bun.sh)（在终端里输入 `bun --version`，
   能显示版本号就说明装好了）
@@ -119,8 +119,8 @@ cd pocketbase
 ## 五、也可以分开启动
 
 `bun run dev:all` 会同时启动后端（PocketBase + API）和页面，并把页面暴露给
-同一 Wi-Fi 下的其他设备（WSL 下会自动加一个 Windows 端口转发，不需要管理员
-权限）。数据库不直接对外，Vite 通过 `/db` 和 `/api` 代理访问。
+同一 Wi-Fi 下的其他设备。数据库不直接对外，Vite 通过 `/db` 和 `/api` 代理
+访问。
 
 如果只想单独启动后端或页面，可以开两个终端窗口：
 
@@ -133,8 +133,8 @@ bun run dev:frontend
 ```
 
 同时开多个 worktree 也没问题：每个 worktree 有自己的
-`pocketbase/pb_data/`，`dev:all` 会自动跳过被占用的端口（WSL 和
-Windows 两侧都会检查），并打印各自的手机地址。
+`pocketbase/pb_data/`，`dev:all` 会自动跳过被占用的端口，并打印各自的手机
+地址。
 
 想固定端口，写进这个 worktree 的 `.env`（shell 变量优先）：
 

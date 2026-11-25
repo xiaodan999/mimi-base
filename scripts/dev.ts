@@ -2,11 +2,9 @@
  * `bun run dev:all` — the local backend stack (PocketBase + Bun API) plus Vite,
  * always reachable from the LAN.
  *
- * Works on Linux, WSL2 and plain Windows:
- * - Linux / Windows: Vite listens on 0.0.0.0; only the URL is printed.
- * - WSL2 (NAT): a tiny forwarder runs on the Windows host
- *   (scripts/lan-proxy.mjs) for Vite's port. The API and PocketBase stay on
- *   loopback; Vite proxies `/api` and `/db`, so the client uses same-origin.
+ * Vite listens on 0.0.0.0 and the printed URL is reachable from the LAN. The
+ * API and PocketBase stay on loopback; Vite proxies `/api` and `/db`, so the
+ * client uses same-origin.
  *
  * Each worktree keeps its own `pocketbase/pb_data/`. Busy ports are skipped,
  * and a healthy stack already running for this checkout is reused.
@@ -24,10 +22,6 @@ const repo = path.resolve(import.meta.dir, "..");
 process.chdir(repo);
 
 const isWindows = process.platform === "win32";
-const isWsl =
-    !isWindows &&
-    existsSync("/proc/version") &&
-    readFileSync("/proc/version", "utf8").toLowerCase().includes("microsoft");
 
 const log = (message: string) => console.log(`[dev:all] ${message}`);
 
@@ -101,47 +95,10 @@ async function waitForBackends(): Promise<BackendsLock> {
     fail("the backend stack did not become ready");
 }
 
-/** Windows-only helpers (WSL runs the forwarder with the Windows node). */
-const WINDOWS_NODE_CANDIDATES = [
-    process.env.WIN_NODE,
-    "/mnt/c/Program Files/nodejs/node.exe",
-];
-
-function findWindowsNode(): string | null {
-    for (const candidate of WINDOWS_NODE_CANDIDATES) {
-        if (candidate && existsSync(candidate)) return candidate;
-    }
-    const which = spawnSync("which", ["node.exe"], { encoding: "utf8" });
-    const found = which.stdout?.trim();
-    return found && existsSync(found) ? found : null;
-}
-
-function windowsPortFree(port: number, winNode: string): boolean {
-    const code = [
-        'const net = require("node:net");',
-        "const server = net.createServer();",
-        "server.once('error', () => process.exit(1));",
-        "server.listen(Number(process.argv[1]), '0.0.0.0', () =>",
-        "  server.close(() => process.exit(0)),",
-        ");",
-    ].join("");
-    return (
-        spawnSync(winNode, ["-e", code, String(port)], {
-            stdio: "ignore",
-        }).status === 0
-    );
-}
-
-const winNode = isWsl ? findWindowsNode() : null;
-
 async function pickVitePort(): Promise<number> {
     for (let port = requestedVitePort; port < requestedVitePort + 20; port++) {
         if (!(await portFree(port))) {
             log(`port ${port} is busy; trying ${port + 1} for Vite`);
-            continue;
-        }
-        if (isWsl && winNode && !windowsPortFree(port, winNode)) {
-            log(`port ${port} is busy on Windows; trying ${port + 1} for Vite`);
             continue;
         }
         return port;
@@ -160,32 +117,6 @@ function localAddresses(): string[] {
         }
     }
     return [...new Set(found)];
-}
-
-function readLanIps(proxy: ChildProcess): Promise<string[]> {
-    return new Promise((resolve) => {
-        let buffer = "";
-        const timer = setTimeout(() => resolve([]), 5000);
-        const finish = (value: string[]) => {
-            clearTimeout(timer);
-            resolve(value);
-        };
-        proxy.stdout?.on("data", (chunk: Buffer) => {
-            buffer += chunk.toString();
-            const line = buffer
-                .split("\n")
-                .find((entry) => entry.startsWith("LAN_IPS="));
-            if (!line) return;
-            finish(
-                line
-                    .slice("LAN_IPS=".length)
-                    .split(",")
-                    .map((entry) => entry.trim())
-                    .filter(Boolean),
-            );
-        });
-        proxy.once("exit", () => finish([]));
-    });
 }
 
 const children: ChildProcess[] = [];
@@ -260,32 +191,7 @@ const vite = spawn(process.execPath, ["run", "dev:frontend"], {
 children.push(vite);
 await waitFor(() => healthy(`http://127.0.0.1:${vitePort}/`, 2000), 90, "Vite");
 
-let lanIps: string[] = [];
-let proxy: ChildProcess | null = null;
-if (isWsl && winNode) {
-    const proxyPath = path.join(repo, "scripts", "lan-proxy.mjs");
-    const windowsPath = spawnSync("wslpath", ["-w", proxyPath], {
-        encoding: "utf8",
-    })
-        .stdout.trim()
-        .replace(/\\/g, "/");
-    const wslIp = localAddresses()[0];
-    if (!windowsPath || !wslIp) {
-        log("warning: could not resolve the forwarder paths");
-    } else {
-        log(`forwarding Windows LAN :${vitePort} -> ${wslIp}:${vitePort}`);
-        proxy = spawn(winNode, [windowsPath, wslIp, String(vitePort)], {
-            stdio: ["ignore", "pipe", "pipe"],
-        });
-        children.push(proxy);
-        proxy.stderr?.on("data", (chunk: Buffer) =>
-            process.stderr.write(chunk),
-        );
-        lanIps = await readLanIps(proxy);
-    }
-} else {
-    lanIps = localAddresses();
-}
+const lanIps = localAddresses();
 
 const lanIp = lanIps[0];
 let lanOk = false;
@@ -315,9 +221,7 @@ console.log("  This machine:");
 console.log(`      http://127.0.0.1:${vitePort}`);
 console.log(`      PocketBase dashboard: http://127.0.0.1:${pbPort}/_/`);
 console.log("");
-console.log(
-    "  Ctrl-C stops Vite, the API, PocketBase (if started here) and the forwarder.",
-);
+console.log("  Ctrl-C stops Vite, the API and PocketBase (if started here).");
 console.log("");
 
 if (lanIp && !lanOk) {
