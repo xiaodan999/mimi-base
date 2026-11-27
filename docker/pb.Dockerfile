@@ -3,7 +3,7 @@
 # mimi-base-pb: PocketBase + the committed schema and JSVM hooks.
 # The binary is statically linked; Alpine is enough.
 
-FROM alpine:3.22 AS fetch
+FROM alpine:3.24 AS fetch
 ARG PB_VERSION=0.40.6
 ARG TARGETARCH=amd64
 RUN apk add --no-cache curl unzip \
@@ -13,7 +13,7 @@ RUN apk add --no-cache curl unzip \
  && unzip -o /tmp/pb.zip -d /out pocketbase \
  && chmod +x /out/pocketbase
 
-FROM alpine:3.22
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata wget
 COPY --from=fetch /out/pocketbase /pocketbase
 COPY pocketbase/pb_migrations /pb_migrations
