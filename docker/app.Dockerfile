@@ -5,7 +5,7 @@
 # Registry (Hong Kong).
 
 # --- SPA ---------------------------------------------------------------
-FROM oven/bun:1.4.4 AS spa
+FROM oven/bun:1.4.5 AS spa
 WORKDIR /src
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
@@ -16,7 +16,7 @@ ENV GITHUB_SHA=$GITHUB_SHA
 RUN bun run build
 
 # --- runtime -----------------------------------------------------------
-FROM oven/bun:1.4.4
+FROM oven/bun:1.4.5
 # ffmpeg backs /api/video/compress; curl is the healthcheck. PDF rendering
 # happens in the browser, so the runtime no longer needs fontconfig/canvas.
 RUN apt-get update \
